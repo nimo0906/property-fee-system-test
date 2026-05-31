@@ -347,6 +347,71 @@ class PaymentMixin(BaseHandler):
         self.send_header('Content-Length', str(len(data)))
         self.end_headers(); self.wfile.write(data)
 
+    def _payment_orders(self, q):
+        status = qs(q, 'status')
+        keyword = qs(q, 'keyword')
+        cond, vals = [], []
+        if status:
+            cond.append('po.status=?'); vals.append(status)
+        if keyword:
+            cond.append('(po.order_no LIKE ? OR b.bill_number LIKE ? OR o.name LIKE ? OR r.room_number LIKE ?)')
+            vals.extend([f'%{keyword}%'] * 4)
+        sql = '''SELECT po.*, b.bill_number, b.billing_period, r.building, r.unit, r.room_number, o.name owner_name
+            FROM payment_orders po JOIN bills b ON po.bill_id=b.id
+            LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON po.owner_id=o.id'''
+        if cond:
+            sql += ' WHERE ' + ' AND '.join(cond)
+        sql += ' ORDER BY po.id DESC LIMIT 300'
+        db = get_db(); rows = db.execute(sql, vals).fetchall(); db.close()
+        total = sum(float(r['amount'] or 0) for r in rows)
+        options = ''.join(f'<option value="{s}"{" selected" if status==s else ""}>{s or "全部状态"}</option>' for s in ['', 'created', 'pending', 'paid', 'failed', 'cancelled'])
+        body = ''.join(self._payment_order_row(r) for r in rows)
+        self._html(self._page('支付订单', f'''
+<div class="filter-bar"><div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+<form class="row g-2 align-items-end flex-grow-1" method=GET>
+<div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{options}</select></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">关键词</label><input name="keyword" class="form-control form-control-sm" value="{h(keyword)}" placeholder="订单/账单/业主/房号"></div>
+<div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/payment_orders" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div>
+</form><div class="metric-card mb-0 py-2 px-3"><div class="metric-label">订单合计</div><div class="metric-value fs-5 money">¥{m(total)}</div></div></div></div>
+<div class="card"><div class="card-header"><i class="bi bi-phone"></i> 业主端支付订单</div>
+<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>订单号</th><th>状态</th><th>账单</th><th>房间</th><th>业主</th><th>账期</th><th class="text-end">金额</th><th>渠道</th><th>创建时间</th></tr></thead>
+<tbody>{body or '<tr><td colspan="9" class="text-center text-muted py-4">暂无支付订单</td></tr>'}</tbody></table></div></div>''', 'payment_orders'))
+
+    def _payment_order_row(self, r):
+        room = f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}'
+        return f'''<tr><td><a href="/payment_orders/{h(r['order_no'])}">{h(r['order_no'])}</a></td>
+<td><span class="badge status-info">{h(r['status'])}</span></td><td>{h(r['bill_number'] or '-')}</td>
+<td>{h(room)}</td><td>{h(r['owner_name'] or '-')}</td><td>{h(r['billing_period'] or '-')}</td>
+<td class="text-end">¥{m(r['amount'])}</td><td>{h(r['channel'])}</td><td>{h(r['created_at'] or '-')}</td></tr>'''
+
+    def _payment_order_detail(self, order_no):
+        db = get_db()
+        row = db.execute('''SELECT po.*, b.bill_number, b.billing_period, b.status bill_status,
+            r.building, r.unit, r.room_number, o.name owner_name, o.phone owner_phone
+            FROM payment_orders po JOIN bills b ON po.bill_id=b.id
+            LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON po.owner_id=o.id
+            WHERE po.order_no=?''', (order_no,)).fetchone()
+        callbacks = db.execute('SELECT * FROM payment_callbacks WHERE order_no=? ORDER BY id DESC', (order_no,)).fetchall()
+        db.close()
+        if not row:
+            return self._error(404)
+        cb_rows = ''.join(f'<tr><td>{h(c["channel"])}</td><td>{h(c["external_event_id"])}</td><td>{h(c["status"])}</td><td>{h(c["received_at"])}</td></tr>' for c in callbacks)
+        room = f'{row["building"] or ""}-{row["unit"] or ""}-{row["room_number"] or ""}'
+        self._html(self._page('支付订单详情', f'''
+<div class="card"><div class="card-header d-flex justify-content-between"><span><i class="bi bi-phone"></i> 支付订单详情</span><a class="btn btn-sm btn-outline-secondary" href="/payment_orders">返回列表</a></div>
+<div class="card-body"><dl class="row mb-0">
+<dt class="col-sm-2">订单号</dt><dd class="col-sm-10">{h(row['order_no'])}</dd>
+<dt class="col-sm-2">状态</dt><dd class="col-sm-10"><span class="badge status-info">{h(row['status'])}</span></dd>
+<dt class="col-sm-2">金额</dt><dd class="col-sm-10">¥{m(row['amount'])}</dd>
+<dt class="col-sm-2">渠道</dt><dd class="col-sm-10">{h(row['channel'])}</dd>
+<dt class="col-sm-2">账单</dt><dd class="col-sm-10">{h(row['bill_number'])} <a href="/bills/{row['bill_id']}" class="btn btn-sm btn-outline-primary ms-2">查看账单</a></dd>
+<dt class="col-sm-2">房间</dt><dd class="col-sm-10">{h(room)}</dd>
+<dt class="col-sm-2">业主</dt><dd class="col-sm-10">{h(row['owner_name'] or '-')} {h(row['owner_phone'] or '')}</dd>
+<dt class="col-sm-2">创建时间</dt><dd class="col-sm-10">{h(row['created_at'] or '-')}</dd>
+<dt class="col-sm-2">支付时间</dt><dd class="col-sm-10">{h(row['paid_at'] or '-')}</dd>
+</dl></div></div>
+<div class="card mt-3"><div class="card-header">回调记录</div><table class="table mb-0"><thead><tr><th>渠道</th><th>事件ID</th><th>状态</th><th>接收时间</th></tr></thead><tbody>{cb_rows or '<tr><td colspan="4" class="text-center text-muted py-4">暂无回调记录</td></tr>'}</tbody></table></div>''', 'payment_orders'))
+
     # ── API ──────────────────────────────────────────────────
     def _api_owner_info(self, oid):
         db=get_db()

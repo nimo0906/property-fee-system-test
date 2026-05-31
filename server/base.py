@@ -89,6 +89,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                 ('shared_expenses', '/shared_expenses', 'bi-diagram-3', '公摊分摊'),
                 ('bills', '/bills', 'bi-receipt', '账单管理'),
                 ('payments', '/payments', 'bi-credit-card', '缴费记录'),
+                ('payment_orders', '/payment_orders', 'bi-phone', '支付订单'),
                 ('collections', '/collections', 'bi-telephone-outbound', '客服催费对象'),
                 ('reminders', '/reminders', 'bi-bell', '催缴管理'),
             ]),
@@ -107,7 +108,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         else:
             allowed = {'index', 'owners', 'rooms', 'fee_types', 'batch_ops', 'meter', 'billing',
                        'commercial_billing', 'bills', 'payments', 'invoices',
-                       'reports', 'closing', 'backups', 'import', 'reminders', 'audit_logs', 'shared_expenses'}
+                       'payment_orders', 'reports', 'closing', 'backups', 'import', 'reminders', 'audit_logs', 'shared_expenses'}
         user_html = ''
         if cur_user:
             role_label = {"admin": "管理员", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])
@@ -137,7 +138,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                  'parking': 'bi-car-front', 'invoices': 'bi-receipt-cutoff', 'deposits': 'bi-cash-stack',
                  'reminders': 'bi-bell', 'billing': 'bi-cash-coin', 'commercial_billing': 'bi-building',
                  'shared_expenses': 'bi-diagram-3',
-                 'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'closing': 'bi-lock',
+                 'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'payment_orders': 'bi-phone', 'closing': 'bi-lock',
                  'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up',
                  'collections': 'bi-telephone-outbound', 'audit_logs': 'bi-journal-check'}
         icon = icons.get(active, 'bi-speedometer2')
@@ -332,6 +333,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         elif p == '/bills/export_receipt': return self._export_receipt(q)
         elif p == '/payments': return self._payments(q)
         elif p == '/payments/export.csv': return self._payments_csv(q)
+        elif p == '/payment_orders': return self._payment_orders(q)
+        elif (m := re.match(r'^/payment_orders/([^/]+)$', p)): return self._payment_order_detail(m.group(1))
         elif p == '/users': return self._users()
         elif p == '/users/create': return self._user_form(None)
         elif (m := re.match(r'^/users/(\d+)/edit$', p)): return self._user_form(int(m.group(1)))

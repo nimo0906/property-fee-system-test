@@ -1883,7 +1883,11 @@ class TestIntegration(unittest.TestCase):
     def test_api_owner_info(self):
         http_post('/owners/create', {'name': '李四', 'phone': '13900002222'},
                   self.cookie, TEST_PORT)
-        status, body = http_get('/api/owners/1/info', self.cookie, TEST_PORT)
+        import server.db as db_module
+        db = db_module.get_db()
+        owner = db.execute("SELECT id FROM owners WHERE phone=? ORDER BY id DESC LIMIT 1", ('13900002222',)).fetchone()
+        db.close()
+        status, body = http_get(f'/api/owners/{owner["id"]}/info', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         data = json.loads(body)
         self.assertEqual(data.get('name'), '李四')
@@ -3567,6 +3571,35 @@ class TestIntegration(unittest.TestCase):
             self.assertIn('mock', detail)
             self.assertNotIn('创建模拟支付订单', detail)
             self.assertNotIn('确认金额', detail)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
+    def test_admin_payment_orders_list_and_detail_pages(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137784')
+        owner_id, room_id, fee_type_id, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            order = json.loads(body)['data']
+
+            status, list_page = http_get('/payment_orders', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('支付订单', list_page)
+            self.assertIn(order['order_no'], list_page)
+            self.assertIn('H5-BILL-1', list_page)
+            self.assertIn('H5业主', list_page)
+            self.assertIn('created', list_page)
+
+            status, detail_page = http_get(f'/payment_orders/{order["order_no"]}', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('支付订单详情', detail_page)
+            self.assertIn(order['order_no'], detail_page)
+            self.assertIn('H5-BILL-1', detail_page)
+            self.assertIn('查看账单', detail_page)
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
