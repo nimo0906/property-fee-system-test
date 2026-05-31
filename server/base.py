@@ -273,6 +273,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if p == '/owner-portal/rooms': return self._owner_portal_rooms_page()
         if p == '/owner-portal/bills': return self._owner_portal_bills_page()
         if (m := re.match(r'^/owner-portal/bills/(\d+)$', p)): return self._owner_portal_bill_detail_page(int(m.group(1)))
+        if p == '/owner-portal/payment-orders': return self._owner_portal_payment_orders_page()
+        if (m := re.match(r'^/owner-portal/payment-orders/([^/]+)$', p)): return self._owner_portal_payment_order_detail_page(m.group(1))
         if p == '/owner-portal/payments': return self._owner_portal_payments_page()
         if p not in ('/login', '/logout', '/register') and not p.startswith('/static/'):
             u = self._get_current_user()

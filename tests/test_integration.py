@@ -3508,6 +3508,41 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    def test_owner_portal_payment_orders_api_and_h5_pages(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137782')
+        _, _, _, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            order = json.loads(body)['data']
+
+            status, list_body = http_get('/api/v1/owner-portal/payment-orders', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            items = json.loads(list_body)['data']['items']
+            self.assertEqual(items[0]['order_no'], order['order_no'])
+            self.assertEqual(items[0]['bill_number'], 'H5-BILL-1')
+
+            status, detail_body = http_get(f'/api/v1/owner-portal/payment-orders/{order["order_no"]}', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(detail_body)['data']['amount'], '60.00')
+
+            status, list_page = http_get('/owner-portal/payment-orders', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('支付订单', list_page)
+            self.assertIn(order['order_no'], list_page)
+            self.assertIn('H5-BILL-1', list_page)
+
+            status, detail_page = http_get(f'/owner-portal/payment-orders/{order["order_no"]}', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('订单详情', detail_page)
+            self.assertIn('立即模拟支付成功', detail_page)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
 
 if __name__ == '__main__':
     unittest.main()

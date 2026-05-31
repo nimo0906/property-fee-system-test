@@ -81,7 +81,7 @@ class OwnerPortalPageMixin:
           <a class="metric" href="/owner-portal/bills"><span>待缴账单</span><strong>{len(bills)}</strong></a>
           <a class="metric" href="/owner-portal/bills"><span>待缴金额</span><strong>{unpaid_total:.2f}</strong></a>
         </div>
-        <div class="action-row"><a class="btn-main" href="/owner-portal/bills">查看待缴账单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a></div>
+        <div class="action-row"><a class="btn-main" href="/owner-portal/bills">查看待缴账单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/payment-orders">支付订单</a></div>
         '''
         self._owner_portal_render('业主首页', content)
 
@@ -167,6 +167,38 @@ class OwnerPortalPageMixin:
             return self._owner_portal_render('模拟支付成功', content)
         except PaymentOrderError as exc:
             return self._owner_portal_render('模拟支付失败', f'<div class="alert alert-danger">{h(str(exc))}</div>')
+
+    def _owner_portal_payment_orders_page(self):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        orders = PaymentOrderService().list_orders(session)['items']
+        rows = ''.join(
+            f'<a class="list-card" href="/owner-portal/payment-orders/{h(o["order_no"])}">'
+            f'<strong>{h(o["order_no"])} · {h(o["status"])}</strong>'
+            f'<span>{h(o["bill_number"])} · {h(o["period"])} · {o["amount"]}</span></a>'
+            for o in orders
+        )
+        self._owner_portal_render('支付订单', f'<h1>支付订单</h1>{rows or "<p>暂无支付订单</p>"}')
+
+    def _owner_portal_payment_order_detail_page(self, order_no):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        try:
+            order = PaymentOrderService().get_order(session, order_no)
+        except PaymentOrderError as exc:
+            return self._owner_portal_render('订单详情', f'<div class="alert alert-danger">{h(str(exc))}</div>')
+        action = ''
+        if order['status'] in ('created', 'pending'):
+            action = f'<form method="POST" action="/owner-portal/payment-orders/{h(order_no)}/mock-paid"><button class="btn-main" type="submit">立即模拟支付成功</button></form>'
+        content = f'''<h1>订单详情</h1><div class="detail-card"><h2>{h(order['order_no'])}</h2>
+        <dl><dt>账单</dt><dd>{h(order['bill_number'])}</dd><dt>房间</dt><dd>{h(order['room_number'])}</dd>
+        <dt>期间</dt><dd>{h(order['period'])}</dd><dt>金额</dt><dd>{order['amount']}</dd>
+        <dt>渠道</dt><dd>{h(order['channel'])}</dd><dt>状态</dt><dd>{h(order['status'])}</dd>
+        <dt>支付时间</dt><dd>{h(order['paid_at'] or '-')}</dd></dl></div>{action}
+        <div class="action-row"><a class="btn-ghost" href="/owner-portal/payment-orders">返回支付订单</a><a class="btn-ghost" href="/owner-portal/bills/{order['bill_id']}">查看账单</a></div>'''
+        self._owner_portal_render('订单详情', content)
 
     def _owner_portal_payments_page(self):
         session = self._owner_portal_require()

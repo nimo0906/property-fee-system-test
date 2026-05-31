@@ -23,6 +23,21 @@ def _money(value):
 
 
 class PaymentOrderService:
+    def list_orders(self, owner_session):
+        db = get_db()
+        try:
+            rows = db.execute(
+                'SELECT po.*, b.bill_number, b.billing_period, r.room_number '
+                'FROM payment_orders po '
+                'JOIN bills b ON po.bill_id=b.id '
+                'LEFT JOIN rooms r ON b.room_id=r.id '
+                'WHERE po.owner_id=? ORDER BY po.id DESC',
+                (owner_session['owner_id'],),
+            ).fetchall()
+            return {'items': [self._format_order(r) for r in rows]}
+        finally:
+            db.close()
+
     def create_order(self, owner_session, request):
         bill_id = int(request.get('bill_id') or 0)
         amount = request.get('amount') or '0'
@@ -91,7 +106,14 @@ class PaymentOrderService:
     def _get_owned_order(self, owner_session, order_no):
         db = get_db()
         try:
-            row = db.execute('SELECT * FROM payment_orders WHERE order_no=?', (order_no,)).fetchone()
+            row = db.execute(
+                'SELECT po.*, b.bill_number, b.billing_period, r.room_number '
+                'FROM payment_orders po '
+                'JOIN bills b ON po.bill_id=b.id '
+                'LEFT JOIN rooms r ON b.room_id=r.id '
+                'WHERE po.order_no=?',
+                (order_no,),
+            ).fetchone()
             if not row or row['owner_id'] != owner_session['owner_id']:
                 raise PaymentOrderError('订单不存在')
             return dict(row)
@@ -99,11 +121,16 @@ class PaymentOrderService:
             db.close()
 
     def _format_order(self, row):
+        data = dict(row)
         return {
-            'order_no': row['order_no'],
-            'bill_id': row['bill_id'],
-            'amount': _money(row['amount']),
-            'channel': row['channel'],
-            'status': row['status'],
-            'paid_at': row.get('paid_at') or '',
+            'order_no': data['order_no'],
+            'bill_id': data['bill_id'],
+            'amount': _money(data['amount']),
+            'channel': data['channel'],
+            'status': data['status'],
+            'paid_at': data.get('paid_at') or '',
+            'created_at': data.get('created_at') or '',
+            'bill_number': data.get('bill_number') or '',
+            'period': data.get('billing_period') or '',
+            'room_number': data.get('room_number') or '',
         }

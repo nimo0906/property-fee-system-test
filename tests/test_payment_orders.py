@@ -91,6 +91,33 @@ class TestPaymentOrders(unittest.TestCase):
         payment_count_after = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
         self.assertEqual(payment_count_after, 1)
 
+    def test_list_orders_returns_owned_orders_with_bill_summary(self):
+        from server.payment_orders import PaymentOrderService
+        service = PaymentOrderService()
+        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '80.00', 'channel': 'mock'})
+
+        result = service.list_orders(self.session)
+
+        self.assertEqual(len(result['items']), 1)
+        item = result['items'][0]
+        self.assertEqual(item['order_no'], order['order_no'])
+        self.assertEqual(item['amount'], '80.00')
+        self.assertEqual(item['status'], 'created')
+        self.assertEqual(item['bill_number'], 'PAY-ORDER-BILL')
+        self.assertEqual(item['period'], '2027-04')
+        self.assertEqual(item['room_number'], '2801')
+
+    def test_get_order_rejects_other_owner_order(self):
+        from server.payment_orders import PaymentOrderError, PaymentOrderService
+        service = PaymentOrderService()
+        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '80.00', 'channel': 'mock'})
+        other_owner_id = self.db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('其他业主', '13800135556')).lastrowid
+        self.db.commit()
+        other_session = {'owner_id': other_owner_id, 'phone': '13800135556', 'name': '其他业主'}
+
+        with self.assertRaisesRegex(PaymentOrderError, '订单不存在'):
+            service.get_order(other_session, order['order_no'])
+
 
 if __name__ == '__main__':
     unittest.main()

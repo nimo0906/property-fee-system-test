@@ -60,7 +60,13 @@ class ApiMixin:
                     return self._api_json(service.bills(session, filters))
                 if path == '/api/v1/owner-portal/payments':
                     return self._api_json(service.payments(session))
+                if path == '/api/v1/owner-portal/payment-orders':
+                    return self._api_json(PaymentOrderService().list_orders(session))
+                if m := re.match(r'^/api/v1/owner-portal/payment-orders/([^/]+)$', path):
+                    return self._api_json(PaymentOrderService().get_order(session, m.group(1)))
                 return self._api_error(404, 'not_found', '接口不存在')
+            except PaymentOrderError as exc:
+                return self._api_error(404, 'not_found', str(exc))
             except OwnerPortalError as exc:
                 return self._api_error(401, 'unauthorized', str(exc))
         if not self._get_current_user():
