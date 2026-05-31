@@ -5,7 +5,8 @@
 import json
 import re
 
-from server.services import BillingService, OwnerService, PaymentService, RoomService, ServiceError
+from server.backups import create_db_backup
+from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
 
 class ApiMixin:
@@ -47,9 +48,25 @@ class ApiMixin:
         if not self._get_current_user():
             return self._api_error(401, 'unauthorized', '请先登录')
         try:
+            request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
             if path == '/api/v1/payments/preview':
-                request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
                 return self._api_json(PaymentService().preview_payment(request))
+            if path == '/api/v1/payments':
+                user = self._get_current_user() or {}
+                if user.get('role') == 'readonly':
+                    return self._api_error(403, 'forbidden', '无权限执行写操作')
+                backup_name = create_db_backup('auto_before_api_payment')
+                result = PaymentService().create_payment(
+                    request,
+                    Actor(username=user.get('username') or '', role=user.get('role') or ''),
+                )
+                result['backup_name'] = backup_name
+                result['idempotency_key'] = request.get('idempotency_key') or ''
+                self._audit(
+                    'api_payment_create', 'payment', result['payment_id'],
+                    new_value=result, reason='JSON API payment create',
+                )
+                return self._api_json(result)
             return self._api_error(404, 'not_found', '接口不存在')
         except ServiceError as exc:
             return self._api_error(400, 'validation_error', str(exc))

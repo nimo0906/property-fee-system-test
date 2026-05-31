@@ -3086,6 +3086,121 @@ class TestIntegration(unittest.TestCase):
         db.commit()
         db.close()
 
+    def _create_api_payment_bill(self, bill_number, amount=90.0):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", (bill_number + '业主', '13800138004')).lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('PAYAPI座', '1单元', bill_number[-4:], 12, '商户', 90, owner_id),
+        ).lastrowid
+        fee_type_id = db.execute("INSERT INTO fee_types(name,calc_method,unit_price) VALUES(?,?,?)", (bill_number + '费用', 'fixed', amount)).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, fee_type_id, '2026-12', amount, '2026-12-31', 'unpaid', bill_number),
+        ).lastrowid
+        db.commit()
+        db.close()
+        return owner_id, room_id, fee_type_id, bill_id
+
+    def _cleanup_api_payment_bill(self, owner_id, room_id, fee_type_id, bill_id):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute('DELETE FROM audit_logs WHERE entity_type=? AND entity_id IN (SELECT id FROM payments WHERE bill_id=?)', ('payment', bill_id))
+        db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))
+        db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+        db.execute('DELETE FROM fee_types WHERE id=?', (fee_type_id,))
+        db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+        db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+        db.commit()
+        db.close()
+
+    def test_api_v1_payment_create_rejects_readonly_user(self):
+        owner_id, room_id, fee_type_id, bill_id = self._create_api_payment_bill('API-PAY-READONLY', 90.0)
+        username = 'readonly_api_pay'
+        http_post('/users/create', {
+            'username': username,
+            'password': 'readonly123',
+            'display_name': '只读API测试',
+            'role': 'readonly',
+            'is_active': 'on',
+        }, self.cookie, TEST_PORT)
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode({'username': username, 'password': 'readonly123'})
+        conn.request('POST', '/login', params, {'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = conn.getresponse()
+        resp.read()
+        readonly_cookie = resp.getheader('Set-Cookie', '').split(';')[0]
+        conn.close()
+
+        status, body, _ = http_post('/api/v1/payments', {
+            'bill_id': str(bill_id),
+            'amount': '10.00',
+            'method': 'cash',
+        }, readonly_cookie, TEST_PORT)
+
+        self.assertEqual(status, 403)
+        payload = json.loads(body)
+        self.assertFalse(payload['ok'])
+        self.assertEqual(payload['error']['code'], 'forbidden')
+        self._cleanup_api_payment_bill(owner_id, room_id, fee_type_id, bill_id)
+
+    def test_api_v1_payment_create_writes_payment_backup_and_audit(self):
+        import server.db as db_module
+        owner_id, room_id, fee_type_id, bill_id = self._create_api_payment_bill('API-PAY-CREATE', 90.0)
+        before_backups = set(os.listdir(db_module.BACKUP_DIR)) if os.path.exists(db_module.BACKUP_DIR) else set()
+
+        status, body, _ = http_post('/api/v1/payments', {
+            'bill_id': str(bill_id),
+            'amount': '90.00',
+            'method': 'cash',
+            'idempotency_key': 'future-key-1',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['data']['amount'], '90.00')
+        self.assertEqual(payload['data']['bill_status'], 'paid')
+        self.assertEqual(payload['data']['idempotency_key'], 'future-key-1')
+        self.assertTrue(payload['data']['backup_name'].startswith('auto_before_api_payment_'))
+
+        db = db_module.get_db()
+        bill = db.execute('SELECT status FROM bills WHERE id=?', (bill_id,)).fetchone()
+        payment = db.execute('SELECT id, amount_paid FROM payments WHERE bill_id=?', (bill_id,)).fetchone()
+        audit = db.execute(
+            "SELECT action FROM audit_logs WHERE action='api_payment_create' AND entity_type='payment' AND entity_id=?",
+            (payment['id'],),
+        ).fetchone()
+        db.close()
+        after_backups = set(os.listdir(db_module.BACKUP_DIR))
+
+        self.assertEqual(bill['status'], 'paid')
+        self.assertAlmostEqual(payment['amount_paid'], 90.0)
+        self.assertIsNotNone(audit)
+        self.assertTrue(any(name.startswith('auto_before_api_payment_') for name in after_backups - before_backups))
+        self._cleanup_api_payment_bill(owner_id, room_id, fee_type_id, bill_id)
+
+    def test_api_v1_payment_create_rejects_overpay_without_writing(self):
+        import server.db as db_module
+        owner_id, room_id, fee_type_id, bill_id = self._create_api_payment_bill('API-PAY-OVERPAY', 30.0)
+
+        status, body, _ = http_post('/api/v1/payments', {
+            'bill_id': str(bill_id),
+            'amount': '31.00',
+            'method': 'cash',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 400)
+        payload = json.loads(body)
+        self.assertFalse(payload['ok'])
+        self.assertEqual(payload['error']['code'], 'validation_error')
+        db = db_module.get_db()
+        count = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
+        db.close()
+        self.assertEqual(count, 0)
+        self._cleanup_api_payment_bill(owner_id, room_id, fee_type_id, bill_id)
+
 
 if __name__ == '__main__':
     unittest.main()
