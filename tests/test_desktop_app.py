@@ -243,6 +243,18 @@ class TestMacDesktopDeployment(unittest.TestCase):
         self.assertNotIn('rm -rf /', text)
         self.assertNotIn('property.db', Path('property_fee_system_macos.spec').read_text(encoding='utf-8'))
 
+
+    def test_customer_trial_guide_exists_and_covers_delivery_topics(self):
+        guide = Path('客户试用说明.md')
+        self.assertTrue(guide.exists())
+        text = guide.read_text(encoding='utf-8')
+        for phrase in [
+            '系统设置', '隐私与安全性', 'admin123',
+            '清空本机试用数据.command', 'PropertyFeeSystemDataBackups',
+            'Application Support/PropertyFeeSystem', '反馈'
+        ]:
+            self.assertIn(phrase, text)
+
     def test_delivery_docs_cover_macos_app_build(self):
         usage = Path('使用说明.md').read_text(encoding='utf-8')
         checklist = Path('交付验收清单.md').read_text(encoding='utf-8')
