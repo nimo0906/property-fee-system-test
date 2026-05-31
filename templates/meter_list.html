@@ -1,0 +1,7 @@
+<div class="d-flex justify-content-between mb-3"><form class="row g-2" method=GET>
+<div class="col-auto"><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()" placeholder="全部账期"></div>
+<div class="col-auto"><select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部状态</option><option value="draft"{DRAFT_SEL}>草稿</option><option value="confirmed"{CONFIRMED_SEL}>已确认</option></select></div>
+<div class="col-auto"><a href="/meter_readings" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
+<a href="/meter_readings/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 录入抄表</a></div>
+<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>房间</th><th>类型</th><th>账期</th><th class="text-end">上次</th><th class="text-end">本次</th><th class="text-end">用量</th><th>状态</th><th>日期</th><th style="width:100px">操作</th></tr></thead>
+<tbody>{ROWS}</tbody></table></div>

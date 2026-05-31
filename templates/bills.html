@@ -1,0 +1,37 @@
+<div class="filter-bar">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+<form class="row g-2 align-items-end flex-grow-1" method=GET>
+<div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部状态</option><option value="unpaid"{SUN}>未缴</option><option value="paid"{SPA}>已缴</option><option value="overdue"{SOV}>逾期</option></select></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{BLD_OPTS}</select></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" placeholder="房号/业主" value="{KW}" style="width:140px"></div>
+<div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button>
+<a href="/bills" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div>
+</form>
+<a href="/bills/generate" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-plus"></i> 生成账单</a>
+</div>
+</div>
+<div class="metric-grid">
+<div class="metric-card primary"><div class="metric-label">房间 / 账单</div><div class="metric-value">{ROOMS}户 / {COUNT}笔</div></div>
+<div class="metric-card"><div class="metric-label">应收</div><div class="metric-value money">¥{TOTAL_AMT}</div></div>
+<div class="metric-card success"><div class="metric-label">已收</div><div class="metric-value money money-paid">¥{TOTAL_PAID}</div></div>
+<div class="metric-card danger"><div class="metric-label">未缴</div><div class="metric-value money money-due">{UNPAID_CNT}笔</div></div>
+</div>
+<form method=POST id="billActionForm"></form>
+{BTN_TOP}
+<div class="card billing-ledger">
+<div class="card-header d-flex justify-content-between align-items-center">
+<span><i class="bi bi-receipt"></i> 账单明细</span>
+<small class="text-muted">共 {TOTAL_ROWS} 条，第 {PAGE} / {TOTAL_PAGES} 页；按业主和房间折叠展示</small>
+</div>
+<div class="table-responsive"><table class="table table-hover align-middle">
+<thead><tr><th style="width:34px"><input type=checkbox id=selAll></th><th>编号</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th class="text-end">已缴</th><th class="text-end">欠费</th><th>状态</th><th style="width:130px">操作</th></tr></thead>
+<tbody>{ROWS}</tbody></table></div>
+</div>
+{PAGE_LINKS}
+{BTN_BOTTOM}
+<script>
+document.getElementById('selAll')?.addEventListener('change', function(){
+    document.querySelectorAll('.bill-chk').forEach(function(c){ c.checked = this.checked; });
+});
+</script>

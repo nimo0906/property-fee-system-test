@@ -20,3 +20,13 @@ dist/
 # Local env and logs
 .env
 *.log
+
+# Local real/customer data
+真实数据/
+*.db
+*.db-shm
+*.db-wal
+
+# Temporary system files
+docs/.DS_Store
+docs/**/.DS_Store

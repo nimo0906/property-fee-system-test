@@ -1,0 +1,19 @@
+<div class="filter-bar">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
+<form class="row g-2 align-items-end flex-grow-1" method=GET>
+<div class="col-auto"><label class="form-label small text-muted mb-1">业主检索</label><input name="keyword" class="form-control form-control-sm" placeholder="搜索姓名/电话..." value="{KEYWORD}"></div>
+<div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/owners" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div>
+</form>
+<a href="/owners/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加业主</a>
+</div>
+</div>
+<div class="card">
+<div class="card-header d-flex justify-content-between align-items-center">
+<span><i class="bi bi-people"></i> 业主档案</span>
+<small class="text-muted">用于房间归属、收费通知和合同核对</small>
+</div>
+<div class="table-responsive"><table class="table table-hover align-middle">
+<thead><tr><th>姓名</th><th>电话</th><th>身份证</th><th>房间</th><th>类型</th><th class="text-end">面积</th><th>合同</th><th style="width:112px">操作</th></tr></thead>
+<tbody>{ROWS}</tbody></table></div>
+</div>
+<script>function toggleOwnerRooms(oid){var rows=document.querySelectorAll(".owner-room-"+oid);var icon=document.getElementById("oicon_"+oid);rows.forEach(function(r){r.style.display=r.style.display==="none"?"":"none";});if(icon){icon.className=icon.className==="bi bi-chevron-right"?"bi bi-chevron-down":"bi bi-chevron-right";}}</script>

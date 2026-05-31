@@ -1,0 +1,40 @@
+@echo off
+setlocal
+cd /d "%~dp0"
+
+echo Building Windows desktop package...
+
+where py >nul 2>nul
+if %errorlevel%==0 (
+    set "PYTHON_CMD=py -3"
+) else (
+    where python >nul 2>nul
+    if %errorlevel%==0 (
+        set "PYTHON_CMD=python"
+    ) else (
+        echo Python 3 was not found.
+        pause
+        exit /b 1
+    )
+)
+
+%PYTHON_CMD% -m pip install --upgrade pip
+%PYTHON_CMD% -m pip install -r requirements.txt pyinstaller
+if errorlevel 1 (
+    echo Dependency installation failed.
+    pause
+    exit /b 1
+)
+
+%PYTHON_CMD% -m PyInstaller --clean --noconfirm property_fee_system.spec
+if errorlevel 1 (
+    echo Build failed.
+    pause
+    exit /b 1
+)
+
+echo.
+echo Build completed: dist\PropertyFeeSystem\PropertyFeeSystem.exe
+echo Included user docs: 用户快速开始.md, 交付验收清单.md, 使用说明.md
+echo Copy the whole dist\PropertyFeeSystem folder to the user's Windows computer.
+pause
