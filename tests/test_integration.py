@@ -1518,7 +1518,7 @@ class TestIntegration(unittest.TestCase):
             'operator': '默认列表测试员',
         }, self.cookie, TEST_PORT)
 
-        status, body = http_get('/bills', self.cookie, TEST_PORT)
+        status, body = http_get('/bills?period=2026-05', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn(bill_number, body)
         self.assertIn('已缴', body)

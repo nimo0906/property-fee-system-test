@@ -35,6 +35,6 @@ if errorlevel 1 (
 
 echo.
 echo Build completed: dist\PropertyFeeSystem\PropertyFeeSystem.exe
-echo Included user docs: 用户快速开始.md, 交付验收清单.md, 使用说明.md
-echo Copy the whole dist\PropertyFeeSystem folder to the user's Windows computer.
+echo Included user docs: 用户快速开始.md, Windows客户试用说明.md, 交付验收清单.md, 使用说明.md
+echo For a customer-ready zip, run package_windows_release.bat after this build succeeds.
 pause
