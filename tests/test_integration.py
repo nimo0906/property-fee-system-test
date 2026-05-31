@@ -3543,6 +3543,33 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    def test_owner_portal_paid_bill_detail_hides_create_order_and_shows_recent_activity(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137783')
+        _, _, _, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            order = json.loads(body)['data']
+            status, _, _ = http_post(f'/api/v1/owner-portal/payment-orders/{order["order_no"]}/mock-paid', {}, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+
+            status, detail = http_get(f'/owner-portal/bills/{bill_id}', cookie, TEST_PORT)
+
+            self.assertEqual(status, 200)
+            self.assertIn('账单已结清', detail)
+            self.assertIn('最近支付订单', detail)
+            self.assertIn(order['order_no'], detail)
+            self.assertIn('最近缴费记录', detail)
+            self.assertIn('mock', detail)
+            self.assertNotIn('创建模拟支付订单', detail)
+            self.assertNotIn('确认金额', detail)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
 
 if __name__ == '__main__':
     unittest.main()

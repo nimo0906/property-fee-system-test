@@ -4,7 +4,7 @@
 
 import re
 
-from server.db import h
+from server.db import get_db, h
 from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.payment_orders import PaymentOrderError, PaymentOrderService
 
@@ -117,17 +117,57 @@ class OwnerPortalPageMixin:
             <dt>支付后剩余欠费</dt><dd>{preview['unpaid_after']}</dd><dt>是否结清</dt><dd>{'是' if preview['will_mark_paid'] else '否'}</dd></dl></div>'''
         if error:
             result_html = f'<div class="alert alert-danger">{h(error)}</div>'
+        payment_html = self._owner_portal_bill_recent_activity(bill_id)
+        unpaid_amount = float(b['unpaid_amount'] or 0)
+        if unpaid_amount <= 0.005:
+            pay_html = '<div class="pay-panel"><h2>账单已结清</h2><p>本账单无需继续创建支付订单。</p></div>'
+        else:
+            pay_html = f'''<div class="pay-panel"><h2>支付前确认</h2><p>当前仅支持本地预览，暂未接真实在线支付。</p>
+        <form method="POST" action="/owner-portal/bills/{bill_id}/preview-payment">
+        <label>确认支付金额</label><input name="amount" value="{b['unpaid_amount']}" inputmode="decimal">
+        <button class="btn-main" type="submit">确认金额</button></form><form method="POST" action="/owner-portal/bills/{bill_id}/create-order" style="margin-top:12px"><input type="hidden" name="amount" value="{b['unpaid_amount']}"><button class="btn-ghost" type="submit">创建模拟支付订单</button></form></div>'''
         content = f'''
         <h1>账单详情</h1>
         <div class="detail-card"><h2>{h(b['bill_number'] or '账单')}</h2><p>{h(b['period'])} · {h(b['fee_type'])}</p>
         <dl><dt>应收</dt><dd>{b['amount']}</dd><dt>已缴</dt><dd>{b['paid_amount']}</dd><dt>欠费</dt><dd>{b['unpaid_amount']}</dd><dt>截止日</dt><dd>{h(b['due_date'] or '-')}</dd></dl></div>
-        <div class="pay-panel"><h2>支付前确认</h2><p>当前仅支持本地预览，暂未接真实在线支付。</p>
-        <form method="POST" action="/owner-portal/bills/{bill_id}/preview-payment">
-        <label>确认支付金额</label><input name="amount" value="{b['unpaid_amount']}" inputmode="decimal">
-        <button class="btn-main" type="submit">确认金额</button></form><form method="POST" action="/owner-portal/bills/{bill_id}/create-order" style="margin-top:12px"><input type="hidden" name="amount" value="{b['unpaid_amount']}"><button class="btn-ghost" type="submit">创建模拟支付订单</button></form></div>
+        {pay_html}
         {result_html}
+        {payment_html}
         '''
         self._owner_portal_render('账单详情', content)
+
+    def _owner_portal_bill_recent_activity(self, bill_id):
+        db = get_db()
+        try:
+            orders = db.execute(
+                'SELECT order_no, amount, status, created_at, paid_at FROM payment_orders '
+                'WHERE bill_id=? ORDER BY id DESC LIMIT 3',
+                (bill_id,),
+            ).fetchall()
+            payments = db.execute(
+                'SELECT amount_paid, payment_method, payment_date FROM payments '
+                'WHERE bill_id=? ORDER BY payment_date DESC, id DESC LIMIT 3',
+                (bill_id,),
+            ).fetchall()
+        finally:
+            db.close()
+        order_rows = ''.join(
+            f'<a class="list-card" href="/owner-portal/payment-orders/{h(o["order_no"])}">'
+            f'<strong>{h(o["order_no"])} · {h(o["status"])}</strong>'
+            f'<span>{float(o["amount"] or 0):.2f} · {h(o["paid_at"] or o["created_at"] or "")}</span></a>'
+            for o in orders
+        )
+        payment_rows = ''.join(
+            f'<div class="list-card"><strong>{float(p["amount_paid"] or 0):.2f} · {h(p["payment_method"] or "")}</strong>'
+            f'<span>{h(p["payment_date"] or "")}</span></div>'
+            for p in payments
+        )
+        sections = []
+        if order_rows:
+            sections.append(f'<div class="detail-card"><h2>最近支付订单</h2>{order_rows}</div>')
+        if payment_rows:
+            sections.append(f'<div class="detail-card"><h2>最近缴费记录</h2>{payment_rows}</div>')
+        return ''.join(sections)
 
     def _owner_portal_bill_preview_payment_post(self, bill_id, data):
         session = self._owner_portal_require()
