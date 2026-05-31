@@ -58,6 +58,8 @@ copy /Y "Windows用户发送文案.md" "%RELEASE_DIR%\Windows用户发送文案.
 copy /Y "使用说明.md" "%RELEASE_DIR%\使用说明.md" >nul
 copy /Y "交付验收清单.md" "%RELEASE_DIR%\交付验收清单.md" >nul
 copy /Y "数据备份说明.md" "%RELEASE_DIR%\数据备份说明.md" >nul
+copy /Y "真实数据试运行保护方案.md" "%RELEASE_DIR%\真实数据试运行保护方案.md" >nul
+copy /Y "真实数据导入前验收清单.md" "%RELEASE_DIR%\真实数据导入前验收清单.md" >nul
 copy /Y "清空本机试用数据.bat" "%RELEASE_DIR%\清空本机试用数据.bat" >nul
 copy /Y "diagnose_windows.bat" "%RELEASE_DIR%\diagnose_windows.bat" >nul
 copy /Y "check_windows_packaging_ready.bat" "%RELEASE_DIR%\check_windows_packaging_ready.bat" >nul

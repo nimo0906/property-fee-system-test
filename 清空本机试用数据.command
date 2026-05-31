@@ -6,9 +6,20 @@ TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
 ARCHIVE_DIR="$ARCHIVE_ROOT/PropertyFeeSystem_before_reset_$TIMESTAMP"
 
 echo "Property Fee System trial data reset"
+echo "WARNING: This script is only for trial/demo data."
+echo "WARNING: If this Mac contains real business data, close this window now."
+echo ""
 echo "Data directory: $APP_DATA_DIR"
 echo "Backup target: $ARCHIVE_DIR"
 echo ""
+echo "Type RESET and press Enter to continue:"
+read -r CONFIRM
+if [ "$CONFIRM" != "RESET" ]; then
+  echo "Cancelled. No data was changed."
+  echo "Press any key to close..."
+  read -n 1 -r _
+  exit 0
+fi
 
 if [ ! -d "$APP_DATA_DIR" ]; then
   echo "No existing data directory found. Nothing to reset."

@@ -134,6 +134,8 @@ class TestDesktopPackaging(unittest.TestCase):
         self.assertIn('Windows打包操作步骤.md', spec_text)
         self.assertIn('check_windows_packaging_ready.bat', spec_text)
         self.assertIn('Windows用户发送文案.md', spec_text)
+        self.assertIn('真实数据试运行保护方案.md', spec_text)
+        self.assertIn('真实数据导入前验收清单.md', spec_text)
         self.assertNotIn("('property.db', '.')", spec_text)
         script_text = script.read_text(encoding='utf-8')
         self.assertIn('pyinstaller', script_text.lower())
@@ -163,7 +165,7 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('Windows客户试用说明.md', build_text)
 
     def test_windows_release_helpers_are_safe_and_simple(self):
-        for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat'), Path('明天Windows打包从这里开始.md'), Path('Windows用户发送文案.md')]:
+        for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat'), Path('明天Windows打包从这里开始.md'), Path('Windows用户发送文案.md'), Path('真实数据试运行保护方案.md'), Path('真实数据导入前验收清单.md')]:
             self.assertTrue(path.exists(), str(path))
         reset = Path('清空本机试用数据.bat').read_text(encoding='utf-8')
         self.assertIn('%APPDATA%\\PropertyFeeSystem', reset)
@@ -178,6 +180,8 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('Windows打包操作步骤.md', package)
         self.assertIn('check_windows_packaging_ready.bat', package)
         self.assertIn('Windows用户发送文案.md', package)
+        self.assertIn('真实数据试运行保护方案.md', package)
+        self.assertIn('真实数据导入前验收清单.md', package)
         ready = Path('check_windows_packaging_ready.bat').read_text(encoding='utf-8')
         self.assertIn('property_fee_system.spec', ready)
         self.assertIn('package_windows_release.bat', ready)
@@ -191,9 +195,24 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         send_text = Path('Windows用户发送文案.md').read_text(encoding='utf-8')
         for phrase in ['微信短文案', '邮件文案', 'PropertyFeeSystem\\PropertyFeeSystem.exe', '更多信息', '仍要运行']:
             self.assertIn(phrase, send_text)
+        real_plan = Path('真实数据试运行保护方案.md').read_text(encoding='utf-8')
+        for phrase in ['真实业务数据', '严禁提交', 'property.db', '在线支付接入前']:
+            self.assertIn(phrase, real_plan)
+        real_checklist = Path('真实数据导入前验收清单.md').read_text(encoding='utf-8')
+        for phrase in ['导入前备份', '源数据核对', '账单生成前确认']:
+            self.assertIn(phrase, real_checklist)
         guide = Path('Windows客户试用说明.md').read_text(encoding='utf-8')
         for phrase in ['双击', 'PropertyFeeSystem.exe', 'admin123', '仍要运行', '清空本机试用数据.bat']:
             self.assertIn(phrase, guide)
+
+
+    def test_trial_data_reset_scripts_require_explicit_confirmation(self):
+        mac_reset = Path('清空本机试用数据.command').read_text(encoding='utf-8')
+        win_reset = Path('清空本机试用数据.bat').read_text(encoding='utf-8')
+        for text in [mac_reset, win_reset]:
+            self.assertIn('RESET', text)
+            self.assertIn('trial', text.lower())
+            self.assertIn('real business data', text.lower())
 
 class TestDesktopWindowExperience(unittest.TestCase):
     def test_desktop_window_model_exposes_user_support_actions(self):

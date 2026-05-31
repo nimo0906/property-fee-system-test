@@ -8,6 +8,15 @@ set "TIME_PART=%TIME_PART: =0%"
 set "ARCHIVE_DIR=%ARCHIVE_ROOT%\PropertyFeeSystem_before_reset_%DATE_PART%_%TIME_PART%"
 
 echo Property Fee System trial data reset
+echo WARNING: This script is only for trial/demo data.
+echo WARNING: If this Windows user contains real business data, close this window now.
+echo.
+set /p CONFIRM=Type RESET and press Enter to continue: 
+if not "%CONFIRM%"=="RESET" (
+    echo Cancelled. No data was changed.
+    pause
+    exit /b 0
+)
 echo Data directory: %APP_DATA_DIR%
 echo Backup target: %ARCHIVE_DIR%
 echo.

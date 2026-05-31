@@ -112,3 +112,7 @@ install_windows_dependencies.bat
 - `backups`：自动备份目录。
 - `startup_error.log`：启动失败日志。
 - `runtime_status.log`：诊断信息。
+
+## 真实数据提醒
+
+从录入真实房间、业主、账单、收款开始，请先阅读 `真实数据试运行保护方案.md` 和 `真实数据导入前验收清单.md`。清空本机试用数据脚本只适合演示/试用环境，不适合已经录入真实业务数据的电脑。
