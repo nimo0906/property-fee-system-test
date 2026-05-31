@@ -2985,6 +2985,107 @@ class TestIntegration(unittest.TestCase):
         db.commit()
         db.close()
 
+    def test_api_v1_payment_preview_requires_auth_and_returns_json_error(self):
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode({'bill_id': '1', 'amount': '10.00'})
+        conn.request('POST', '/api/v1/payments/preview', params, {'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = conn.getresponse()
+        body = resp.read().decode('utf-8')
+        content_type = resp.getheader('Content-Type', '')
+        conn.close()
+
+        self.assertEqual(resp.status, 401)
+        self.assertIn('application/json', content_type)
+        payload = json.loads(body)
+        self.assertFalse(payload['ok'])
+        self.assertEqual(payload['error']['code'], 'unauthorized')
+
+    def test_api_v1_payment_preview_returns_impact_without_writing_payment(self):
+        import server.db as db_module
+
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('预览业主', '13800138002')).lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('PREVIEW座', '1单元', '2301', 23, '商户', 70, owner_id),
+        ).lastrowid
+        fee_type_id = db.execute("INSERT INTO fee_types(name,calc_method,unit_price) VALUES(?,?,?)", ('预览测试费', 'fixed', 120)).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, fee_type_id, '2026-10', 120, '2026-10-31', 'unpaid', 'API-PREVIEW-1'),
+        ).lastrowid
+        db.commit()
+        before = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
+        db.close()
+
+        status, body, _ = http_post('/api/v1/payments/preview', {
+            'bill_id': str(bill_id),
+            'amount': '40.00',
+            'method': 'cash',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        payload = json.loads(body)
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload['data']['amount'], '40.00')
+        self.assertEqual(payload['data']['unpaid_before'], '120.00')
+        self.assertEqual(payload['data']['unpaid_after'], '80.00')
+        self.assertFalse(payload['data']['will_mark_paid'])
+
+        db = db_module.get_db()
+        after = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
+        self.assertEqual(before, after)
+        db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+        db.execute('DELETE FROM fee_types WHERE id=?', (fee_type_id,))
+        db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+        db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+        for table_name in ('payments', 'bills', 'fee_types', 'rooms', 'owners'):
+            remaining = db.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
+            if remaining == 0:
+                db.execute('DELETE FROM sqlite_sequence WHERE name=?', (table_name,))
+        db.commit()
+        db.close()
+
+    def test_api_v1_payment_preview_rejects_overpay_as_json_validation_error(self):
+        import server.db as db_module
+
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('超额业主', '13800138003')).lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('OVERPAY座', '1单元', '2401', 24, '商户', 80, owner_id),
+        ).lastrowid
+        fee_type_id = db.execute("INSERT INTO fee_types(name,calc_method,unit_price) VALUES(?,?,?)", ('超额测试费', 'fixed', 50)).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, fee_type_id, '2026-11', 50, '2026-11-30', 'unpaid', 'API-PREVIEW-OVERPAY'),
+        ).lastrowid
+        db.commit()
+        db.close()
+
+        status, body, _ = http_post('/api/v1/payments/preview', {
+            'bill_id': str(bill_id),
+            'amount': '60.00',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 400)
+        payload = json.loads(body)
+        self.assertFalse(payload['ok'])
+        self.assertEqual(payload['error']['code'], 'validation_error')
+        self.assertIn('收款金额不能超过欠费金额', payload['error']['message'])
+
+        db = db_module.get_db()
+        db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+        db.execute('DELETE FROM fee_types WHERE id=?', (fee_type_id,))
+        db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+        db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+        for table_name in ('payments', 'bills', 'fee_types', 'rooms', 'owners'):
+            remaining = db.execute(f'SELECT COUNT(*) FROM {table_name}').fetchone()[0]
+            if remaining == 0:
+                db.execute('DELETE FROM sqlite_sequence WHERE name=?', (table_name,))
+        db.commit()
+        db.close()
+
 
 if __name__ == '__main__':
     unittest.main()

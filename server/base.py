@@ -353,6 +353,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
     # ── POST routing ───────────────────────────────────────────
     def do_POST(self):
         p = urllib.parse.urlparse(self.path).path
+        if p.startswith('/api/v1/'):
+            return self._api_post(p, self._post())
         # 文件上传不经过 _post()（multipart 由 _import_upload 自行解析）
         if p == '/import/upload':
             u = self._get_current_user()

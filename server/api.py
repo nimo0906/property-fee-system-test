@@ -5,7 +5,7 @@
 import json
 import re
 
-from server.services import BillingService, OwnerService, RoomService, ServiceError
+from server.services import BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
 
 class ApiMixin:
@@ -41,3 +41,15 @@ class ApiMixin:
             return self._api_error(404, 'not_found', '接口不存在')
         except ServiceError as exc:
             return self._api_error(404, 'not_found', str(exc))
+
+
+    def _api_post(self, path, data):
+        if not self._get_current_user():
+            return self._api_error(401, 'unauthorized', '请先登录')
+        try:
+            if path == '/api/v1/payments/preview':
+                request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
+                return self._api_json(PaymentService().preview_payment(request))
+            return self._api_error(404, 'not_found', '接口不存在')
+        except ServiceError as exc:
+            return self._api_error(400, 'validation_error', str(exc))
