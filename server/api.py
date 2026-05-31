@@ -10,6 +10,7 @@ from server.backups import create_db_backup
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
 from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.payment_orders import PaymentOrderError, PaymentOrderService
+from server.projects import ProjectError, ProjectService
 from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
 
@@ -73,6 +74,10 @@ class ApiMixin:
         if not self._get_current_user():
             return self._api_error(401, 'unauthorized', '请先登录')
         try:
+            if path == '/api/v1/projects':
+                return self._api_json(ProjectService().list_projects())
+            if m := re.match(r'^/api/v1/projects/(\d+)$', path):
+                return self._api_json(ProjectService().get_project(int(m.group(1))))
             if m := re.match(r'^/api/v1/owners/(\d+)$', path):
                 return self._api_json(OwnerService().get_owner(int(m.group(1))))
             if m := re.match(r'^/api/v1/rooms/(\d+)$', path):
@@ -86,7 +91,7 @@ class ApiMixin:
             if m := re.match(r'^/api/v1/invoice-requests/([^/]+)$', path):
                 return self._api_json(InvoiceRequestService().get_request(m.group(1)))
             return self._api_error(404, 'not_found', '接口不存在')
-        except (ServiceError, InvoiceRequestError) as exc:
+        except (ServiceError, InvoiceRequestError, ProjectError) as exc:
             return self._api_error(404, 'not_found', str(exc))
 
 
@@ -158,5 +163,5 @@ class ApiMixin:
                 )
                 return self._api_json(result)
             return self._api_error(404, 'not_found', '接口不存在')
-        except (ServiceError, InvoiceRequestError) as exc:
+        except (ServiceError, InvoiceRequestError, ProjectError) as exc:
             return self._api_error(400, 'validation_error', str(exc))

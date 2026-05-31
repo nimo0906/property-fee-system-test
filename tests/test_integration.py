@@ -2912,6 +2912,18 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('楼栋对账统计', reports_html)
         self.assertIn('账期对账', reports_html)
 
+
+    def test_projects_api_lists_default_project(self):
+        status, body = http_get('/api/v1/projects', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        items = json.loads(body)['data']['items']
+        self.assertTrue(any(item['code'] == 'default' and item['name'] == '默认项目' for item in items))
+
+        default_id = next(item['id'] for item in items if item['code'] == 'default')
+        status, body = http_get(f'/api/v1/projects/{default_id}', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(body)['data']['code'], 'default')
+
     def test_api_v1_requires_auth_and_returns_json_error(self):
         conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
         conn.request('GET', '/api/v1/owners/1')

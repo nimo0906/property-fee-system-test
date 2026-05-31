@@ -28,6 +28,7 @@ def get_db():
 def db_init():
     conn = get_db(); c = conn.cursor()
     SQL = """
+        CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, name TEXT NOT NULL, is_active INTEGER NOT NULL DEFAULT 1, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS owners (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT, id_card TEXT, move_in_date TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, building TEXT NOT NULL, unit TEXT NOT NULL DEFAULT '1单元', room_number TEXT NOT NULL, floor INTEGER DEFAULT 1, category TEXT DEFAULT '居民', area REAL NOT NULL DEFAULT 0, owner_id INTEGER REFERENCES owners(id), custom_rate REAL, contract_start TEXT, contract_end TEXT, id_card TEXT, id_card_front TEXT, id_card_back TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS fee_types (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, calc_method TEXT NOT NULL DEFAULT 'fixed', unit_price REAL NOT NULL DEFAULT 0, unit TEXT, billing_cycle TEXT NOT NULL DEFAULT 'monthly', is_active INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
@@ -59,6 +60,9 @@ def db_init():
         except: pass
     try: c.execute("ALTER TABLE fee_types ADD COLUMN reminder_advance_days INTEGER DEFAULT 30")
     except: pass
+    for table in ['owners','rooms','fee_types','bills','payments','invoices','invoice_requests','notification_events']:
+        try: c.execute(f"ALTER TABLE {table} ADD COLUMN project_id INTEGER DEFAULT 1")
+        except: pass
     for col_sql in [
         "ALTER TABLE payments ADD COLUMN receipt_number TEXT",
         "ALTER TABLE bills ADD COLUMN source TEXT DEFAULT 'normal'",
@@ -66,6 +70,7 @@ def db_init():
     ]:
         try: c.execute(col_sql)
         except: pass
+    c.execute("INSERT OR IGNORE INTO projects(id,code,name,is_active,notes) VALUES(1,'default','默认项目',1,'单项目兼容默认项目')")
     if c.execute("SELECT COUNT(*) FROM fee_types").fetchone()[0] == 0:
         for f in [('物业费(居民)','area',1.9,'元/m²·月','monthly',1,'按建筑面积×1.9计算'),
                   ('物业费(商户)','area',5.0,'元/m²·月','monthly',2,'按建筑面积×5.0计算'),
@@ -144,7 +149,11 @@ def db_init():
                      "CREATE INDEX IF NOT EXISTS idx_notification_status ON notification_events(status)",
                      "CREATE INDEX IF NOT EXISTS idx_notification_owner ON notification_events(owner_id,created_at,id)",
                      "CREATE INDEX IF NOT EXISTS idx_invoice_requests_status ON invoice_requests(status)",
-                     "CREATE INDEX IF NOT EXISTS idx_invoice_requests_owner ON invoice_requests(owner_id,created_at,id)"]:
+                     "CREATE INDEX IF NOT EXISTS idx_invoice_requests_owner ON invoice_requests(owner_id,created_at,id)",
+                     "CREATE INDEX IF NOT EXISTS idx_owners_project ON owners(project_id)",
+                     "CREATE INDEX IF NOT EXISTS idx_rooms_project ON rooms(project_id)",
+                     "CREATE INDEX IF NOT EXISTS idx_bills_project ON bills(project_id,status)",
+                     "CREATE INDEX IF NOT EXISTS idx_payments_project ON payments(project_id)"]:
         try: c.execute(idx_sql)
         except: pass
     conn.commit(); conn.close()
