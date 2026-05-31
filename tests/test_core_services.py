@@ -116,6 +116,45 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         self.assertEqual(plan['items'][0]['room_id'], self.room_id)
         self.assertEqual(plan['items'][0]['amount'], '265.50')
 
+    def test_payment_preview_rejects_amount_greater_than_unpaid(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试停车费', 'fixed', 100.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-07', 100.0, '2026-07-31', 'unpaid', 'BILL-PAY-1'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.services import PaymentService, ServiceError
+        with self.assertRaisesRegex(ServiceError, '收款金额不能超过欠费金额'):
+            PaymentService().preview_payment({'bill_id': bill_id, 'amount': '120.00'})
+
+    def test_payment_create_marks_bill_paid_when_fully_collected(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试垃圾费', 'fixed', 10.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-08', 10.0, '2026-08-31', 'unpaid', 'BILL-PAY-2'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.services import Actor, PaymentService
+        result = PaymentService().create_payment(
+            {'bill_id': bill_id, 'amount': '10.00', 'method': 'cash'},
+            Actor(username='admin', role='admin'),
+        )
+        bill = self.db.execute('SELECT status FROM bills WHERE id=?', (bill_id,)).fetchone()
+
+        self.assertEqual(result['amount'], '10.00')
+        self.assertEqual(result['bill_status'], 'paid')
+        self.assertEqual(bill['status'], 'paid')
+
 
 if __name__ == '__main__':
     unittest.main()

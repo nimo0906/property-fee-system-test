@@ -160,3 +160,48 @@ class BillingService:
             return {'period': period, 'due_date': due_date, 'items': items, 'total_count': len(items)}
         finally:
             db.close()
+
+
+class PaymentService:
+    def preview_payment(self, request):
+        bill_id = int(request.get('bill_id') or 0)
+        amount = _money(request.get('amount') or 0)
+        bill = BillingService().get_bill(bill_id)
+        unpaid = Decimal(bill['unpaid_amount'])
+        if amount <= Decimal('0.00'):
+            raise ServiceError('收款金额必须大于0')
+        if amount > unpaid:
+            raise ServiceError('收款金额不能超过欠费金额')
+        return {
+            'bill_id': bill_id,
+            'amount': str(amount),
+            'unpaid_before': str(unpaid),
+            'unpaid_after': str(unpaid - amount),
+            'will_mark_paid': amount == unpaid,
+        }
+
+    def create_payment(self, request, actor=None):
+        actor = actor or Actor()
+        preview = self.preview_payment(request)
+        bill_id = preview['bill_id']
+        amount = Decimal(preview['amount'])
+        method = request.get('method') or 'cash'
+        db = get_db()
+        try:
+            cur = db.execute(
+                "INSERT INTO payments (bill_id, amount_paid, payment_date, payment_method, operator) "
+                "VALUES (?, ?, datetime('now','localtime'), ?, ?)",
+                (bill_id, float(amount), method, actor.username),
+            )
+            new_status = 'paid' if preview['will_mark_paid'] else 'partial'
+            db.execute('UPDATE bills SET status=? WHERE id=?', (new_status, bill_id))
+            db.commit()
+            return {
+                'payment_id': cur.lastrowid,
+                'bill_id': bill_id,
+                'amount': str(amount),
+                'method': method,
+                'bill_status': new_status,
+            }
+        finally:
+            db.close()
