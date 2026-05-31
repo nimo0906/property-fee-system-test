@@ -3356,6 +3356,7 @@ class TestIntegration(unittest.TestCase):
         db = db_module.get_db()
         db.execute('DELETE FROM owner_portal_sessions WHERE owner_id=?', (owner_id,))
         db.execute('DELETE FROM owner_portal_login_codes WHERE phone IN (SELECT phone FROM owners WHERE id=?)', (owner_id,))
+        db.execute('DELETE FROM notification_events WHERE bill_id=?', (bill_id,))
         db.execute('DELETE FROM payment_callbacks WHERE order_no IN (SELECT order_no FROM payment_orders WHERE bill_id=?)', (bill_id,))
         db.execute('DELETE FROM payment_orders WHERE bill_id=?', (bill_id,))
         db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))

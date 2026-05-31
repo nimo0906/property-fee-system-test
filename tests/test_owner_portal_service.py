@@ -49,7 +49,7 @@ class TestOwnerPortalService(unittest.TestCase):
 
     def setUp(self):
         self.db = get_db()
-        for table in ('owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'invoices', 'bill_adjustments', 'bills', 'meter_readings', 'deposits', 'parking_spots', 'repairs', 'rooms', 'owners'):
+        for table in ('notification_events', 'payment_callbacks', 'payment_orders', 'owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'invoices', 'bill_adjustments', 'bills', 'meter_readings', 'deposits', 'parking_spots', 'repairs', 'rooms', 'owners'):
             self.db.execute(f'DELETE FROM {table}')
         self.owner_id = self.db.execute(
             "INSERT INTO owners(name, phone, id_card) VALUES(?,?,?)",

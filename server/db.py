@@ -21,6 +21,7 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=3000")
     return conn
 
 
@@ -49,6 +50,7 @@ def db_init():
         CREATE TABLE IF NOT EXISTS owner_portal_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES owners(id), phone TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now','localtime')), expires_at TEXT NOT NULL, revoked_at TEXT);
         CREATE TABLE IF NOT EXISTS payment_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_no TEXT NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES owners(id), bill_id INTEGER NOT NULL REFERENCES bills(id), amount REAL NOT NULL, channel TEXT NOT NULL DEFAULT 'mock', status TEXT NOT NULL DEFAULT 'created', external_payment_id TEXT, idempotency_key TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), updated_at TEXT, paid_at TEXT, cancelled_at TEXT, failure_reason TEXT);
         CREATE TABLE IF NOT EXISTS payment_callbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, channel TEXT NOT NULL, external_event_id TEXT NOT NULL, order_no TEXT NOT NULL, received_at TEXT DEFAULT (datetime('now','localtime')), processed_at TEXT, status TEXT NOT NULL DEFAULT 'received', raw_summary TEXT, error_message TEXT, UNIQUE(channel, external_event_id));
+        CREATE TABLE IF NOT EXISTS notification_events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'in_app', target TEXT NOT NULL DEFAULT '', owner_id INTEGER REFERENCES owners(id), bill_id INTEGER REFERENCES bills(id), order_no TEXT, payload TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', error_message TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), sent_at TEXT);
     """
     c.executescript(SQL)
     for col in ['contract_start','contract_end','id_card','id_card_front','id_card_back','business_type','water_rate_type']:
@@ -73,14 +75,16 @@ def db_init():
                   ('公摊能耗费','household',10,'元/户·月','monthly',7,'按户计费'),
                   ('生活垃圾费','household',10,'元/户·月','monthly',8,'按户计费')]:
             c.execute("INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes) VALUES(?,?,?,?,?,?,1,?)", f)
-    c.execute("UPDATE fee_types SET is_active=0 WHERE name IN ('物业费','水费') AND (SELECT COUNT(*) FROM fee_types WHERE name LIKE '物业费(%')>0")
+    try: c.execute("UPDATE fee_types SET is_active=0 WHERE name IN ('物业费','水费') AND (SELECT COUNT(*) FROM fee_types WHERE name LIKE '物业费(%')>0")
+    except: pass
     if c.execute("SELECT COUNT(*) FROM fee_types WHERE name='物业费(居民)'").fetchone()[0] == 0:
         c.execute("INSERT OR IGNORE INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes) SELECT '物业费(居民)','area',1.9,'元/m²·月','monthly',1,1,'按建筑面积×1.9计算' WHERE (SELECT COUNT(*) FROM fee_types WHERE name='物业费(居民)')=0")
         c.execute("INSERT OR IGNORE INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes) SELECT '物业费(商户)','area',5.0,'元/m²·月','monthly',2,1,'按建筑面积×5.0计算' WHERE (SELECT COUNT(*) FROM fee_types WHERE name='物业费(商户)')=0")
         c.execute("INSERT OR IGNORE INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes) SELECT '水费(非居民)','meter',5.8,'元/m³','monthly',5,1,'按用量×5.8计算' WHERE (SELECT COUNT(*) FROM fee_types WHERE name='水费(非居民)')=0")
         c.execute("INSERT OR IGNORE INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes) SELECT '水费(特行)','meter',20.11,'元/m³','monthly',6,1,'按用量×20.11计算' WHERE (SELECT COUNT(*) FROM fee_types WHERE name='水费(特行)')=0")
         for old_name in ['物业费','水费']:
-            c.execute("UPDATE fee_types SET sort_order=sort_order+20 WHERE name=? AND (SELECT COUNT(*) FROM fee_types WHERE name LIKE ?||'(%')>0", (old_name, old_name))
+            try: c.execute("UPDATE fee_types SET sort_order=sort_order+20 WHERE name=? AND (SELECT COUNT(*) FROM fee_types WHERE name LIKE ?||'(%')>0", (old_name, old_name))
+            except: pass
     commercial_new = [
         ('电费(商业)','meter',0.85,'元/度','monthly',31,'按用电量×单价计算，适用于商业用户'),
         ('垃圾清运费','household',30,'元/户·月','monthly',32,'商业垃圾清运服务费'),
@@ -135,7 +139,9 @@ def db_init():
                      "CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at,id)",
                      "CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity_type,entity_id)",
                      "CREATE INDEX IF NOT EXISTS idx_shared_runs_period ON shared_expense_runs(period,fee_type_id)",
-                     "CREATE INDEX IF NOT EXISTS idx_payments_receipt ON payments(receipt_number)"]:
+                     "CREATE INDEX IF NOT EXISTS idx_payments_receipt ON payments(receipt_number)",
+                     "CREATE INDEX IF NOT EXISTS idx_notification_status ON notification_events(status)",
+                     "CREATE INDEX IF NOT EXISTS idx_notification_owner ON notification_events(owner_id,created_at,id)"]:
         try: c.execute(idx_sql)
         except: pass
     conn.commit(); conn.close()

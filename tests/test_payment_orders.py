@@ -32,8 +32,10 @@ class TestPaymentOrders(unittest.TestCase):
 
     def setUp(self):
         self.db = get_db()
-        for table in ('payment_callbacks', 'payment_orders', 'owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'bills', 'rooms', 'owners'):
-            self.db.execute(f'DELETE FROM {table}')
+        tables = {r['name'] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        for table in ('notification_events', 'payment_callbacks', 'payment_orders', 'owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'bills', 'rooms', 'owners'):
+            if table in tables:
+                self.db.execute(f'DELETE FROM {table}')
         self.owner_id = self.db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('支付订单业主', '13800135555')).lastrowid
         self.room_id = self.db.execute(
             "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
@@ -57,6 +59,7 @@ class TestPaymentOrders(unittest.TestCase):
         tables = {r['name'] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
         self.assertIn('payment_orders', tables)
         self.assertIn('payment_callbacks', tables)
+        self.assertIn('notification_events', tables)
 
     def test_create_order_uses_owner_bill_and_does_not_write_payment(self):
         from server.payment_orders import PaymentOrderService
@@ -161,6 +164,33 @@ class TestPaymentOrders(unittest.TestCase):
         self.assertEqual(payment_count, 1)
         self.assertEqual(callback_count, 1)
         self.assertEqual(order_status, 'paid')
+
+
+    def test_process_mock_callback_emits_payment_success_notification_event(self):
+        from server.payment_orders import PaymentOrderService
+        service = PaymentOrderService()
+        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+
+        service.process_callback({
+            'channel': 'mock',
+            'external_event_id': 'evt-notify-001',
+            'order_no': order['order_no'],
+            'amount': '100.00',
+            'raw_summary': 'mock callback success',
+            'signature': 'mock-signature',
+        })
+
+        rows = self.db.execute(
+            "SELECT * FROM notification_events WHERE owner_id=? AND bill_id=? ORDER BY id",
+            (self.owner_id, self.bill_id),
+        ).fetchall()
+        self.assertEqual(len(rows), 1)
+        event = rows[0]
+        self.assertEqual(event['event_type'], 'payment_success')
+        self.assertEqual(event['channel'], 'in_app')
+        self.assertEqual(event['target'], '13800135555')
+        self.assertEqual(event['status'], 'pending')
+        self.assertIn(order['order_no'], event['payload'])
 
     def test_process_callback_rejects_invalid_signature_before_recording(self):
         from server.payment_orders import PaymentOrderError, PaymentOrderService

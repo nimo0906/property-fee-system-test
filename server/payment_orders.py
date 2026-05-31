@@ -8,6 +8,7 @@ import secrets
 from server.db import get_db
 from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.payment_channels import PaymentChannelError, get_payment_channel
+from server.notifications import NotificationService
 from server.services import Actor, PaymentService, ServiceError
 
 
@@ -161,6 +162,8 @@ class PaymentOrderService:
                 db.commit()
             finally:
                 db.close()
+        if payment_id:
+            NotificationService().enqueue('payment_success', channel='in_app', target=str(self._get_owner_phone(row['owner_id'])), owner_id=row['owner_id'], bill_id=row['bill_id'], order_no=order_no, payload={'channel': channel, 'order_no': order_no, 'payment_id': payment_id, 'amount': _money(row['amount'])})
         self._finish_callback(channel, external_event_id, 'processed', '')
         return {'status': 'processed', 'duplicate': row['status'] == 'paid', 'order_no': order_no, 'payment_id': payment_id}
 
@@ -190,6 +193,14 @@ class PaymentOrderService:
             if not row or row['owner_id'] != owner_session['owner_id']:
                 raise PaymentOrderError('订单不存在')
             return dict(row)
+        finally:
+            db.close()
+
+    def _get_owner_phone(self, owner_id):
+        db = get_db()
+        try:
+            row = db.execute('SELECT phone FROM owners WHERE id=?', (owner_id,)).fetchone()
+            return row['phone'] if row else ''
         finally:
             db.close()
 
