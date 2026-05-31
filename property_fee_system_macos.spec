@@ -13,7 +13,6 @@ a = Analysis(
         ('server', 'server'),
         ('templates', 'templates'),
         ('static', 'static'),
-        ('property.db', '.'),
         ('requirements.txt', '.'),
         ('使用说明.md', '.'),
         ('用户快速开始.md', '.'),

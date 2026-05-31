@@ -224,8 +224,9 @@ class TestMacDesktopDeployment(unittest.TestCase):
         self.assertIn('desktop_app.py', spec_text)
         self.assertIn('BUNDLE(', spec_text)
         self.assertIn('物业管理收费系统.app', spec_text)
-        for asset in ['server', 'templates', 'static', 'property.db', '用户快速开始.md', '交付验收清单.md', '使用说明.md']:
+        for asset in ['server', 'templates', 'static', '用户快速开始.md', '交付验收清单.md', '使用说明.md']:
             self.assertIn(asset, spec_text)
+        self.assertNotIn("('property.db', '.')", spec_text)
         script_text = script.read_text(encoding='utf-8')
         self.assertIn('property_fee_system_macos.spec', script_text)
         self.assertIn('PyInstaller', script_text)
