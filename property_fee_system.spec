@@ -21,6 +21,7 @@ a = Analysis(
         ('Windows客户试用说明.md', '.'),
         ('check_windows_packaging_ready.bat', '.'),
         ('Windows打包操作步骤.md', '.'),
+        ('Windows用户发送文案.md', '.'),
     ],
     hiddenimports=collect_submodules('openpyxl') + collect_submodules('xlrd'),
     hookspath=[],

@@ -54,6 +54,7 @@ xcopy "dist\PropertyFeeSystem" "%RELEASE_DIR%\PropertyFeeSystem\" /E /I /H /Y >n
 copy /Y "用户快速开始.md" "%RELEASE_DIR%\用户快速开始.md" >nul
 copy /Y "Windows客户试用说明.md" "%RELEASE_DIR%\Windows客户试用说明.md" >nul
 copy /Y "Windows打包操作步骤.md" "%RELEASE_DIR%\Windows打包操作步骤.md" >nul
+copy /Y "Windows用户发送文案.md" "%RELEASE_DIR%\Windows用户发送文案.md" >nul
 copy /Y "使用说明.md" "%RELEASE_DIR%\使用说明.md" >nul
 copy /Y "交付验收清单.md" "%RELEASE_DIR%\交付验收清单.md" >nul
 copy /Y "数据备份说明.md" "%RELEASE_DIR%\数据备份说明.md" >nul

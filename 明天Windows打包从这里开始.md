@@ -131,6 +131,7 @@ PropertyFeeSystem\PropertyFeeSystem.exe
 | `package_windows_release.bat` | 一键生成 Windows 试用 zip |
 | `Windows打包操作步骤.md` | 更详细的 Windows 打包说明 |
 | `Windows客户试用说明.md` | 可发给客户看的 Windows 试用说明 |
+| `Windows用户发送文案.md` | zip 生成后可直接复制给用户的微信/邮件文案 |
 | `清空本机试用数据.bat` | 备份并清空 Windows 本机旧试用数据 |
 | `diagnose_windows.bat` | Windows 启动异常时诊断 |
 
