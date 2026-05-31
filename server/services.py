@@ -78,3 +78,85 @@ class RoomService:
             return result
         finally:
             db.close()
+
+
+class BillingService:
+    def get_bill(self, bill_id):
+        db = get_db()
+        try:
+            row = db.execute(
+                'SELECT b.*, ft.name AS fee_type_name, r.building, r.unit, r.room_number, '
+                'r.area, o.name AS owner_name, o.phone AS owner_phone '
+                'FROM bills b '
+                'LEFT JOIN fee_types ft ON b.fee_type_id=ft.id '
+                'LEFT JOIN rooms r ON b.room_id=r.id '
+                'LEFT JOIN owners o ON b.owner_id=o.id '
+                'WHERE b.id=?',
+                (bill_id,),
+            ).fetchone()
+            if not row:
+                raise ServiceError('账单不存在')
+            paid = db.execute(
+                'SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?',
+                (bill_id,),
+            ).fetchone()[0]
+            amount = _money(row['amount'])
+            paid_amount = _money(paid)
+            return {
+                'id': row['id'],
+                'bill_number': row['bill_number'],
+                'period': row['billing_period'],
+                'status': row['status'],
+                'amount': str(amount),
+                'paid_amount': str(paid_amount),
+                'unpaid_amount': str(max(Decimal('0.00'), amount - paid_amount)),
+                'due_date': row['due_date'],
+                'fee_type': {'id': row['fee_type_id'], 'name': row['fee_type_name'] or ''},
+                'room': {
+                    'id': row['room_id'],
+                    'building': row['building'] or '',
+                    'unit': row['unit'] or '',
+                    'room_number': row['room_number'] or '',
+                    'area': row['area'] or 0,
+                },
+                'owner': {'id': row['owner_id'], 'name': row['owner_name'] or '', 'phone': row['owner_phone'] or ''},
+            }
+        finally:
+            db.close()
+
+    def preview_generation(self, request):
+        period = request.get('period') or ''
+        due_date = request.get('due_date') or ''
+        fee_type_ids = request.get('fee_type_ids') or []
+        db = get_db()
+        try:
+            items = []
+            rooms = db.execute('SELECT * FROM rooms ORDER BY building, unit, room_number').fetchall()
+            for fee_type_id in fee_type_ids:
+                fee = db.execute('SELECT * FROM fee_types WHERE id=?', (fee_type_id,)).fetchone()
+                if not fee:
+                    continue
+                for room in rooms:
+                    exists = db.execute(
+                        'SELECT id FROM bills WHERE room_id=? AND fee_type_id=? AND billing_period=?',
+                        (room['id'], fee_type_id, period),
+                    ).fetchone()
+                    if exists:
+                        continue
+                    method = fee['calc_method'] or 'fixed'
+                    if method == 'area':
+                        amount = _money(Decimal(str(room['area'] or 0)) * Decimal(str(fee['unit_price'] or 0)))
+                    elif method == 'per_household':
+                        amount = _money(fee['unit_price'] or 0)
+                    else:
+                        amount = _money(fee['unit_price'] or 0)
+                    items.append({
+                        'room_id': room['id'],
+                        'fee_type_id': fee_type_id,
+                        'period': period,
+                        'due_date': due_date,
+                        'amount': str(amount),
+                    })
+            return {'period': period, 'due_date': due_date, 'items': items, 'total_count': len(items)}
+        finally:
+            db.close()

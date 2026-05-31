@@ -67,6 +67,55 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         self.assertEqual(room['owner']['id'], self.owner_id)
         self.assertEqual(room['owner']['name'], '张三')
 
+    def test_billing_service_get_bill_returns_amount_breakdown(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试物业费', 'area', 2.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-05', 177.0, '2026-05-31', 'unpaid', 'BILL-SVC-1'),
+        ).lastrowid
+        self.db.execute(
+            "INSERT INTO payments (bill_id, amount_paid, payment_date, payment_method, operator) "
+            "VALUES (?, ?, datetime('now','localtime'), ?, ?)",
+            (bill_id, 77.0, 'cash', 'admin'),
+        )
+        self.db.commit()
+
+        from server.services import BillingService
+        bill = BillingService().get_bill(bill_id)
+
+        self.assertEqual(bill['id'], bill_id)
+        self.assertEqual(bill['bill_number'], 'BILL-SVC-1')
+        self.assertEqual(bill['amount'], '177.00')
+        self.assertEqual(bill['paid_amount'], '77.00')
+        self.assertEqual(bill['unpaid_amount'], '100.00')
+        self.assertEqual(bill['room']['room_number'], '1801')
+        self.assertEqual(bill['owner']['name'], '张三')
+
+    def test_billing_generation_preview_does_not_write_bills(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试面积费', 'area', 3.0),
+        ).lastrowid
+        self.db.commit()
+
+        from server.services import BillingService
+        before = self.db.execute('SELECT COUNT(*) FROM bills').fetchone()[0]
+        plan = BillingService().preview_generation({
+            'period': '2026-06',
+            'due_date': '2026-06-30',
+            'fee_type_ids': [fee_type_id],
+        })
+        after = self.db.execute('SELECT COUNT(*) FROM bills').fetchone()[0]
+
+        self.assertEqual(before, after)
+        self.assertEqual(plan['period'], '2026-06')
+        self.assertEqual(plan['items'][0]['room_id'], self.room_id)
+        self.assertEqual(plan['items'][0]['amount'], '265.50')
+
 
 if __name__ == '__main__':
     unittest.main()
