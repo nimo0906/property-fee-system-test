@@ -267,6 +267,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if p.startswith('/api/v1/'):
             return self._api_get(p)
         if p == '/owner-portal/login': return self._owner_portal_login_page()
+        if p == '/owner-portal/send-code': return self._redirect('/owner-portal/login')
         if p == '/owner-portal/logout': return self._owner_portal_logout()
         if p == '/owner-portal/dashboard': return self._owner_portal_dashboard()
         if p == '/owner-portal/rooms': return self._owner_portal_rooms_page()

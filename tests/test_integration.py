@@ -3430,6 +3430,10 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    def test_owner_portal_send_code_get_redirects_to_login(self):
+        status, body = http_get('/owner-portal/send-code', '', TEST_PORT)
+        self.assertEqual(status, 302)
+
 
 if __name__ == '__main__':
     unittest.main()
