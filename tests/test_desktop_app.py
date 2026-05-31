@@ -231,6 +231,18 @@ class TestMacDesktopDeployment(unittest.TestCase):
         self.assertIn('property_fee_system_macos.spec', script_text)
         self.assertIn('PyInstaller', script_text)
 
+
+    def test_macos_trial_data_reset_script_is_safe(self):
+        script = Path('清空本机试用数据.command')
+        self.assertTrue(script.exists())
+        text = script.read_text(encoding='utf-8')
+        self.assertIn('Application Support/PropertyFeeSystem', text)
+        self.assertIn('PropertyFeeSystemDataBackups', text)
+        self.assertIn('cp -R', text)
+        self.assertIn('rm -rf "$APP_DATA_DIR"', text)
+        self.assertNotIn('rm -rf /', text)
+        self.assertNotIn('property.db', Path('property_fee_system_macos.spec').read_text(encoding='utf-8'))
+
     def test_delivery_docs_cover_macos_app_build(self):
         usage = Path('使用说明.md').read_text(encoding='utf-8')
         checklist = Path('交付验收清单.md').read_text(encoding='utf-8')
