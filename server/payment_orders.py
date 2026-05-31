@@ -167,6 +167,46 @@ class PaymentOrderService:
         self._finish_callback(channel, external_event_id, 'processed', '')
         return {'status': 'processed', 'duplicate': row['status'] == 'paid', 'order_no': order_no, 'payment_id': payment_id}
 
+
+    def reconcile_order(self, order_no):
+        db = get_db()
+        try:
+            row = db.execute('SELECT * FROM payment_orders WHERE order_no=?', (order_no,)).fetchone()
+            if not row:
+                raise PaymentOrderError('订单不存在')
+            payments = db.execute(
+                "SELECT COUNT(*) count, COALESCE(SUM(amount_paid),0) total FROM payments WHERE bill_id=? AND payment_method=? AND operator IN ('payment_callback','owner_portal')",
+                (row['bill_id'], row['channel']),
+            ).fetchone()
+            callbacks = db.execute('SELECT COUNT(*) count FROM payment_callbacks WHERE order_no=?', (order_no,)).fetchone()
+            expected = float(row['amount'] or 0)
+            paid = float(payments['total'] or 0)
+            payment_count = int(payments['count'] or 0)
+            callback_count = int(callbacks['count'] or 0)
+            amount_match = abs(paid - expected) <= 0.005
+            if row['status'] == 'paid' and amount_match and payment_count >= 1:
+                reconcile_status = 'matched'
+            elif row['status'] == 'paid' and paid + 0.005 < expected:
+                reconcile_status = 'underpaid'
+            elif paid - expected > 0.005:
+                reconcile_status = 'overpaid'
+            else:
+                reconcile_status = 'pending'
+            return {
+                'order_no': row['order_no'],
+                'bill_id': row['bill_id'],
+                'channel': row['channel'],
+                'order_status': row['status'],
+                'expected_amount': _money(expected),
+                'paid_amount': _money(paid),
+                'payment_count': payment_count,
+                'callback_count': callback_count,
+                'amount_match': amount_match,
+                'reconcile_status': reconcile_status,
+            }
+        finally:
+            db.close()
+
     def _finish_callback(self, channel, external_event_id, status, error_message):
         db = get_db()
         try:

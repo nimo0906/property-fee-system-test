@@ -192,6 +192,29 @@ class TestPaymentOrders(unittest.TestCase):
         self.assertEqual(event['status'], 'pending')
         self.assertIn(order['order_no'], event['payload'])
 
+
+    def test_reconcile_order_summarizes_order_payment_and_callbacks(self):
+        from server.payment_orders import PaymentOrderService
+        service = PaymentOrderService()
+        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+        service.process_callback({
+            'channel': 'mock',
+            'external_event_id': 'evt-reconcile-001',
+            'order_no': order['order_no'],
+            'amount': '100.00',
+            'signature': 'mock-signature',
+        })
+
+        result = service.reconcile_order(order['order_no'])
+
+        self.assertEqual(result['order_no'], order['order_no'])
+        self.assertEqual(result['order_status'], 'paid')
+        self.assertEqual(result['payment_count'], 1)
+        self.assertEqual(result['callback_count'], 1)
+        self.assertEqual(result['expected_amount'], '100.00')
+        self.assertEqual(result['paid_amount'], '100.00')
+        self.assertEqual(result['reconcile_status'], 'matched')
+
     def test_process_callback_rejects_invalid_signature_before_recording(self):
         from server.payment_orders import PaymentOrderError, PaymentOrderService
         service = PaymentOrderService()

@@ -8,6 +8,7 @@ from datetime import datetime, date
 import urllib.parse, csv, io, re
 from server.billing_engine import calculate_bill_amount, fee_applies_to_category, fee_applies_to_room
 from server.backups import create_db_backup
+from server.payment_orders import PaymentOrderService
 
 
 def _calc_month_count(start_str, end_str):
@@ -411,6 +412,13 @@ class PaymentMixin(BaseHandler):
         if not row:
             return self._error(404)
         cb_rows = ''.join(f'<tr><td>{h(c["channel"])}</td><td>{h(c["external_event_id"])}</td><td>{h(c["status"])}</td><td>{h(c["received_at"])}</td></tr>' for c in callbacks)
+        reconcile = PaymentOrderService().reconcile_order(order_no)
+        reconcile_html = f'''<div class="card mt-3"><div class="card-header">对账结果</div><div class="card-body">
+        <div class="row g-2"><div class="col-md-3"><div class="metric-card"><div class="metric-label">结果</div><div class="metric-value fs-5">{h(reconcile["reconcile_status"])}</div></div></div>
+        <div class="col-md-3"><div class="metric-card"><div class="metric-label">应付</div><div class="metric-value fs-5">¥{h(reconcile["expected_amount"])}</div></div></div>
+        <div class="col-md-3"><div class="metric-card"><div class="metric-label">实收</div><div class="metric-value fs-5">¥{h(reconcile["paid_amount"])}</div></div></div>
+        <div class="col-md-3"><div class="metric-card"><div class="metric-label">回调数 / 收款数</div><div class="metric-value fs-5">{reconcile["callback_count"]} / {reconcile["payment_count"]}</div></div></div></div>
+        </div></div>'''
         room = f'{row["building"] or ""}-{row["unit"] or ""}-{row["room_number"] or ""}'
         self._html(self._page('支付订单详情', f'''
 <div class="card"><div class="card-header d-flex justify-content-between"><span><i class="bi bi-phone"></i> 支付订单详情</span><a class="btn btn-sm btn-outline-secondary" href="/payment_orders">返回列表</a></div>
@@ -425,6 +433,7 @@ class PaymentMixin(BaseHandler):
 <dt class="col-sm-2">创建时间</dt><dd class="col-sm-10">{h(row['created_at'] or '-')}</dd>
 <dt class="col-sm-2">支付时间</dt><dd class="col-sm-10">{h(row['paid_at'] or '-')}</dd>
 </dl></div></div>
+{reconcile_html}
 <div class="card mt-3"><div class="card-header">回调记录</div><table class="table mb-0"><thead><tr><th>渠道</th><th>事件ID</th><th>状态</th><th>接收时间</th></tr></thead><tbody>{cb_rows or '<tr><td colspan="4" class="text-center text-muted py-4">暂无回调记录</td></tr>'}</tbody></table></div>''', 'payment_orders'))
 
     # ── API ──────────────────────────────────────────────────

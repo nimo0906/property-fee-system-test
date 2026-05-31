@@ -3776,6 +3776,34 @@ class TestIntegration(unittest.TestCase):
             db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
             db.commit(); db.close()
 
+
+    def test_payment_order_detail_shows_reconciliation_summary(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137789')
+        _, _, _, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            order = json.loads(body)['data']
+            payload = {
+                'channel': 'mock',
+                'external_event_id': 'reconcile-page-evt-001',
+                'order_no': order['order_no'],
+                'amount': '60.00',
+                'signature': 'mock-signature',
+            }
+            http_post('/api/v1/payment-callbacks/mock', payload, '', TEST_PORT)
+
+            status, page = http_get('/payment_orders/' + order['order_no'], self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('对账结果', page)
+            self.assertIn('matched', page)
+            self.assertIn('回调数', page)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
     def test_mock_payment_callback_api_is_idempotent(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137786')
         _, _, _, bill_id = ids
