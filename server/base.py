@@ -277,6 +277,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if p == '/owner-portal/payment-orders': return self._owner_portal_payment_orders_page()
         if (m := re.match(r'^/owner-portal/payment-orders/([^/]+)$', p)): return self._owner_portal_payment_order_detail_page(m.group(1))
         if p == '/owner-portal/payments': return self._owner_portal_payments_page()
+        if p == '/owner-portal/notifications': return self._owner_portal_notifications_page()
         if p not in ('/login', '/logout', '/register') and not p.startswith('/static/'):
             u = self._get_current_user()
             if not u:

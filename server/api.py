@@ -8,6 +8,7 @@ import urllib.parse
 
 from server.backups import create_db_backup
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
+from server.notifications import NotificationService
 from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.payment_orders import PaymentOrderError, PaymentOrderService
 from server.projects import ProjectError, ProjectService
@@ -62,6 +63,8 @@ class ApiMixin:
                     return self._api_json(service.bills(session, filters))
                 if path == '/api/v1/owner-portal/payments':
                     return self._api_json(service.payments(session))
+                if path == '/api/v1/owner-portal/notifications':
+                    return self._api_json(NotificationService().list_events(owner_id=session['owner_id']))
                 if path == '/api/v1/owner-portal/payment-orders':
                     return self._api_json(PaymentOrderService().list_orders(session))
                 if m := re.match(r'^/api/v1/owner-portal/payment-orders/([^/]+)$', path):

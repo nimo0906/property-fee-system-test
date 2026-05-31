@@ -5,6 +5,7 @@
 import re
 
 from server.db import get_db, h
+from server.notifications import NotificationService
 from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.payment_orders import PaymentOrderError, PaymentOrderService
 
@@ -81,7 +82,7 @@ class OwnerPortalPageMixin:
           <a class="metric" href="/owner-portal/bills"><span>待缴账单</span><strong>{len(bills)}</strong></a>
           <a class="metric" href="/owner-portal/bills"><span>待缴金额</span><strong>{unpaid_total:.2f}</strong></a>
         </div>
-        <div class="action-row"><a class="btn-main" href="/owner-portal/bills">查看待缴账单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/payment-orders">支付订单</a></div>
+        <div class="action-row"><a class="btn-main" href="/owner-portal/bills">查看待缴账单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/payment-orders">支付订单</a><a class="btn-ghost" href="/owner-portal/notifications">消息中心</a></div>
         '''
         self._owner_portal_render('业主首页', content)
 
@@ -207,6 +208,19 @@ class OwnerPortalPageMixin:
             return self._owner_portal_render('模拟支付成功', content)
         except PaymentOrderError as exc:
             return self._owner_portal_render('模拟支付失败', f'<div class="alert alert-danger">{h(str(exc))}</div>')
+
+
+    def _owner_portal_notifications_page(self):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        events = NotificationService().list_events(owner_id=session['owner_id'])['items']
+        rows = ''.join(
+            f'<div class="list-card"><strong>{h(e["event_type"])} · {h(e["status"])}</strong>'
+            f'<span>{h(e.get("created_at") or "")} · {h(e.get("payload") or "")}</span></div>'
+            for e in events
+        )
+        self._owner_portal_render('消息中心', f'<h1>消息中心</h1>{rows or "<p>暂无消息</p>"}')
 
     def _owner_portal_payment_orders_page(self):
         session = self._owner_portal_require()

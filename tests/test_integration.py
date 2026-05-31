@@ -3480,6 +3480,31 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+
+    def test_owner_portal_notifications_api_and_h5_page(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137787')
+        owner_id, _, _, bill_id = ids
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute(
+            "INSERT INTO notification_events(event_type,channel,target,owner_id,bill_id,payload,status) VALUES(?,?,?,?,?,?,?)",
+            ('payment_success', 'in_app', '13800137787', owner_id, bill_id, '{"title":"缴费成功"}', 'pending'),
+        )
+        db.commit(); db.close()
+        try:
+            status, body = http_get('/api/v1/owner-portal/notifications', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            items = json.loads(body)['data']['items']
+            self.assertEqual(items[0]['event_type'], 'payment_success')
+            self.assertEqual(items[0]['status'], 'pending')
+
+            status, page = http_get('/owner-portal/notifications', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('消息中心', page)
+            self.assertIn('payment_success', page)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
     def test_owner_portal_payment_order_api_create_and_mock_paid_once(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137780')
         _, _, _, bill_id = ids
