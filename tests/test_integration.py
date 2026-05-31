@@ -3633,6 +3633,45 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+
+    def test_invoice_request_api_create_list_and_detail(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '电子票据业主', '13800139001')
+        room_id = create_room(db, building='INVAPI', room_number='3901', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, owner_id=owner_id, amount=88.0, status='paid', period='2029-12')
+        payment_id = create_payment(db, bill_id=bill_id, amount=88.0, method='mock', operator='api-test')
+        db.close()
+        try:
+            status, body, _ = http_post('/api/v1/invoice-requests', {
+                'bill_id': str(bill_id),
+                'buyer_name': '接口测试公司',
+                'buyer_tax_id': 'TAX-API-001',
+                'idempotency_key': 'api-invoice-request-key',
+            }, self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            data = json.loads(body)['data']
+            self.assertEqual(data['status'], 'pending')
+            self.assertEqual(data['amount'], '88.00')
+            self.assertTrue(data['request_no'].startswith('IR'))
+
+            status, body = http_get('/api/v1/invoice-requests?status=pending', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            items = json.loads(body)['data']['items']
+            self.assertTrue(any(item['request_no'] == data['request_no'] for item in items))
+
+            status, body = http_get('/api/v1/invoice-requests/' + data['request_no'], self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)['data']['buyer_name'], '接口测试公司')
+        finally:
+            db = db_module.get_db()
+            db.execute('DELETE FROM invoice_requests WHERE bill_id=?', (bill_id,))
+            db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))
+            db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+            db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+            db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+            db.commit(); db.close()
+
     def test_mock_payment_callback_api_is_idempotent(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137786')
         _, _, _, bill_id = ids

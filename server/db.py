@@ -40,6 +40,7 @@ def db_init():
         CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, display_name TEXT, role TEXT DEFAULT 'operator', is_active INTEGER DEFAULT 1, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, user_id INTEGER NOT NULL REFERENCES users(id), created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS invoices (id INTEGER PRIMARY KEY AUTOINCREMENT, bill_id INTEGER REFERENCES bills(id), invoice_number TEXT UNIQUE, amount REAL NOT NULL, issue_date TEXT, buyer_name TEXT, buyer_tax_id TEXT, status TEXT DEFAULT 'issued', notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
+        CREATE TABLE IF NOT EXISTS invoice_requests (id INTEGER PRIMARY KEY AUTOINCREMENT, request_no TEXT NOT NULL UNIQUE, bill_id INTEGER NOT NULL UNIQUE REFERENCES bills(id), owner_id INTEGER REFERENCES owners(id), amount REAL NOT NULL, buyer_name TEXT, buyer_tax_id TEXT, status TEXT NOT NULL DEFAULT 'pending', provider TEXT NOT NULL DEFAULT 'manual', external_invoice_id TEXT, idempotency_key TEXT UNIQUE, failure_reason TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), updated_at TEXT, submitted_at TEXT, issued_at TEXT);
         CREATE TABLE IF NOT EXISTS deposits (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER REFERENCES rooms(id), owner_id INTEGER REFERENCES owners(id), amount REAL NOT NULL DEFAULT 0, deposit_date TEXT, refund_date TEXT, refund_amount REAL DEFAULT 0, status TEXT DEFAULT 'active', notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS parking_spots (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER REFERENCES rooms(id), spot_number TEXT NOT NULL, floor_zone TEXT, monthly_fee REAL DEFAULT 0, status TEXT DEFAULT 'occupied', notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS bill_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, bill_id INTEGER NOT NULL REFERENCES bills(id), old_amount REAL NOT NULL, new_amount REAL NOT NULL, reason TEXT NOT NULL, approved_by TEXT DEFAULT '管理员', created_at TEXT DEFAULT (datetime('now','localtime')));
@@ -141,7 +142,9 @@ def db_init():
                      "CREATE INDEX IF NOT EXISTS idx_shared_runs_period ON shared_expense_runs(period,fee_type_id)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_receipt ON payments(receipt_number)",
                      "CREATE INDEX IF NOT EXISTS idx_notification_status ON notification_events(status)",
-                     "CREATE INDEX IF NOT EXISTS idx_notification_owner ON notification_events(owner_id,created_at,id)"]:
+                     "CREATE INDEX IF NOT EXISTS idx_notification_owner ON notification_events(owner_id,created_at,id)",
+                     "CREATE INDEX IF NOT EXISTS idx_invoice_requests_status ON invoice_requests(status)",
+                     "CREATE INDEX IF NOT EXISTS idx_invoice_requests_owner ON invoice_requests(owner_id,created_at,id)"]:
         try: c.execute(idx_sql)
         except: pass
     conn.commit(); conn.close()

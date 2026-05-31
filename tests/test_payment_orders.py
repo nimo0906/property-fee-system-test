@@ -33,7 +33,7 @@ class TestPaymentOrders(unittest.TestCase):
     def setUp(self):
         self.db = get_db()
         tables = {r['name'] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
-        for table in ('notification_events', 'payment_callbacks', 'payment_orders', 'owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'bills', 'rooms', 'owners'):
+        for table in ('invoice_requests', 'notification_events', 'payment_callbacks', 'payment_orders', 'owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'bills', 'rooms', 'owners'):
             if table in tables:
                 self.db.execute(f'DELETE FROM {table}')
         self.owner_id = self.db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('支付订单业主', '13800135555')).lastrowid

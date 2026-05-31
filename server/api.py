@@ -7,6 +7,7 @@ import re
 import urllib.parse
 
 from server.backups import create_db_backup
+from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
 from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.payment_orders import PaymentOrderError, PaymentOrderService
 from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
@@ -78,8 +79,14 @@ class ApiMixin:
                 return self._api_json(RoomService().get_room(int(m.group(1))))
             if m := re.match(r'^/api/v1/bills/(\d+)$', path):
                 return self._api_json(BillingService().get_bill(int(m.group(1))))
+            if path == '/api/v1/invoice-requests':
+                q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                filters = {key: values[0] for key, values in q.items() if values}
+                return self._api_json(InvoiceRequestService().list_requests(filters))
+            if m := re.match(r'^/api/v1/invoice-requests/([^/]+)$', path):
+                return self._api_json(InvoiceRequestService().get_request(m.group(1)))
             return self._api_error(404, 'not_found', '接口不存在')
-        except ServiceError as exc:
+        except (ServiceError, InvoiceRequestError) as exc:
             return self._api_error(404, 'not_found', str(exc))
 
 
@@ -129,6 +136,11 @@ class ApiMixin:
         try:
             if path == '/api/v1/payments/preview':
                 return self._api_json(PaymentService().preview_payment(request))
+            if path == '/api/v1/invoice-requests':
+                user = self._get_current_user() or {}
+                if user.get('role') == 'readonly':
+                    return self._api_error(403, 'forbidden', '无权限执行写操作')
+                return self._api_json(InvoiceRequestService().create_request(request))
             if path == '/api/v1/payments':
                 user = self._get_current_user() or {}
                 if user.get('role') == 'readonly':
@@ -146,5 +158,5 @@ class ApiMixin:
                 )
                 return self._api_json(result)
             return self._api_error(404, 'not_found', '接口不存在')
-        except ServiceError as exc:
+        except (ServiceError, InvoiceRequestError) as exc:
             return self._api_error(400, 'validation_error', str(exc))

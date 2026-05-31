@@ -32,8 +32,10 @@ class TestOwnerAndRoomServices(unittest.TestCase):
 
     def setUp(self):
         self.db = get_db()
-        for table in ('payments', 'bills', 'rooms', 'owners'):
-            self.db.execute(f'DELETE FROM {table}')
+        tables = {r['name'] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        for table in ('invoice_requests', 'payments', 'invoices', 'bills', 'rooms', 'owners'):
+            if table in tables:
+                self.db.execute(f'DELETE FROM {table}')
         self.owner_id = self.db.execute(
             "INSERT INTO owners (name, phone, id_card) VALUES (?, ?, ?)",
             ('张三', '13800138000', '610100199001011234'),
@@ -115,6 +117,71 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         self.assertEqual(plan['period'], '2026-06')
         self.assertEqual(plan['items'][0]['room_id'], self.room_id)
         self.assertEqual(plan['items'][0]['amount'], '265.50')
+
+    def test_invoice_request_service_creates_pending_request_for_paid_bill(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试电子票据费', 'fixed', 120.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-09', 120.0, '2026-09-30', 'paid', 'BILL-INV-REQ-1'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.invoice_requests import InvoiceRequestService
+        request = InvoiceRequestService().create_request({
+            'bill_id': bill_id,
+            'buyer_name': '张三',
+            'buyer_tax_id': 'TAX-001',
+            'idempotency_key': 'invoice-key-1',
+        })
+
+        row = self.db.execute('SELECT * FROM invoice_requests WHERE bill_id=?', (bill_id,)).fetchone()
+        self.assertEqual(request['status'], 'pending')
+        self.assertTrue(request['request_no'].startswith('IR'))
+        self.assertEqual(request['amount'], '120.00')
+        self.assertEqual(row['buyer_name'], '张三')
+        self.assertEqual(row['status'], 'pending')
+
+    def test_invoice_request_service_is_idempotent_by_key(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试电子票据幂等费', 'fixed', 80.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-10', 80.0, '2026-10-31', 'paid', 'BILL-INV-REQ-2'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.invoice_requests import InvoiceRequestService
+        service = InvoiceRequestService()
+        first = service.create_request({'bill_id': bill_id, 'idempotency_key': 'same-key'})
+        second = service.create_request({'bill_id': bill_id, 'idempotency_key': 'same-key'})
+
+        count = self.db.execute('SELECT COUNT(*) FROM invoice_requests WHERE bill_id=?', (bill_id,)).fetchone()[0]
+        self.assertEqual(first['request_no'], second['request_no'])
+        self.assertEqual(count, 1)
+
+    def test_invoice_request_service_rejects_unpaid_bill(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试未缴票据费', 'fixed', 60.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-11', 60.0, '2026-11-30', 'unpaid', 'BILL-INV-REQ-3'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
+        with self.assertRaisesRegex(InvoiceRequestError, '仅已缴清账单可申请电子票据'):
+            InvoiceRequestService().create_request({'bill_id': bill_id})
+
 
     def test_payment_preview_rejects_amount_greater_than_unpaid(self):
         fee_type_id = self.db.execute(

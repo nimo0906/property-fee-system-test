@@ -38,6 +38,7 @@ class TestV1InternalFeatures(unittest.TestCase):
         for table in [
             'audit_logs',
             'shared_expense_runs',
+            'invoice_requests',
             'notification_events',
             'payment_callbacks',
             'payment_orders',
