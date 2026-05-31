@@ -53,11 +53,13 @@ mkdir "%RELEASE_DIR%"
 xcopy "dist\PropertyFeeSystem" "%RELEASE_DIR%\PropertyFeeSystem\" /E /I /H /Y >nul
 copy /Y "用户快速开始.md" "%RELEASE_DIR%\用户快速开始.md" >nul
 copy /Y "Windows客户试用说明.md" "%RELEASE_DIR%\Windows客户试用说明.md" >nul
+copy /Y "Windows打包操作步骤.md" "%RELEASE_DIR%\Windows打包操作步骤.md" >nul
 copy /Y "使用说明.md" "%RELEASE_DIR%\使用说明.md" >nul
 copy /Y "交付验收清单.md" "%RELEASE_DIR%\交付验收清单.md" >nul
 copy /Y "数据备份说明.md" "%RELEASE_DIR%\数据备份说明.md" >nul
 copy /Y "清空本机试用数据.bat" "%RELEASE_DIR%\清空本机试用数据.bat" >nul
 copy /Y "diagnose_windows.bat" "%RELEASE_DIR%\diagnose_windows.bat" >nul
+copy /Y "check_windows_packaging_ready.bat" "%RELEASE_DIR%\check_windows_packaging_ready.bat" >nul
 
 for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set "COMMIT=%%i"
 if not defined COMMIT set "COMMIT=unknown"

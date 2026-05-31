@@ -131,6 +131,8 @@ class TestDesktopPackaging(unittest.TestCase):
         self.assertIn('static', spec_text)
         self.assertIn('Windows客户试用说明.md', spec_text)
         self.assertIn('清空本机试用数据.bat', spec_text)
+        self.assertIn('Windows打包操作步骤.md', spec_text)
+        self.assertIn('check_windows_packaging_ready.bat', spec_text)
         self.assertNotIn("('property.db', '.')", spec_text)
         script_text = script.read_text(encoding='utf-8')
         self.assertIn('pyinstaller', script_text.lower())
@@ -160,7 +162,7 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('Windows客户试用说明.md', build_text)
 
     def test_windows_release_helpers_are_safe_and_simple(self):
-        for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md')]:
+        for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat')]:
             self.assertTrue(path.exists(), str(path))
         reset = Path('清空本机试用数据.bat').read_text(encoding='utf-8')
         self.assertIn('%APPDATA%\\PropertyFeeSystem', reset)
@@ -172,6 +174,15 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('Compress-Archive', package)
         self.assertIn('Windows客户试用说明.md', package)
         self.assertIn('清空本机试用数据.bat', package)
+        self.assertIn('Windows打包操作步骤.md', package)
+        self.assertIn('check_windows_packaging_ready.bat', package)
+        ready = Path('check_windows_packaging_ready.bat').read_text(encoding='utf-8')
+        self.assertIn('property_fee_system.spec', ready)
+        self.assertIn('package_windows_release.bat', ready)
+        self.assertIn('property.db', ready)
+        ops = Path('Windows打包操作步骤.md').read_text(encoding='utf-8')
+        for phrase in ['check_windows_packaging_ready.bat', 'package_windows_release.bat', '物业管理收费系统-v2.0-windows.zip']:
+            self.assertIn(phrase, ops)
         guide = Path('Windows客户试用说明.md').read_text(encoding='utf-8')
         for phrase in ['双击', 'PropertyFeeSystem.exe', 'admin123', '仍要运行', '清空本机试用数据.bat']:
             self.assertIn(phrase, guide)
