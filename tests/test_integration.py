@@ -3351,7 +3351,9 @@ class TestIntegration(unittest.TestCase):
         owner_id, room_id, fee_type_id, bill_id = ids
         db = db_module.get_db()
         db.execute('DELETE FROM owner_portal_sessions WHERE owner_id=?', (owner_id,))
-        db.execute('DELETE FROM owner_portal_login_codes WHERE phone=?', ('13800137777',))
+        db.execute('DELETE FROM owner_portal_login_codes WHERE phone IN (SELECT phone FROM owners WHERE id=?)', (owner_id,))
+        db.execute('DELETE FROM payment_callbacks WHERE order_no IN (SELECT order_no FROM payment_orders WHERE bill_id=?)', (bill_id,))
+        db.execute('DELETE FROM payment_orders WHERE bill_id=?', (bill_id,))
         db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))
         db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
         db.execute('DELETE FROM fee_types WHERE id=?', (fee_type_id,))
@@ -3458,6 +3460,51 @@ class TestIntegration(unittest.TestCase):
             after = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
             db.close()
             self.assertEqual(before, after)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
+    def test_owner_portal_payment_order_api_create_and_mock_paid_once(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137780')
+        _, _, _, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            order = json.loads(body)['data']
+            self.assertTrue(order['order_no'].startswith('PO'))
+            self.assertEqual(order['status'], 'created')
+
+            status, paid_body, _ = http_post(f'/api/v1/owner-portal/payment-orders/{order["order_no"]}/mock-paid', {}, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            paid = json.loads(paid_body)['data']
+            self.assertEqual(paid['status'], 'paid')
+
+            status, dup_body, _ = http_post(f'/api/v1/owner-portal/payment-orders/{order["order_no"]}/mock-paid', {}, cookie, TEST_PORT)
+            self.assertEqual(status, 400)
+            self.assertIn('订单已支付', json.loads(dup_body)['error']['message'])
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
+    def test_owner_portal_h5_create_order_and_mock_paid_updates_payments(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137781')
+        _, _, _, bill_id = ids
+        try:
+            status, order_page, _ = http_post(f'/owner-portal/bills/{bill_id}/create-order', {
+                'amount': '60.00',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('模拟支付订单', order_page)
+            self.assertIn('立即模拟支付成功', order_page)
+            import re as _re
+            order_no = _re.search(r'/owner-portal/payment-orders/(PO[^/]+)/mock-paid', order_page).group(1)
+
+            status, paid_page, _ = http_post(f'/owner-portal/payment-orders/{order_no}/mock-paid', {}, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('模拟支付成功', paid_page)
+            self.assertIn('缴费记录', paid_page)
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 

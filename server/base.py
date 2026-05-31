@@ -369,6 +369,10 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             return self._owner_portal_send_code_post(self._post())
         if (m := re.match(r'^/owner-portal/bills/(\d+)/preview-payment$', p)):
             return self._owner_portal_bill_preview_payment_post(int(m.group(1)), self._post())
+        if (m := re.match(r'^/owner-portal/bills/(\d+)/create-order$', p)):
+            return self._owner_portal_create_order_post(int(m.group(1)), self._post())
+        if (m := re.match(r'^/owner-portal/payment-orders/([^/]+)/mock-paid$', p)):
+            return self._owner_portal_mock_paid_post(m.group(1))
         # 文件上传不经过 _post()（multipart 由 _import_upload 自行解析）
         if p == '/import/upload':
             u = self._get_current_user()

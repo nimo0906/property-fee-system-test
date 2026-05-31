@@ -35,7 +35,24 @@ class TestV1InternalFeatures(unittest.TestCase):
                 os.remove(path)
 
     def setUp(self):
-        for table in ['audit_logs','shared_expense_runs','bill_adjustments','payments','meter_readings','bills','rooms','owners']:
+        for table in [
+            'audit_logs',
+            'shared_expense_runs',
+            'payment_callbacks',
+            'payment_orders',
+            'owner_portal_sessions',
+            'owner_portal_login_codes',
+            'invoices',
+            'deposits',
+            'parking_spots',
+            'repairs',
+            'bill_adjustments',
+            'payments',
+            'meter_readings',
+            'bills',
+            'rooms',
+            'owners',
+        ]:
             self.db.execute(f'DELETE FROM {table}')
         self.db.commit()
 

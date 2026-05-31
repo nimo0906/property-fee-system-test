@@ -6,6 +6,7 @@ import re
 
 from server.db import h
 from server.owner_portal import OwnerPortalError, OwnerPortalService
+from server.payment_orders import PaymentOrderError, PaymentOrderService
 
 
 class OwnerPortalPageMixin:
@@ -123,7 +124,7 @@ class OwnerPortalPageMixin:
         <div class="pay-panel"><h2>支付前确认</h2><p>当前仅支持本地预览，暂未接真实在线支付。</p>
         <form method="POST" action="/owner-portal/bills/{bill_id}/preview-payment">
         <label>确认支付金额</label><input name="amount" value="{b['unpaid_amount']}" inputmode="decimal">
-        <button class="btn-main" type="submit">确认金额</button></form></div>
+        <button class="btn-main" type="submit">确认金额</button></form><form method="POST" action="/owner-portal/bills/{bill_id}/create-order" style="margin-top:12px"><input type="hidden" name="amount" value="{b['unpaid_amount']}"><button class="btn-ghost" type="submit">创建模拟支付订单</button></form></div>
         {result_html}
         '''
         self._owner_portal_render('账单详情', content)
@@ -138,6 +139,34 @@ class OwnerPortalPageMixin:
             return self._owner_portal_bill_detail_page(bill_id, preview=preview)
         except Exception as exc:
             return self._owner_portal_bill_detail_page(bill_id, error=str(exc))
+
+    def _owner_portal_create_order_post(self, bill_id, data):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        amount = data.get('amount', [''])[0]
+        try:
+            order = PaymentOrderService().create_order(session, {'bill_id': str(bill_id), 'amount': amount, 'channel': 'mock'})
+            order_no = h(order['order_no'])
+            content = f'''<h1>模拟支付订单</h1><div class="detail-card"><h2>{order_no}</h2>
+            <dl><dt>账单</dt><dd>{bill_id}</dd><dt>金额</dt><dd>{order['amount']}</dd><dt>状态</dt><dd>{h(order['status'])}</dd></dl></div>
+            <form method="POST" action="/owner-portal/payment-orders/{order_no}/mock-paid"><button class="btn-main" type="submit">立即模拟支付成功</button></form>'''
+            return self._owner_portal_render('模拟支付订单', content)
+        except PaymentOrderError as exc:
+            return self._owner_portal_bill_detail_page(bill_id, error=str(exc))
+
+    def _owner_portal_mock_paid_post(self, order_no):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        try:
+            paid = PaymentOrderService().mark_mock_paid(session, order_no)
+            content = f'''<h1>模拟支付成功</h1><div class="detail-card"><h2>{h(order_no)}</h2>
+            <p>订单已入账，缴费记录已更新。</p><dl><dt>金额</dt><dd>{paid['amount']}</dd><dt>状态</dt><dd>{h(paid['status'])}</dd></dl></div>
+            <div class="action-row"><a class="btn-main" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/bills">返回账单</a></div>'''
+            return self._owner_portal_render('模拟支付成功', content)
+        except PaymentOrderError as exc:
+            return self._owner_portal_render('模拟支付失败', f'<div class="alert alert-danger">{h(str(exc))}</div>')
 
     def _owner_portal_payments_page(self):
         session = self._owner_portal_require()

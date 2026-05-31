@@ -8,6 +8,7 @@ import urllib.parse
 
 from server.backups import create_db_backup
 from server.owner_portal import OwnerPortalError, OwnerPortalService
+from server.payment_orders import PaymentOrderError, PaymentOrderService
 from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
 
@@ -96,7 +97,15 @@ class ApiMixin:
                 if path == '/api/v1/owner-portal/payments/preview':
                     session = self._owner_portal_session()
                     return self._api_json(service.preview_payment(session, request))
+                if path == '/api/v1/owner-portal/payment-orders':
+                    session = self._owner_portal_session()
+                    return self._api_json(PaymentOrderService().create_order(session, request))
+                if m := re.match(r'^/api/v1/owner-portal/payment-orders/([^/]+)/mock-paid$', path):
+                    session = self._owner_portal_session()
+                    return self._api_json(PaymentOrderService().mark_mock_paid(session, m.group(1)))
                 return self._api_error(404, 'not_found', '接口不存在')
+            except PaymentOrderError as exc:
+                return self._api_error(400, 'validation_error', str(exc))
             except OwnerPortalError as exc:
                 code = 'forbidden' if '无权限' in str(exc) else 'unauthorized'
                 status = 403 if code == 'forbidden' else 401
