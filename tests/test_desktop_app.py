@@ -162,7 +162,7 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('Windows客户试用说明.md', build_text)
 
     def test_windows_release_helpers_are_safe_and_simple(self):
-        for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat')]:
+        for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat'), Path('明天Windows打包从这里开始.md')]:
             self.assertTrue(path.exists(), str(path))
         reset = Path('清空本机试用数据.bat').read_text(encoding='utf-8')
         self.assertIn('%APPDATA%\\PropertyFeeSystem', reset)
@@ -183,6 +183,9 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         ops = Path('Windows打包操作步骤.md').read_text(encoding='utf-8')
         for phrase in ['check_windows_packaging_ready.bat', 'package_windows_release.bat', '物业管理收费系统-v2.0-windows.zip']:
             self.assertIn(phrase, ops)
+        tomorrow = Path('明天Windows打包从这里开始.md').read_text(encoding='utf-8')
+        for phrase in ['Code → Download ZIP', 'check_windows_packaging_ready.bat', 'package_windows_release.bat', 'release\\windows\\物业管理收费系统-v2.0-windows.zip']:
+            self.assertIn(phrase, tomorrow)
         guide = Path('Windows客户试用说明.md').read_text(encoding='utf-8')
         for phrase in ['双击', 'PropertyFeeSystem.exe', 'admin123', '仍要运行', '清空本机试用数据.bat']:
             self.assertIn(phrase, guide)
