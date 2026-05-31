@@ -266,6 +266,12 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         if p.startswith('/api/v1/'):
             return self._api_get(p)
+        if p == '/owner-portal/login': return self._owner_portal_login_page()
+        if p == '/owner-portal/dashboard': return self._owner_portal_dashboard()
+        if p == '/owner-portal/rooms': return self._owner_portal_rooms_page()
+        if p == '/owner-portal/bills': return self._owner_portal_bills_page()
+        if (m := re.match(r'^/owner-portal/bills/(\d+)$', p)): return self._owner_portal_bill_detail_page(int(m.group(1)))
+        if p == '/owner-portal/payments': return self._owner_portal_payments_page()
         if p not in ('/login', '/logout', '/register') and not p.startswith('/static/'):
             u = self._get_current_user()
             if not u:
@@ -355,6 +361,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path).path
         if p.startswith('/api/v1/'):
             return self._api_post(p, self._post())
+        if p == '/owner-portal/login':
+            return self._owner_portal_login_post(self._post())
         # 文件上传不经过 _post()（multipart 由 _import_upload 自行解析）
         if p == '/import/upload':
             u = self._get_current_user()

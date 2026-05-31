@@ -1,0 +1,13 @@
+<section class="hero-card login-card">
+<p class="eyebrow">OWNER SELF SERVICE</p>
+<h1>业主自助服务</h1>
+<p>请输入手机号和本地测试验证码，查看房间、账单和缴费记录。</p>
+<form method="POST" action="/owner-portal/login">
+<label>手机号</label>
+<input name="phone" placeholder="请输入业主手机号" autocomplete="tel">
+<label>验证码</label>
+<input name="code" placeholder="请输入验证码" inputmode="numeric">
+<button class="btn-main" type="submit">登录业主端</button>
+</form>
+<p style="color:var(--muted);font-size:13px">测试阶段请先调用发送验证码接口获取 debug_code。</p>
+</section>

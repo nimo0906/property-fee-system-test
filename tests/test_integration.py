@@ -66,6 +66,7 @@ def _start_server():
     from server.import_data import ImportMixin
     from server.backups import BackupMixin
     from server.api import ApiMixin
+    from server.owner_portal_pages import OwnerPortalPageMixin
 
     class Handler(
         AuthMixin, IndexMixin, RoomMixin, OwnerMixin,
@@ -75,7 +76,7 @@ def _start_server():
         PaymentMixin, BillingUiMixin,
         RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
         ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
-        ImportMixin, BackupMixin, ApiMixin, BaseHandler,
+        ImportMixin, BackupMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
     ): pass
 
     db_init()
@@ -3312,6 +3313,87 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/api/v1/owner-portal/profile', '', TEST_PORT)
         self.assertEqual(status, 401)
         self.assertEqual(json.loads(body)['error']['code'], 'unauthorized')
+
+    def _owner_portal_login_browser_cookie(self, phone='13800137777'):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name,phone,id_card) VALUES(?,?,?)", ('H5业主', phone, '610100199001019999')).lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('H5座', '1单元', '2701', 27, '商户', 77.7, owner_id),
+        ).lastrowid
+        fee_type_id = db.execute("INSERT INTO fee_types(name,calc_method,unit_price) VALUES(?,?,?)", ('H5测试费', 'fixed', 70)).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, fee_type_id, '2027-02', 70, '2027-02-28', 'unpaid', 'H5-BILL-1'),
+        ).lastrowid
+        db.execute(
+            "INSERT INTO payments(bill_id,amount_paid,payment_date,payment_method,operator) VALUES(?,?,datetime('now','localtime'),?,?)",
+            (bill_id, 10, 'cash', 'admin'),
+        )
+        db.commit(); db.close()
+
+        status, body, _ = http_post('/api/v1/owner-portal/send-code', {'phone': phone}, self.cookie, TEST_PORT)
+        code = json.loads(body)['data']['debug_code']
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode({'phone': phone, 'code': code})
+        conn.request('POST', '/owner-portal/login', params, {'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = conn.getresponse(); resp.read()
+        cookie = resp.getheader('Set-Cookie', '').split(';')[0]
+        location = resp.getheader('Location', '')
+        conn.close()
+        self.assertEqual(resp.status, 302)
+        self.assertEqual(location, '/owner-portal/dashboard')
+        return cookie, (owner_id, room_id, fee_type_id, bill_id)
+
+    def _cleanup_owner_portal_h5_fixture(self, ids):
+        import server.db as db_module
+        owner_id, room_id, fee_type_id, bill_id = ids
+        db = db_module.get_db()
+        db.execute('DELETE FROM owner_portal_sessions WHERE owner_id=?', (owner_id,))
+        db.execute('DELETE FROM owner_portal_login_codes WHERE phone=?', ('13800137777',))
+        db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))
+        db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+        db.execute('DELETE FROM fee_types WHERE id=?', (fee_type_id,))
+        db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+        db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+        db.commit(); db.close()
+
+    def test_owner_portal_h5_login_page_and_auth_redirect(self):
+        status, body = http_get('/owner-portal/login', '', TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('业主自助服务', body)
+        self.assertIn('手机号', body)
+
+        status, body = http_get('/owner-portal/dashboard', '', TEST_PORT)
+        self.assertEqual(status, 302)
+
+    def test_owner_portal_h5_dashboard_bills_detail_and_payments(self):
+        cookie, ids = self._owner_portal_login_browser_cookie()
+        _, _, _, bill_id = ids
+        try:
+            status, dashboard = http_get('/owner-portal/dashboard', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('H5业主', dashboard)
+            self.assertIn('待缴账单', dashboard)
+
+            status, bills = http_get('/owner-portal/bills', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('H5-BILL-1', bills)
+            self.assertIn('60.00', bills)
+
+            status, detail = http_get(f'/owner-portal/bills/{bill_id}', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('账单详情', detail)
+            self.assertIn('H5-BILL-1', detail)
+            self.assertIn('支付前确认', detail)
+
+            status, payments = http_get('/owner-portal/payments', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('缴费记录', payments)
+            self.assertIn('10.00', payments)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
 
 
 if __name__ == '__main__':
