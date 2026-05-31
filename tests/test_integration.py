@@ -3368,6 +3368,7 @@ class TestIntegration(unittest.TestCase):
         db = db_module.get_db()
         db.execute('DELETE FROM owner_portal_sessions WHERE owner_id=?', (owner_id,))
         db.execute('DELETE FROM owner_portal_login_codes WHERE phone IN (SELECT phone FROM owners WHERE id=?)', (owner_id,))
+        db.execute('DELETE FROM invoice_requests WHERE bill_id=?', (bill_id,))
         db.execute('DELETE FROM notification_events WHERE bill_id=?', (bill_id,))
         db.execute('DELETE FROM payment_callbacks WHERE order_no IN (SELECT order_no FROM payment_orders WHERE bill_id=?)', (bill_id,))
         db.execute('DELETE FROM payment_orders WHERE bill_id=?', (bill_id,))
@@ -3480,6 +3481,36 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+
+
+    def test_owner_portal_invoice_requests_create_list_and_detail(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137788')
+        owner_id, _, _, bill_id = ids
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("UPDATE bills SET status='paid' WHERE id=?", (bill_id,))
+        db.commit(); db.close()
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/invoice-requests', {
+                'bill_id': str(bill_id),
+                'buyer_name': '业主票据抬头',
+                'buyer_tax_id': 'OWNER-TAX-001',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            request = json.loads(body)['data']
+            self.assertEqual(request['status'], 'pending')
+            self.assertEqual(request['buyer_name'], '业主票据抬头')
+
+            status, body = http_get('/api/v1/owner-portal/invoice-requests', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertTrue(any(item['request_no'] == request['request_no'] for item in json.loads(body)['data']['items']))
+
+            status, page = http_get('/owner-portal/invoice-requests', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('电子票据', page)
+            self.assertIn(request['request_no'], page)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
 
     def test_owner_portal_notifications_api_and_h5_page(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137787')

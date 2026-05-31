@@ -65,6 +65,13 @@ class ApiMixin:
                     return self._api_json(service.payments(session))
                 if path == '/api/v1/owner-portal/notifications':
                     return self._api_json(NotificationService().list_events(owner_id=session['owner_id']))
+                if path == '/api/v1/owner-portal/invoice-requests':
+                    return self._api_json(InvoiceRequestService().list_requests({'owner_id': session['owner_id']}))
+                if m := re.match(r'^/api/v1/owner-portal/invoice-requests/([^/]+)$', path):
+                    item = InvoiceRequestService().get_request(m.group(1))
+                    if item['owner_id'] != session['owner_id']:
+                        return self._api_error(403, 'forbidden', '无权限查看该票据请求')
+                    return self._api_json(item)
                 if path == '/api/v1/owner-portal/payment-orders':
                     return self._api_json(PaymentOrderService().list_orders(session))
                 if m := re.match(r'^/api/v1/owner-portal/payment-orders/([^/]+)$', path):
@@ -104,7 +111,7 @@ class ApiMixin:
             try:
                 request['channel'] = 'mock'
                 return self._api_json(PaymentOrderService().process_callback(request))
-            except PaymentOrderError as exc:
+            except (PaymentOrderError, InvoiceRequestError) as exc:
                 return self._api_error(400, 'validation_error', str(exc))
         if path.startswith('/api/v1/owner-portal/'):
             service = OwnerPortalService()
@@ -127,11 +134,14 @@ class ApiMixin:
                 if path == '/api/v1/owner-portal/payment-orders':
                     session = self._owner_portal_session()
                     return self._api_json(PaymentOrderService().create_order(session, request))
+                if path == '/api/v1/owner-portal/invoice-requests':
+                    session = self._owner_portal_session()
+                    return self._api_json(InvoiceRequestService().create_owner_request(session, request))
                 if m := re.match(r'^/api/v1/owner-portal/payment-orders/([^/]+)/mock-paid$', path):
                     session = self._owner_portal_session()
                     return self._api_json(PaymentOrderService().mark_mock_paid(session, m.group(1)))
                 return self._api_error(404, 'not_found', '接口不存在')
-            except PaymentOrderError as exc:
+            except (PaymentOrderError, InvoiceRequestError) as exc:
                 return self._api_error(400, 'validation_error', str(exc))
             except OwnerPortalError as exc:
                 code = 'forbidden' if '无权限' in str(exc) else 'unauthorized'

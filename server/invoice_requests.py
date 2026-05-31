@@ -57,6 +57,18 @@ class InvoiceRequestService:
         finally:
             db.close()
 
+
+    def create_owner_request(self, owner_session, request):
+        bill_id = int(request.get('bill_id') or 0)
+        db = get_db()
+        try:
+            row = db.execute('SELECT owner_id FROM bills WHERE id=?', (bill_id,)).fetchone()
+            if not row or row['owner_id'] != owner_session['owner_id']:
+                raise InvoiceRequestError('账单不存在')
+        finally:
+            db.close()
+        return self.create_request(request)
+
     def list_requests(self, filters=None):
         filters = filters or {}
         db = get_db()

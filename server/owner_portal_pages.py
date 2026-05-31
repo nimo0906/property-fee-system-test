@@ -7,6 +7,7 @@ import re
 from server.db import get_db, h
 from server.notifications import NotificationService
 from server.owner_portal import OwnerPortalError, OwnerPortalService
+from server.invoice_requests import InvoiceRequestService
 from server.payment_orders import PaymentOrderError, PaymentOrderService
 
 
@@ -82,7 +83,7 @@ class OwnerPortalPageMixin:
           <a class="metric" href="/owner-portal/bills"><span>待缴账单</span><strong>{len(bills)}</strong></a>
           <a class="metric" href="/owner-portal/bills"><span>待缴金额</span><strong>{unpaid_total:.2f}</strong></a>
         </div>
-        <div class="action-row"><a class="btn-main" href="/owner-portal/bills">查看待缴账单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/payment-orders">支付订单</a><a class="btn-ghost" href="/owner-portal/notifications">消息中心</a></div>
+        <div class="action-row"><a class="btn-main" href="/owner-portal/bills">查看待缴账单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/payment-orders">支付订单</a><a class="btn-ghost" href="/owner-portal/notifications">消息中心</a><a class="btn-ghost" href="/owner-portal/invoice-requests">电子票据</a></div>
         '''
         self._owner_portal_render('业主首页', content)
 
@@ -209,6 +210,20 @@ class OwnerPortalPageMixin:
         except PaymentOrderError as exc:
             return self._owner_portal_render('模拟支付失败', f'<div class="alert alert-danger">{h(str(exc))}</div>')
 
+
+
+    def _owner_portal_invoice_requests_page(self):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        requests = InvoiceRequestService().list_requests({'owner_id': session['owner_id']})['items']
+        rows = ''.join(
+            f'<div class="list-card"><strong>{h(r["request_no"])} · {h(r["status"])}</strong>'
+            f'<span>{h(r.get("amount") or "")} · {h(r.get("buyer_name") or "")}</span></div>'
+            for r in requests
+        )
+        content = '<h1>电子票据</h1>' + (rows or '<p>暂无电子票据申请</p>')
+        self._owner_portal_render('电子票据', content)
 
     def _owner_portal_notifications_page(self):
         session = self._owner_portal_require()
