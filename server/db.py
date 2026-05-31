@@ -45,6 +45,8 @@ def db_init():
         CREATE TABLE IF NOT EXISTS login_attempts (id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT NOT NULL, attempt_time TEXT DEFAULT (datetime('now','localtime')), success INTEGER DEFAULT 0);
         CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, entity_type TEXT, entity_id INTEGER, username TEXT, role TEXT, ip TEXT, old_value TEXT, new_value TEXT, reason TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS shared_expense_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, period TEXT NOT NULL, fee_type_id INTEGER NOT NULL REFERENCES fee_types(id), total_amount REAL NOT NULL DEFAULT 0, allocation_method TEXT NOT NULL DEFAULT 'area', building TEXT, category TEXT, room_count INTEGER DEFAULT 0, generated_bill_ids TEXT, operator TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
+        CREATE TABLE IF NOT EXISTS owner_portal_login_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, phone TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, attempt_count INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now','localtime')));
+        CREATE TABLE IF NOT EXISTS owner_portal_sessions (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, owner_id INTEGER NOT NULL REFERENCES owners(id), phone TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now','localtime')), expires_at TEXT NOT NULL, revoked_at TEXT);
     """
     c.executescript(SQL)
     for col in ['contract_start','contract_end','id_card','id_card_front','id_card_back','business_type','water_rate_type']:
