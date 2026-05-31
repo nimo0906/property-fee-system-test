@@ -3632,6 +3632,42 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    def test_mock_payment_callback_api_is_idempotent(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137786')
+        _, _, _, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            order = json.loads(body)['data']
+            payload = {
+                'channel': 'mock',
+                'external_event_id': 'api-evt-001',
+                'order_no': order['order_no'],
+                'amount': '60.00',
+                'raw_summary': 'api mock callback',
+            }
+
+            status, first_body, _ = http_post('/api/v1/payment-callbacks/mock', payload, '', TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(first_body)['data']['status'], 'processed')
+            status, second_body, _ = http_post('/api/v1/payment-callbacks/mock', payload, '', TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertTrue(json.loads(second_body)['data']['duplicate'])
+
+            import server.db as db_module
+            db = db_module.get_db()
+            payment_count = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
+            callback_count = db.execute('SELECT COUNT(*) FROM payment_callbacks WHERE order_no=?', (order['order_no'],)).fetchone()[0]
+            db.close()
+            self.assertEqual(payment_count, 2)
+            self.assertEqual(callback_count, 1)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
 
 if __name__ == '__main__':
     unittest.main()

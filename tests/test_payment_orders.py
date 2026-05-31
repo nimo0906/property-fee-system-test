@@ -131,6 +131,35 @@ class TestPaymentOrders(unittest.TestCase):
         self.assertEqual(order['channel_payload']['provider_status'], 'ready')
         self.assertIn('mock_pay_url', order['channel_payload'])
 
+    def test_process_mock_callback_records_event_and_is_idempotent(self):
+        from server.payment_orders import PaymentOrderService
+        service = PaymentOrderService()
+        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+
+        first = service.process_callback({
+            'channel': 'mock',
+            'external_event_id': 'evt-001',
+            'order_no': order['order_no'],
+            'amount': '100.00',
+            'raw_summary': 'mock callback success',
+        })
+        second = service.process_callback({
+            'channel': 'mock',
+            'external_event_id': 'evt-001',
+            'order_no': order['order_no'],
+            'amount': '100.00',
+            'raw_summary': 'mock callback duplicate',
+        })
+
+        payment_count = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
+        callback_count = self.db.execute('SELECT COUNT(*) FROM payment_callbacks WHERE order_no=?', (order['order_no'],)).fetchone()[0]
+        order_status = self.db.execute('SELECT status FROM payment_orders WHERE order_no=?', (order['order_no'],)).fetchone()['status']
+        self.assertEqual(first['status'], 'processed')
+        self.assertTrue(second['duplicate'])
+        self.assertEqual(payment_count, 1)
+        self.assertEqual(callback_count, 1)
+        self.assertEqual(order_status, 'paid')
+
 
 if __name__ == '__main__':
     unittest.main()

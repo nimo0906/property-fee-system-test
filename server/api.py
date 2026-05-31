@@ -85,6 +85,12 @@ class ApiMixin:
 
     def _api_post(self, path, data):
         request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
+        if path == '/api/v1/payment-callbacks/mock':
+            try:
+                request['channel'] = 'mock'
+                return self._api_json(PaymentOrderService().process_callback(request))
+            except PaymentOrderError as exc:
+                return self._api_error(400, 'validation_error', str(exc))
         if path.startswith('/api/v1/owner-portal/'):
             service = OwnerPortalService()
             try:

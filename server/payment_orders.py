@@ -108,6 +108,73 @@ class PaymentOrderService:
         paid['payment_id'] = result['payment_id']
         return paid
 
+    def process_callback(self, request):
+        channel = request.get('channel') or 'mock'
+        external_event_id = request.get('external_event_id') or ''
+        order_no = request.get('order_no') or ''
+        if not external_event_id:
+            raise PaymentOrderError('回调事件ID不能为空')
+        try:
+            get_payment_channel(channel)
+        except PaymentChannelError as exc:
+            raise PaymentOrderError(str(exc))
+        db = get_db()
+        try:
+            existing = db.execute(
+                'SELECT status FROM payment_callbacks WHERE channel=? AND external_event_id=?',
+                (channel, external_event_id),
+            ).fetchone()
+            if existing:
+                return {'status': existing['status'], 'duplicate': True, 'order_no': order_no}
+            row = db.execute('SELECT * FROM payment_orders WHERE order_no=?', (order_no,)).fetchone()
+            if not row:
+                raise PaymentOrderError('订单不存在')
+            if row['channel'] != channel:
+                raise PaymentOrderError('回调通道与订单不一致')
+            db.execute(
+                'INSERT INTO payment_callbacks(channel, external_event_id, order_no, status, raw_summary) '
+                "VALUES(?,?,?,'received',?)",
+                (channel, external_event_id, order_no, request.get('raw_summary') or ''),
+            )
+            db.commit()
+        finally:
+            db.close()
+        payment_id = None
+        if row['status'] != 'paid':
+            try:
+                result = PaymentService().create_payment(
+                    {'bill_id': str(row['bill_id']), 'amount': _money(row['amount']), 'method': channel},
+                    Actor(username='payment_callback', role='system'),
+                )
+                payment_id = result['payment_id']
+            except ServiceError as exc:
+                self._finish_callback(channel, external_event_id, 'failed', str(exc))
+                raise PaymentOrderError(str(exc))
+            db = get_db()
+            try:
+                db.execute(
+                    "UPDATE payment_orders SET status='paid', paid_at=datetime('now','localtime'), "
+                    "updated_at=datetime('now','localtime'), external_payment_id=? WHERE order_no=?",
+                    (f'{channel}-{payment_id}', order_no),
+                )
+                db.commit()
+            finally:
+                db.close()
+        self._finish_callback(channel, external_event_id, 'processed', '')
+        return {'status': 'processed', 'duplicate': row['status'] == 'paid', 'order_no': order_no, 'payment_id': payment_id}
+
+    def _finish_callback(self, channel, external_event_id, status, error_message):
+        db = get_db()
+        try:
+            db.execute(
+                "UPDATE payment_callbacks SET status=?, processed_at=datetime('now','localtime'), error_message=? "
+                'WHERE channel=? AND external_event_id=?',
+                (status, error_message, channel, external_event_id),
+            )
+            db.commit()
+        finally:
+            db.close()
+
     def _get_owned_order(self, owner_session, order_no):
         db = get_db()
         try:
