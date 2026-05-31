@@ -27,7 +27,23 @@ class OwnerPortalPageMixin:
         self._html(html)
 
     def _owner_portal_login_page(self):
-        self._owner_portal_render('业主自助服务', self._load_template('owner_portal_login.html'))
+        self._owner_portal_render('业主自助服务', self._load_template('owner_portal_login.html').replace('{PHONE}', ''))
+
+    def _owner_portal_send_code_post(self, data):
+        phone = data.get('phone', [''])[0]
+        try:
+            result = OwnerPortalService().send_code(phone)
+            message = f'<div class="alert alert-success mt-3">验证码已生成，测试验证码：<strong>{h(result["debug_code"])}</strong></div>'
+        except OwnerPortalError as exc:
+            message = f'<div class="alert alert-danger mt-3">{h(str(exc))}</div>'
+        content = self._load_template('owner_portal_login.html').replace('{PHONE}', h(phone)) + message
+        self._owner_portal_render('业主自助服务', content)
+
+    def _owner_portal_logout(self):
+        self.send_response(302)
+        self.send_header('Location', '/owner-portal/login')
+        self.send_header('Set-Cookie', 'owner_portal_token=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/')
+        self.end_headers()
 
     def _owner_portal_login_post(self, data):
         phone = data.get('phone', [''])[0]

@@ -2,9 +2,14 @@
 <p class="eyebrow">OWNER SELF SERVICE</p>
 <h1>业主自助服务</h1>
 <p>请输入手机号和本地测试验证码，查看房间、账单和缴费记录。</p>
+<form method="POST" action="/owner-portal/send-code">
+<label>手机号</label>
+<input name="phone" value="{PHONE}" placeholder="请输入业主手机号" autocomplete="tel">
+<button class="btn-ghost" type="submit">发送验证码</button>
+</form>
 <form method="POST" action="/owner-portal/login">
 <label>手机号</label>
-<input name="phone" placeholder="请输入业主手机号" autocomplete="tel">
+<input name="phone" value="{PHONE}" placeholder="请输入业主手机号" autocomplete="tel">
 <label>验证码</label>
 <input name="code" placeholder="请输入验证码" inputmode="numeric">
 <button class="btn-main" type="submit">登录业主端</button>

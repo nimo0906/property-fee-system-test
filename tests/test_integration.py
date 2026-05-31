@@ -3395,6 +3395,41 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    def test_owner_portal_h5_send_code_displays_debug_code(self):
+        import server.db as db_module
+        phone = '13800136666'
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('验证码按钮业主', phone)).lastrowid
+        db.commit(); db.close()
+        try:
+            status, body, _ = http_post('/owner-portal/send-code', {'phone': phone}, '', TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('验证码已生成', body)
+            self.assertRegex(body, r'测试验证码：<strong>\d{6}</strong>')
+            self.assertIn(phone, body)
+        finally:
+            db = db_module.get_db()
+            db.execute('DELETE FROM owner_portal_login_codes WHERE phone=?', (phone,))
+            db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+            db.commit(); db.close()
+
+    def test_owner_portal_h5_logout_clears_cookie(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137778')
+        try:
+            conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+            conn.request('GET', '/owner-portal/logout', headers={'Cookie': cookie})
+            resp = conn.getresponse(); resp.read()
+            clear_cookie = resp.getheader('Set-Cookie', '')
+            location = resp.getheader('Location', '')
+            conn.close()
+
+            self.assertEqual(resp.status, 302)
+            self.assertEqual(location, '/owner-portal/login')
+            self.assertIn('owner_portal_token=', clear_cookie)
+            self.assertIn('Max-Age=0', clear_cookie)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
 
 if __name__ == '__main__':
     unittest.main()
