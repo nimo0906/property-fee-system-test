@@ -3434,6 +3434,33 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/owner-portal/send-code', '', TEST_PORT)
         self.assertEqual(status, 302)
 
+    def test_owner_portal_h5_bill_detail_payment_preview_does_not_write(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137779')
+        _, _, _, bill_id = ids
+        try:
+            import server.db as db_module
+            db = db_module.get_db()
+            before = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
+            db.close()
+
+            status, body, _ = http_post(f'/owner-portal/bills/{bill_id}/preview-payment', {
+                'amount': '25.00',
+            }, cookie, TEST_PORT)
+
+            self.assertEqual(status, 200)
+            self.assertIn('支付前确认结果', body)
+            self.assertIn('本次确认金额', body)
+            self.assertIn('25.00', body)
+            self.assertIn('支付后剩余欠费', body)
+            self.assertIn('35.00', body)
+
+            db = db_module.get_db()
+            after = db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (bill_id,)).fetchone()[0]
+            db.close()
+            self.assertEqual(before, after)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -100,7 +100,7 @@ class OwnerPortalPageMixin:
         rows = ''.join(f'<a class="list-card" href="/owner-portal/bills/{b["id"]}"><strong>{h(b["bill_number"] or "账单")} · {h(b["fee_type"])}</strong><span>{h(b["period"])} · 欠费 {b["unpaid_amount"]}</span></a>' for b in bills)
         self._owner_portal_render('我的账单', f'<h1>我的账单</h1>{rows or "<p>暂无账单</p>"}')
 
-    def _owner_portal_bill_detail_page(self, bill_id):
+    def _owner_portal_bill_detail_page(self, bill_id, preview=None, error=''):
         session = self._owner_portal_require()
         if not session:
             return self._redirect('/owner-portal/login')
@@ -109,13 +109,35 @@ class OwnerPortalPageMixin:
         if not bills:
             return self._error(404)
         b = bills[0]
+        result_html = ''
+        if preview:
+            result_html = f'''<div class="detail-card"><h2>支付前确认结果</h2>
+            <dl><dt>当前欠费</dt><dd>{preview['unpaid_before']}</dd><dt>本次确认金额</dt><dd>{preview['amount']}</dd>
+            <dt>支付后剩余欠费</dt><dd>{preview['unpaid_after']}</dd><dt>是否结清</dt><dd>{'是' if preview['will_mark_paid'] else '否'}</dd></dl></div>'''
+        if error:
+            result_html = f'<div class="alert alert-danger">{h(error)}</div>'
         content = f'''
         <h1>账单详情</h1>
         <div class="detail-card"><h2>{h(b['bill_number'] or '账单')}</h2><p>{h(b['period'])} · {h(b['fee_type'])}</p>
         <dl><dt>应收</dt><dd>{b['amount']}</dd><dt>已缴</dt><dd>{b['paid_amount']}</dd><dt>欠费</dt><dd>{b['unpaid_amount']}</dd><dt>截止日</dt><dd>{h(b['due_date'] or '-')}</dd></dl></div>
-        <div class="pay-panel"><h2>支付前确认</h2><p>当前仅支持本地预览，暂未接真实在线支付。</p><button class="btn-main" disabled>在线支付待接入</button></div>
+        <div class="pay-panel"><h2>支付前确认</h2><p>当前仅支持本地预览，暂未接真实在线支付。</p>
+        <form method="POST" action="/owner-portal/bills/{bill_id}/preview-payment">
+        <label>确认支付金额</label><input name="amount" value="{b['unpaid_amount']}" inputmode="decimal">
+        <button class="btn-main" type="submit">确认金额</button></form></div>
+        {result_html}
         '''
         self._owner_portal_render('账单详情', content)
+
+    def _owner_portal_bill_preview_payment_post(self, bill_id, data):
+        session = self._owner_portal_require()
+        if not session:
+            return self._redirect('/owner-portal/login')
+        amount = data.get('amount', [''])[0]
+        try:
+            preview = OwnerPortalService().preview_payment(session, {'bill_id': str(bill_id), 'amount': amount})
+            return self._owner_portal_bill_detail_page(bill_id, preview=preview)
+        except Exception as exc:
+            return self._owner_portal_bill_detail_page(bill_id, error=str(exc))
 
     def _owner_portal_payments_page(self):
         session = self._owner_portal_require()
