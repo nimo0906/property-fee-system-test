@@ -3201,6 +3201,118 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(count, 0)
         self._cleanup_api_payment_bill(owner_id, room_id, fee_type_id, bill_id)
 
+    def _create_owner_portal_fixture(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name,phone,id_card) VALUES(?,?,?)", ('业主端API', '13800139999', '610100199001011234')).lastrowid
+        other_owner_id = db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('其他业主', '13800138888')).lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('业主端座', '1单元', '2501', 25, '商户', 99.9, owner_id),
+        ).lastrowid
+        other_room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('其他座', '1单元', '2601', 26, '商户', 66.6, other_owner_id),
+        ).lastrowid
+        fee_type_id = db.execute("INSERT INTO fee_types(name,calc_method,unit_price) VALUES(?,?,?)", ('业主端API费', 'fixed', 80)).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, fee_type_id, '2027-01', 80, '2027-01-31', 'unpaid', 'OWNER-PORTAL-BILL'),
+        ).lastrowid
+        other_bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (other_room_id, other_owner_id, fee_type_id, '2027-01', 60, '2027-01-31', 'unpaid', 'OWNER-PORTAL-OTHER'),
+        ).lastrowid
+        db.execute(
+            "INSERT INTO payments(bill_id,amount_paid,payment_date,payment_method,operator) VALUES(?,?,datetime('now','localtime'),?,?)",
+            (bill_id, 20, 'cash', 'admin'),
+        )
+        db.commit()
+        db.close()
+        return owner_id, other_owner_id, room_id, other_room_id, fee_type_id, bill_id, other_bill_id
+
+    def _cleanup_owner_portal_fixture(self, ids):
+        import server.db as db_module
+        owner_id, other_owner_id, room_id, other_room_id, fee_type_id, bill_id, other_bill_id = ids
+        db = db_module.get_db()
+        db.execute('DELETE FROM owner_portal_sessions WHERE owner_id IN (?,?)', (owner_id, other_owner_id))
+        db.execute('DELETE FROM owner_portal_login_codes WHERE phone IN (?,?)', ('13800139999', '13800138888'))
+        db.execute('DELETE FROM payments WHERE bill_id IN (?,?)', (bill_id, other_bill_id))
+        db.execute('DELETE FROM bills WHERE id IN (?,?)', (bill_id, other_bill_id))
+        db.execute('DELETE FROM fee_types WHERE id=?', (fee_type_id,))
+        db.execute('DELETE FROM rooms WHERE id IN (?,?)', (room_id, other_room_id))
+        db.execute('DELETE FROM owners WHERE id IN (?,?)', (owner_id, other_owner_id))
+        db.commit()
+        db.close()
+
+    def _owner_portal_login_cookie(self):
+        status, body, _ = http_post('/api/v1/owner-portal/send-code', {'phone': '13800139999'}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        code = json.loads(body)['data']['debug_code']
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode({'phone': '13800139999', 'code': code})
+        conn.request('POST', '/api/v1/owner-portal/login', params, {'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = conn.getresponse()
+        login_body = resp.read().decode('utf-8')
+        cookie = resp.getheader('Set-Cookie', '').split(';')[0]
+        conn.close()
+        self.assertEqual(resp.status, 200)
+        self.assertTrue(json.loads(login_body)['ok'])
+        self.assertTrue(cookie.startswith('owner_portal_token='))
+        return cookie
+
+    def test_owner_portal_login_profile_rooms_bills_payments_and_preview(self):
+        ids = self._create_owner_portal_fixture()
+        owner_id, _, room_id, _, _, bill_id, other_bill_id = ids
+        try:
+            owner_cookie = self._owner_portal_login_cookie()
+
+            status, profile_body = http_get('/api/v1/owner-portal/profile', owner_cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            profile = json.loads(profile_body)['data']
+            self.assertEqual(profile['id'], owner_id)
+            self.assertEqual(profile['id_card_masked'], '610100********1234')
+            self.assertNotIn('id_card', profile)
+
+            status, rooms_body = http_get('/api/v1/owner-portal/rooms', owner_cookie, TEST_PORT)
+            rooms = json.loads(rooms_body)['data']['items']
+            self.assertEqual(status, 200)
+            self.assertEqual([r['id'] for r in rooms], [room_id])
+
+            status, bills_body = http_get('/api/v1/owner-portal/bills?status=unpaid', owner_cookie, TEST_PORT)
+            bills = json.loads(bills_body)['data']['items']
+            self.assertEqual(status, 200)
+            self.assertEqual([b['id'] for b in bills], [bill_id])
+            self.assertEqual(bills[0]['unpaid_amount'], '60.00')
+
+            status, payments_body = http_get('/api/v1/owner-portal/payments', owner_cookie, TEST_PORT)
+            payments = json.loads(payments_body)['data']['items']
+            self.assertEqual(status, 200)
+            self.assertEqual(len(payments), 1)
+            self.assertEqual(payments[0]['amount'], '20.00')
+
+            status, preview_body, _ = http_post('/api/v1/owner-portal/payments/preview', {
+                'bill_id': str(bill_id),
+                'amount': '30.00',
+            }, owner_cookie, TEST_PORT)
+            preview = json.loads(preview_body)
+            self.assertEqual(status, 200)
+            self.assertEqual(preview['data']['unpaid_after'], '30.00')
+
+            status, denied_body, _ = http_post('/api/v1/owner-portal/payments/preview', {
+                'bill_id': str(other_bill_id),
+                'amount': '10.00',
+            }, owner_cookie, TEST_PORT)
+            self.assertEqual(status, 403)
+            self.assertEqual(json.loads(denied_body)['error']['code'], 'forbidden')
+        finally:
+            self._cleanup_owner_portal_fixture(ids)
+
+    def test_owner_portal_profile_requires_owner_session(self):
+        status, body = http_get('/api/v1/owner-portal/profile', '', TEST_PORT)
+        self.assertEqual(status, 401)
+        self.assertEqual(json.loads(body)['error']['code'], 'unauthorized')
+
 
 if __name__ == '__main__':
     unittest.main()

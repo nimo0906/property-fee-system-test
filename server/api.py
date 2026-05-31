@@ -4,8 +4,10 @@
 
 import json
 import re
+import urllib.parse
 
 from server.backups import create_db_backup
+from server.owner_portal import OwnerPortalError, OwnerPortalService
 from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
 
@@ -29,7 +31,37 @@ class ApiMixin:
         self.end_headers()
         self.wfile.write(body)
 
+
+    def _owner_portal_token(self):
+        cookie = self.headers.get('Cookie', '')
+        if m := re.search(r'owner_portal_token=([^;]+)', cookie):
+            return m.group(1)
+        return ''
+
+    def _owner_portal_session(self):
+        token = self._owner_portal_token()
+        if not token:
+            raise OwnerPortalError('请先登录')
+        return OwnerPortalService().get_session(token)
+
     def _api_get(self, path):
+        if path.startswith('/api/v1/owner-portal/'):
+            try:
+                service = OwnerPortalService()
+                session = self._owner_portal_session()
+                if path == '/api/v1/owner-portal/profile':
+                    return self._api_json(service.profile(session))
+                if path == '/api/v1/owner-portal/rooms':
+                    return self._api_json(service.rooms(session))
+                if path == '/api/v1/owner-portal/bills':
+                    q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    filters = {key: values[0] for key, values in q.items() if values}
+                    return self._api_json(service.bills(session, filters))
+                if path == '/api/v1/owner-portal/payments':
+                    return self._api_json(service.payments(session))
+                return self._api_error(404, 'not_found', '接口不存在')
+            except OwnerPortalError as exc:
+                return self._api_error(401, 'unauthorized', str(exc))
         if not self._get_current_user():
             return self._api_error(401, 'unauthorized', '请先登录')
         try:
@@ -45,10 +77,35 @@ class ApiMixin:
 
 
     def _api_post(self, path, data):
+        request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
+        if path.startswith('/api/v1/owner-portal/'):
+            service = OwnerPortalService()
+            try:
+                if path == '/api/v1/owner-portal/send-code':
+                    return self._api_json(service.send_code(request.get('phone')))
+                if path == '/api/v1/owner-portal/login':
+                    result = service.login(request.get('phone'), request.get('code'))
+                    token = result.pop('token')
+                    body = json.dumps({'ok': True, 'data': result}, ensure_ascii=False).encode('utf-8')
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json; charset=utf-8')
+                    self.send_header('Set-Cookie', f'owner_portal_token={token}; HttpOnly; SameSite=Lax; Path=/')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers(); self.wfile.write(body)
+                    return
+                if path == '/api/v1/owner-portal/payments/preview':
+                    session = self._owner_portal_session()
+                    return self._api_json(service.preview_payment(session, request))
+                return self._api_error(404, 'not_found', '接口不存在')
+            except OwnerPortalError as exc:
+                code = 'forbidden' if '无权限' in str(exc) else 'unauthorized'
+                status = 403 if code == 'forbidden' else 401
+                return self._api_error(status, code, str(exc))
+            except ServiceError as exc:
+                return self._api_error(400, 'validation_error', str(exc))
         if not self._get_current_user():
             return self._api_error(401, 'unauthorized', '请先登录')
         try:
-            request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
             if path == '/api/v1/payments/preview':
                 return self._api_json(PaymentService().preview_payment(request))
             if path == '/api/v1/payments':
