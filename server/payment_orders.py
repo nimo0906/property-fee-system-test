@@ -115,7 +115,8 @@ class PaymentOrderService:
         if not external_event_id:
             raise PaymentOrderError('回调事件ID不能为空')
         try:
-            get_payment_channel(channel)
+            payment_channel = get_payment_channel(channel)
+            payment_channel.verify_callback(request, request.get('headers') or {})
         except PaymentChannelError as exc:
             raise PaymentOrderError(str(exc))
         db = get_db()

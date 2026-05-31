@@ -19,6 +19,18 @@ class MockPaymentChannel:
             'provider_order_no': f'mock-{order_no}',
         }
 
+    def verify_callback(self, payload, headers=None):
+        headers = headers or {}
+        signature = (
+            headers.get('X-Mock-Signature')
+            or headers.get('x-mock-signature')
+            or payload.get('signature')
+            or ''
+        )
+        if signature != 'mock-signature':
+            raise PaymentChannelError('回调签名校验失败')
+        return True
+
 
 def get_payment_channel(name):
     channel = str(name or 'mock').strip().lower()

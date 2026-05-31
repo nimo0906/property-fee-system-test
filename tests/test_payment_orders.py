@@ -142,6 +142,7 @@ class TestPaymentOrders(unittest.TestCase):
             'order_no': order['order_no'],
             'amount': '100.00',
             'raw_summary': 'mock callback success',
+            'signature': 'mock-signature',
         })
         second = service.process_callback({
             'channel': 'mock',
@@ -149,6 +150,7 @@ class TestPaymentOrders(unittest.TestCase):
             'order_no': order['order_no'],
             'amount': '100.00',
             'raw_summary': 'mock callback duplicate',
+            'signature': 'mock-signature',
         })
 
         payment_count = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
@@ -159,6 +161,25 @@ class TestPaymentOrders(unittest.TestCase):
         self.assertEqual(payment_count, 1)
         self.assertEqual(callback_count, 1)
         self.assertEqual(order_status, 'paid')
+
+    def test_process_callback_rejects_invalid_signature_before_recording(self):
+        from server.payment_orders import PaymentOrderError, PaymentOrderService
+        service = PaymentOrderService()
+        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+
+        with self.assertRaisesRegex(PaymentOrderError, '回调签名校验失败'):
+            service.process_callback({
+                'channel': 'mock',
+                'external_event_id': 'evt-bad-sign',
+                'order_no': order['order_no'],
+                'amount': '100.00',
+                'signature': 'bad-signature',
+            })
+
+        callback_count = self.db.execute('SELECT COUNT(*) FROM payment_callbacks WHERE order_no=?', (order['order_no'],)).fetchone()[0]
+        payment_count = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
+        self.assertEqual(callback_count, 0)
+        self.assertEqual(payment_count, 0)
 
 
 if __name__ == '__main__':

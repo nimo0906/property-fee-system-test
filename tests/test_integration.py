@@ -3649,6 +3649,7 @@ class TestIntegration(unittest.TestCase):
                 'order_no': order['order_no'],
                 'amount': '60.00',
                 'raw_summary': 'api mock callback',
+                'signature': 'mock-signature',
             }
 
             status, first_body, _ = http_post('/api/v1/payment-callbacks/mock', payload, '', TEST_PORT)

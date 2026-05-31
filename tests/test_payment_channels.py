@@ -26,6 +26,15 @@ class TestPaymentChannels(unittest.TestCase):
         with self.assertRaisesRegex(PaymentChannelError, '暂未启用该支付通道'):
             get_payment_channel('wechat')
 
+    def test_mock_callback_signature_requires_expected_test_signature(self):
+        from server.payment_channels import PaymentChannelError, get_payment_channel
+        channel = get_payment_channel('mock')
+        payload = {'order_no': 'POTEST001', 'external_event_id': 'evt-001', 'amount': '88.00'}
+
+        self.assertTrue(channel.verify_callback(payload, {'X-Mock-Signature': 'mock-signature'}))
+        with self.assertRaisesRegex(PaymentChannelError, '回调签名校验失败'):
+            channel.verify_callback(payload, {'X-Mock-Signature': 'bad-signature'})
+
 
 if __name__ == '__main__':
     unittest.main()
