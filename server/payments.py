@@ -362,11 +362,25 @@ class PaymentMixin(BaseHandler):
         if cond:
             sql += ' WHERE ' + ' AND '.join(cond)
         sql += ' ORDER BY po.id DESC LIMIT 300'
-        db = get_db(); rows = db.execute(sql, vals).fetchall(); db.close()
+        db = get_db()
+        rows = db.execute(sql, vals).fetchall()
+        metrics = db.execute(
+            'SELECT status, COUNT(*) cnt FROM payment_orders GROUP BY status'
+        ).fetchall()
+        db.close()
         total = sum(float(r['amount'] or 0) for r in rows)
+        metric_map = {r['status']: int(r['cnt']) for r in metrics}
+        waiting_count = metric_map.get('created', 0) + metric_map.get('pending', 0)
+        paid_count = metric_map.get('paid', 0)
+        failed_count = metric_map.get('failed', 0) + metric_map.get('cancelled', 0)
         options = ''.join(f'<option value="{s}"{" selected" if status==s else ""}>{s or "全部状态"}</option>' for s in ['', 'created', 'pending', 'paid', 'failed', 'cancelled'])
         body = ''.join(self._payment_order_row(r) for r in rows)
         self._html(self._page('支付订单', f'''
+<div class="metric-grid mb-3">
+<div class="metric-card"><div class="metric-label">待支付订单</div><div class="metric-value">{waiting_count}</div></div>
+<div class="metric-card success"><div class="metric-label">已支付订单</div><div class="metric-value">{paid_count}</div></div>
+<div class="metric-card danger"><div class="metric-label">失败订单</div><div class="metric-value">{failed_count}</div></div>
+</div>
 <div class="filter-bar"><div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
 <div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{options}</select></div>
@@ -374,15 +388,16 @@ class PaymentMixin(BaseHandler):
 <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/payment_orders" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div>
 </form><div class="metric-card mb-0 py-2 px-3"><div class="metric-label">订单合计</div><div class="metric-value fs-5 money">¥{m(total)}</div></div></div></div>
 <div class="card"><div class="card-header"><i class="bi bi-phone"></i> 业主端支付订单</div>
-<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>订单号</th><th>状态</th><th>账单</th><th>房间</th><th>业主</th><th>账期</th><th class="text-end">金额</th><th>渠道</th><th>创建时间</th></tr></thead>
-<tbody>{body or '<tr><td colspan="9" class="text-center text-muted py-4">暂无支付订单</td></tr>'}</tbody></table></div></div>''', 'payment_orders'))
+<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>订单号</th><th>状态</th><th>账单</th><th>房间</th><th>业主</th><th>账期</th><th class="text-end">金额</th><th>渠道</th><th>创建时间</th><th>关联</th></tr></thead>
+<tbody>{body or '<tr><td colspan="10" class="text-center text-muted py-4">暂无支付订单</td></tr>'}</tbody></table></div></div>''', 'payment_orders'))
 
     def _payment_order_row(self, r):
         room = f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}'
         return f'''<tr><td><a href="/payment_orders/{h(r['order_no'])}">{h(r['order_no'])}</a></td>
 <td><span class="badge status-info">{h(r['status'])}</span></td><td>{h(r['bill_number'] or '-')}</td>
 <td>{h(room)}</td><td>{h(r['owner_name'] or '-')}</td><td>{h(r['billing_period'] or '-')}</td>
-<td class="text-end">¥{m(r['amount'])}</td><td>{h(r['channel'])}</td><td>{h(r['created_at'] or '-')}</td></tr>'''
+<td class="text-end">¥{m(r['amount'])}</td><td>{h(r['channel'])}</td><td>{h(r['created_at'] or '-')}</td>
+<td><a href="/bills/{r['bill_id']}">账单</a> <a href="/payments?period={h(r['billing_period'] or '')}">缴费记录</a></td></tr>'''
 
     def _payment_order_detail(self, order_no):
         db = get_db()
@@ -404,7 +419,7 @@ class PaymentMixin(BaseHandler):
 <dt class="col-sm-2">状态</dt><dd class="col-sm-10"><span class="badge status-info">{h(row['status'])}</span></dd>
 <dt class="col-sm-2">金额</dt><dd class="col-sm-10">¥{m(row['amount'])}</dd>
 <dt class="col-sm-2">渠道</dt><dd class="col-sm-10">{h(row['channel'])}</dd>
-<dt class="col-sm-2">账单</dt><dd class="col-sm-10">{h(row['bill_number'])} <a href="/bills/{row['bill_id']}" class="btn btn-sm btn-outline-primary ms-2">查看账单</a></dd>
+<dt class="col-sm-2">账单</dt><dd class="col-sm-10">{h(row['bill_number'])} <a href="/bills/{row['bill_id']}" class="btn btn-sm btn-outline-primary ms-2">查看账单</a> <a href="/payments?period={h(row['billing_period'] or '')}" class="btn btn-sm btn-outline-success ms-2">查看缴费记录</a></dd>
 <dt class="col-sm-2">房间</dt><dd class="col-sm-10">{h(room)}</dd>
 <dt class="col-sm-2">业主</dt><dd class="col-sm-10">{h(row['owner_name'] or '-')} {h(row['owner_phone'] or '')}</dd>
 <dt class="col-sm-2">创建时间</dt><dd class="col-sm-10">{h(row['created_at'] or '-')}</dd>

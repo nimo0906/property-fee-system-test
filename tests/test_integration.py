@@ -3603,6 +3603,35 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    def test_admin_payment_orders_show_status_metrics_and_related_links(self):
+        cookie, ids = self._owner_portal_login_browser_cookie('13800137785')
+        _, _, _, bill_id = ids
+        try:
+            status, body, _ = http_post('/api/v1/owner-portal/payment-orders', {
+                'bill_id': str(bill_id),
+                'amount': '60.00',
+                'channel': 'mock',
+            }, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            order = json.loads(body)['data']
+            status, _, _ = http_post(f'/api/v1/owner-portal/payment-orders/{order["order_no"]}/mock-paid', {}, cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+
+            status, list_page = http_get('/payment_orders', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('待支付订单', list_page)
+            self.assertIn('已支付订单', list_page)
+            self.assertIn('失败订单', list_page)
+            self.assertIn('href="/bills/', list_page)
+            self.assertIn('href="/payments?', list_page)
+
+            status, detail_page = http_get(f'/payment_orders/{order["order_no"]}', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('查看缴费记录', detail_page)
+            self.assertIn('href="/payments?', detail_page)
+        finally:
+            self._cleanup_owner_portal_h5_fixture(ids)
+
 
 if __name__ == '__main__':
     unittest.main()
