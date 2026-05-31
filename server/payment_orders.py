@@ -7,6 +7,7 @@ import secrets
 
 from server.db import get_db
 from server.owner_portal import OwnerPortalError, OwnerPortalService
+from server.payment_channels import PaymentChannelError, get_payment_channel
 from server.services import Actor, PaymentService, ServiceError
 
 
@@ -42,8 +43,10 @@ class PaymentOrderService:
         bill_id = int(request.get('bill_id') or 0)
         amount = request.get('amount') or '0'
         channel = request.get('channel') or 'mock'
-        if channel != 'mock':
-            raise PaymentOrderError('当前仅支持模拟支付')
+        try:
+            payment_channel = get_payment_channel(channel)
+        except PaymentChannelError as exc:
+            raise PaymentOrderError(str(exc))
         try:
             OwnerPortalService().preview_payment(owner_session, {'bill_id': str(bill_id), 'amount': amount})
         except (OwnerPortalError, ServiceError) as exc:
@@ -57,13 +60,15 @@ class PaymentOrderService:
                 (order_no, owner_session['owner_id'], bill_id, float(amount), channel, request.get('idempotency_key') or ''),
             )
             db.commit()
-            return {
+            result = {
                 'order_no': order_no,
                 'bill_id': bill_id,
                 'amount': _money(amount),
                 'channel': channel,
                 'status': 'created',
             }
+            result['channel_payload'] = payment_channel.prepare_order(result)
+            return result
         finally:
             db.close()
 

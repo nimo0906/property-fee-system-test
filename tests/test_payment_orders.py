@@ -118,6 +118,19 @@ class TestPaymentOrders(unittest.TestCase):
         with self.assertRaisesRegex(PaymentOrderError, '订单不存在'):
             service.get_order(other_session, order['order_no'])
 
+    def test_create_order_returns_channel_preparation_payload(self):
+        from server.payment_orders import PaymentOrderService
+
+        order = PaymentOrderService().create_order(self.session, {
+            'bill_id': str(self.bill_id),
+            'amount': '70.00',
+            'channel': 'mock',
+        })
+
+        self.assertEqual(order['channel_payload']['channel'], 'mock')
+        self.assertEqual(order['channel_payload']['provider_status'], 'ready')
+        self.assertIn('mock_pay_url', order['channel_payload'])
+
 
 if __name__ == '__main__':
     unittest.main()
