@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local database and backups
+property.db
+property.db-shm
+property.db-wal
+backups/
+
+# Build outputs
+build/
+dist/
+*.spec.bak
+
+# Local env and logs
+.env
+*.log
