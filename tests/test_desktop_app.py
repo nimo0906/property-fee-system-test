@@ -66,6 +66,21 @@ class TestDesktopDeliveryDiagnostics(unittest.TestCase):
         self.assertIn('Missing dependencies: openpyxl', text)
         self.assertIn('install_windows_dependencies.bat', text)
 
+
+    def test_desktop_default_port_prefers_documented_5001(self):
+        port = desktop_app.choose_desktop_port(start=54321)
+        self.assertEqual(port, 54321)
+
+    def test_desktop_port_falls_back_when_5001_is_busy(self):
+        sock = __import__('socket').socket(__import__('socket').AF_INET, __import__('socket').SOCK_STREAM)
+        try:
+            sock.bind(('127.0.0.1', 54321))
+            port = desktop_app.choose_desktop_port(start=54321)
+            self.assertNotEqual(port, 54321)
+            self.assertGreaterEqual(port, 54322)
+        finally:
+            sock.close()
+
     def test_find_free_port_reports_checked_range_when_unavailable(self):
         sockets = []
         try:
@@ -157,6 +172,21 @@ class TestDesktopWindowExperience(unittest.TestCase):
             self.assertIn('数据保存在本机', model['hint'])
             self.assertEqual(model['startup_log'], str(Path(tmp) / 'startup_error.log'))
 
+
+    def test_window_model_shows_service_url_and_restart_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = desktop_app.build_window_model(
+                url='http://127.0.0.1:5001',
+                data_dir=Path(tmp),
+                db_path=Path(tmp) / 'property.db',
+                backup_dir=Path(tmp) / 'backups',
+            )
+            labels = [a['label'] for a in model['actions']]
+            self.assertEqual(model['url'], 'http://127.0.0.1:5001')
+            self.assertIn('重新启动服务', labels)
+            self.assertIn('当前访问地址', model['service_status'])
+            self.assertIn('http://127.0.0.1:5001', model['service_status'])
+
     def test_write_runtime_status_log_creates_support_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             status = desktop_app.get_runtime_status(data_dir=tmp, dependencies=[])
@@ -173,7 +203,7 @@ class TestDesktopRuntimeModule(unittest.TestCase):
         for name in [
             'get_resource_dir', 'prepare_runtime', 'get_runtime_status',
             'format_runtime_status', 'write_runtime_status_log',
-            'build_window_model', 'find_free_port', 'write_startup_error',
+            'build_window_model', 'choose_desktop_port', 'find_free_port', 'write_startup_error',
         ]:
             self.assertTrue(hasattr(desktop_runtime, name), name)
 
@@ -182,6 +212,7 @@ class TestDesktopRuntimeModule(unittest.TestCase):
         self.assertIs(desktop_app.prepare_runtime, desktop_runtime.prepare_runtime)
         self.assertIs(desktop_app.build_window_model, desktop_runtime.build_window_model)
         self.assertIs(desktop_app.write_runtime_status_log, desktop_runtime.write_runtime_status_log)
+        self.assertIs(desktop_app.choose_desktop_port, desktop_runtime.choose_desktop_port)
 
 class TestMacDesktopDeployment(unittest.TestCase):
     def test_macos_build_files_exist_and_include_required_assets(self):

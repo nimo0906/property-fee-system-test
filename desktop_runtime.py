@@ -115,15 +115,22 @@ def build_window_model(url, data_dir, db_path, backup_dir):
         "backup_dir": str(backup_dir),
         "startup_log": str(startup_log),
         "runtime_log": str(runtime_log),
+        "service_status": f"当前访问地址: {url}",
         "hint": "数据保存在本机，关闭窗口会停止本地服务。启动失败时请查看诊断信息或错误日志。",
         "actions": [
             {"label": "打开系统", "kind": "open_url"},
+            {"label": "重新启动服务", "kind": "restart_service"},
             {"label": "打开数据目录", "kind": "open_folder"},
             {"label": "查看诊断信息", "kind": "diagnose"},
             {"label": "打开错误日志", "kind": "open_startup_log"},
             {"label": "退出", "kind": "exit"},
         ],
     }
+
+
+def choose_desktop_port(start=5001):
+    """Prefer the documented local port, then fall back to the next free port."""
+    return find_free_port(start, attempts=100)
 
 
 def find_free_port(start=5000, attempts=100):
