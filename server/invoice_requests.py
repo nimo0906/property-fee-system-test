@@ -97,6 +97,34 @@ class InvoiceRequestService:
         finally:
             db.close()
 
+    def update_status(self, request_no, request):
+        new_status = str(request.get('status') or '').strip()
+        if new_status not in ('pending', 'submitted', 'issued', 'failed'):
+            raise InvoiceRequestError('票据状态不合法')
+        time_sql = ''
+        if new_status == 'submitted':
+            time_sql = ", submitted_at=datetime('now','localtime')"
+        elif new_status == 'issued':
+            time_sql = ", issued_at=datetime('now','localtime')"
+        db = get_db()
+        try:
+            cur = db.execute(
+                "UPDATE invoice_requests SET status=?, external_invoice_id=?, failure_reason=?, "
+                f"updated_at=datetime('now','localtime'){time_sql} WHERE request_no=?",
+                (
+                    new_status,
+                    request.get('external_invoice_id') or '',
+                    request.get('failure_reason') or '',
+                    request_no,
+                ),
+            )
+            db.commit()
+            if cur.rowcount == 0:
+                raise InvoiceRequestError('电子票据请求不存在')
+        finally:
+            db.close()
+        return self.get_request(request_no)
+
     def _format(self, row):
         data = dict(row)
         return {

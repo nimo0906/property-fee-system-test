@@ -3,11 +3,48 @@
 """Electronic invoice management."""
 
 from server.db import get_db, get_period, h, m, qs, date_to_period, period_to_date
+from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
 from server.base import BaseHandler
 from datetime import date, datetime
 
 
 class InvoiceMixin(BaseHandler):
+
+    def _invoice_requests(self, q):
+        status_filter = qs(q, 'status', '')
+        filters = {'status': status_filter} if status_filter else {}
+        requests = InvoiceRequestService().list_requests(filters)['items']
+        status_options = '<option value="">全部状态</option>' + ''.join(
+            f'<option value="{s}"{" selected" if status_filter == s else ""}>{s}</option>'
+            for s in ['pending', 'submitted', 'issued', 'failed']
+        )
+        rows = ''
+        for r in requests:
+            rows += f'''<tr><td><small>{h(r["request_no"])}</small></td><td>{h(r["buyer_name"] or "-")}</td>
+            <td class="text-end">¥{h(r["amount"])}</td><td><span class="badge bg-secondary">{h(r["status"])}</span></td>
+            <td>{h(r["external_invoice_id"] or "-")}</td><td><form method="POST" action="/invoice_requests/{h(r["request_no"])}/status" class="d-flex gap-1">
+            <select name="status" class="form-select form-select-sm"><option value="submitted">submitted</option><option value="issued">issued</option><option value="failed">failed</option></select>
+            <input name="external_invoice_id" class="form-control form-control-sm" placeholder="外部票据号">
+            <button class="btn btn-sm btn-primary">更新</button></form></td></tr>'''
+        self._html(self._page('电子票据请求', f'''
+        <div class="d-flex justify-content-between mb-3"><form method="GET" class="d-flex gap-2">
+        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{status_options}</select>
+        <a href="/invoice_requests" class="btn btn-sm btn-outline-secondary">重置</a></form></div>
+        <div class="card"><div class="card-header">电子票据请求</div><div class="table-responsive"><table class="table table-hover mb-0">
+        <thead><tr><th>请求号</th><th>抬头</th><th class="text-end">金额</th><th>状态</th><th>外部票据号</th><th style="min-width:360px">操作</th></tr></thead>
+        <tbody>{rows or '<tr><td colspan="6" class="text-center text-muted py-3">暂无电子票据请求</td></tr>'}</tbody></table></div></div>
+        ''', 'invoices'))
+
+    def _invoice_request_status_post(self, request_no, d):
+        try:
+            InvoiceRequestService().update_status(request_no, {
+                'status': qs(d, 'status'),
+                'external_invoice_id': qs(d, 'external_invoice_id'),
+                'failure_reason': qs(d, 'failure_reason'),
+            })
+            return self._redirect('/invoice_requests?flash=电子票据状态已更新')
+        except InvoiceRequestError as exc:
+            return self._redirect('/invoice_requests?flash=' + str(exc))
 
     def _invoices(self, q):
         db=get_db();p=date_to_period(qs(q,'period',get_period()))

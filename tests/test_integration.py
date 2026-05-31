@@ -3702,6 +3702,42 @@ class TestIntegration(unittest.TestCase):
             self._cleanup_owner_portal_h5_fixture(ids)
 
 
+
+    def test_invoice_requests_backend_page_updates_status(self):
+        import server.db as db_module
+        from server.invoice_requests import InvoiceRequestService
+        db = db_module.get_db()
+        owner_id = create_owner(db, '后台票据业主', '13800139002')
+        room_id = create_room(db, building='INVADMIN', room_number='3902', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, owner_id=owner_id, amount=99.0, status='paid', period='2030-01')
+        db.close()
+        request = InvoiceRequestService().create_request({'bill_id': bill_id, 'buyer_name': '后台票据抬头'})
+        try:
+            status, page = http_get('/invoice_requests', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('电子票据请求', page)
+            self.assertIn(request['request_no'], page)
+
+            status, _, loc = http_post(f'/invoice_requests/{request["request_no"]}/status', {
+                'status': 'issued',
+                'external_invoice_id': 'EINV-001',
+            }, self.cookie, TEST_PORT)
+            self.assertEqual(status, 302)
+            self.assertIn('/invoice_requests', loc)
+
+            db = db_module.get_db()
+            row = db.execute('SELECT status, external_invoice_id FROM invoice_requests WHERE request_no=?', (request['request_no'],)).fetchone()
+            db.close()
+            self.assertEqual(row['status'], 'issued')
+            self.assertEqual(row['external_invoice_id'], 'EINV-001')
+        finally:
+            db = db_module.get_db()
+            db.execute('DELETE FROM invoice_requests WHERE bill_id=?', (bill_id,))
+            db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+            db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+            db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+            db.commit(); db.close()
+
     def test_invoice_request_api_create_list_and_detail(self):
         import server.db as db_module
         db = db_module.get_db()
