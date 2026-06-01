@@ -16,7 +16,7 @@ class TestBasicImport(unittest.TestCase):
         self.db.execute("CREATE TABLE owners(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT)")
         self.db.execute(
             "CREATE TABLE rooms(id INTEGER PRIMARY KEY AUTOINCREMENT, building TEXT, unit TEXT, room_number TEXT, "
-            "floor INTEGER, category TEXT, area REAL, owner_id INTEGER, contract_start TEXT, contract_end TEXT, business_type TEXT, notes TEXT)"
+            "floor INTEGER, category TEXT, area REAL, owner_id INTEGER, contract_start TEXT, contract_end TEXT, business_type TEXT, tenant_name TEXT, notes TEXT)"
         )
         self.db.execute("CREATE TABLE bills(id INTEGER PRIMARY KEY AUTOINCREMENT)")
         self.db.commit()
@@ -52,6 +52,7 @@ class TestBasicImport(unittest.TestCase):
         self.assertEqual(room['contract_start'], '2024-10-01')
         self.assertEqual(room['contract_end'], '2027-09-30')
         self.assertEqual(room['business_type'], '便利店')
+        self.assertEqual(room['tenant_name'], '程西琴')
         self.assertNotIn('业态:便利店', room['notes'])
         self.assertEqual(owner['phone'], '18291415177')
         self.assertEqual(bills, 0)

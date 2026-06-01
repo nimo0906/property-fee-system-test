@@ -825,6 +825,36 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/rooms/1/edit', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('编辑房间', body)
+        self.assertIn('租户姓名', body)
+        self.assertIn('name="tenant_name"', body)
+
+    def test_room_create_and_edit_tenant_name(self):
+        status, _, loc = http_post('/rooms/create', {
+            'building': 'T栋', 'unit': '商场', 'room_number': '1F-101',
+            'floor': '1', 'category': '商户', 'area': '88',
+            'tenant_name': '测试租户A',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/rooms?flash=', loc)
+
+        _, body = http_get('/rooms?keyword=%E6%B5%8B%E8%AF%95%E7%A7%9F%E6%88%B7A', self.cookie, TEST_PORT)
+        self.assertIn('测试租户A', body)
+
+        room_id = re.search(r'/rooms/(\d+)/edit', body).group(1)
+        status, body = http_get(f'/rooms/{room_id}/edit', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="测试租户A"', body)
+
+        status, _, loc = http_post(f'/rooms/{room_id}/edit', {
+            'building': 'T栋', 'unit': '商场', 'room_number': '1F-101',
+            'floor': '1', 'category': '商户', 'area': '88',
+            'tenant_name': '测试租户B',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/rooms?flash=', loc)
+
+        _, body = http_get('/rooms?keyword=%E6%B5%8B%E8%AF%95%E7%A7%9F%E6%88%B7B', self.cookie, TEST_PORT)
+        self.assertIn('测试租户B', body)
 
     # ── Owner CRUD ──────────────────────────────────────────────
 

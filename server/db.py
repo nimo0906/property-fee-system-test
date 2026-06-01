@@ -56,7 +56,7 @@ def db_init():
         CREATE TABLE IF NOT EXISTS notification_events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'in_app', target TEXT NOT NULL DEFAULT '', owner_id INTEGER REFERENCES owners(id), bill_id INTEGER REFERENCES bills(id), order_no TEXT, payload TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', error_message TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), sent_at TEXT);
     """
     c.executescript(SQL)
-    for col in ['contract_start','contract_end','id_card','id_card_front','id_card_back','business_type','water_rate_type','shop_name','payment_cycle']:
+    for col in ['contract_start','contract_end','id_card','id_card_front','id_card_back','business_type','water_rate_type','shop_name','tenant_name','payment_cycle']:
         try: c.execute(f"ALTER TABLE rooms ADD COLUMN {col} TEXT")
         except: pass
     try: c.execute("ALTER TABLE fee_types ADD COLUMN reminder_advance_days INTEGER DEFAULT 30")

@@ -85,13 +85,14 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                 problem_rows.append(_problem_row(row_no, f'合同日期异常: {raw_contract}', row))
             business_type = gc(row, 'business_type')
             shop_name = gc(row, 'shop_name')
+            tenant_name = gc(row, 'tenant_name')
             custom_rate_raw = gc(row, 'custom_rate')
             custom_rate = _to_float(custom_rate_raw, None) if custom_rate_raw else None
             payment_cycle = _normalize_payment_cycle(gc(row, 'payment_cycle'))
             water_rate_type = _normalize_water_rate_type(gc(row, 'water_rate_type'))
             _append_commercial_rule_warnings(problem_rows, row_no, row, unit, category, area, custom_rate_raw, payment_cycle)
             notes = _build_notes(
-                tenant=gc(row, 'tenant_name'),
+                tenant=tenant_name,
                 shop=shop_name,
                 rent_period=gc(row, 'rent_period'),
             )
@@ -120,9 +121,9 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                     db.execute(
                         "UPDATE rooms SET unit=?, floor=?, category=?, area=?, owner_id=COALESCE(?, owner_id), "
                         "contract_start=COALESCE(NULLIF(?, ''), contract_start), "
-                        "contract_end=COALESCE(NULLIF(?, ''), contract_end), business_type=COALESCE(NULLIF(?, ''), business_type), shop_name=COALESCE(NULLIF(?, ''), shop_name), custom_rate=COALESCE(?, custom_rate), payment_cycle=COALESCE(NULLIF(?, ''), payment_cycle), water_rate_type=COALESCE(NULLIF(?, ''), water_rate_type), notes=? WHERE id=?",
+                        "contract_end=COALESCE(NULLIF(?, ''), contract_end), business_type=COALESCE(NULLIF(?, ''), business_type), shop_name=COALESCE(NULLIF(?, ''), shop_name), tenant_name=COALESCE(NULLIF(?, ''), tenant_name), custom_rate=COALESCE(?, custom_rate), payment_cycle=COALESCE(NULLIF(?, ''), payment_cycle), water_rate_type=COALESCE(NULLIF(?, ''), water_rate_type), notes=? WHERE id=?",
                         (unit, floor, category, area or room['area'], owner_id, contract_start, contract_end,
-                         business_type, shop_name, custom_rate, payment_cycle, water_rate_type, _merge_notes(room['notes'], notes), room['id'])
+                         business_type, shop_name, tenant_name, custom_rate, payment_cycle, water_rate_type, _merge_notes(room['notes'], notes), room['id'])
                     )
                 updated_rooms += 1
                 changed_rooms.append(_changed_room(
@@ -133,9 +134,9 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                 room_id = None
                 if not dry_run:
                     cur = db.execute(
-                        "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,contract_start,contract_end,business_type,shop_name,custom_rate,payment_cycle,water_rate_type,notes) "
-                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                        (building, unit, room_number, floor, category, area, owner_id, contract_start, contract_end, business_type, shop_name, custom_rate, payment_cycle, water_rate_type, notes)
+                        "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,contract_start,contract_end,business_type,shop_name,tenant_name,custom_rate,payment_cycle,water_rate_type,notes) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (building, unit, room_number, floor, category, area, owner_id, contract_start, contract_end, business_type, shop_name, tenant_name, custom_rate, payment_cycle, water_rate_type, notes)
                     )
                     room_id = cur.lastrowid
                 imported_rooms += 1
@@ -163,6 +164,7 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
 def _ensure_optional_room_columns(db):
     for sql in [
         "ALTER TABLE rooms ADD COLUMN shop_name TEXT",
+        "ALTER TABLE rooms ADD COLUMN tenant_name TEXT",
         "ALTER TABLE rooms ADD COLUMN custom_rate REAL",
         "ALTER TABLE rooms ADD COLUMN payment_cycle TEXT",
         "ALTER TABLE rooms ADD COLUMN water_rate_type TEXT",

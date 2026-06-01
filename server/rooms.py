@@ -15,14 +15,14 @@ class RoomMixin(BaseHandler):
         cond=[];vals=[]
         if bld:cond.append("r.building=?");vals.append(bld)
         if cat:cond.append("r.category=?");vals.append(cat)
-        if kw:cond.append("(r.room_number LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.category LIKE ? OR r.business_type LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR CAST(r.area AS TEXT) LIKE ?)");vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%'])
+        if kw:cond.append("(r.room_number LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.category LIKE ? OR r.business_type LIKE ? OR r.tenant_name LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR CAST(r.area AS TEXT) LIKE ?)");vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%'])
         if cond:sql+=" WHERE "+" AND ".join(cond)
         sql+=" ORDER BY r.building,r.unit,r.room_number"
         rows=db.execute(sql,vals).fetchall()
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
         cats=db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
         db.close()
-        rh=''.join(f'<tr><td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td><td>{h(r["shop_name"] or "-")}</td><td>{r["floor"] or "-"}F</td><td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td><td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td><td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td><td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a><form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>' for r in rows)
+        rh=''.join(f'<tr><td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td><td>{h(r["shop_name"] or "-")}</td><td>{h(r["tenant_name"] or "-")}</td><td>{r["floor"] or "-"}F</td><td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td><td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td><td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td><td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a><form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>' for r in rows)
         bo='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
         default_cats = ["居民", "商户", "商业"]
         cat_values = []
@@ -32,7 +32,7 @@ class RoomMixin(BaseHandler):
         cat_opts = '<option value="">全部房间类型</option>' + ''.join(f'<option value="{h(x)}"{" selected" if cat==x else""}>{h(x)}</option>' for x in cat_values)
         tpl=self._load_template('rooms.html')
         tpl=tpl.replace('{BOPTS}',bo).replace('{KW}',h(kw)).replace('{CAT_OPTS}', cat_opts)
-        empty = """<tr><td colspan="11" class="text-center text-muted py-5">
+        empty = """<tr><td colspan="12" class="text-center text-muted py-5">
         <div><i class="bi bi-door-open" style="font-size:2rem;color:#adb5bd"></i></div>
         <h6 class="mt-2">还没有房间资料</h6>
         <p class="mb-3">推荐先按模板导入楼栋、房号、楼层、面积、业主和合同日期；少量资料也可以手动添加。</p>
@@ -62,6 +62,7 @@ class RoomMixin(BaseHandler):
         ce=h(room['contract_end'] or'') if room else ''
         bt=h(room['business_type'] or'') if room and 'business_type' in room.keys() else ''
         sn=h(room['shop_name'] or'') if room and 'shop_name' in room.keys() else ''
+        tn=h(room['tenant_name'] or'') if room and 'tenant_name' in room.keys() else ''
         pc=(room['payment_cycle'] if room and 'payment_cycle' in room.keys() and room['payment_cycle'] else 'monthly')
         wt=(room['water_rate_type'] if room and 'water_rate_type' in room.keys() and room['water_rate_type'] else '非居民')
         nt=h(room['notes'] or'') if room else ''
@@ -89,6 +90,7 @@ class RoomMixin(BaseHandler):
     <div class="col-md-3"><label>身份证反面</label><input type="file" class="form-control form-control-sm" accept="image/*" id="idBack" onchange="previewImg(this,'previewBack')"><br><img id="previewBack" src="{h(room["id_card_back"] if room else "" or "")}" style="max-height:60px;max-width:120px;display:{"none" if not (room and room["id_card_back"] if room else "") else "inline"}" class="border rounded">
     <input name="id_card_back" type="hidden" id="idCardBackVal" value="{h(room["id_card_back"] if room else "" or "")}"></div>
     <div class="col-md-3"><label>店铺名称</label><input name="shop_name" class="form-control" value="{sn}" placeholder="如：某某便利店"></div>
+    <div class="col-md-3"><label>租户姓名</label><input name="tenant_name" class="form-control" value="{tn}" placeholder="当前承租人姓名"></div>
     <div class="col-md-3"><label>业态/商户类别</label><input name="business_type" class="form-control" value="{bt}" placeholder="如：餐饮、零售、美容、办公"><small class="text-muted">用于商户类别统计，如：餐饮、零售、美容、办公。</small></div>
     <div class="col-md-3"><label>备注</label><input name="notes" class="form-control" value="{nt}" placeholder="其他补充说明"></div>
     <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/rooms" class="btn btn-outline-secondary">取消</a></div></form>
@@ -112,11 +114,11 @@ class RoomMixin(BaseHandler):
             else:
                 db.execute("INSERT INTO owners(name,phone,id_card) VALUES(?,?,?)",(oname,ophone,icard))
                 oid=str(db.execute("SELECT last_insert_rowid()").fetchone()[0])
-        db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area,custom_rate,contract_start,contract_end,owner_id,business_type,shop_name,payment_cycle,water_rate_type,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area,custom_rate,contract_start,contract_end,owner_id,business_type,shop_name,tenant_name,payment_cycle,water_rate_type,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                    (qs(d,'building'),qs(d,'unit','A座'),qs(d,'room_number'),
                     int(qs(d,'floor') or 0),qs(d,'category','居民'),float(qs(d,'area',0)),
                     float(cr) if cr else None,qs(d,'contract_start'),qs(d,'contract_end'),
-                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes')))
+                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes')))
         db.commit();db.close()
         self._redirect('/rooms?flash=添加成功')
 
@@ -138,11 +140,11 @@ class RoomMixin(BaseHandler):
             else:
                 db.execute("INSERT INTO owners(name,phone,id_card) VALUES(?,?,?)",(oname,ophone,icard))
                 oid=str(db.execute("SELECT last_insert_rowid()").fetchone()[0])
-        db.execute("UPDATE rooms SET building=?,unit=?,room_number=?,floor=?,category=?,area=?,custom_rate=?,contract_start=?,contract_end=?,owner_id=?,business_type=?,shop_name=?,payment_cycle=?,water_rate_type=?,notes=? WHERE id=?",
+        db.execute("UPDATE rooms SET building=?,unit=?,room_number=?,floor=?,category=?,area=?,custom_rate=?,contract_start=?,contract_end=?,owner_id=?,business_type=?,shop_name=?,tenant_name=?,payment_cycle=?,water_rate_type=?,notes=? WHERE id=?",
                    (qs(d,'building'),qs(d,'unit'),qs(d,'room_number'),
                     int(qs(d,'floor') or 0),qs(d,'category','居民'),float(qs(d,'area',0)),
                     float(cr) if cr else None,qs(d,'contract_start'),qs(d,'contract_end'),
-                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes'),rid))
+                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes'),rid))
         db.commit();db.close()
         self._redirect('/rooms?flash=更新成功')
 
