@@ -3,6 +3,7 @@
 """Desktop launcher safety tests."""
 
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -324,3 +325,28 @@ class TestMacDesktopDeployment(unittest.TestCase):
         self.assertIn('物业管理收费系统.app', usage)
         self.assertIn('macOS 启动验收', checklist)
         self.assertIn('物业管理收费系统.app', checklist)
+
+class TestGitHubInternalReleaseWorkflow(unittest.TestCase):
+    def test_internal_release_workflow_builds_windows_and_macos_assets(self):
+        workflow = Path('.github/workflows/internal-desktop-release.yml')
+        self.assertTrue(workflow.exists())
+        text = workflow.read_text(encoding='utf-8')
+        for phrase in [
+            'windows-latest', 'macos-latest', 'package_windows_release.bat',
+            '物业管理收费系统-v2.0-windows.zip', '物业管理收费系统-v2.0-macos.zip',
+            'update_manifest.json', 'internal-latest', 'gh release upload',
+        ]:
+            self.assertIn(phrase, text)
+
+    def test_windows_packaging_scripts_do_not_pause_in_ci(self):
+        for name in ['package_windows_release.bat', 'check_windows_packaging_ready.bat', 'build_windows_exe.bat']:
+            text = Path(name).read_text(encoding='utf-8')
+            self.assertNotRegex(text.lower(), r'(?m)^\s*pause\s*$')
+            self.assertIn('if not defined CI pause'.lower(), text.lower())
+
+    def test_default_update_manifest_points_to_internal_latest_release(self):
+        from server.app_version import DEFAULT_UPDATE_MANIFEST_URL
+        self.assertIn('/releases/download/internal-latest/update_manifest.json', DEFAULT_UPDATE_MANIFEST_URL)
+        manifest = json.loads(Path('update_manifest.json').read_text(encoding='utf-8'))
+        self.assertIn('/releases/download/internal-latest/', manifest['assets']['mac']['url'])
+        self.assertIn('/releases/download/internal-latest/', manifest['assets']['windows']['url'])

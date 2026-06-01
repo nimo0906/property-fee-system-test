@@ -68,14 +68,14 @@ if exist "property.db" (
 echo.
 if "%FAILED%"=="1" (
     echo Check failed. Fix the FAIL items above before packaging.
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
 echo All required Windows packaging files are ready.
 echo Next step: double-click package_windows_release.bat
 echo.
-pause
+if not defined CI pause
 exit /b 0
 
 :check_file

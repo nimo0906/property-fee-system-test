@@ -21,7 +21,7 @@ if %errorlevel%==0 (
     ) else (
         echo Python 3 was not found.
         echo Install Python 3 and select "Add python.exe to PATH".
-        pause
+        if not defined CI pause
         exit /b 1
     )
 )
@@ -30,20 +30,20 @@ if %errorlevel%==0 (
 %PYTHON_CMD% -m pip install -r requirements.txt pyinstaller
 if errorlevel 1 (
     echo Dependency installation failed.
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
 %PYTHON_CMD% -m PyInstaller --clean --noconfirm property_fee_system.spec
 if errorlevel 1 (
     echo Build failed.
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
 if not exist "dist\PropertyFeeSystem\PropertyFeeSystem.exe" (
     echo Build output not found: dist\PropertyFeeSystem\PropertyFeeSystem.exe
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
@@ -82,14 +82,14 @@ for /f "delims=" %%i in ('%PYTHON_CMD% --version 2^>^&1') do set "PY_VERSION=%%i
 where powershell >nul 2>nul
 if errorlevel 1 (
     echo PowerShell was not found. Release folder is ready: %RELEASE_DIR%
-    pause
+    if not defined CI pause
     exit /b 0
 )
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Compress-Archive -Path '%RELEASE_DIR%' -DestinationPath '%ZIP_PATH%' -Force; $bad = @(); Add-Type -AssemblyName System.IO.Compression.FileSystem; $zip = [IO.Compression.ZipFile]::OpenRead('%ZIP_PATH%'); foreach ($e in $zip.Entries) { if ($e.FullName -match '(^|/)(\.env|property\.db|[^/]*\.db|backups/|\.pytest_cache/|__pycache__/|.*\.log)$') { $bad += $e.FullName } }; $zip.Dispose(); if ($bad.Count -gt 0) { Write-Host 'Forbidden files found in zip:'; $bad; exit 1 }"
 if errorlevel 1 (
     echo Zip creation failed. Release folder is ready: %RELEASE_DIR%
-    pause
+    if not defined CI pause
     exit /b 1
 )
 
@@ -98,4 +98,4 @@ echo Windows release package is ready:
 echo %ZIP_PATH%
 echo.
 echo Ordinary users only need to unzip it and double-click PropertyFeeSystem.exe.
-pause
+if not defined CI pause
