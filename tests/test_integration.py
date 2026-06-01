@@ -750,6 +750,8 @@ class TestIntegration(unittest.TestCase):
                 self.assertEqual(status, 200)
                 self.assertIn('data-back-button="1"', body)
                 self.assertIn('返回', body)
+                self.assertIn('topbar-actions d-flex', body)
+                self.assertNotIn('topbar-actions d-none d-md-flex', body)
 
     def test_primary_pages_do_not_show_global_back_button(self):
         for path in ['/', '/rooms', '/fee_types']:
