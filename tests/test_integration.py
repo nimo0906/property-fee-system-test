@@ -1860,6 +1860,38 @@ class TestIntegration(unittest.TestCase):
         db.close()
         self.assertEqual(remaining, [ids[1]])
 
+    def test_print_selected_bills_combines_multiple_items_on_one_summary(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '合并打印业主', '13911112222')
+        room_id = create_room(db, building='PRINTMERGE', unit='商场', room_number='1F-201', category='商户', area=50, owner_id=owner_id)
+        bill_a = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period='2031-01', amount=100, status='unpaid')
+        bill_b = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=2, period='2031-01', amount=200, status='unpaid')
+        db.close()
+
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode([
+            ('bill_ids', str(bill_a)),
+            ('bill_ids', str(bill_b)),
+            ('back', '/bills?period=2031-01&building=PRINTMERGE'),
+        ])
+        conn.request('POST', '/bills/print_selected', params, {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Cookie': self.cookie,
+        })
+        resp = conn.getresponse()
+        print_html = resp.read().decode('utf-8')
+        conn.close()
+
+        self.assertEqual(resp.status, 200)
+        self.assertIn('选中账单合并打印', print_html)
+        self.assertIn('合计应缴', print_html)
+        self.assertIn('¥300.00', print_html)
+        self.assertIn('物业费(居民)', print_html)
+        self.assertIn('物业费(商户)', print_html)
+        self.assertEqual(print_html.count('物业管理缴费单'), 1)
+        self.assertNotIn('<div class="page-break"', print_html)
+
     def test_bill_list_print_and_receipt_preserve_current_back_url(self):
         http_post('/rooms/create', {
             'building': 'PRINTBACK', 'unit': 'A座', 'room_number': '801',

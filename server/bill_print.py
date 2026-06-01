@@ -8,7 +8,66 @@ from server.print_helper import print_page, print_header_row
 from datetime import datetime, date
 import urllib.parse, csv, io
 
-from server.print_helper import print_page, print_header_row
+def _combined_bill_print_html(rows):
+    status_names = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
+    first = rows[0]
+    room_names = sorted({
+        f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}' for r in rows
+    })
+    owner_names = sorted({r['oname'] or '-' for r in rows})
+    periods = sorted({r['billing_period'] or '-' for r in rows})
+    total = sum(float(r['amount'] or 0) for r in rows)
+
+    info = ''.join(print_header_row(k, v) for k, v in [
+        ('房间', h('、'.join(room_names))),
+        ('业主', h('、'.join(owner_names))),
+        ('电话', h(first['ophone'] or '-')),
+        ('账期', h('、'.join(periods))),
+        ('账单数量', f'{len(rows)} 笔'),
+        ('打印方式', '选中账单合并打印'),
+    ])
+
+    detail_rows = []
+    for index, bill in enumerate(rows, 1):
+        room_name = f'{bill["building"] or ""}-{bill["unit"] or ""}-{bill["room_number"] or ""}'
+        detail_rows.append(f'''
+            <tr>
+                <td>{index}</td>
+                <td>{h(bill['bill_number'] or '-')}</td>
+                <td>{h(room_name)}</td>
+                <td>{h(bill['ft'] or '-')}</td>
+                <td>{h(bill['billing_period'] or '-')}</td>
+                <td class="amt">¥{m(bill['amount'])}</td>
+                <td>{status_names.get(bill['status'], h(bill['status'] or '-'))}</td>
+            </tr>
+        ''')
+
+    return f'''
+        <h1>物业管理缴费单</h1>
+        <h2>选中账单合并打印</h2>
+        <table class="header-info">{info}</table>
+        <table class="detail">
+            <thead>
+                <tr>
+                    <th>序号</th><th>票据号</th><th>房间</th><th>费用项目</th>
+                    <th>账期</th><th>金额</th><th>状态</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(detail_rows)}
+                <tr class="total-row">
+                    <td colspan="5">合计应缴</td>
+                    <td class="amt">¥{m(total)}</td>
+                    <td></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="amount-box">
+            <div class="label">合计应缴</div>
+            <div class="number">¥{m(total)}</div>
+        </div>
+        <table class="signature"><tr><td>业主签字</td><td>收费员签字</td><td>物业盖章</td></tr></table>
+    '''
 
 
 class BillPrintMixin(BaseHandler):
@@ -35,33 +94,7 @@ class BillPrintMixin(BaseHandler):
             db.close()
             if not rows:
                 return self._redirect(back_url, '未找到账单')
-            pages = ''
-            sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
-            for i, b in enumerate(rows):
-                info = ''.join(print_header_row(k, v) for k, v in [
-                    ('房号', f'{h(b["building"])}-{h(b["unit"])}-{h(b["room_number"])}'),
-                    ('业主', h(b["oname"] or '-')),
-                    ('费用项目', h(b["ft"])),
-                    ('账期', h(b["billing_period"])),
-                    ('票据号', h(b["bill_number"] or '-')),
-                    ('截止日', h(b["due_date"] or '-')),
-                ])
-                pages += f'''
-                <div class="page-break"></div>
-                <h1>物业管理缴费单</h1>
-                <table class="header-info">{info}</table>
-                <div class="amount-box">
-                    <div class="label">应缴金额</div>
-                    <div class="number">¥{m(b["amount"])}</div>
-                    <div style="margin-top:6pt;font-size:10pt;color:#666">
-                        状态：{sn.get(b["status"], b["status"])}
-                    </div>
-                </div>
-                <table class="signature"><tr><td>业主签字</td><td>收费员签字</td><td>物业盖章</td></tr></table>
-                '''
-                if i == 0:
-                    pages = pages.replace('<div class="page-break"></div>', '')
-            self._html(print_page('缴费单-选中', pages, back_url=back_url))
+            self._html(print_page('缴费单-选中', _combined_bill_print_html(rows), back_url=back_url))
     
         def _bill_print_batch(self, q):
             """批量打印账单"""
