@@ -15,7 +15,7 @@ class RoomMixin(BaseHandler):
         cond=[];vals=[]
         if bld:cond.append("r.building=?");vals.append(bld)
         if cat:cond.append("r.category=?");vals.append(cat)
-        if kw:cond.append("(r.room_number LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.category LIKE ? OR r.business_type LIKE ? OR r.tenant_name LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR CAST(r.area AS TEXT) LIKE ?)");vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%'])
+        if kw:cond.append("(r.room_number LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.category LIKE ? OR r.business_type LIKE ? OR r.tenant_name LIKE ? OR r.tenant_phone LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR CAST(r.area AS TEXT) LIKE ?)");vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%'])
         if cond:sql+=" WHERE "+" AND ".join(cond)
         sql+=" ORDER BY r.building,r.unit,r.room_number"
         rows=db.execute(sql,vals).fetchall()
@@ -63,6 +63,7 @@ class RoomMixin(BaseHandler):
         bt=h(room['business_type'] or'') if room and 'business_type' in room.keys() else ''
         sn=h(room['shop_name'] or'') if room and 'shop_name' in room.keys() else ''
         tn=h(room['tenant_name'] or'') if room and 'tenant_name' in room.keys() else ''
+        tph=h(room['tenant_phone'] or'') if room and 'tenant_phone' in room.keys() else ''
         tic=h(room['tenant_id_card'] or'') if room and 'tenant_id_card' in room.keys() else ''
         tif=h(room['tenant_id_card_front'] or'') if room and 'tenant_id_card_front' in room.keys() else ''
         tib=h(room['tenant_id_card_back'] or'') if room and 'tenant_id_card_back' in room.keys() else ''
@@ -84,6 +85,7 @@ class RoomMixin(BaseHandler):
     <div class="col-md-3"><label>身份证正面</label><input type="file" class="form-control form-control-sm" accept="image/*" id="idFront" onchange="previewImg(this,'previewFront')"><br><img id="previewFront" src="{h(room["id_card_front"] if room else "" or "")}" style="max-height:60px;max-width:120px;display:{"none" if not (room and room["id_card_front"] if room else "") else "inline"}" class="border rounded"><input name="id_card_front" type="hidden" id="idCardFrontVal" value="{h(room["id_card_front"] if room else "" or "")}"></div>
     <div class="col-md-3"><label>身份证反面</label><input type="file" class="form-control form-control-sm" accept="image/*" id="idBack" onchange="previewImg(this,'previewBack')"><br><img id="previewBack" src="{h(room["id_card_back"] if room else "" or "")}" style="max-height:60px;max-width:120px;display:{"none" if not (room and room["id_card_back"] if room else "") else "inline"}" class="border rounded"><input name="id_card_back" type="hidden" id="idCardBackVal" value="{h(room["id_card_back"] if room else "" or "")}"></div>
     <div class="col-md-3"><label>租户姓名</label><input name="tenant_name" class="form-control" value="{tn}" placeholder="当前承租人姓名"></div>
+    <div class="col-md-3"><label>租户电话</label><input name="tenant_phone" class="form-control" value="{tph}" placeholder="承租人联系电话"></div>
     <div class="col-md-3"><label>租户身份证号</label><input name="tenant_id_card" class="form-control" value="{tic}" placeholder="承租人身份证号"></div>
     <div class="col-md-3"><label>租户身份证正面</label><input type="file" class="form-control form-control-sm" accept="image/*" id="tenantIdFront" onchange="previewImg(this,'previewTenantFront')"><br><img id="previewTenantFront" src="{tif}" style="max-height:60px;max-width:120px;display:{"none" if not tif else "inline"}" class="border rounded"><input name="tenant_id_card_front" type="hidden" id="idCardTenantFrontVal" value="{tif}"></div>
     <div class="col-md-3"><label>租户身份证反面</label><input type="file" class="form-control form-control-sm" accept="image/*" id="tenantIdBack" onchange="previewImg(this,'previewTenantBack')"><br><img id="previewTenantBack" src="{tib}" style="max-height:60px;max-width:120px;display:{"none" if not tib else "inline"}" class="border rounded"><input name="tenant_id_card_back" type="hidden" id="idCardTenantBackVal" value="{tib}"></div>
@@ -115,11 +117,11 @@ class RoomMixin(BaseHandler):
             else:
                 db.execute("INSERT INTO owners(name,phone,id_card) VALUES(?,?,?)",(oname,ophone,icard))
                 oid=str(db.execute("SELECT last_insert_rowid()").fetchone()[0])
-        db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area,custom_rate,contract_start,contract_end,owner_id,business_type,shop_name,tenant_name,tenant_id_card,tenant_id_card_front,tenant_id_card_back,payment_cycle,water_rate_type,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area,custom_rate,contract_start,contract_end,owner_id,business_type,shop_name,tenant_name,tenant_phone,tenant_id_card,tenant_id_card_front,tenant_id_card_back,payment_cycle,water_rate_type,notes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                    (qs(d,'building'),qs(d,'unit','A座'),qs(d,'room_number'),
                     int(qs(d,'floor') or 0),qs(d,'category','居民'),float(qs(d,'area',0)),
                     float(cr) if cr else None,qs(d,'contract_start'),qs(d,'contract_end'),
-                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'tenant_id_card'),qs(d,'tenant_id_card_front'),qs(d,'tenant_id_card_back'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes')))
+                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'tenant_phone'),qs(d,'tenant_id_card'),qs(d,'tenant_id_card_front'),qs(d,'tenant_id_card_back'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes')))
         db.commit();db.close()
         self._redirect('/rooms?flash=添加成功')
 
@@ -141,11 +143,11 @@ class RoomMixin(BaseHandler):
             else:
                 db.execute("INSERT INTO owners(name,phone,id_card) VALUES(?,?,?)",(oname,ophone,icard))
                 oid=str(db.execute("SELECT last_insert_rowid()").fetchone()[0])
-        db.execute("UPDATE rooms SET building=?,unit=?,room_number=?,floor=?,category=?,area=?,custom_rate=?,contract_start=?,contract_end=?,owner_id=?,business_type=?,shop_name=?,tenant_name=?,tenant_id_card=?,tenant_id_card_front=?,tenant_id_card_back=?,payment_cycle=?,water_rate_type=?,notes=? WHERE id=?",
+        db.execute("UPDATE rooms SET building=?,unit=?,room_number=?,floor=?,category=?,area=?,custom_rate=?,contract_start=?,contract_end=?,owner_id=?,business_type=?,shop_name=?,tenant_name=?,tenant_phone=?,tenant_id_card=?,tenant_id_card_front=?,tenant_id_card_back=?,payment_cycle=?,water_rate_type=?,notes=? WHERE id=?",
                    (qs(d,'building'),qs(d,'unit'),qs(d,'room_number'),
                     int(qs(d,'floor') or 0),qs(d,'category','居民'),float(qs(d,'area',0)),
                     float(cr) if cr else None,qs(d,'contract_start'),qs(d,'contract_end'),
-                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'tenant_id_card'),qs(d,'tenant_id_card_front'),qs(d,'tenant_id_card_back'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes'),rid))
+                    int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'tenant_phone'),qs(d,'tenant_id_card'),qs(d,'tenant_id_card_front'),qs(d,'tenant_id_card_back'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes'),rid))
         db.commit();db.close()
         self._redirect('/rooms?flash=更新成功')
 

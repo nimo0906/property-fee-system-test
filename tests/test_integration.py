@@ -848,7 +848,7 @@ class TestIntegration(unittest.TestCase):
             '楼栋', '单元/区域', '铺位号/房号', '楼层',
             '房间类型', '面积(m²)', '物业费单价(元/m²·月)', '水费标准',
             '业主姓名', '业主电话', '身份证号', '身份证正面', '身份证反面',
-            '租户姓名', '租户身份证号', '租户身份证正面', '租户身份证反面',
+            '租户姓名', '租户电话', '租户身份证号', '租户身份证正面', '租户身份证反面',
             '合同起始', '合同到期', '缴费周期', '店铺名称', '业态/商户类别',
             '备注',
         ]
@@ -872,6 +872,7 @@ class TestIntegration(unittest.TestCase):
             'building': 'T栋', 'unit': '商场', 'room_number': '1F-101',
             'floor': '1', 'category': '商户', 'area': '88',
             'tenant_name': '测试租户A',
+            'tenant_phone': '13800138001',
             'tenant_id_card': '610101199001011234',
             'tenant_id_card_front': 'front-data',
             'tenant_id_card_back': 'back-data',
@@ -886,6 +887,8 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get(f'/rooms/{room_id}/edit', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('value="测试租户A"', body)
+        self.assertIn('租户电话', body)
+        self.assertIn('value="13800138001"', body)
         self.assertIn('租户身份证号', body)
         self.assertIn('value="610101199001011234"', body)
         self.assertIn('租户身份证正面', body)
@@ -897,6 +900,7 @@ class TestIntegration(unittest.TestCase):
             'building': 'T栋', 'unit': '商场', 'room_number': '1F-101',
             'floor': '1', 'category': '商户', 'area': '88',
             'tenant_name': '测试租户B',
+            'tenant_phone': '13800138002',
             'tenant_id_card': '610101199002022345',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
@@ -907,6 +911,7 @@ class TestIntegration(unittest.TestCase):
 
         status, body = http_get(f'/rooms/{room_id}/edit', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
+        self.assertIn('value="13800138002"', body)
         self.assertIn('value="610101199002022345"', body)
 
     # ── Owner CRUD ──────────────────────────────────────────────
