@@ -2335,6 +2335,21 @@ class TestIntegration(unittest.TestCase):
         _, body = http_get('/fee_types?group=commercial', self.cookie, TEST_PORT)
         self.assertIn('测试商业收费项', body)
 
+    def test_fee_type_edit_allows_blank_optional_numbers(self):
+        status, _, loc = http_post('/fee_types/13/edit', {
+            'name': '泄水费',
+            'calc_method': 'area',
+            'unit_price': '1.5',
+            'unit': '元/m²·月',
+            'billing_cycle': 'monthly',
+            'sort_order': '',
+            'is_active': 'on',
+            'notes': '排水设施维护费',
+            'reminder_advance_days': '',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/fee_types?flash=', loc)
+
     def test_fee_type_create_saves_new_tiers_and_generates_with_tier_rate(self):
         status, body, loc = http_post('/fee_types/create', {
             'name': '自定义分档面积费',

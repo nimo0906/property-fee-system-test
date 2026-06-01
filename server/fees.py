@@ -7,6 +7,20 @@ from server.base import BaseHandler
 import json
 
 
+def _to_float(value, default=0.0):
+    try:
+        return float(value if str(value).strip() != '' else default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _to_int(value, default=0):
+    try:
+        return int(value if str(value).strip() != '' else default)
+    except (TypeError, ValueError):
+        return default
+
+
 class FeeMixin(BaseHandler):
 
     # ── 费用类型 ──────────────────────────────────────────────
@@ -262,8 +276,8 @@ document.getElementById("newTierRate").value="";
         db=get_db()
         return_group = qs(d, 'return_group')
         cur = db.execute("INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes,reminder_advance_days) VALUES(?,?,?,?,?,?,?,?,?)",
-                         (qs(d,'name'),qs(d,'calc_method'),float(qs(d,'unit_price',0)),qs(d,'unit'),qs(d,'billing_cycle','monthly'),
-                          int(qs(d,'sort_order',0)),1 if qs(d,'is_active') else 0,qs(d,'notes'),int(qs(d,'reminder_advance_days',30))))
+                         (qs(d,'name'),qs(d,'calc_method'),_to_float(qs(d,'unit_price'), 0),qs(d,'unit'),qs(d,'billing_cycle','monthly'),
+                          _to_int(qs(d,'sort_order'), 0),1 if qs(d,'is_active') else 0,qs(d,'notes'),_to_int(qs(d,'reminder_advance_days'), 30)))
         fid = cur.lastrowid
         new_cats = d.get('new_tier_cat', [])
         new_rates = d.get('new_tier_rate', [])
@@ -279,8 +293,8 @@ document.getElementById("newTierRate").value="";
     def _fee_type_edit(self, fid, d):
         db=get_db()
         db.execute("UPDATE fee_types SET name=?,calc_method=?,unit_price=?,unit=?,billing_cycle=?,sort_order=?,is_active=?,notes=?,reminder_advance_days=? WHERE id=?",
-                   (qs(d,'name'),qs(d,'calc_method'),float(qs(d,'unit_price',0)),qs(d,'unit'),qs(d,'billing_cycle','monthly'),
-                    int(qs(d,'sort_order',0)),1 if qs(d,'is_active') else 0,qs(d,'notes'),int(qs(d,'reminder_advance_days',30)),fid))
+                   (qs(d,'name'),qs(d,'calc_method'),_to_float(qs(d,'unit_price'), 0),qs(d,'unit'),qs(d,'billing_cycle','monthly'),
+                    _to_int(qs(d,'sort_order'), 0),1 if qs(d,'is_active') else 0,qs(d,'notes'),_to_int(qs(d,'reminder_advance_days'), 30),fid))
         tier_ids = d.get('tier_id', [])
         if isinstance(tier_ids, str): tier_ids = [tier_ids]
         for tid in tier_ids:
