@@ -96,7 +96,9 @@ class BillListMixin(BaseHandler):
                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
                FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN fee_types f ON b.fee_type_id=f.id LEFT JOIN owners o ON b.owner_id=o.id WHERE 1=1'''
         vals=[]
-        if p:sql+=" AND b.billing_period=?";vals.append(p)
+        if p:
+            sql += " AND (b.billing_period=? OR b.billing_period LIKE ?)"
+            vals.extend([p, f'{p}~%'])
         if s:sql+=" AND b.status=?";vals.append(s)
         if fid and fid!='0':sql+=" AND b.fee_type_id=?";vals.append(fid)
         if bld:sql+=" AND r.building=?";vals.append(bld)

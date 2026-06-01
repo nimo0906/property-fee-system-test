@@ -1188,6 +1188,23 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('if(roomCycle) months = window.cycleMonths(roomCycle);', js)
 
 
+    def test_bills_start_month_filter_includes_multi_month_billing_period(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '多月账单业主', '13900000010')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='1427', category='居民', area=59.42, owner_id=owner_id)
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()[0]
+        bill_id = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=fee_id, period='2026-06~2026-10', amount=451.60, status='paid')
+        create_payment(db, bill_id=bill_id, amount=451.60)
+        db.close()
+
+        status, body = http_get('/bills?period=2026-06-01&keyword=1427', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-06~2026-10', body)
+        self.assertIn('金莎国际-B座-1427', body)
+        self.assertNotIn('暂无账单', body)
+
+
     def test_billing_calc_get_redirects_back_to_billing_page(self):
         status, body = http_get('/billing/calc', self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
