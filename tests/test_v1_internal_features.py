@@ -42,8 +42,6 @@ class TestV1InternalFeatures(unittest.TestCase):
             'notification_events',
             'payment_callbacks',
             'payment_orders',
-            'owner_portal_sessions',
-            'owner_portal_login_codes',
             'invoices',
             'deposits',
             'parking_spots',

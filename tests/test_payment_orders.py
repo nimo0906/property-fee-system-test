@@ -15,12 +15,13 @@ db_module.DB_PATH = _db_path
 db_module.BACKUP_DIR = os.path.join(os.path.dirname(_db_path), 'backups')
 
 from server.db import db_init, get_db
-from server.owner_portal import OwnerPortalService
 
 
 class TestPaymentOrders(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        db_module.DB_PATH = _db_path
+        os.environ['PM_DB_PATH'] = _db_path
         db_init()
 
     @classmethod
@@ -31,11 +32,19 @@ class TestPaymentOrders(unittest.TestCase):
                 os.remove(path)
 
     def setUp(self):
+        db_module.DB_PATH = _db_path
+        os.environ['PM_DB_PATH'] = _db_path
         self.db = get_db()
+        self.db.execute('PRAGMA foreign_keys=OFF')
         tables = {r['name'] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
-        for table in ('invoice_requests', 'notification_events', 'payment_callbacks', 'payment_orders', 'owner_portal_sessions', 'owner_portal_login_codes', 'payments', 'bills', 'rooms', 'owners'):
+        for table in (
+            'invoice_requests', 'notification_events', 'payment_callbacks', 'payment_orders',
+            'payments', 'invoices', 'deposits', 'parking_spots', 'repairs', 'bill_adjustments',
+            'meter_readings', 'bills', 'rooms', 'owners',
+        ):
             if table in tables:
                 self.db.execute(f'DELETE FROM {table}')
+        self.db.execute('PRAGMA foreign_keys=ON')
         self.owner_id = self.db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('支付订单业主', '13800135555')).lastrowid
         self.room_id = self.db.execute(
             "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
@@ -47,10 +56,12 @@ class TestPaymentOrders(unittest.TestCase):
             (self.room_id, self.owner_id, self.fee_type_id, '2027-04', 100, '2027-04-30', 'unpaid', 'PAY-ORDER-BILL'),
         ).lastrowid
         self.db.commit()
-        service = OwnerPortalService()
-        code = service.send_code('13800135555')['debug_code']
-        token = service.login('13800135555', code)['token']
-        self.session = service.get_session(token)
+        self.order_no = 'PO202704010001'
+        self.db.execute(
+            "INSERT INTO payment_orders(order_no, owner_id, bill_id, amount, channel, status) VALUES(?,?,?,?,?,?)",
+            (self.order_no, self.owner_id, self.bill_id, 100.0, 'mock', 'created'),
+        )
+        self.db.commit()
 
     def tearDown(self):
         self.db.close()
@@ -61,83 +72,20 @@ class TestPaymentOrders(unittest.TestCase):
         self.assertIn('payment_callbacks', tables)
         self.assertIn('notification_events', tables)
 
-    def test_create_order_uses_owner_bill_and_does_not_write_payment(self):
+    def test_payment_order_service_no_longer_exposes_owner_portal_creation(self):
         from server.payment_orders import PaymentOrderService
 
-        result = PaymentOrderService().create_order(self.session, {
-            'bill_id': str(self.bill_id),
-            'amount': '70.00',
-            'channel': 'mock',
-            'idempotency_key': 'client-key-1',
-        })
-        count = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
-
-        self.assertTrue(result['order_no'].startswith('PO'))
-        self.assertEqual(result['amount'], '70.00')
-        self.assertEqual(result['status'], 'created')
-        self.assertEqual(count, 0)
-
-    def test_mock_paid_writes_payment_and_marks_order_paid_once(self):
-        from server.payment_orders import PaymentOrderError, PaymentOrderService
         service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
 
-        paid = service.mark_mock_paid(self.session, order['order_no'])
-        payment_count = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
-        status = self.db.execute('SELECT status FROM bills WHERE id=?', (self.bill_id,)).fetchone()['status']
-
-        self.assertEqual(paid['status'], 'paid')
-        self.assertEqual(payment_count, 1)
-        self.assertEqual(status, 'paid')
-        with self.assertRaisesRegex(PaymentOrderError, '订单已支付'):
-            service.mark_mock_paid(self.session, order['order_no'])
-        payment_count_after = self.db.execute('SELECT COUNT(*) FROM payments WHERE bill_id=?', (self.bill_id,)).fetchone()[0]
-        self.assertEqual(payment_count_after, 1)
-
-    def test_list_orders_returns_owned_orders_with_bill_summary(self):
-        from server.payment_orders import PaymentOrderService
-        service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '80.00', 'channel': 'mock'})
-
-        result = service.list_orders(self.session)
-
-        self.assertEqual(len(result['items']), 1)
-        item = result['items'][0]
-        self.assertEqual(item['order_no'], order['order_no'])
-        self.assertEqual(item['amount'], '80.00')
-        self.assertEqual(item['status'], 'created')
-        self.assertEqual(item['bill_number'], 'PAY-ORDER-BILL')
-        self.assertEqual(item['period'], '2027-04')
-        self.assertEqual(item['room_number'], '2801')
-
-    def test_get_order_rejects_other_owner_order(self):
-        from server.payment_orders import PaymentOrderError, PaymentOrderService
-        service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '80.00', 'channel': 'mock'})
-        other_owner_id = self.db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('其他业主', '13800135556')).lastrowid
-        self.db.commit()
-        other_session = {'owner_id': other_owner_id, 'phone': '13800135556', 'name': '其他业主'}
-
-        with self.assertRaisesRegex(PaymentOrderError, '订单不存在'):
-            service.get_order(other_session, order['order_no'])
-
-    def test_create_order_returns_channel_preparation_payload(self):
-        from server.payment_orders import PaymentOrderService
-
-        order = PaymentOrderService().create_order(self.session, {
-            'bill_id': str(self.bill_id),
-            'amount': '70.00',
-            'channel': 'mock',
-        })
-
-        self.assertEqual(order['channel_payload']['channel'], 'mock')
-        self.assertEqual(order['channel_payload']['provider_status'], 'ready')
-        self.assertIn('mock_pay_url', order['channel_payload'])
+        self.assertFalse(hasattr(service, 'create_order'))
+        self.assertFalse(hasattr(service, 'mark_mock_paid'))
+        self.assertFalse(hasattr(service, 'list_orders'))
+        self.assertFalse(hasattr(service, 'get_order'))
 
     def test_process_mock_callback_records_event_and_is_idempotent(self):
         from server.payment_orders import PaymentOrderService
         service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+        order = {'order_no': self.order_no}
 
         first = service.process_callback({
             'channel': 'mock',
@@ -169,7 +117,7 @@ class TestPaymentOrders(unittest.TestCase):
     def test_process_mock_callback_emits_payment_success_notification_event(self):
         from server.payment_orders import PaymentOrderService
         service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+        order = {'order_no': self.order_no}
 
         service.process_callback({
             'channel': 'mock',
@@ -196,7 +144,7 @@ class TestPaymentOrders(unittest.TestCase):
     def test_reconcile_order_summarizes_order_payment_and_callbacks(self):
         from server.payment_orders import PaymentOrderService
         service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+        order = {'order_no': self.order_no}
         service.process_callback({
             'channel': 'mock',
             'external_event_id': 'evt-reconcile-001',
@@ -218,7 +166,7 @@ class TestPaymentOrders(unittest.TestCase):
     def test_process_callback_rejects_invalid_signature_before_recording(self):
         from server.payment_orders import PaymentOrderError, PaymentOrderService
         service = PaymentOrderService()
-        order = service.create_order(self.session, {'bill_id': str(self.bill_id), 'amount': '100.00', 'channel': 'mock'})
+        order = {'order_no': self.order_no}
 
         with self.assertRaisesRegex(PaymentOrderError, '回调签名校验失败'):
             service.process_callback({

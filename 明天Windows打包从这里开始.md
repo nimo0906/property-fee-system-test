@@ -118,7 +118,7 @@ PropertyFeeSystem\PropertyFeeSystem.exe
 生成 Windows 包后，在 Windows 电脑上至少打开这些页面：
 
 - 后台首页 `/`
-- 业主端登录 `/owner-portal/login`
+- 支付订单对账 `/payment_orders`（确认业主端已清理提示）
 - 支付订单 `/payment_orders`
 - 电子票据 `/invoice_requests`
 - 对账报表 `/reports`

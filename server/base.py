@@ -13,7 +13,7 @@ BASE = os.environ.get('PM_RESOURCE_DIR') or os.path.dirname(os.path.dirname(os.p
 def _is_secondary_path(path):
     if path in ('/', '/login', '/logout', '/register'):
         return False
-    if path.startswith('/owner-portal/') or path.startswith('/api/') or path.startswith('/static/'):
+    if path.startswith('/api/') or path.startswith('/static/'):
         return False
     primary_paths = {
         '/rooms', '/owners', '/fee_types', '/batch_ops', '/meter_readings',
@@ -270,9 +270,6 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             <a href="/" class="btn btn-primary"><i class="bi bi-house-door"></i> 返回首页</a>
         </div>'''), code)
 
-    def _owner_portal_disabled_page(self):
-        self._html(self._page('业主端已停用', '<div class="alert alert-warning"><strong>业主端已停用</strong><br>当前内测版本暂不开放业主端访问，请使用后台收费和账单管理功能。</div>', ''), 503)
-
     def _serve_static(self, path):
         static_root = os.path.realpath(os.path.join(BASE, 'static'))
         filepath = os.path.realpath(os.path.join(BASE, path.lstrip('/')))
@@ -300,7 +297,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if p.startswith('/api/v1/'):
             return self._api_get(p)
         if p.startswith('/owner-portal/') or p == '/owner-portal':
-            return self._owner_portal_disabled_page()
+            return self._error(404)
         if p not in ('/login', '/logout', '/register') and not p.startswith('/static/'):
             u = self._get_current_user()
             if not u:
@@ -396,7 +393,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if p.startswith('/api/v1/'):
             return self._api_post(p, self._post())
         if p.startswith('/owner-portal/') or p == '/owner-portal':
-            return self._owner_portal_disabled_page()
+            return self._error(404)
         # 文件上传不经过 _post()（multipart 由 _import_upload 自行解析）
         if p == '/import/upload':
             u = self._get_current_user()

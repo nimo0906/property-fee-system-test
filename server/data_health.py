@@ -10,7 +10,7 @@ EXPECTED_TABLES = [
     'elevator_fee_tiers', 'fee_type_tiers', 'late_fee_config', 'closing_records',
     'repairs', 'users', 'sessions', 'invoices', 'invoice_requests', 'deposits',
     'parking_spots', 'bill_adjustments', 'login_attempts', 'audit_logs',
-    'shared_expense_runs', 'owner_portal_login_codes', 'owner_portal_sessions',
+    'shared_expense_runs',
     'payment_orders', 'payment_callbacks', 'notification_events',
 ]
 

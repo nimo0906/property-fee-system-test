@@ -15,7 +15,7 @@ class MockPaymentChannel:
         return {
             'channel': self.name,
             'provider_status': 'ready',
-            'mock_pay_url': f'/owner-portal/payment-orders/{order_no}',
+            'mock_pay_url': '',
             'provider_order_no': f'mock-{order_no}',
         }
 
