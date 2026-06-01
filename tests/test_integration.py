@@ -2307,6 +2307,34 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('csv', ct)
 
 
+    def test_commercial_fee_group_add_button_preserves_group_context(self):
+        status, body = http_get('/fee_types?group=commercial', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('/fee_types/create?group=commercial', body)
+
+        status, body = http_get('/fee_types/create?group=commercial', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('添加商业公司收费项目', body)
+        self.assertIn('name="return_group" value="commercial"', body)
+
+        status, body, loc = http_post('/fee_types/create', {
+            'name': '测试商业收费项',
+            'calc_method': 'fixed',
+            'unit_price': '12.5',
+            'unit': '元',
+            'billing_cycle': 'monthly',
+            'sort_order': '39',
+            'is_active': 'on',
+            'notes': '商业测试收费',
+            'reminder_advance_days': '15',
+            'return_group': 'commercial',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/fee_types?group=commercial&flash=', loc)
+
+        _, body = http_get('/fee_types?group=commercial', self.cookie, TEST_PORT)
+        self.assertIn('测试商业收费项', body)
+
     def test_fee_type_create_saves_new_tiers_and_generates_with_tier_rate(self):
         status, body, loc = http_post('/fee_types/create', {
             'name': '自定义分档面积费',

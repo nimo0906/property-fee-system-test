@@ -302,7 +302,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         elif (m := re.match(r'^/owners/(\d+)/edit$', p)): return self._owner_form(int(m.group(1)))
         elif p == '/fee_types': return self._fee_types()
         elif p == '/batch_ops': return self._batch_ops(q)
-        elif p == '/fee_types/create': return self._fee_type_form(None)
+        elif p == '/fee_types/create': return self._fee_type_form(None, qs(q, 'group'))
         elif p == '/elevator_tiers': return self._elevator_tiers()
         elif (m := re.match(r'^/fee_types/(\d+)/edit$', p)): return self._fee_type_form(int(m.group(1)))
         elif p == '/meter_readings': return self._meter_list(q)

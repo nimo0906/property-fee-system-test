@@ -67,6 +67,20 @@ class FeeMixin(BaseHandler):
             return html
 
         rows_by_name = {r['name']: r for r in all_rows}
+
+        def _belongs_to_fee_group(row, group_key, defs):
+            name = row['name'] or ''
+            if name in set(defs[group_key]['names']):
+                return True
+            sort_order = row['sort_order'] or 0
+            if group_key == 'commercial':
+                return 30 <= sort_order < 50
+            if group_key == 'property':
+                return 1 <= sort_order < 30 and name not in set(defs['other']['names'])
+            if group_key == 'other':
+                return sort_order >= 50
+            return False
+
         if selected_group in group_defs:
             gd = group_defs[selected_group]
             ordered = []
@@ -75,17 +89,17 @@ class FeeMixin(BaseHandler):
                     ordered.append(rows_by_name[name])
             selected_names = set(gd['names'])
             for r in all_rows:
-                if r['name'] in selected_names and r not in ordered:
+                if _belongs_to_fee_group(r, selected_group, group_defs) and r not in ordered:
                     ordered.append(r)
             rh = ''.join(card_for(r) for r in ordered)
-            header = '<div class="page-intro"><div><p class="text-muted mb-1 small">收费标准分组</p><h4 class="mb-0"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</h4><p class="text-muted small mb-0 mt-2">' + gd['desc'] + '</p></div><div class="export-actions"><a href="/fee_types" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回分组</a><a href="/fee_types/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加</a></div></div>'
+            header = '<div class="page-intro"><div><p class="text-muted mb-1 small">收费标准分组</p><h4 class="mb-0"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</h4><p class="text-muted small mb-0 mt-2">' + gd['desc'] + '</p></div><div class="export-actions"><a href="/fee_types" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回分组</a><a href="/fee_types/create?group=' + h(selected_group) + '" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加</a></div></div>'
             content = header + '<div class="row">' + (rh or '<div class="col-12 text-center text-muted py-5">该分组暂无收费项目</div>') + '</div>'
             db.close()
             return self._html(self._page(gd['title'], content, 'fee_types'))
 
         group_cards = ''
         for key, gd in group_defs.items():
-            present = [r for r in all_rows if r['name'] in gd['names']]
+            present = [r for r in all_rows if _belongs_to_fee_group(r, key, group_defs)]
             names_preview = '、'.join([h(r['name']) for r in present[:6]]) or '暂无项目'
             group_cards += '<div class="col-md-4 mb-3"><a href="/fee_types?group=' + key + '" class="text-decoration-none text-reset"><div class="card fee-card h-100"><div class="card-body">'
             group_cards += '<div class="d-flex align-items-center gap-3 mb-3"><div class="page-icon"><i class="bi ' + gd['icon'] + '"></i></div><div><h4 class="mb-1">' + gd['title'] + '</h4><small class="text-muted">' + str(len(present)) + ' 个收费项目</small></div></div>'
@@ -96,7 +110,7 @@ class FeeMixin(BaseHandler):
         content = content.replace('{CARDS}', group_cards)
         self._html(self._page('收费标准', content, 'fee_types'))
 
-    def _fee_type_form(self, fid):
+    def _fee_type_form(self, fid, group=''):
         db=get_db();ft=None;tiers=[]
         if fid:
             ft=db.execute("SELECT * FROM fee_types WHERE id=?",(fid,)).fetchone()
@@ -104,7 +118,9 @@ class FeeMixin(BaseHandler):
         rooms=db.execute("SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id ORDER BY r.building,r.room_number").fetchall()
         db.close()
         a=f'/fee_types/{fid}/edit' if fid else '/fee_types/create'
-        t='编辑费用类型' if fid else '添加费用类型'
+        group_titles = {'property': '物业公司', 'commercial': '商业公司', 'other': '其他'}
+        group_title = group_titles.get(group, '')
+        t='编辑费用类型' if fid else (f'添加{group_title}收费项目' if group_title else '添加费用类型')
         n=h(ft['name'] if ft else '');cm=ft['calc_method'] if ft else 'area'
         up=ft['unit_price'] if ft else 0;u=h(ft['unit'] or'') if ft else '';rad=ft['reminder_advance_days'] if ft and ft['reminder_advance_days'] else 30
         bc=ft['billing_cycle'] if ft else 'monthly';so=ft['sort_order'] if ft else 0
@@ -166,6 +182,7 @@ class FeeMixin(BaseHandler):
         self._html(self._page(t, f"""
 {template_section}
 <form method=POST action="{a}" class="row g-3">
+<input type="hidden" name="return_group" value="{h(group)}">
 <div class="col-md-8"><label>名称 <span class="text-danger">*</span></label><input name="name" class="form-control" value="{n}" required id="ftName"></div>
 <div class="col-md-4"><label>启用</label><div class="form-check mt-2"><input class="form-check-input" type="checkbox" name="is_active" id="ia" {"checked" if ia else ""}><label class="form-check-label" for="ia">已启用</label></div></div>
 <div class="col-md-3"><label>计算方式 <span class="text-danger">*</span></label><select name="calc_method" class="form-select" id="ftCalc">{calc_opts}</select></div>
@@ -248,6 +265,7 @@ document.getElementById("newTierRate").value="";
 
     def _fee_type_create(self, d):
         db=get_db()
+        return_group = qs(d, 'return_group')
         cur = db.execute("INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes,reminder_advance_days) VALUES(?,?,?,?,?,?,?,?,?)",
                          (qs(d,'name'),qs(d,'calc_method'),float(qs(d,'unit_price',0)),qs(d,'unit'),qs(d,'billing_cycle','monthly'),
                           int(qs(d,'sort_order',0)),1 if qs(d,'is_active') else 0,qs(d,'notes'),int(qs(d,'reminder_advance_days',30))))
@@ -260,7 +278,8 @@ document.getElementById("newTierRate").value="";
             if nc.strip() and nr.strip():
                 db.execute("INSERT INTO fee_type_tiers(fee_type_id,category,rate) VALUES(?,?,?)", (fid, nc.strip(), float(nr.strip())))
         db.commit();db.close()
-        self._redirect('/fee_types?flash=添加成功')
+        suffix = f'?group={return_group}&flash=添加成功' if return_group in ('property','commercial','other') else '?flash=添加成功'
+        self._redirect('/fee_types' + suffix)
 
     def _fee_type_edit(self, fid, d):
         db=get_db()
