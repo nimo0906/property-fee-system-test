@@ -31,7 +31,7 @@ class ImportPreviewMixin:
     def _manual_mapping_fields(self):
         return [
             'building', 'unit', 'room_number', 'floor', 'category', 'area',
-            'owner_name', 'owner_phone', 'tenant_name', 'tenant_id_card', 'shop_name',
+            'owner_name', 'owner_phone', 'tenant_name', 'tenant_phone', 'tenant_id_card', 'shop_name',
             'business_type', 'custom_rate', 'payment_cycle', 'water_rate_type', 'contract_start', 'contract_end', 'rent_period',
         ]
 
@@ -127,7 +127,7 @@ class ImportPreviewMixin:
             'building': '楼栋', 'unit': '单元/座', 'room_number': '房号',
             'floor': '楼层', 'category': '类别', 'area': '面积',
             'owner_name': '业主/用户', 'owner_phone': '联系电话',
-            'tenant_name': '租户', 'tenant_id_card': '租户身份证号', 'shop_name': '店铺名称',
+            'tenant_name': '租户', 'tenant_phone': '租户电话', 'tenant_id_card': '租户身份证号', 'shop_name': '店铺名称',
             'business_type': '业态',
             'custom_rate': '物业费单价',
             'payment_cycle': '缴费周期',
@@ -178,7 +178,7 @@ class ImportPreviewMixin:
             'room_number': '房号',
             'owner_name': '业主/用户',
             'owner_phone': '联系电话',
-            'tenant_name': '租户', 'tenant_id_card': '租户身份证号',
+            'tenant_name': '租户', 'tenant_phone': '租户电话', 'tenant_id_card': '租户身份证号',
             'shop_name': '店铺名称',
             'business_type': '业态',
             'area': '面积',

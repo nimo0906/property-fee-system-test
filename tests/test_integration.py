@@ -1526,22 +1526,38 @@ class TestIntegration(unittest.TestCase):
         db.close()
         self.assertEqual(len(ids), 2)
 
+        back_url = '/bills?period=2027-07&building=BATCHEDIT'
         status, form_html, loc = http_post('/bills/batch_edit', {
             'bill_ids': ','.join(ids),
+            'back': back_url,
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('批量修正账单', form_html)
         self.assertIn('name="due_date"', form_html)
         self.assertIn('name="notes"', form_html)
+        self.assertIn(f'name="back" value="{back_url.replace("&", "&amp;")}"', form_html)
+        self.assertIn(f'href="{back_url.replace("&", "&amp;")}"', form_html)
+
+        status, preview_html, loc = http_post('/bills/batch_edit/preview', {
+            'bill_ids': ','.join(ids),
+            'due_date': '2027-07-31',
+            'notes': '统一调整截止日',
+            'back': back_url,
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn(f'name="back" value="{back_url.replace("&", "&amp;")}"', preview_html)
+        self.assertIn(f'href="{back_url.replace("&", "&amp;")}"', preview_html)
 
         status, result_html, loc = http_post('/bills/batch_edit/apply', {
             'bill_ids': ','.join(ids),
             'due_date': '2027-07-31',
             'notes': '统一调整截止日',
+            'back': back_url,
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('批量修正结果', result_html)
         self.assertIn('更新账单', result_html)
+        self.assertIn(f'href="{back_url.replace("&", "&amp;")}"', result_html)
 
         db = db_module.get_db()
         rows = db.execute("SELECT due_date, notes FROM bills WHERE id IN (?, ?) ORDER BY id", ids).fetchall()
