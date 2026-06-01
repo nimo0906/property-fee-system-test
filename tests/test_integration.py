@@ -15,13 +15,14 @@ Covers:
 NOTE: Each test gets its own fresh cookie (setUp re-logs in).
 """
 
-import unittest, os, sys, http.server, threading, time, json, tempfile, urllib.parse, re
+import unittest, os, sys, http.server, threading, time, json, tempfile, urllib.parse, re, http.client
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from datetime import date
+from unittest import mock
 from tests.conftest import (
     BASE_URL, TEST_PORT,
     login_and_get_client, http_get, http_post,
@@ -2535,6 +2536,42 @@ class TestIntegration(unittest.TestCase):
 
 
 
+
+    def test_import_upload_works_without_stdlib_cgi_module(self):
+        cgi_module = sys.modules.pop('cgi', None)
+        block_cgi = mock.patch.dict('sys.modules', {'cgi': None})
+        boundary = '----PropertyNoCgiBoundary'
+        csv_data = '房号,姓名,电话\nB座940,NoCgi业主,13900009940\n'
+        body = (
+            f'--{boundary}\r\n'
+            'Content-Disposition: form-data; name="data_type"\r\n\r\nrooms\r\n'
+            f'--{boundary}\r\n'
+            'Content-Disposition: form-data; name="mode"\r\n\r\npreview\r\n'
+            f'--{boundary}\r\n'
+            'Content-Disposition: form-data; name="file"; filename="no-cgi.csv"\r\n'
+            'Content-Type: text/csv\r\n\r\n'
+            f'{csv_data}\r\n'
+            f'--{boundary}--\r\n'
+        ).encode('utf-8')
+
+        try:
+            with block_cgi:
+                conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+                conn.request('POST', '/import/upload', body, {
+                    'Content-Type': f'multipart/form-data; boundary={boundary}',
+                    'Content-Length': str(len(body)),
+                    'Cookie': self.cookie,
+                })
+                resp = conn.getresponse()
+                preview_html = resp.read().decode('utf-8')
+                conn.close()
+        finally:
+            if cgi_module is not None:
+                sys.modules['cgi'] = cgi_module
+
+        self.assertEqual(resp.status, 200)
+        self.assertIn('字段映射确认', preview_html)
+        self.assertIn('NoCgi业主', preview_html)
 
     def test_payment_ledger_preview_confirms_fee_mapping_without_importing_amounts(self):
         boundary = '----PropertyFeeMappingBoundary'

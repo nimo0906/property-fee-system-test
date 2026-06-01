@@ -2,10 +2,11 @@
 # -*- coding: utf-8 -*-
 """Data import from CSV/Excel files."""
 
-import cgi, os
+import os
 
 from server.db import get_db
 from server.base import BaseHandler
+from server.form_parser import parse_form_data
 from server.import_parser import (
     SUPPORTED_EXTENSIONS,
     build_column_map,
@@ -127,7 +128,7 @@ class ImportMixin(ImportPreviewMixin, ImportFeeMappingMixin, ImportViewMixin, Ba
     def _import_upload(self):
         """处理上传文件并导入数据（校验格式和大小后解析）"""
         try:
-            form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ={"REQUEST_METHOD":"POST","CONTENT_TYPE":self.headers.get("Content-Type","")})
+            form = parse_form_data(self.rfile, self.headers)
         except:
             return self._redirect("/import?flash=文件解析失败")
         upload_token = form.getvalue("upload_token", "")
