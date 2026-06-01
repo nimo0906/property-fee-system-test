@@ -84,6 +84,7 @@ window.calcFees = function(){
     document.querySelectorAll(".fee-row").forEach(function(row){
         if(row.style.display === "none") return;
         if(!window.isFeeRowSelected(row)) return;
+        var n = row.dataset.name || "";
         var fid = parseInt(row.dataset.ft), mid = row.dataset.method, dp = parseFloat(row.dataset.price) || 0, amt = 0, f = "", monthly = 0;
         if(mid == "area"){ var rate = (n.indexOf('物业费') >= 0 && roomRate > 0) ? roomRate : dp; monthly = area * rate; f = '面积' + area.toFixed(2) + '×单价' + rate.toFixed(2); }
         else if(mid == "floor"){ var er = window.getElevatorRate(floor); monthly = er * area; f = "楼层系数" + er.toFixed(2) + "×" + area.toFixed(2); }

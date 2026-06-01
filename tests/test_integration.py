@@ -1139,6 +1139,14 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('inp.disabled = !selected;', js)
         self.assertIn('row.querySelectorAll(".fee-check")', js)
 
+    def test_billing_amount_recalculation_uses_fee_name_in_calculation_loop(self):
+        with open(os.path.join(PROJECT_ROOT, 'static', 'billing.js'), encoding='utf-8') as f:
+            js = f.read()
+        calculation_loop = js.split('document.querySelectorAll(".fee-row").forEach(function(row){', 2)[2]
+        calculation_loop = calculation_loop.split('// Extra rooms', 1)[0]
+        self.assertIn('var n = row.dataset.name || "";', calculation_loop)
+        self.assertIn("n.indexOf('物业费')", calculation_loop)
+
 
     def test_billing_calc_get_redirects_back_to_billing_page(self):
         status, body = http_get('/billing/calc', self.cookie, TEST_PORT)
