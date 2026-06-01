@@ -191,6 +191,24 @@ class TestDBLogic(unittest.TestCase):
         self.assertIsNotNone(admin)
         self.assertEqual(admin['role'], 'admin')
 
+    def test_db_init_deduplicates_renamed_air_conditioning_fee(self):
+        self.db.execute(
+            "INSERT INTO fee_types(name, calc_method, unit_price, unit, billing_cycle, sort_order, is_active, notes) "
+            "VALUES('空调费(商业)', 'area', 2.5, '元/m²·月', 'monthly', 36, 1, '旧名称')"
+        )
+        self.db.commit()
+
+        db_init()
+
+        active = self.db.execute(
+            "SELECT COUNT(*) FROM fee_types WHERE name='空调能源费' AND is_active=1"
+        ).fetchone()[0]
+        legacy = self.db.execute(
+            "SELECT COUNT(*) FROM fee_types WHERE name='空调费(商业)' AND is_active=1"
+        ).fetchone()[0]
+        self.assertEqual(active, 1)
+        self.assertEqual(legacy, 0)
+
     def test_db_init_creates_scale_indexes_for_large_bill_volume(self):
         db_init()
 

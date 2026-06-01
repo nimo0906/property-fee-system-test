@@ -32,11 +32,6 @@ class FeeMixin(BaseHandler):
             },
         }
         db = get_db()
-        try:
-            db.execute("UPDATE fee_types SET name='空调能源费' WHERE name='空调费(商业)'")
-            db.commit()
-        except Exception:
-            pass
         all_rows = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         period = get_period()
         calc_n = {'area':'按面积×单价','meter':'按用量×单价','floor':'电梯阶梯','fixed':'固定金额','household':'按户分摊'}

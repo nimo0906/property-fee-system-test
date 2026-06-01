@@ -17,6 +17,35 @@ HOST = os.environ.get('PM_HOST', '127.0.0.1')
 PORT = int(os.environ.get('PM_PORT', '5001'))
 
 
+
+def _dedupe_renamed_fee_type(cursor, old_name, new_name):
+    new_row = cursor.execute(
+        "SELECT id FROM fee_types WHERE name=? ORDER BY is_active DESC, id LIMIT 1",
+        (new_name,),
+    ).fetchone()
+    if new_row:
+        keeper_id = new_row[0]
+        cursor.execute(
+            "UPDATE fee_types SET is_active=0 WHERE name=?",
+            (old_name,),
+        )
+    else:
+        old_row = cursor.execute(
+            "SELECT id FROM fee_types WHERE name=? ORDER BY is_active DESC, id LIMIT 1",
+            (old_name,),
+        ).fetchone()
+        if not old_row:
+            return
+        keeper_id = old_row[0]
+        cursor.execute(
+            "UPDATE fee_types SET name=?, is_active=1 WHERE id=?",
+            (new_name, keeper_id),
+        )
+    cursor.execute(
+        "UPDATE fee_types SET is_active=0 WHERE name=? AND id<>?",
+        (new_name, keeper_id),
+    )
+
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -106,6 +135,7 @@ def db_init():
         exists = c.execute("SELECT id FROM fee_types WHERE name=?", (cf[0],)).fetchone()
         if not exists:
             c.execute("INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes) VALUES(?,?,?,?,?,?,1,?)", cf)
+    _dedupe_renamed_fee_type(c, '空调费(商业)', '空调能源费')
     if c.execute("SELECT COUNT(*) FROM elevator_fee_tiers").fetchone()[0] == 0:
         for t in [(7,11,1.0,'7-11层'),(12,16,1.05,'12-16层'),(17,21,1.1,'17-21层'),(22,26,1.15,'22-26层')]:
             c.execute("INSERT INTO elevator_fee_tiers(floor_from,floor_to,rate,label) VALUES(?,?,?,?)", t)
