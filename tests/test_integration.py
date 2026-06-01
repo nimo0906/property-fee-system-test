@@ -734,6 +734,21 @@ class TestIntegration(unittest.TestCase):
 
     # ── All page accessibility ──────────────────────────────────
 
+    def test_secondary_pages_show_global_back_button(self):
+        for path in ['/fee_types/11/edit', '/rooms/create', '/bills/generate']:
+            with self.subTest(path=path):
+                status, body = http_get(path, self.cookie, TEST_PORT)
+                self.assertEqual(status, 200)
+                self.assertIn('data-back-button="1"', body)
+                self.assertIn('返回', body)
+
+    def test_primary_pages_do_not_show_global_back_button(self):
+        for path in ['/', '/rooms', '/fee_types']:
+            with self.subTest(path=path):
+                status, body = http_get(path, self.cookie, TEST_PORT)
+                self.assertEqual(status, 200)
+                self.assertNotIn('data-back-button="1"', body)
+
     def test_all_pages_return_200(self):
         pages = {
             '/': '收费工作台', '/rooms': '房间管理', '/owners': '业主管理',

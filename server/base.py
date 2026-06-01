@@ -10,6 +10,20 @@ from server.permissions import required_post_role, role_allows
 BASE = os.environ.get('PM_RESOURCE_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def _is_secondary_path(path):
+    if path in ('/', '/login', '/logout', '/register'):
+        return False
+    if path.startswith('/owner-portal/') or path.startswith('/api/') or path.startswith('/static/'):
+        return False
+    primary_paths = {
+        '/rooms', '/owners', '/fee_types', '/batch_ops', '/meter_readings',
+        '/billing', '/commercial_billing', '/shared_expenses', '/bills',
+        '/payments', '/payment_orders', '/collections', '/reminders',
+        '/invoices', '/reports', '/closing', '/audit_logs', '/backups',
+        '/system_health', '/system_update', '/users', '/import',
+    }
+    return path not in primary_paths
+
 class BaseHandler(http.server.BaseHTTPRequestHandler):
     """Base mixin providing shared HTTP methods and routing.
     Other mixins inherit from this or add methods to Handler."""
@@ -71,6 +85,9 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
 
     def _page(self, title, content, active='', top_actions=''):
         flash = self._get_flash()
+        if _is_secondary_path(urllib.parse.urlparse(self.path).path):
+            back_btn = '<button type="button" class="btn btn-outline-secondary btn-sm page-back-btn" data-back-button="1" onclick="if(history.length>1){history.back()}else{location.href=\'/\'}"><i class="bi bi-arrow-left"></i> 返回</button>'
+            top_actions = (back_btn + top_actions) if top_actions else back_btn
         html = self._load_template('base.html')
         cur_user = self._get_current_user()
         role = cur_user.get("role") if cur_user else ""
