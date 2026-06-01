@@ -496,6 +496,50 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('金莎国际-商场-C101', body)
         self.assertNotIn('金莎国际-B座-1901', body)
 
+    def test_mall_commercial_billing_uses_room_rate_cycle_and_excludes_other_units(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '商场规则业主', '13900008888')
+        mall_id = create_room(db, building='金莎国际', unit='商场', room_number='1F-101', category='商户', area=88.5, owner_id=owner_id)
+        db.execute("UPDATE rooms SET custom_rate=4.8, payment_cycle='quarterly', shop_name='甲店' WHERE id=?", (mall_id,))
+        a_id = create_room(db, building='金莎国际', unit='A座', room_number='A101', category='商户', area=100, owner_id=owner_id)
+        db.execute("UPDATE rooms SET custom_rate=9.9, payment_cycle='semiannual' WHERE id=?", (a_id,))
+        b_id = create_room(db, building='金莎国际', unit='B座', room_number='B201', category='居民', area=100, owner_id=owner_id)
+        commercial_fee = db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()['id']
+        db.commit(); db.close()
+
+        status, body = http_get('/commercial_billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('<optgroup label="商场">', body)
+        self.assertIn('金莎国际-商场-1F-101 / 甲店', body)
+        self.assertNotIn('金莎国际-A座-A101', body)
+        self.assertNotIn('金莎国际-B座-B201', body)
+        self.assertIn('data-cycle="quarterly"', body)
+        self.assertIn('data-rate="4.8"', body)
+
+        status, body, loc = http_post('/billing/calc', {
+            'room_id': str(mall_id),
+            'fee_types': str(commercial_fee),
+            'period_start': '2033-01-01',
+            'period_end': '2033-01-31',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        db = get_db()
+        bill = db.execute("SELECT amount,billing_period FROM bills WHERE room_id=? AND fee_type_id=?", (mall_id, commercial_fee)).fetchone()
+        a_count = db.execute("SELECT COUNT(*) FROM bills WHERE room_id=?", (a_id,)).fetchone()[0]
+        b_count = db.execute("SELECT COUNT(*) FROM bills WHERE room_id=?", (b_id,)).fetchone()[0]
+        self.assertEqual(bill['amount'], 1274.4)
+        self.assertEqual(bill['billing_period'], '2033-01~2033-03')
+        self.assertEqual(a_count, 0)
+        self.assertEqual(b_count, 0)
+        db.execute("UPDATE rooms SET area=100 WHERE id=?", (mall_id,))
+        room = db.execute("SELECT * FROM rooms WHERE id=?", (mall_id,)).fetchone()
+        ft = db.execute("SELECT * FROM fee_types WHERE id=?", (commercial_fee,)).fetchone()
+        from server.billing_engine import calculate_bill_amount
+        self.assertEqual(calculate_bill_amount(db, room, ft, '2033-04', months=3)['amount'], 1440.0)
+        self.assertEqual(bill['amount'], 1274.4)
+        db.close()
+
     def test_readonly_menu_is_limited_and_shows_customer_collection(self):
         readonly_cookie = self._create_user_and_login(
             'readonly_menu_test', 'readonly123', 'readonly', '客服测试'
@@ -2969,8 +3013,8 @@ class TestIntegration(unittest.TestCase):
 
         status, csv_body = http_get('/import/template/basic.csv', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('楼栋,单元/座,房号,楼层,房屋类别,面积㎡,业主姓名,联系电话,租户姓名,店铺名称,业态,合同开始日期,合同结束日期,催缴租金租期,备注', csv_body)
-        self.assertIn('B座,A座,901,9,商户,88.5', csv_body)
+        self.assertIn('楼栋,单元/座,铺位号,楼层,房屋类别,面积㎡,商户名称,联系电话,租户姓名,店铺名称,业态,合同开始日期,合同结束日期,催缴租金租期,物业费单价,缴费周期,水费标准,备注', csv_body)
+        self.assertIn('金莎国际,商场,1F-101,1,商户,88.5', csv_body)
         self.assertIn('历史金额不要填在本模板', csv_body)
 
     def test_import_page_guides_real_data_workflow(self):

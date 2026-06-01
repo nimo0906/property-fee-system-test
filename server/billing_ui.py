@@ -26,7 +26,7 @@ class BillingUiMixin(BaseHandler):
         db = get_db()
         room_sql = "SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id"
         if mode == 'commercial':
-            room_sql += " WHERE r.category IN ('商户','商业')"
+            room_sql += " WHERE r.unit='商场' AND r.category IN ('商户','商业')"
         rooms = db.execute(room_sql + " ORDER BY r.building,r.unit,r.room_number").fetchall()
         all_fts = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         elevator_rows = db.execute("SELECT * FROM elevator_fee_tiers ORDER BY floor_from").fetchall()
@@ -46,7 +46,9 @@ class BillingUiMixin(BaseHandler):
                         'cat': r['category'] or '',
                         'area': r['area'],
                         'floor': r['floor'] or '1',
-                        'water': r['water_rate_type'] or '非居民'
+                        'water': r['water_rate_type'] or '非居民',
+                        'rate': r['custom_rate'] or '',
+                        'cycle': r['payment_cycle'] or 'monthly'
                     })
         db.close()
 
@@ -68,10 +70,11 @@ class BillingUiMixin(BaseHandler):
             opt_parts.append(f'<optgroup label="{h(unit_key)}">')
             for r in by_unit[unit_key]:
                 opt_parts.append(
-                    '<option value="{}" data-cat="{}" data-water="{}" data-area="{}" data-floor="{}" data-owner="{}">'
-                    '{}-{}-{} ({})</option>'.format(
+                    '<option value="{}" data-cat="{}" data-water="{}" data-area="{}" data-floor="{}" data-owner="{}" data-rate="{}" data-cycle="{}">'
+                    '{}-{}-{}{} ({})</option>'.format(
                         r["id"], h(r["category"] or ""), h(r["water_rate_type"] or "非居民"), r["area"], r["floor"] or 1, r["owner_id"] or "",
-                        h(r["building"]), h(r["unit"]), h(r["room_number"]), h(r["oname"] or "")
+                        r["custom_rate"] or "", h(r["payment_cycle"] or "monthly"),
+                        h(r["building"]), h(r["unit"]), h(r["room_number"]), (" / " + h(r["shop_name"])) if r["shop_name"] else "", h(r["oname"] or "")
                     )
                 )
             opt_parts.append('</optgroup>')
@@ -121,7 +124,7 @@ class BillingUiMixin(BaseHandler):
         default_end = date(end_y, end_m, min(today.day, 28)).isoformat()
 
         tpl = self._load_template('billing.html')
-        mode_note = '仅显示房间类型为商户/商业的收费对象，不包含物业住宅 B 座。非居民/特行只是水费档位。' if mode == 'commercial' else '物业收费用于居民及物业基础收费。'
+        mode_note = '仅显示单元/区域为商场且房间类型为商户/商业的收费对象；A座独立运行不纳入，B座住宅不纳入。非居民/特行只是水费档位。' if mode == 'commercial' else '物业收费用于居民及物业基础收费。'
         tpl = tpl.replace('{MODE_NOTE}', mode_note)
         tpl = tpl.replace('{OPTS}', opts)
         tpl = tpl.replace('{FEE_HTML}', fee_html or '<div class="text-center text-muted py-4">暂无费用类型</div>')

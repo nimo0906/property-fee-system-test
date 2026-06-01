@@ -113,6 +113,37 @@ class TestBasicImport(unittest.TestCase):
         self.assertEqual(room['contract_start'], '2026-01-15')
         self.assertEqual(room['contract_end'], '2026-12-31')
 
+    def test_imports_mall_merchant_commercial_fields_and_flags_missing_rules(self):
+        self.db.execute("ALTER TABLE rooms ADD COLUMN custom_rate REAL")
+        self.db.execute("ALTER TABLE rooms ADD COLUMN payment_cycle TEXT")
+        self.db.execute("ALTER TABLE rooms ADD COLUMN shop_name TEXT")
+        self.db.execute("ALTER TABLE rooms ADD COLUMN water_rate_type TEXT")
+        headers = ['楼栋', '单元/座', '铺位号', '房屋类别', '面积㎡', '商户名称', '店铺名称', '业态', '物业费单价', '缴费周期', '水费标准']
+        col_map = {
+            'building': 0, 'unit': 1, 'room_number': 2, 'category': 3, 'area': 4,
+            'owner_name': 5, 'shop_name': 6, 'business_type': 7, 'custom_rate': 8,
+            'payment_cycle': 9, 'water_rate_type': 10,
+        }
+        rows = [
+            ['金莎国际', '商场', '1F-101', '商户', '88.5', '甲商贸', '甲店', '餐饮', '4.8', '季付', '特行'],
+            ['金莎国际', '商场', '1F-102', '居民', '60', '乙商贸', '乙店', '零售', '', '', ''],
+        ]
+
+        result = import_basic_info(self.db, headers, rows, col_map)
+        self.db.commit()
+
+        self.assertEqual(result['imported_rooms'], 2)
+        room = self.db.execute("SELECT * FROM rooms WHERE room_number='1F-101'").fetchone()
+        self.assertEqual(room['unit'], '商场')
+        self.assertEqual(room['shop_name'], '甲店')
+        self.assertEqual(room['custom_rate'], 4.8)
+        self.assertEqual(room['payment_cycle'], 'quarterly')
+        self.assertEqual(room['water_rate_type'], '特行')
+        reasons = '；'.join(r['reason'] for r in result['problem_rows'])
+        self.assertIn('商场商户误填为居民', reasons)
+        self.assertIn('缺少物业费单价', reasons)
+        self.assertIn('缺少缴费周期', reasons)
+
 
 if __name__ == '__main__':
     unittest.main()

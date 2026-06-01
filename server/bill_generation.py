@@ -2,10 +2,46 @@
 # -*- coding: utf-8 -*-
 """Bill generation — grouped by fee type category."""
 
-from server.db import get_db, get_period, is_period_closed, h, m, qs, room_active_in_period, date_to_period, period_to_date
+from server.db import get_db, get_period, is_period_closed, h, m, qs, room_active_in_period, date_to_period, period_to_date, add_months
 from server.base import BaseHandler
 from server.billing_engine import calculate_bill_amount, fee_applies_to_category, fee_applies_to_room
 from server.backups import create_db_backup
+from datetime import timedelta
+
+
+def _cycle_month_count(cycle):
+    return {'monthly': 1, 'quarterly': 3, 'semiannual': 6}.get(str(cycle or '').strip(), 1)
+
+
+def _room_billing_months(room):
+    try:
+        if room['unit'] == '商场' and room['category'] in ('商户', '商业'):
+            return _cycle_month_count(room['payment_cycle'])
+    except Exception:
+        pass
+    return 1
+
+
+def _cycle_period_label(period, months):
+    months = max(1, int(months or 1))
+    if months == 1:
+        return period
+    try:
+        y, mo = [int(x) for x in period[:7].split('-')]
+        end = add_months(__import__('datetime').date(y, mo, 1), months - 1)
+        return f"{y}-{mo:02d}~{end.year}-{end.month:02d}"
+    except Exception:
+        return period
+
+
+def _cycle_due_date(period, fallback_due):
+    if '~' not in period:
+        return fallback_due
+    try:
+        y, mo = [int(x) for x in period.split('~')[-1].split('-')]
+        return (add_months(__import__('datetime').date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
+    except Exception:
+        return fallback_due
 
 
 class BillGenerationMixin(BaseHandler):
@@ -13,6 +49,7 @@ class BillGenerationMixin(BaseHandler):
     def _bill_gen(self, q=None):
         q = q or {}
         db = get_db()
+        mode = qs(q, 'mode')
         fts = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         buildings = db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
         categories = db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
@@ -46,6 +83,7 @@ class BillGenerationMixin(BaseHandler):
         selected_category = qs(q, 'category')
         selected_room_from = qs(q, 'room_from')
         selected_room_to = qs(q, 'room_to')
+        default_unit = '商场' if mode == 'commercial' else ''
         building_opts = '<option value="">全部楼栋</option>' + ''.join(
             f'<option value="{h(x["building"])}"{" selected" if selected_building == x["building"] else ""}>{h(x["building"])}</option>'
             for x in buildings
@@ -57,8 +95,10 @@ class BillGenerationMixin(BaseHandler):
         self._html(self._page('生成账单', f'''
         <div class="alert alert-info"><i class="bi bi-info-circle"></i>
         选择账期、房间范围和费用类型，系统只为筛选范围内的房间生成独立账单。
-        居民类房间只生成金莎物业项目，商户类房间只生成金莎商业项目。</div>
+        商业模式仅纳入单元/区域为商场且类型为商户/商业的对象；请先核对面积、物业费单价和缴费周期。</div>
         <form method=POST action="/bills/generate" class="row g-3">
+        <input type="hidden" name="mode_scope" value="{h(mode)}">
+        <input type="hidden" name="unit" value="{h(default_unit)}">
         <div class="col-md-3"><label>账期 *</label>
         <input type="date" name="period" class="form-control" value="{period_to_date(get_period())}" required><small class="text-muted">按所选日期所在月份生成账单</small></div>
         <div class="col-md-3"><label>截止日(每月)</label>
@@ -107,20 +147,21 @@ class BillGenerationMixin(BaseHandler):
             if not room_plan:
                 continue
             for fid in ft_ids:
-                key = f"{rm['id']}:{fid}"
+                item = next((x for x in room_plan if x['fee_type_id'] == fid), None)
+                item_period = item.get('billing_period', period) if item else period
+                key = f"{rm['id']}:{fid}:{item_period}"
                 if key in existing:
                     continue
-                item = next((x for x in room_plan if x['fee_type_id'] == fid), None)
                 if not item:
                     continue
                 amt = item['amount']
                 oname = (owners_map.get(rm['owner_id']) or '未知')[:10]
                 rshort = rm['building'] + '-' + rm['room_number']
-                seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (period,)).fetchone()[0] + g + 1
-                bn = f"{rshort}_{oname}_{period}_{seq:04d}"
+                seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (item_period,)).fetchone()[0] + g + 1
+                bn = f"{rshort}_{oname}_{item_period.replace('~','-')}_{seq:04d}"
                 cur = db.execute(
                     "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,'unpaid',?)",
-                    (rm['id'], rm['owner_id'], fid, period, amt, due_date, bn)
+                    (rm['id'], rm['owner_id'], fid, item_period, amt, _cycle_due_date(item_period, due_date), bn)
                 )
                 generated = dict(item)
                 generated['bill_id'] = cur.lastrowid
@@ -158,6 +199,8 @@ class BillGenerationMixin(BaseHandler):
             'category': qs(d, 'category').strip(),
             'room_from': qs(d, 'room_from').strip(),
             'room_to': qs(d, 'room_to').strip(),
+            'unit': qs(d, 'unit').strip(),
+            'mode_scope': qs(d, 'mode_scope').strip(),
         }
 
     def _parse_fee_type_ids(self, d):
@@ -176,7 +219,7 @@ class BillGenerationMixin(BaseHandler):
         owners_map = {o['id']: o['name'] for o in db.execute("SELECT id,name FROM owners").fetchall()}
         owners_map[None] = '未知'
         existing = {row[0] for row in db.execute(
-            "SELECT DISTINCT room_id || ':' || fee_type_id FROM bills WHERE billing_period=?", (period,)
+            "SELECT DISTINCT room_id || ':' || fee_type_id || ':' || billing_period FROM bills"
         ).fetchall()}
         items = []
         skipped = 0
@@ -186,17 +229,19 @@ class BillGenerationMixin(BaseHandler):
                 ft = fts_map.get(fid)
                 if not ft or not fee_applies_to_room(ft['name'] or '', rm):
                     continue
-                key = f"{rm['id']}:{fid}"
+                bill_months = _room_billing_months(rm)
+                bill_period = _cycle_period_label(period, bill_months)
+                key = f"{rm['id']}:{fid}:{bill_period}"
                 if key in existing:
                     skipped += 1
                     continue
-                calc = calculate_bill_amount(db, rm, ft, period)
+                calc = calculate_bill_amount(db, rm, ft, bill_period, bill_months)
                 amt = calc['amount']
                 formula = calc['formula']
                 if amt <= 0:
                     continue
                 items.append({
-                    'room_id': rm['id'], 'fee_type_id': fid, 'amount': amt, 'formula': formula,
+                    'room_id': rm['id'], 'fee_type_id': fid, 'amount': amt, 'formula': formula, 'billing_period': bill_period, 'months': bill_months,
                     'building': rm['building'], 'room_number': rm['room_number'],
                     'category': rcat, 'fee_name': ft['name'], 'calc_method': ft['calc_method'],
                 })
@@ -213,6 +258,12 @@ class BillGenerationMixin(BaseHandler):
         if filters.get('category'):
             cond.append("category=?")
             vals.append(filters['category'])
+        if filters.get('unit'):
+            cond.append("unit=?")
+            vals.append(filters['unit'])
+        if filters.get('mode_scope') == 'commercial':
+            cond.append("unit='商场'")
+            cond.append("category IN ('商户','商业')")
         if filters.get('room_from'):
             cond.append("room_number>=?")
             vals.append(filters['room_from'])

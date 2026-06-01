@@ -19,6 +19,7 @@ def preview_basic_info_import(db, headers, data_rows, col_map):
 
 
 def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
+    _ensure_optional_room_columns(db)
     imported_rooms = 0
     updated_rooms = 0
     imported_owners = 0
@@ -83,9 +84,15 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                 invalid_contracts.append(f'第{row_no}行: {raw_contract}')
                 problem_rows.append(_problem_row(row_no, f'合同日期异常: {raw_contract}', row))
             business_type = gc(row, 'business_type')
+            shop_name = gc(row, 'shop_name')
+            custom_rate_raw = gc(row, 'custom_rate')
+            custom_rate = _to_float(custom_rate_raw, None) if custom_rate_raw else None
+            payment_cycle = _normalize_payment_cycle(gc(row, 'payment_cycle'))
+            water_rate_type = _normalize_water_rate_type(gc(row, 'water_rate_type'))
+            _append_commercial_rule_warnings(problem_rows, row_no, row, unit, category, area, custom_rate_raw, payment_cycle)
             notes = _build_notes(
                 tenant=gc(row, 'tenant_name'),
-                shop=gc(row, 'shop_name'),
+                shop=shop_name,
                 rent_period=gc(row, 'rent_period'),
             )
 
@@ -113,9 +120,9 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                     db.execute(
                         "UPDATE rooms SET unit=?, floor=?, category=?, area=?, owner_id=COALESCE(?, owner_id), "
                         "contract_start=COALESCE(NULLIF(?, ''), contract_start), "
-                        "contract_end=COALESCE(NULLIF(?, ''), contract_end), business_type=COALESCE(NULLIF(?, ''), business_type), notes=? WHERE id=?",
+                        "contract_end=COALESCE(NULLIF(?, ''), contract_end), business_type=COALESCE(NULLIF(?, ''), business_type), shop_name=COALESCE(NULLIF(?, ''), shop_name), custom_rate=COALESCE(?, custom_rate), payment_cycle=COALESCE(NULLIF(?, ''), payment_cycle), water_rate_type=COALESCE(NULLIF(?, ''), water_rate_type), notes=? WHERE id=?",
                         (unit, floor, category, area or room['area'], owner_id, contract_start, contract_end,
-                         business_type, _merge_notes(room['notes'], notes), room['id'])
+                         business_type, shop_name, custom_rate, payment_cycle, water_rate_type, _merge_notes(room['notes'], notes), room['id'])
                     )
                 updated_rooms += 1
                 changed_rooms.append(_changed_room(
@@ -126,9 +133,9 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                 room_id = None
                 if not dry_run:
                     cur = db.execute(
-                        "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,contract_start,contract_end,business_type,notes) "
-                        "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                        (building, unit, room_number, floor, category, area, owner_id, contract_start, contract_end, business_type, notes)
+                        "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,contract_start,contract_end,business_type,shop_name,custom_rate,payment_cycle,water_rate_type,notes) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                        (building, unit, room_number, floor, category, area, owner_id, contract_start, contract_end, business_type, shop_name, custom_rate, payment_cycle, water_rate_type, notes)
                     )
                     room_id = cur.lastrowid
                 imported_rooms += 1
@@ -151,6 +158,19 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
         'problem_rows': problem_rows,
     }
 
+
+
+def _ensure_optional_room_columns(db):
+    for sql in [
+        "ALTER TABLE rooms ADD COLUMN shop_name TEXT",
+        "ALTER TABLE rooms ADD COLUMN custom_rate REAL",
+        "ALTER TABLE rooms ADD COLUMN payment_cycle TEXT",
+        "ALTER TABLE rooms ADD COLUMN water_rate_type TEXT",
+    ]:
+        try:
+            db.execute(sql)
+        except Exception:
+            pass
 
 def _changed_room(action, room_id, building, unit, room_number, floor, category, area,
                   owner_name, owner_phone, contract_start, contract_end, business_type, notes):
@@ -202,10 +222,39 @@ def _looks_like_room_record(room_number, area):
     )
 
 
+
+def _normalize_payment_cycle(value):
+    text = str(value or '').strip().lower()
+    if text in ('月付', '月', 'monthly', 'month', '1', '1个月'):
+        return 'monthly'
+    if text in ('季付', '季度', 'quarterly', 'quarter', '3', '3个月'):
+        return 'quarterly'
+    if text in ('半年付', '半年', 'semiannual', 'halfyear', 'half-year', '6', '6个月'):
+        return 'semiannual'
+    return ''
+
+
+def _normalize_water_rate_type(value):
+    text = str(value or '').strip()
+    return '特行' if text == '特行' else '非居民'
+
+
+def _append_commercial_rule_warnings(problem_rows, row_no, row, unit, category, area, custom_rate_raw, payment_cycle):
+    if unit != '商场':
+        return
+    if category == '居民':
+        problem_rows.append(_problem_row(row_no, '商场商户误填为居民', row))
+    if not area or area <= 0:
+        problem_rows.append(_problem_row(row_no, '缺少面积', row))
+    if str(custom_rate_raw or '').strip() == '':
+        problem_rows.append(_problem_row(row_no, '缺少物业费单价', row))
+    if not payment_cycle:
+        problem_rows.append(_problem_row(row_no, '缺少缴费周期', row))
+
 def _to_float(value, default=0):
     try:
         return float(str(value).replace(',', ''))
-    except ValueError:
+    except (TypeError, ValueError):
         return default
 
 

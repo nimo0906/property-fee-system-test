@@ -31,10 +31,13 @@ class ImportMixin(ImportPreviewMixin, ImportFeeMappingMixin, ImportViewMixin, Ba
     COLUMN_MAP = {
         '楼栋':'building','building':'building','号楼':'building','栋':'building',
         '单元':'unit','unit':'unit','座':'unit',
-        '房号':'room_number','room_number':'room_number','房间号':'room_number','房间':'room_number','门牌号':'room_number','number':'room_number',
+        '房号':'room_number','room_number':'room_number','房间号':'room_number','房间':'room_number','门牌号':'room_number','number':'room_number','铺位号':'room_number','铺位':'room_number',
         '楼层':'floor','floor':'floor','层':'floor','floor_number':'floor',
         '类别':'category','category':'category','类型':'category','category_name':'category',
         '面积':'area','面积㎡':'area','area':'area','area_sqm':'area','建筑面积':'area','平方':'area',
+        '物业费单价':'custom_rate','商业物业费单价':'custom_rate','单价':'custom_rate','custom_rate':'custom_rate',
+        '缴费周期':'payment_cycle','收费周期':'payment_cycle','付款周期':'payment_cycle','payment_cycle':'payment_cycle',
+        '水费标准':'water_rate_type','水费档位':'water_rate_type','water_rate_type':'water_rate_type',
         '业主':'owner_name','业主姓名':'owner_name','owner_name':'owner_name','姓名':'owner_name','name':'owner_name','客户':'owner_name','租户':'owner_name','租户姓名':'tenant_name',
         '电话':'owner_phone','phone':'owner_phone','手机':'owner_phone','手机号':'owner_phone','联系电话':'owner_phone','tel':'owner_phone','mobile':'owner_phone',
         '店铺名称':'shop_name','店铺':'shop_name','商铺名称':'shop_name',
@@ -272,9 +275,9 @@ class ImportMixin(ImportPreviewMixin, ImportFeeMappingMixin, ImportViewMixin, Ba
 
     def _basic_import_template(self):
         csv_text = (
-            '楼栋,单元/座,房号,楼层,房屋类别,面积㎡,业主姓名,联系电话,租户姓名,店铺名称,业态,合同开始日期,合同结束日期,催缴租金租期,备注\n'
-            'B座,A座,901,9,商户,88.5,张三,13900000000,李四,某某便利店,便利店,2026-01-01,2026-12-31,2026-01-01至2026-06-30,历史金额不要填在本模板\n'
-            'B座,A座,902,9,居民,95.2,王五,13800000000,,,,2026-01-01,2026-12-31,,仅填写基础资料\n'
+            '楼栋,单元/座,铺位号,楼层,房屋类别,面积㎡,商户名称,联系电话,租户姓名,店铺名称,业态,合同开始日期,合同结束日期,催缴租金租期,物业费单价,缴费周期,水费标准,备注\n'
+            '金莎国际,商场,1F-101,1,商户,88.5,甲商贸,13900000000,李四,某某便利店,餐饮,2026-01-01,2026-12-31,2026-01-01至2026-06-30,4.8,季付,非居民,历史金额不要填在本模板\n'
+            'B座,B座,902,9,居民,95.2,王五,13800000000,,,,2026-01-01,2026-12-31,,,,,仅填写基础资料\n'
         )
         data = ('\ufeff' + csv_text).encode('utf-8')
         self.send_response(200)

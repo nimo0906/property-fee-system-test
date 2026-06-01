@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 """Payment processing, records, and quick billing."""
 
-from server.db import get_db, get_period, calc_bill_late_fee, is_period_closed, h, m, qs, date_to_period, period_to_date
+from server.db import get_db, get_period, calc_bill_late_fee, is_period_closed, h, m, qs, date_to_period, period_to_date, add_months
 from server.base import BaseHandler
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import urllib.parse, csv, io, re
 from server.billing_engine import calculate_bill_amount, fee_applies_to_category, fee_applies_to_room
 from server.backups import create_db_backup
@@ -38,6 +38,47 @@ def _period_label(start_str, end_str):
         return f"{sd.year}-{sd.month:02d}~{ed.year}-{ed.month:02d}"
     except:
         return get_period()
+
+
+def _cycle_month_count(cycle):
+    return {'monthly': 1, 'quarterly': 3, 'semiannual': 6}.get(str(cycle or '').strip(), 0)
+
+
+def _is_mall_commercial_room(room):
+    try:
+        return room['unit'] == '商场' and room['category'] in ('商户', '商业')
+    except Exception:
+        return False
+
+
+def _room_billing_months(room, fallback_months):
+    try:
+        cycle = room['payment_cycle'] if 'payment_cycle' in room.keys() else ''
+    except Exception:
+        cycle = ''
+    if _is_mall_commercial_room(room):
+        return _cycle_month_count(cycle) or max(1, int(fallback_months or 1))
+    return max(1, int(fallback_months or 1))
+
+
+def _cycle_period_label(start_str, months):
+    try:
+        sd = datetime.strptime(start_str, '%Y-%m-%d').date()
+    except Exception:
+        return get_period()
+    months = max(1, int(months or 1))
+    if months == 1:
+        return f"{sd.year}-{sd.month:02d}"
+    ed = add_months(sd.replace(day=1), months - 1)
+    return f"{sd.year}-{sd.month:02d}~{ed.year}-{ed.month:02d}"
+
+
+def _cycle_due_date(start_str, months, fallback_end):
+    try:
+        sd = datetime.strptime(start_str, '%Y-%m-%d').date()
+        return (add_months(sd, max(1, int(months or 1))) - timedelta(days=1)).isoformat()
+    except Exception:
+        return fallback_end
 
 
 class PaymentMixin(BaseHandler):
@@ -81,6 +122,10 @@ class PaymentMixin(BaseHandler):
             rm = db.execute("SELECT * FROM rooms WHERE id=?", (rid,)).fetchone()
             if not rm:
                 continue
+            is_commercial_cycle = _is_mall_commercial_room(rm) and _cycle_month_count(rm['payment_cycle'] if 'payment_cycle' in rm.keys() else '') > 0
+            bill_months = _room_billing_months(rm, months)
+            bill_period_label = _cycle_period_label(period_start, bill_months) if is_commercial_cycle else period_label
+            bill_due_date = _cycle_due_date(period_start, bill_months, period_end) if is_commercial_cycle else due_date
             room_names.append(rm['building'] + '-' + rm['room_number'])
             for fid in ft_ids:
                 try:
@@ -96,25 +141,25 @@ class PaymentMixin(BaseHandler):
                     continue
                 exists = db.execute(
                     "SELECT id FROM bills WHERE room_id=? AND fee_type_id=? AND billing_period=?",
-                    (rid, fid, period_label)
+                    (rid, fid, bill_period_label)
                 ).fetchone()
                 if exists:
                     skipped_existing += 1
                     continue
                 custom_key = f'custom_amount_{fid}'
                 custom_val = d.get(custom_key, [''])[0] if isinstance(d.get(custom_key), list) else d.get(custom_key, '')
-                calc = calculate_bill_amount(db, rm, ft, period_label, months, custom_val)
+                calc = calculate_bill_amount(db, rm, ft, bill_period_label, bill_months, custom_val)
                 amt = calc['amount']
                 if amt <= 0:
                     continue
                 on = db.execute("SELECT name FROM owners WHERE id=?", (rm['owner_id'],)).fetchone()
                 oname = (on[0] if on else '未知')[:10]
                 rshort = rm['building'] + '-' + rm['room_number']
-                seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (period_label,)).fetchone()[0] + total_g + 1
-                bn = f"{rshort}_{oname}_{period_label.replace('~','-')}_{seq:04d}"
+                seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (bill_period_label,)).fetchone()[0] + total_g + 1
+                bn = f"{rshort}_{oname}_{bill_period_label.replace('~','-')}_{seq:04d}"
                 db.execute(
                     "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,'unpaid',?)",
-                    (rid, rm['owner_id'], fid, period_label, amt, due_date, bn)
+                    (rid, rm['owner_id'], fid, bill_period_label, amt, bill_due_date, bn)
                 )
                 total_g += 1
         db.commit()
@@ -124,7 +169,7 @@ class PaymentMixin(BaseHandler):
         if total_g == 0 and skipped_existing:
             msg = f'{rooms_str}所选费用在{period_label}已存在账单，未重复生成；已为您显示该房间全部状态账单'
         else:
-            msg = f'为{rooms_str}共生成{total_g}笔账单（{months}个月）'
+            msg = f'为{rooms_str}共生成{total_g}笔账单'
         self._redirect(target, msg)
 
     def _bill_pay(self, bid):

@@ -16,7 +16,7 @@ EXPECTED_TABLES = [
 
 EXPECTED_COLUMNS = {
     'owners': ['project_id'],
-    'rooms': ['contract_start', 'contract_end', 'business_type', 'water_rate_type', 'project_id'],
+    'rooms': ['contract_start', 'contract_end', 'business_type', 'water_rate_type', 'shop_name', 'payment_cycle', 'project_id'],
     'bills': ['source', 'source_ref', 'project_id'],
     'payments': ['receipt_number', 'project_id'],
     'fee_types': ['reminder_advance_days', 'project_id'],

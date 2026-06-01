@@ -44,15 +44,16 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
             return {'amount': amount, 'monthly_amount': amount, 'formula': '自定义'}
 
     fid = fee_type['id']
+    fee_name = fee_type['name'] or ''
     rcat = room['category'] or '居民'
     method = fee_type['calc_method']
     monthly = 0
     formula = '-'
 
     if method == 'area':
-        rate = room['custom_rate'] if room['custom_rate'] and fid == 1 else get_fee_type_rate(fid, rcat)
+        rate = _room_custom_rate(room) if _uses_room_property_rate(fee_name, room) else get_fee_type_rate(fid, rcat)
         monthly = round(float(room['area']) * float(rate), 2)
-        formula = f"{room['area']}×{rate}"
+        formula = f"面积{float(room['area']):.2f}×单价{float(rate):.2f}" if _uses_room_property_rate(fee_name, room) else f"{room['area']}×{rate}"
     elif method == 'floor':
         monthly = calc_elevator_fee(room['floor'], room['area'])
         formula = f"楼层{room['floor']}阶梯×{room['area']}"
@@ -73,5 +74,25 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
         monthly = fee_type['unit_price']
         formula = f"按户{fee_type['unit_price']}"
 
-    amount = round(float(monthly or 0) * max(1, int(months or 1)), 2)
+    month_count = max(1, int(months or 1))
+    amount = round(float(monthly or 0) * month_count, 2)
+    if month_count > 1 and formula != '自定义':
+        formula = f"{formula}×{month_count}个月"
     return {'amount': amount, 'monthly_amount': monthly, 'formula': formula}
+
+
+def _room_custom_rate(room):
+    try:
+        return float(room['custom_rate'] or 0)
+    except Exception:
+        return 0
+
+
+def _uses_room_property_rate(fee_name, room):
+    if '物业费' not in fee_name:
+        return False
+    try:
+        has_rate = 'custom_rate' in room.keys() and _room_custom_rate(room) > 0
+    except Exception:
+        has_rate = False
+    return has_rate
