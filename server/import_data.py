@@ -38,7 +38,7 @@ class ImportMixin(ImportPreviewMixin, ImportFeeMappingMixin, ImportViewMixin, Ba
         '物业费单价':'custom_rate','商业物业费单价':'custom_rate','单价':'custom_rate','custom_rate':'custom_rate',
         '缴费周期':'payment_cycle','收费周期':'payment_cycle','付款周期':'payment_cycle','payment_cycle':'payment_cycle',
         '水费标准':'water_rate_type','水费档位':'water_rate_type','water_rate_type':'water_rate_type',
-        '业主':'owner_name','业主姓名':'owner_name','owner_name':'owner_name','姓名':'owner_name','name':'owner_name','客户':'owner_name','租户':'owner_name','租户姓名':'tenant_name',
+        '业主':'owner_name','业主姓名':'owner_name','owner_name':'owner_name','姓名':'owner_name','name':'owner_name','客户':'owner_name','租户':'owner_name','租户姓名':'tenant_name','租户身份证号':'tenant_id_card','承租人身份证号':'tenant_id_card',
         '电话':'owner_phone','phone':'owner_phone','手机':'owner_phone','手机号':'owner_phone','联系电话':'owner_phone','tel':'owner_phone','mobile':'owner_phone',
         '店铺名称':'shop_name','店铺':'shop_name','商铺名称':'shop_name',
         '业态':'business_type',

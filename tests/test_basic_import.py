@@ -16,7 +16,7 @@ class TestBasicImport(unittest.TestCase):
         self.db.execute("CREATE TABLE owners(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, phone TEXT)")
         self.db.execute(
             "CREATE TABLE rooms(id INTEGER PRIMARY KEY AUTOINCREMENT, building TEXT, unit TEXT, room_number TEXT, "
-            "floor INTEGER, category TEXT, area REAL, owner_id INTEGER, contract_start TEXT, contract_end TEXT, business_type TEXT, tenant_name TEXT, notes TEXT)"
+            "floor INTEGER, category TEXT, area REAL, owner_id INTEGER, contract_start TEXT, contract_end TEXT, business_type TEXT, tenant_name TEXT, tenant_id_card TEXT, notes TEXT)"
         )
         self.db.execute("CREATE TABLE bills(id INTEGER PRIMARY KEY AUTOINCREMENT)")
         self.db.commit()
@@ -25,13 +25,13 @@ class TestBasicImport(unittest.TestCase):
         self.db.close()
 
     def test_imports_room_owner_contract_and_notes_without_money(self):
-        headers = ['类别', '房号', '业主姓名', '面积㎡', '联系电话', '租户姓名', '店铺名称', '业态', '合同缴租期']
+        headers = ['类别', '房号', '业主姓名', '面积㎡', '联系电话', '租户姓名', '租户身份证号', '店铺名称', '业态', '合同缴租期']
         col_map = {
             'category': 0, 'room_number': 1, 'owner_name': 2, 'area': 3,
-            'owner_phone': 4, 'tenant_name': 5, 'shop_name': 6,
-            'business_type': 7, 'contract_period': 8,
+            'owner_phone': 4, 'tenant_name': 5, 'tenant_id_card': 6, 'shop_name': 7,
+            'business_type': 8, 'contract_period': 9,
         }
-        rows = [['商户', 'B座一楼大厅', '东大置业', '18.9', '18291415177', '程西琴', '烟酒小商店', '便利店', '2024.10.1-2027.9.30']]
+        rows = [['商户', 'B座一楼大厅', '东大置业', '18.9', '18291415177', '程西琴', '610101199003033456', '烟酒小商店', '便利店', '2024.10.1-2027.9.30']]
 
         result = import_basic_info(self.db, headers, rows, col_map)
         self.db.commit()
@@ -53,6 +53,7 @@ class TestBasicImport(unittest.TestCase):
         self.assertEqual(room['contract_end'], '2027-09-30')
         self.assertEqual(room['business_type'], '便利店')
         self.assertEqual(room['tenant_name'], '程西琴')
+        self.assertEqual(room['tenant_id_card'], '610101199003033456')
         self.assertNotIn('业态:便利店', room['notes'])
         self.assertEqual(owner['phone'], '18291415177')
         self.assertEqual(bills, 0)

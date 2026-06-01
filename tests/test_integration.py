@@ -833,6 +833,7 @@ class TestIntegration(unittest.TestCase):
             'building': 'T栋', 'unit': '商场', 'room_number': '1F-101',
             'floor': '1', 'category': '商户', 'area': '88',
             'tenant_name': '测试租户A',
+            'tenant_id_card': '610101199001011234',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         self.assertIn('/rooms?flash=', loc)
@@ -844,17 +845,24 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get(f'/rooms/{room_id}/edit', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('value="测试租户A"', body)
+        self.assertIn('租户身份证号', body)
+        self.assertIn('value="610101199001011234"', body)
 
         status, _, loc = http_post(f'/rooms/{room_id}/edit', {
             'building': 'T栋', 'unit': '商场', 'room_number': '1F-101',
             'floor': '1', 'category': '商户', 'area': '88',
             'tenant_name': '测试租户B',
+            'tenant_id_card': '610101199002022345',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         self.assertIn('/rooms?flash=', loc)
 
         _, body = http_get('/rooms?keyword=%E6%B5%8B%E8%AF%95%E7%A7%9F%E6%88%B7B', self.cookie, TEST_PORT)
         self.assertIn('测试租户B', body)
+
+        status, body = http_get(f'/rooms/{room_id}/edit', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="610101199002022345"', body)
 
     # ── Owner CRUD ──────────────────────────────────────────────
 
