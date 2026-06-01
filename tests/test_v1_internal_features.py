@@ -40,8 +40,6 @@ class TestV1InternalFeatures(unittest.TestCase):
             'shared_expense_runs',
             'invoice_requests',
             'notification_events',
-            'payment_callbacks',
-            'payment_orders',
             'invoices',
             'deposits',
             'parking_spots',

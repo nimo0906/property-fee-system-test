@@ -1218,13 +1218,15 @@ class TestIntegration(unittest.TestCase):
             self.assertFalse(payload['ok'])
             self.assertEqual(payload['error']['code'], 'not_found')
 
-    def test_admin_payment_orders_page_is_backend_reconciliation_only(self):
+    def test_payment_orders_module_is_removed_from_backend(self):
         status, body = http_get('/payment_orders', self.cookie, TEST_PORT)
+        self.assertEqual(status, 404)
+        self.assertIn('页面未找到', body)
+
+        status, body = http_get('/', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('支付订单对账', body)
-        self.assertIn('业主端已清理', body)
-        self.assertNotIn('业主端支付订单', body)
-        self.assertNotIn('/owner-portal', body)
+        self.assertNotIn('href="/payment_orders"', body)
+        self.assertNotIn('支付订单', body)
 
     def test_billing_period_filter_helper_uses_start_month_for_range_periods(self):
         from server.billing_periods import period_filter_clause

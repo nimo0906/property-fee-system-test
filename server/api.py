@@ -9,7 +9,6 @@ import urllib.parse
 
 from server.backups import create_db_backup
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
-from server.payment_orders import PaymentOrderError, PaymentOrderService
 from server.projects import ProjectError, ProjectService
 from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
@@ -64,12 +63,6 @@ class ApiMixin:
 
     def _api_post(self, path, data):
         request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
-        if path == '/api/v1/payment-callbacks/mock':
-            try:
-                request['channel'] = 'mock'
-                return self._api_json(PaymentOrderService().process_callback(request))
-            except (PaymentOrderError, InvoiceRequestError) as exc:
-                return self._api_error(400, 'validation_error', str(exc))
         if path.startswith('/api/v1/owner-portal/'):
             return self._api_error(404, 'not_found', '接口不存在')
         if not self._get_current_user():

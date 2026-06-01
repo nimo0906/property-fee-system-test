@@ -11,7 +11,7 @@ EXPECTED_TABLES = [
     'repairs', 'users', 'sessions', 'invoices', 'invoice_requests', 'deposits',
     'parking_spots', 'bill_adjustments', 'login_attempts', 'audit_logs',
     'shared_expense_runs',
-    'payment_orders', 'payment_callbacks', 'notification_events',
+    'notification_events',
 ]
 
 EXPECTED_COLUMNS = {
