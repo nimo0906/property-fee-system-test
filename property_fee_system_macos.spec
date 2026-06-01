@@ -62,8 +62,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': '物业管理收费系统',
         'CFBundleDisplayName': '物业管理收费系统',
-        'CFBundleShortVersionString': '1.0.0',
-        'CFBundleVersion': '1.0.0',
+        'CFBundleShortVersionString': '2.0.2',
+        'CFBundleVersion': '2.0.2',
         'NSHighResolutionCapable': 'True',
     },
 )
