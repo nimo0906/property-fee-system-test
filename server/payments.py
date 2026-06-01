@@ -9,6 +9,7 @@ import urllib.parse, csv, io, re
 from server.billing_engine import calculate_bill_amount, fee_applies_to_category, fee_applies_to_room
 from server.backups import create_db_backup
 from server.payment_orders import PaymentOrderService
+from server.services import Actor, PaymentService, ServiceError
 
 
 def _calc_month_count(start_str, end_str):
@@ -166,15 +167,17 @@ class PaymentMixin(BaseHandler):
             db.close();return self._redirect(f'/bills/{bid}/pay?flash=缴费金额不能超过待缴金额¥{m(rem)}')
         create_db_backup('auto_before_payment')
         receipt_no = f"RC{datetime.now().strftime('%Y%m%d%H%M%S')}{bid}"
-        db.execute("INSERT INTO payments(bill_id,amount_paid,payment_date,payment_method,operator,notes,receipt_number) VALUES(?,?,datetime('now','localtime'),?,?,?,?)",
-                   (bid,amt,qs(d,'payment_method','cash'),qs(d,'operator','管理员'),qs(d,'notes'),receipt_no))
-        tp=db.execute("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?",(bid,)).fetchone()[0]
-        amtb=bill['amount']
-        if tp>=amtb:
-            db.execute("UPDATE bills SET status='paid',paid_at=datetime('now','localtime') WHERE id=?",(bid,))
-        elif tp>0:
-            db.execute("UPDATE bills SET status='partial' WHERE id=?",(bid,))
-        db.commit();db.close()
+        db.close()
+        try:
+            PaymentService().create_payment({
+                'bill_id': bid,
+                'amount': str(amt),
+                'method': qs(d,'payment_method','cash'),
+                'notes': qs(d,'notes'),
+                'receipt_number': receipt_no,
+            }, Actor(username=qs(d,'operator','管理员'), role='operator'))
+        except ServiceError as exc:
+            return self._redirect(f'/bills/{bid}/pay?flash={urllib.parse.quote(str(exc))}')
         self._audit('payment_create', 'bill', bid, {'remaining': rem}, {'amount_paid': amt, 'receipt_number': receipt_no}, qs(d,'notes'))
         self._redirect(f'/bills/{bid}?flash=缴费成功 ¥{m(amt)}')
 
@@ -237,17 +240,24 @@ class PaymentMixin(BaseHandler):
         backup_name = create_db_backup('auto_before_batch_payment')
         paid_ids = []
         cnt = 0
-        for b in rows:
+        service_rows = [dict(r) for r in rows]
+        db.close()
+        for b in service_rows:
             rem = float(b['amount'] or 0) - float(b['paid'] or 0)
             if rem <= 0:
                 continue
             receipt_no = f"RC{datetime.now().strftime('%Y%m%d%H%M%S')}{b['id']}"
-            db.execute("INSERT INTO payments(bill_id,amount_paid,payment_date,payment_method,operator,receipt_number) VALUES(?,?,datetime('now','localtime'),?,?,?)",
-                       (b['id'], rem, method, operator, receipt_no))
-            db.execute("UPDATE bills SET status='paid',paid_at=datetime('now','localtime') WHERE id=?", (b['id'],))
+            try:
+                PaymentService().create_payment({
+                    'bill_id': b['id'],
+                    'amount': str(rem),
+                    'method': method,
+                    'receipt_number': receipt_no,
+                }, Actor(username=operator, role='operator'))
+            except ServiceError:
+                continue
             paid_ids.append(str(b['id']))
             cnt += 1
-        db.commit(); db.close()
         self._audit('batch_payment_create', 'bill', None, None, {'bill_ids': paid_ids, 'total': total}, '批量收费')
         receipt_ids = ','.join(paid_ids)
         receipt_form = ''

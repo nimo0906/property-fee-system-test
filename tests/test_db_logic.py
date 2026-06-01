@@ -161,6 +161,19 @@ class TestDBLogic(unittest.TestCase):
         rate = get_fee_type_rate(ft_id, '商户')
         self.assertAlmostEqual(rate, 8.0)
 
+
+    def test_password_hash_uses_pbkdf2_and_verifies_legacy_sha256(self):
+        import hashlib
+        from server.passwords import hash_password, is_legacy_sha256_hash, verify_password
+        encoded = hash_password('secure123')
+        legacy = hashlib.sha256('secure123'.encode()).hexdigest()
+
+        self.assertTrue(encoded.startswith('pbkdf2_sha256$'))
+        self.assertTrue(verify_password('secure123', encoded))
+        self.assertFalse(verify_password('wrong', encoded))
+        self.assertTrue(is_legacy_sha256_hash(legacy))
+        self.assertTrue(verify_password('secure123', legacy))
+
     def test_db_init_seeds_admin_even_when_tiers_exist(self):
         """Old databases may have tiers but no admin user."""
         self.db.execute("DELETE FROM sessions")
@@ -197,6 +210,55 @@ class TestDBLogic(unittest.TestCase):
             'idx_adjustments_bill_created',
         }
         self.assertTrue(expected.issubset(indexes), expected - indexes)
+
+    def test_schema_health_detects_and_repairs_missing_tables(self):
+        from server.data_health import expected_schema_issues, repair_schema
+        self.db.execute("DROP TABLE IF EXISTS notification_events")
+        self.db.commit()
+
+        issues = expected_schema_issues(self.db)
+        self.assertIn('notification_events', issues['missing_tables'])
+
+        repair_schema()
+        repaired = expected_schema_issues(self.db)
+        self.assertNotIn('notification_events', repaired['missing_tables'])
+
+    def test_financial_health_repairs_bill_status_from_payments(self):
+        from server.data_health import financial_integrity_issues, repair_bill_payment_statuses
+        rid = self.db.execute("INSERT INTO rooms (building, room_number, area) VALUES ('X','9',10)").lastrowid
+        bid = self.db.execute(
+            "INSERT INTO bills (room_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?,1,'2025-01',50,'2025-01-01','paid','HEALTH-PAID-NO-PAYMENT')",
+            (rid,)
+        ).lastrowid
+        self.db.commit()
+
+        issues = financial_integrity_issues(self.db)
+        self.assertTrue(any(x['bill_id'] == bid for x in issues['paid_status_but_underpaid']))
+
+        result = repair_bill_payment_statuses(self.db)
+        self.db.commit()
+        row = self.db.execute("SELECT status FROM bills WHERE id=?", (bid,)).fetchone()
+        self.assertEqual(result['updated'], 1)
+        self.assertEqual(row['status'], 'unpaid')
+
+    def test_financial_health_repair_preserves_overdue_without_payments(self):
+        from server.data_health import repair_bill_payment_statuses
+        rid = self.db.execute("INSERT INTO rooms (building, room_number, area) VALUES ('X','10',10)").lastrowid
+        bid = self.db.execute(
+            "INSERT INTO bills (room_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?,1,'2025-01',50,'2025-01-01','overdue','HEALTH-OVERDUE-NO-PAYMENT')",
+            (rid,)
+        ).lastrowid
+        self.db.commit()
+
+        result = repair_bill_payment_statuses(self.db)
+        self.db.commit()
+
+        row = self.db.execute("SELECT status FROM bills WHERE id=?", (bid,)).fetchone()
+        self.assertEqual(result['updated'], 0)
+        self.assertEqual(row['status'], 'overdue')
+
 
     # ── Overdue update ──────────────────────────────────────────
 

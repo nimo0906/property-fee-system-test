@@ -5,6 +5,7 @@
 import http.server, urllib.parse, re, json, os
 
 from server.db import get_db, h, qs, log_audit
+from server.permissions import required_post_role, role_allows
 
 BASE = os.environ.get('PM_RESOURCE_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -101,6 +102,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             ('系统维护', [
                 ('audit_logs', '/audit_logs', 'bi-journal-check', '操作日志'),
                 ('backups', '/backups', 'bi-cloud', '数据备份'),
+                ('system_health', '/system_health', 'bi-shield-check', '系统健康'),
             ]),
         ]
         if role == "readonly":
@@ -122,6 +124,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if cur_user and cur_user["role"] == "admin":
             nav_groups[-1][1].append(("users", "/users", "bi-people-fill", "操作员管理"))
             allowed.add('users')
+            allowed.add('system_health')
         nav_parts = []
         for group_name, items in nav_groups:
             visible = [item for item in items if item[0] in allowed]
@@ -139,7 +142,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                  'reminders': 'bi-bell', 'billing': 'bi-cash-coin', 'commercial_billing': 'bi-building',
                  'shared_expenses': 'bi-diagram-3',
                  'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'payment_orders': 'bi-phone', 'closing': 'bi-lock',
-                 'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up',
+                 'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
                  'collections': 'bi-telephone-outbound', 'audit_logs': 'bi-journal-check'}
         icon = icons.get(active, 'bi-speedometer2')
         html = html.replace('{TITLE}', h(title))
@@ -347,6 +350,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         elif (m := re.match(r'^/import/fee_mapping/([A-Za-z0-9_-]+)\.csv$', p)): return self._fee_mapping_csv_download(m.group(1))
         elif p == '/audit_logs': return self._audit_logs(q)
         elif p == '/backups': return self._backups(q)
+        elif p == '/system_health': return self._system_health(q)
         elif p == '/backups/cleanup': return self._backup_cleanup_preview(q)
         elif (m := re.match(r'^/backups/(.+)/restore$', p)): return self._backup_restore_confirm(m.group(1))
         elif (m := re.match(r'^/backups/(.+)/delete$', p)): return self._backup_delete_confirm(m.group(1))
@@ -388,6 +392,9 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                 return self._redirect('/login')
             if u.get('role') == 'readonly':
                 return self._redirect('/?flash=无权限执行写操作')
+            required_role = required_post_role(p)
+            if not role_allows(u.get('role'), required_role):
+                return self._redirect('/?flash=无权限执行该操作')
             return self._import_upload()
         d = self._post()
         u = None
@@ -397,8 +404,9 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                 return self._redirect('/login')
             if u.get('role') == 'readonly':
                 return self._redirect('/?flash=无权限执行写操作')
-            if (p in ('/backups/create', '/backups/cleanup') or re.match(r'^/backups/.+/(restore|delete)$', p)) and u.get('role') != 'admin':
-                return self._redirect('/backups?flash=无权限执行备份维护操作')
+            required_role = required_post_role(p)
+            if not role_allows(u.get('role'), required_role):
+                return self._redirect('/?flash=无权限执行该操作')
         if p == '/login': return self._login_post(d)
         elif p == '/register': return self._register_post(d)
         elif p == '/rooms/create': return self._room_create(d)
@@ -440,6 +448,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         elif p == '/users/create': return self._user_create(d)
         elif (m := re.match(r'^/users/(\d+)/edit$', p)): return self._user_edit(int(m.group(1)), d)
         elif (m := re.match(r'^/users/(\d+)/delete$', p)): return self._user_delete(int(m.group(1)))
+        elif p == '/system_health/repair': return self._system_health_repair(d)
         elif p == '/backups/create': return self._backup_create()
         elif p == '/backups/cleanup': return self._backup_cleanup_apply(d)
         elif (m := re.match(r'^/backups/(.+)/restore$', p)): return self._backup_restore(m.group(1))

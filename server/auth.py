@@ -2,33 +2,29 @@
 # -*- coding: utf-8 -*-
 """Login authentication and user management."""
 
-import hashlib, secrets, re
+import secrets, re
 
 from server.db import get_db, h, qs, cleanup_old_sessions, check_login_rate, record_login_attempt
 from server.base import BaseHandler
+from server.passwords import hash_password, is_legacy_sha256_hash, verify_password
 
 
 class AuthMixin(BaseHandler):
 
     def _is_default_admin_password_active(self):
-        default_hash = hashlib.sha256("admin123".encode()).hexdigest()
         db = get_db()
-        row = db.execute(
-            "SELECT id FROM users WHERE username=? AND password_hash=? AND is_active=1",
-            ("admin", default_hash)
-        ).fetchone()
+        rows = db.execute("SELECT password_hash FROM users WHERE username=? AND is_active=1", ("admin",)).fetchall()
         db.close()
-        return row is not None
+        return any(verify_password("admin123", row["password_hash"]) for row in rows)
 
     def _default_admin_user_id(self):
-        default_hash = hashlib.sha256("admin123".encode()).hexdigest()
         db = get_db()
-        row = db.execute(
-            "SELECT id FROM users WHERE username=? AND password_hash=? AND is_active=1",
-            ("admin", default_hash)
-        ).fetchone()
+        rows = db.execute("SELECT id,password_hash FROM users WHERE username=? AND is_active=1", ("admin",)).fetchall()
         db.close()
-        return row["id"] if row else None
+        for row in rows:
+            if verify_password("admin123", row["password_hash"]):
+                return row["id"]
+        return None
 
     def _default_password_warning_html(self):
         admin_id = self._default_admin_user_id()
@@ -105,7 +101,7 @@ class AuthMixin(BaseHandler):
             return self._redirect("/register?flash=密码至少6位")
         if password != password_confirm:
             return self._redirect("/register?flash=两次输入的密码不一致")
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        pw_hash = hash_password(password)
         db = get_db()
         try:
             db.execute(
@@ -131,10 +127,9 @@ class AuthMixin(BaseHandler):
         password = qs(d, "password", "")
         if not username or not password:
             return self._redirect("/login?flash=请输入用户名和密码")
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
         db = get_db()
-        u = db.execute("SELECT * FROM users WHERE username=? AND password_hash=?", (username, pw_hash)).fetchone()
-        if not u:
+        u = db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+        if not u or not verify_password(password, u['password_hash']):
             db.close()
             record_login_attempt(ip, False)
             self._audit('login_failed', 'user', None, None, {'username': username}, '用户名或密码错误')
@@ -146,13 +141,15 @@ class AuthMixin(BaseHandler):
             return self._redirect("/login?flash=账号已提交，待管理员启用")
         record_login_attempt(ip, True)
         cleanup_old_sessions()
+        if is_legacy_sha256_hash(u['password_hash']):
+            db.execute("UPDATE users SET password_hash=? WHERE id=?", (hash_password(password), u['id']))
         token = secrets.token_hex(32)
         db.execute("INSERT INTO sessions(token,user_id) VALUES(?,?)", (token, u["id"]))
         db.commit(); db.close()
         self._audit('login_success', 'user', u["id"], None, {'username': username}, '登录成功')
         # 设置Cookie并重定向
         self.send_response(302)
-        self.send_header("Set-Cookie", f"session_token={token}; Path=/; HttpOnly; Max-Age=86400")
+        self.send_header("Set-Cookie", f"session_token={token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400")
         self.send_header("Location", "/")
         self.end_headers()
 
@@ -166,7 +163,7 @@ class AuthMixin(BaseHandler):
             db.commit(); db.close()
             self._audit('logout', 'session', None, None, None, '退出登录')
         self.send_response(302)
-        self.send_header("Set-Cookie", "session_token=; Path=/; HttpOnly; Max-Age=0")
+        self.send_header("Set-Cookie", "session_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")
         self.send_header("Location", "/login")
         self.end_headers()
 
@@ -248,7 +245,7 @@ class AuthMixin(BaseHandler):
         username = qs(d, "username", "").strip()
         password = qs(d, "password", "")
         if not username or not password: return self._redirect("/users/create?flash=用户名和密码不能为空")
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        pw_hash = hash_password(password)
         db = get_db()
         try:
             db.execute("INSERT INTO users(username,password_hash,display_name,role) VALUES(?,?,?,?)",
@@ -267,7 +264,7 @@ class AuthMixin(BaseHandler):
         if not username: return self._redirect(f"/users/{uid}/edit?flash=用户名不能为空")
         db = get_db()
         if password:
-            pw_hash = hashlib.sha256(password.encode()).hexdigest()
+            pw_hash = hash_password(password)
             db.execute("UPDATE users SET username=?,password_hash=?,display_name=?,role=?,is_active=? WHERE id=?",
                        (username, pw_hash, qs(d,"display_name"), qs(d,"role","operator"), 1 if qs(d,"is_active") else 0, uid))
         else:

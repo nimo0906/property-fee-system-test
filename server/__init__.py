@@ -28,6 +28,7 @@ from server.closing import ClosingMixin
 from server.reports import ReportMixin
 from server.import_data import ImportMixin
 from server.backups import BackupMixin
+from server.data_health import DataHealthMixin
 from server.shared_expenses import SharedExpenseMixin
 from server.batch_ops import BatchOpsMixin
 from server.owner_portal_pages import OwnerPortalPageMixin
@@ -42,7 +43,7 @@ class Handler(
     PaymentMixin, BillingUiMixin,
     RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
     ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin, SharedExpenseMixin, BatchOpsMixin,
-    ImportMixin, BackupMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
+    ImportMixin, BackupMixin, DataHealthMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
 ):
     """HTTP handler with all feature mixins."""
     pass

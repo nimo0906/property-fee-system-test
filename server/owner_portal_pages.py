@@ -205,7 +205,7 @@ class OwnerPortalPageMixin:
             paid = PaymentOrderService().mark_mock_paid(session, order_no)
             content = f'''<h1>模拟支付成功</h1><div class="detail-card"><h2>{h(order_no)}</h2>
             <p>订单已入账，缴费记录已更新。</p><dl><dt>金额</dt><dd>{paid['amount']}</dd><dt>状态</dt><dd>{h(paid['status'])}</dd></dl></div>
-            <div class="action-row"><a class="btn-main" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/bills">返回账单</a></div>'''
+            <div class="action-row"><a class="btn-main" href="/owner-portal/payment-orders">查看支付订单</a><a class="btn-ghost" href="/owner-portal/payments">缴费记录</a><a class="btn-ghost" href="/owner-portal/bills">返回账单</a></div>'''
             return self._owner_portal_render('模拟支付成功', content)
         except PaymentOrderError as exc:
             return self._owner_portal_render('模拟支付失败', f'<div class="alert alert-danger">{h(str(exc))}</div>')

@@ -39,6 +39,8 @@ class ImportMixin(ImportPreviewMixin, ImportFeeMappingMixin, ImportViewMixin, Ba
         '电话':'owner_phone','phone':'owner_phone','手机':'owner_phone','手机号':'owner_phone','联系电话':'owner_phone','tel':'owner_phone','mobile':'owner_phone',
         '店铺名称':'shop_name','店铺':'shop_name','商铺名称':'shop_name',
         '业态':'business_type',
+        '合同开始日期':'contract_start','合同起始日期':'contract_start','合同开始':'contract_start','起租日期':'contract_start','租赁开始日期':'contract_start',
+        '合同到期日期':'contract_end','合同结束日期':'contract_end','合同截止日期':'contract_end','合同到期':'contract_end','合同结束':'contract_end','租赁结束日期':'contract_end',
         '合同日期':'contract_period','合同期':'contract_period','合同缴租期':'contract_period','合同期限':'contract_period','租赁时间':'contract_period',
         '催缴租金租期':'rent_period','租金租期':'rent_period',
         '身份证':'id_card','id_card':'id_card','身份证号':'id_card','证件号':'id_card',

@@ -19,10 +19,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REAL_DATA = os.path.join(ROOT, '真实数据')
 
 
+def require_real_file(path):
+    if not os.path.exists(path):
+        raise unittest.SkipTest('真实数据文件不存在: ' + path)
+    return path
+
+
 class TestImportParser(unittest.TestCase):
 
     def test_parse_legacy_xls_payment_ledger(self):
-        path = os.path.join(REAL_DATA, '收款明细表2026.5.27.XLS')
+        path = require_real_file(os.path.join(REAL_DATA, '收款明细表2026.5.27.XLS'))
         with open(path, 'rb') as f:
             rows = parse_rows(path, f.read())
         header_idx = detect_header_row(rows, ImportMixin.COLUMN_MAP)
@@ -36,7 +42,7 @@ class TestImportParser(unittest.TestCase):
         self.assertEqual(detect_data_type(col_map, headers), 'payment_ledger')
 
     def test_parse_wps_xlsx_even_when_styles_are_invalid(self):
-        path = os.path.join(REAL_DATA, '金莎B座7-26层业态表-2026年5月(1).xlsx')
+        path = require_real_file(os.path.join(REAL_DATA, '金莎B座7-26层业态表-2026年5月(1).xlsx'))
         with open(path, 'rb') as f:
             rows = parse_rows(path, f.read())
         header_idx = detect_header_row(rows, ImportMixin.COLUMN_MAP)
@@ -48,7 +54,7 @@ class TestImportParser(unittest.TestCase):
         self.assertIn('area', col_map)
 
     def test_enriches_contract_period_from_subheader(self):
-        path = os.path.join(REAL_DATA, '金莎B座7-26层业态表-2026年5月(1).xlsx')
+        path = require_real_file(os.path.join(REAL_DATA, '金莎B座7-26层业态表-2026年5月(1).xlsx'))
         with open(path, 'rb') as f:
             rows = parse_rows(path, f.read())
         header_idx = detect_header_row(rows, ImportMixin.COLUMN_MAP)

@@ -118,6 +118,38 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         self.assertEqual(plan['items'][0]['room_id'], self.room_id)
         self.assertEqual(plan['items'][0]['amount'], '265.50')
 
+    def test_billing_generation_preview_uses_shared_billing_rules_and_filters(self):
+        commercial_owner = self.db.execute("INSERT INTO owners (name) VALUES ('商业预览业主')").lastrowid
+        commercial_room = self.db.execute(
+            "INSERT INTO rooms (building, unit, room_number, floor, category, area, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ('B座', '1单元', '1901', 19, '商户', 50, commercial_owner),
+        ).lastrowid
+        resident_fee = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price, sort_order) VALUES (?, ?, ?, ?)",
+            ('服务费(居民)', 'fixed', 99.0, 1),
+        ).lastrowid
+        household_fee = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price, sort_order) VALUES (?, ?, ?, ?)",
+            ('按户测试费', 'household', 12.0, 2),
+        ).lastrowid
+        self.db.commit()
+
+        from server.services import BillingService
+        plan = BillingService().preview_generation({
+            'period': '2026-06',
+            'due_date': '2026-06-30',
+            'fee_type_ids': [resident_fee, household_fee],
+            'building': 'B座',
+        })
+
+        item_keys = {(x['room_id'], x['fee_type_id']) for x in plan['items']}
+        self.assertNotIn((commercial_room, resident_fee), item_keys)
+        self.assertIn((self.room_id, household_fee), item_keys)
+        self.assertIn((commercial_room, household_fee), item_keys)
+        amounts = {x['room_id']: x['amount'] for x in plan['items'] if x['fee_type_id'] == household_fee}
+        self.assertEqual(amounts[self.room_id], '12.00')
+        self.assertEqual(amounts[commercial_room], '12.00')
+
     def test_invoice_request_service_creates_pending_request_for_paid_bill(self):
         fee_type_id = self.db.execute(
             "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
@@ -216,11 +248,38 @@ class TestOwnerAndRoomServices(unittest.TestCase):
             {'bill_id': bill_id, 'amount': '10.00', 'method': 'cash'},
             Actor(username='admin', role='admin'),
         )
-        bill = self.db.execute('SELECT status FROM bills WHERE id=?', (bill_id,)).fetchone()
+        bill = self.db.execute('SELECT status, paid_at FROM bills WHERE id=?', (bill_id,)).fetchone()
+        payment = self.db.execute('SELECT receipt_number, notes FROM payments WHERE id=?', (result['payment_id'],)).fetchone()
 
         self.assertEqual(result['amount'], '10.00')
         self.assertEqual(result['bill_status'], 'paid')
         self.assertEqual(bill['status'], 'paid')
+        self.assertIsNotNone(bill['paid_at'])
+        self.assertIsNone(payment['receipt_number'])
+
+    def test_payment_create_accepts_receipt_and_notes_for_ui_collection(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试收据费', 'fixed', 30.0),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-09', 30.0, '2026-09-30', 'unpaid', 'BILL-PAY-RECEIPT'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.services import Actor, PaymentService
+        result = PaymentService().create_payment(
+            {'bill_id': bill_id, 'amount': '30.00', 'method': 'cash', 'receipt_number': 'RC-SVC-1', 'notes': '服务层收款'},
+            Actor(username='cashier', role='operator'),
+        )
+
+        payment = self.db.execute('SELECT receipt_number, notes, operator FROM payments WHERE id=?', (result['payment_id'],)).fetchone()
+        self.assertEqual(payment['receipt_number'], 'RC-SVC-1')
+        self.assertEqual(payment['notes'], '服务层收款')
+        self.assertEqual(payment['operator'], 'cashier')
+
 
 
 if __name__ == '__main__':

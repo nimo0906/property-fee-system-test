@@ -82,7 +82,7 @@ class BillListMixin(BaseHandler):
 
     def _bills(self, q):
         update_overdue_bills()
-        db=get_db();s=qs(q,'status');fid=qs(q,'fee_type_id');p=date_to_period(qs(q,'period',get_period()))
+        db=get_db();s=qs(q,'status');fid=qs(q,'fee_type_id');raw_period=qs(q,'period',get_period());p=raw_period.strip() if '~' in raw_period else date_to_period(raw_period)
         kw=qs(q,'keyword');bld=qs(q,'building');cat=qs(q,'category')
         current_query = urllib.parse.urlencode([
             (k, v)

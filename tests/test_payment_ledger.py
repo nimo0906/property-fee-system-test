@@ -13,6 +13,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REAL_XLS = os.path.join(ROOT, '真实数据', '收款明细表2026.5.27.XLS')
 
 
+def require_real_file(path):
+    if not os.path.exists(path):
+        raise unittest.SkipTest('真实数据文件不存在: ' + path)
+    return path
+
+
 class TestPaymentLedger(unittest.TestCase):
 
     def test_room_ref_matching_handles_commercial_prefix(self):
@@ -51,7 +57,7 @@ class TestPaymentLedger(unittest.TestCase):
         self.assertEqual(result['unmatched_rooms'], 0)
 
     def test_analyze_real_payment_ledger_marks_ambiguous_columns(self):
-        with open(REAL_XLS, 'rb') as f:
+        with open(require_real_file(REAL_XLS), 'rb') as f:
             rows = parse_rows(REAL_XLS, f.read())
         headers = rows[0]
         result = analyze_payment_ledger(headers, rows[1:], [

@@ -5,7 +5,8 @@
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 
-from server.db import get_db
+from server.db import get_db, room_active_in_period
+from server.billing_engine import calculate_bill_amount, fee_applies_to_room
 
 
 class ServiceError(Exception):
@@ -127,37 +128,59 @@ class BillingService:
     def preview_generation(self, request):
         period = request.get('period') or ''
         due_date = request.get('due_date') or ''
-        fee_type_ids = request.get('fee_type_ids') or []
+        fee_type_ids = [int(x) for x in (request.get('fee_type_ids') or [])]
+        filters = {
+            'building': (request.get('building') or '').strip(),
+            'category': (request.get('category') or '').strip(),
+            'room_from': (request.get('room_from') or '').strip(),
+            'room_to': (request.get('room_to') or '').strip(),
+        }
         db = get_db()
         try:
+            sql = 'SELECT * FROM rooms'
+            cond = []
+            vals = []
+            if filters['building']:
+                cond.append('building=?'); vals.append(filters['building'])
+            if filters['category']:
+                cond.append('category=?'); vals.append(filters['category'])
+            if filters['room_from']:
+                cond.append('room_number>=?'); vals.append(filters['room_from'])
+            if filters['room_to']:
+                cond.append('room_number<=?'); vals.append(filters['room_to'])
+            if cond:
+                sql += ' WHERE ' + ' AND '.join(cond)
+            sql += ' ORDER BY building, unit, room_number'
+            rooms = [r for r in db.execute(sql, vals).fetchall() if room_active_in_period(r, period)]
+            fees = {r['id']: r for r in db.execute('SELECT * FROM fee_types WHERE is_active=1').fetchall()}
+            existing = {row[0] for row in db.execute(
+                "SELECT DISTINCT room_id || ':' || fee_type_id FROM bills WHERE billing_period=?",
+                (period,),
+            ).fetchall()}
             items = []
-            rooms = db.execute('SELECT * FROM rooms ORDER BY building, unit, room_number').fetchall()
-            for fee_type_id in fee_type_ids:
-                fee = db.execute('SELECT * FROM fee_types WHERE id=?', (fee_type_id,)).fetchone()
-                if not fee:
-                    continue
-                for room in rooms:
-                    exists = db.execute(
-                        'SELECT id FROM bills WHERE room_id=? AND fee_type_id=? AND billing_period=?',
-                        (room['id'], fee_type_id, period),
-                    ).fetchone()
-                    if exists:
+            skipped = 0
+            for room in rooms:
+                for fee_type_id in fee_type_ids:
+                    fee = fees.get(fee_type_id)
+                    if not fee or not fee_applies_to_room(fee['name'] or '', room):
                         continue
-                    method = fee['calc_method'] or 'fixed'
-                    if method == 'area':
-                        amount = _money(Decimal(str(room['area'] or 0)) * Decimal(str(fee['unit_price'] or 0)))
-                    elif method == 'per_household':
-                        amount = _money(fee['unit_price'] or 0)
-                    else:
-                        amount = _money(fee['unit_price'] or 0)
+                    key = f"{room['id']}:{fee_type_id}"
+                    if key in existing:
+                        skipped += 1
+                        continue
+                    calc = calculate_bill_amount(db, room, fee, period)
+                    amount = _money(calc['amount'])
+                    if amount <= Decimal('0.00'):
+                        continue
                     items.append({
                         'room_id': room['id'],
                         'fee_type_id': fee_type_id,
                         'period': period,
                         'due_date': due_date,
                         'amount': str(amount),
+                        'formula': calc['formula'],
                     })
-            return {'period': period, 'due_date': due_date, 'items': items, 'total_count': len(items)}
+            return {'period': period, 'due_date': due_date, 'items': items, 'total_count': len(items), 'skipped': skipped}
         finally:
             db.close()
 
@@ -189,12 +212,15 @@ class PaymentService:
         db = get_db()
         try:
             cur = db.execute(
-                "INSERT INTO payments (bill_id, amount_paid, payment_date, payment_method, operator) "
-                "VALUES (?, ?, datetime('now','localtime'), ?, ?)",
-                (bill_id, float(amount), method, actor.username),
+                "INSERT INTO payments (bill_id, amount_paid, payment_date, payment_method, operator, notes, receipt_number) "
+                "VALUES (?, ?, datetime('now','localtime'), ?, ?, ?, ?)",
+                (bill_id, float(amount), method, actor.username, request.get('notes') or '', request.get('receipt_number') or None),
             )
             new_status = 'paid' if preview['will_mark_paid'] else 'partial'
-            db.execute('UPDATE bills SET status=? WHERE id=?', (new_status, bill_id))
+            if new_status == 'paid':
+                db.execute("UPDATE bills SET status=?, paid_at=datetime('now','localtime') WHERE id=?", (new_status, bill_id))
+            else:
+                db.execute('UPDATE bills SET status=?, paid_at=NULL WHERE id=?', (new_status, bill_id))
             db.commit()
             return {
                 'payment_id': cur.lastrowid,

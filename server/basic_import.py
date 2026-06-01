@@ -4,7 +4,7 @@
 
 import re
 
-from server.import_parser import clean_room_number, infer_building, infer_floor, split_contract_period
+from server.import_parser import clean_room_number, infer_building, infer_floor, normalize_date, split_contract_period
 
 
 INVALID_ROOM_NAMES = {'业态', '东大的信息', '业主的信息', '东大空置', '业主空铺', '房号-业态'}
@@ -64,10 +64,24 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
             category = _normalize_category(gc(row, 'category', '商户'))
             owner_name = gc(row, 'owner_name') or gc(row, 'tenant_name')
             owner_phone = gc(row, 'owner_phone')
-            contract_start, contract_end = split_contract_period(gc(row, 'contract_period'))
-            if gc(row, 'contract_period') and not (contract_start and contract_end) and len(invalid_contracts) < 8:
-                invalid_contracts.append(f'第{row_no}行: {gc(row, "contract_period")}')
-                problem_rows.append(_problem_row(row_no, f'合同日期异常: {gc(row, "contract_period")}', row))
+            contract_start = normalize_date(gc(row, 'contract_start'))
+            contract_end = normalize_date(gc(row, 'contract_end'))
+            contract_period = gc(row, 'contract_period')
+            if (not contract_start or not contract_end) and contract_period:
+                period_start, period_end = split_contract_period(contract_period)
+                contract_start = contract_start or period_start
+                contract_end = contract_end or period_end
+            invalid_contract_values = []
+            if gc(row, 'contract_start') and not contract_start:
+                invalid_contract_values.append(gc(row, 'contract_start'))
+            if gc(row, 'contract_end') and not contract_end:
+                invalid_contract_values.append(gc(row, 'contract_end'))
+            if contract_period and not (contract_start and contract_end):
+                invalid_contract_values.append(contract_period)
+            if invalid_contract_values and len(invalid_contracts) < 8:
+                raw_contract = ' / '.join(invalid_contract_values)
+                invalid_contracts.append(f'第{row_no}行: {raw_contract}')
+                problem_rows.append(_problem_row(row_no, f'合同日期异常: {raw_contract}', row))
             business_type = gc(row, 'business_type')
             notes = _build_notes(
                 tenant=gc(row, 'tenant_name'),

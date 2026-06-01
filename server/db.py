@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """Database connection, initialization, and utility functions."""
 
-import sqlite3, hashlib, json
+import sqlite3, json
 from datetime import datetime, date, timedelta
 import os
+from server.passwords import hash_password
 
 BASE = os.environ.get('PM_RESOURCE_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get('PM_DB_PATH') or os.path.join(BASE, 'property.db')
@@ -110,7 +111,7 @@ def db_init():
             c.execute("INSERT INTO elevator_fee_tiers(floor_from,floor_to,rate,label) VALUES(?,?,?,?)", t)
     if c.execute("SELECT COUNT(*) FROM users").fetchone()[0] == 0:
         default_pw = os.environ.get('PM_ADMIN_PASSWORD', 'admin123')
-        admin_pw = hashlib.sha256(default_pw.encode()).hexdigest()
+        admin_pw = hash_password(default_pw)
         c.execute("INSERT INTO users(username,password_hash,display_name,role) VALUES(?,?,?,?)", ('admin', admin_pw, '管理员', 'admin'))
     if c.execute("SELECT COUNT(*) FROM late_fee_config").fetchone()[0] == 0:
         c.execute("INSERT INTO late_fee_config(name,daily_rate,max_rate,grace_days,is_active) VALUES('滞纳金',0.001,0.05,0,1)")

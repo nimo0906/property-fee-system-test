@@ -404,7 +404,7 @@ class BackupMixin(BaseHandler):
         deleted_count = 0
         freed_size = 0
         for item in plan['items']:
-            if not os.path.basename(item['path']).startswith('auto_before_'):
+            if not os.path.basename(item['path']).startswith('auto_'):
                 continue
             if os.path.exists(item['path']):
                 freed_size += os.path.getsize(item['path'])

@@ -66,6 +66,7 @@ def _start_server():
     from server.reports import ReportMixin
     from server.import_data import ImportMixin
     from server.backups import BackupMixin
+    from server.data_health import DataHealthMixin
     from server.api import ApiMixin
     from server.owner_portal_pages import OwnerPortalPageMixin
 
@@ -77,7 +78,7 @@ def _start_server():
         PaymentMixin, BillingUiMixin,
         RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
         ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
-        ImportMixin, BackupMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
+        ImportMixin, BackupMixin, DataHealthMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
     ): pass
 
     db_init()
@@ -103,6 +104,41 @@ class TestIntegration(unittest.TestCase):
     def setUp(self):
         """Get a fresh cookie before each test."""
         self.cookie = login_and_get_client(TEST_PORT)
+
+    def test_admin_system_health_page_reports_and_repairs_schema_and_bill_status(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name) VALUES('健康检查业主')").lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('HEALTH', 'A座', '9001', 9, '居民', 10, owner_id)
+        ).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, 1, '2025-01', 50, '2025-01-01', 'paid', 'HEALTH-WEB-PAID-NO-PAYMENT')
+        ).lastrowid
+        db.commit(); db.close()
+        try:
+            status, page = http_get('/system_health', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('系统健康检查', page)
+            self.assertIn('已缴状态但收款不足', page)
+            self.assertIn('HEALTH-WEB-PAID-NO-PAYMENT', page)
+
+            status, body, loc = http_post('/system_health/repair', {'repair': 'bill_status'}, self.cookie, TEST_PORT)
+            self.assertEqual(status, 302)
+            db = db_module.get_db()
+            fixed = db.execute("SELECT status FROM bills WHERE id=?", (bill_id,)).fetchone()['status']
+            db.close()
+            self.assertEqual(fixed, 'unpaid')
+        finally:
+            db = db_module.get_db()
+            db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))
+            db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+            db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+            db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+            db.commit(); db.close()
+
 
     # ── Login/Logout ────────────────────────────────────────────
 
@@ -151,6 +187,18 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/', '', TEST_PORT)
         # Without auth should get login page or redirect
         self.assertIn(status, (200, 302))
+
+
+    def test_admin_session_cookie_has_local_safe_attributes(self):
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode({'username': 'admin', 'password': 'admin123'})
+        conn.request('POST', '/login', params, {'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = conn.getresponse(); resp.read(); conn.close()
+        cookie = resp.getheader('Set-Cookie', '')
+
+        self.assertIn('HttpOnly', cookie)
+        self.assertIn('SameSite=Lax', cookie)
+        self.assertIn('Path=/', cookie)
 
     def test_logout_clears_session(self):
         # Re-login to ensure cookie is fresh
@@ -481,6 +529,65 @@ class TestIntegration(unittest.TestCase):
 
         self.assertEqual(status, 302)
         self.assertIn('无权限', urllib.parse.unquote(loc))
+
+
+    def test_operator_cannot_delete_master_or_financial_records(self):
+        operator_cookie = self._create_user_and_login(
+            'operator_delete_guard_test', 'operator123', 'operator', '财务收费'
+        )
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name) VALUES('权限测试业主')").lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('AUTHZ', 'A座', '1001', 10, '居民', 10, owner_id)
+        ).lastrowid
+        bill_id = db.execute(
+            "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)",
+            (room_id, owner_id, 1, '2027-01', 10, '2027-01-31', 'unpaid', 'AUTHZ-BILL-1')
+        ).lastrowid
+        db.commit(); db.close()
+        try:
+            for path in (f'/rooms/{room_id}/delete', f'/bills/{bill_id}/delete'):
+                status, body, loc = http_post(path, {}, operator_cookie, TEST_PORT)
+                self.assertEqual(status, 302)
+                self.assertIn('无权限', urllib.parse.unquote(loc))
+            db = db_module.get_db()
+            self.assertIsNotNone(db.execute('SELECT id FROM rooms WHERE id=?', (room_id,)).fetchone())
+            self.assertIsNotNone(db.execute('SELECT id FROM bills WHERE id=?', (bill_id,)).fetchone())
+            db.close()
+        finally:
+            db = db_module.get_db()
+            db.execute('DELETE FROM bills WHERE id=?', (bill_id,))
+            db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+            db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+            db.commit(); db.close()
+
+
+    def test_legacy_sha256_password_upgrades_after_login(self):
+        import hashlib
+        import server.db as db_module
+        username = 'legacy_hash_user'
+        legacy_hash = hashlib.sha256('legacy123'.encode()).hexdigest()
+        db = db_module.get_db()
+        db.execute(
+            "INSERT INTO users(username,password_hash,display_name,role,is_active) VALUES(?,?,?,?,1)",
+            (username, legacy_hash, '旧密码用户', 'operator')
+        )
+        db.commit(); db.close()
+
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        params = urllib.parse.urlencode({'username': username, 'password': 'legacy123'})
+        conn.request('POST', '/login', params, {'Content-Type': 'application/x-www-form-urlencoded'})
+        resp = conn.getresponse(); resp.read(); conn.close()
+
+        self.assertEqual(resp.status, 302)
+        db = db_module.get_db()
+        upgraded = db.execute('SELECT password_hash FROM users WHERE username=?', (username,)).fetchone()['password_hash']
+        db.execute('DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE username=?)', (username,))
+        db.execute('DELETE FROM users WHERE username=?', (username,))
+        db.commit(); db.close()
+        self.assertTrue(upgraded.startswith('pbkdf2_sha256$'))
 
     def test_operator_cannot_access_user_management(self):
         operator_cookie = self._create_user_and_login(
@@ -1627,13 +1734,32 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('href="/"', receipt_html)
 
     def test_bill_detail_with_formula(self):
-        self._ensure_room_for_billing()
-        http_post('/bills/generate', {
-            'period': '2026-06', 'fee_type_ids': '1', 'due_day': '28',
-        }, self.cookie, TEST_PORT)
-        status, body = http_get('/bills/1', self.cookie, TEST_PORT)
-        self.assertEqual(status, 200, msg='Bill detail page not found')
-        self.assertIn('账单信息', body)
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name) VALUES('账单详情业主')").lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('DETAILFORMULA', 'A座', '801', 8, '居民', 100, owner_id)
+        ).lastrowid
+        db.commit(); db.close()
+        try:
+            http_post('/bills/generate', {
+                'period': '2026-06', 'fee_type_ids': '1', 'due_day': '28',
+                'building': 'DETAILFORMULA',
+            }, self.cookie, TEST_PORT)
+            db = db_module.get_db()
+            bill_id = db.execute("SELECT id FROM bills WHERE room_id=? AND billing_period='2026-06' ORDER BY id DESC LIMIT 1", (room_id,)).fetchone()['id']
+            db.close()
+            status, body = http_get(f'/bills/{bill_id}', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200, msg='Bill detail page not found')
+            self.assertIn('账单信息', body)
+        finally:
+            db = db_module.get_db()
+            db.execute('DELETE FROM payments WHERE bill_id IN (SELECT id FROM bills WHERE room_id=?)', (room_id,))
+            db.execute('DELETE FROM bills WHERE room_id=?', (room_id,))
+            db.execute('DELETE FROM rooms WHERE id=?', (room_id,))
+            db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
+            db.commit(); db.close()
 
     def test_batch_pay_preview_shows_selected_total_without_writing(self):
         for room_no in ('901', '902'):
@@ -2419,6 +2545,30 @@ class TestIntegration(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(db_module.BACKUP_DIR, auto_names[1])))
         self.assertTrue(os.path.exists(os.path.join(db_module.BACKUP_DIR, auto_names[-1])))
         self.assertTrue(os.path.exists(os.path.join(db_module.BACKUP_DIR, manual_name)))
+
+
+    def test_backup_cleanup_post_deletes_old_startup_and_daily_auto_backups(self):
+        import server.db as db_module
+        os.makedirs(db_module.BACKUP_DIR, exist_ok=True)
+        for prefix in ('auto_startup_', 'auto_daily_'):
+            for old in os.listdir(db_module.BACKUP_DIR):
+                if old.startswith(prefix):
+                    os.remove(os.path.join(db_module.BACKUP_DIR, old))
+        startup_names = []
+        for i in range(12):
+            name = f'auto_startup_{i:02d}.db'
+            fp = os.path.join(db_module.BACKUP_DIR, name)
+            with open(fp, 'wb') as f:
+                f.write(b'x')
+            os.utime(fp, (1720000000 + i, 1720000000 + i))
+            startup_names.append(name)
+
+        status, body, loc = http_post('/backups/cleanup', {'keep': '10', 'type': 'startup'}, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 302)
+        self.assertFalse(os.path.exists(os.path.join(db_module.BACKUP_DIR, startup_names[0])))
+        self.assertFalse(os.path.exists(os.path.join(db_module.BACKUP_DIR, startup_names[1])))
+        self.assertTrue(os.path.exists(os.path.join(db_module.BACKUP_DIR, startup_names[-1])))
 
     def test_backup_delete_confirm_page_explains_deleted_backup(self):
         status, body, loc = http_post('/backups/create', {}, self.cookie, TEST_PORT)
@@ -3578,6 +3728,66 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+
+    def test_import_preview_mapping_uses_contract_start_and_end_not_contract_date(self):
+        boundary = '----PropertyImportContractDatesBoundary'
+        csv_data = (
+            '类别,房号,业主姓名,面积㎡,合同开始日期,合同到期日期\n'
+            '商户,B座950,独立日期业主,60,2026-01-15,2026-12-31\n'
+        )
+        body = (
+            f'--{boundary}\r\n'
+            'Content-Disposition: form-data; name="mode"\r\n\r\npreview\r\n'
+            f'--{boundary}\r\n'
+            'Content-Disposition: form-data; name="file"; filename="contract-dates.csv"\r\n'
+            'Content-Type: text/csv\r\n\r\n'
+            f'{csv_data}\r\n'
+            f'--{boundary}--\r\n'
+        ).encode('utf-8')
+
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        conn.request('POST', '/import/upload', body, {
+            'Content-Type': f'multipart/form-data; boundary={boundary}',
+            'Content-Length': str(len(body)),
+            'Cookie': self.cookie,
+        })
+        resp = conn.getresponse()
+        preview_html = resp.read().decode('utf-8')
+        conn.close()
+
+        self.assertEqual(resp.status, 200)
+        self.assertIn('字段映射确认', preview_html)
+        self.assertIn('name="col_contract_start"', preview_html)
+        self.assertIn('name="col_contract_end"', preview_html)
+        self.assertNotIn('name="col_contract_period"', preview_html)
+        self.assertNotIn('>合同日期</label>', preview_html)
+
+    def test_billing_calc_redirected_range_period_is_visible_in_bill_list(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name) VALUES('区间账期业主')").lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)",
+            ('RANGEBILL', 'A座', '1808', 18, '居民', 10, owner_id)
+        ).lastrowid
+        db.commit(); db.close()
+
+        status, body, loc = http_post('/billing/calc', {
+            'room_id': str(room_id),
+            'period_start': '2032-01-01',
+            'period_end': '2032-03-01',
+            'fee_types': '1',
+            'custom_amount_1': '88.00',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/bills?period=2032-01~2032-03', urllib.parse.unquote(loc))
+
+        status, list_html = http_get('/bills?period=2032-01~2032-03&keyword=1808', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('RANGEBILL-A座-1808', list_html)
+        self.assertIn('2032-01~2032-03', list_html)
+        self.assertNotIn('暂无账单', list_html)
+
     def test_owner_portal_payment_order_api_create_and_mock_paid_once(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137780')
         _, _, _, bill_id = ids
@@ -3620,6 +3830,11 @@ class TestIntegration(unittest.TestCase):
             self.assertEqual(status, 200)
             self.assertIn('模拟支付成功', paid_page)
             self.assertIn('缴费记录', paid_page)
+            self.assertIn('/owner-portal/payment-orders', paid_page)
+            status, order_list = http_get('/owner-portal/payment-orders', cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn(order_no, order_list)
+            self.assertIn('paid', order_list)
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 

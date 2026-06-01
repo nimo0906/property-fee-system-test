@@ -30,3 +30,7 @@ dist/
 # Temporary system files
 docs/.DS_Store
 docs/**/.DS_Store
+# Real customer spreadsheets stay local only
+真实数据/*.xls
+真实数据/*.xlsx
+真实数据/*.xlsm

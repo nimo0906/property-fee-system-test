@@ -32,7 +32,7 @@ class ImportPreviewMixin:
         return [
             'building', 'unit', 'room_number', 'floor', 'category', 'area',
             'owner_name', 'owner_phone', 'tenant_name', 'shop_name',
-            'business_type', 'contract_period', 'rent_period',
+            'business_type', 'contract_start', 'contract_end', 'rent_period',
         ]
 
     def _render_import_preview(self, filename, headers, data_rows, col_map, data_type, header_idx, upload_token):
@@ -128,8 +128,8 @@ class ImportPreviewMixin:
             'floor': '楼层', 'category': '类别', 'area': '面积',
             'owner_name': '业主/用户', 'owner_phone': '联系电话',
             'tenant_name': '租户', 'shop_name': '店铺名称',
-            'business_type': '业态', 'contract_period': '合同日期',
-            'rent_period': '催缴租金租期',
+            'business_type': '业态', 'contract_start': '合同开始日期',
+            'contract_end': '合同到期日期', 'rent_period': '催缴租金租期',
         }
         rows = ''
         options = ['<option value="">不导入</option>'] + [
@@ -179,8 +179,8 @@ class ImportPreviewMixin:
             'shop_name': '店铺名称',
             'business_type': '业态',
             'area': '面积',
-            'contract_period': '合同日期',
-            'rent_period': '催缴租金租期',
+            'contract_start': '合同开始日期',
+            'contract_end': '合同到期日期', 'rent_period': '催缴租金租期',
         }
         rows = ''
         for key, label in labels.items():

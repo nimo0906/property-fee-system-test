@@ -95,6 +95,24 @@ class TestBasicImport(unittest.TestCase):
         self.assertIsNone(self.db.execute("SELECT * FROM rooms WHERE room_number='美容护肤'").fetchone())
         self.assertIsNone(self.db.execute("SELECT * FROM rooms WHERE room_number='美发'").fetchone())
 
+    def test_imports_explicit_contract_start_and_end_columns(self):
+        headers = ['类别', '房号', '业主姓名', '面积㎡', '合同开始日期', '合同到期日期']
+        col_map = {
+            'category': 0, 'room_number': 1, 'owner_name': 2, 'area': 3,
+            'contract_start': 4, 'contract_end': 5,
+        }
+        rows = [['商户', 'B座950', '独立日期业主', '60', '2026-01-15', '2026-12-31']]
+
+        result = import_basic_info(self.db, headers, rows, col_map)
+        self.db.commit()
+
+        self.assertEqual(result['imported_rooms'], 1)
+        self.assertEqual(result['changed_rooms'][0]['contract_start'], '2026-01-15')
+        self.assertEqual(result['changed_rooms'][0]['contract_end'], '2026-12-31')
+        room = self.db.execute("SELECT * FROM rooms WHERE room_number='950'").fetchone()
+        self.assertEqual(room['contract_start'], '2026-01-15')
+        self.assertEqual(room['contract_end'], '2026-12-31')
+
 
 if __name__ == '__main__':
     unittest.main()
