@@ -2348,7 +2348,22 @@ class TestIntegration(unittest.TestCase):
             'reminder_advance_days': '',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
-        self.assertIn('/fee_types?flash=', loc)
+        self.assertIn('/fee_types/13/edit?flash=', loc)
+
+    def test_fee_type_edit_stays_on_edit_page_after_save(self):
+        status, _, loc = http_post('/fee_types/10/edit', {
+            'name': '垃圾清运费',
+            'calc_method': 'household',
+            'unit_price': '30',
+            'unit': '元/户',
+            'billing_cycle': 'monthly',
+            'sort_order': '32',
+            'is_active': 'on',
+            'notes': '商业垃圾清运服务费',
+            'reminder_advance_days': '30',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/fee_types/10/edit?flash=', loc)
 
     def test_fee_type_create_saves_new_tiers_and_generates_with_tier_rate(self):
         status, body, loc = http_post('/fee_types/create', {

@@ -311,7 +311,7 @@ document.getElementById("newTierRate").value="";
             if nc.strip() and nr.strip():
                 db.execute("INSERT INTO fee_type_tiers(fee_type_id,category,rate) VALUES(?,?,?)", (fid, nc.strip(), float(nr.strip())))
         db.commit();db.close()
-        self._redirect('/fee_types?flash=更新成功')
+        self._redirect(f'/fee_types/{fid}/edit?flash=更新成功')
 
     def _fee_type_delete(self, fid):
         db=get_db()
