@@ -3,6 +3,7 @@
 """Payment processing, records, and quick billing."""
 
 from server.db import get_db, get_period, calc_bill_late_fee, is_period_closed, h, m, qs, date_to_period, period_to_date, add_months
+from server.billing_periods import append_period_filter
 from server.base import BaseHandler
 from datetime import datetime, date, timedelta
 import urllib.parse, csv, io, re
@@ -326,7 +327,8 @@ class PaymentMixin(BaseHandler):
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE 1=1'''
         vals=[]
-        if p:sql+=" AND b.billing_period=?";vals.append(p)
+        if p:
+            sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if pm:sql+=" AND p.payment_method=?";vals.append(pm)
         if op:sql+=" AND p.operator LIKE ?";vals.append(f'%{op}%')
         sql+=" ORDER BY p.payment_date DESC"
@@ -385,7 +387,7 @@ class PaymentMixin(BaseHandler):
             LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE 1=1"""
         vals = []
         if p:
-            sql += " AND b.billing_period=?"; vals.append(p)
+            sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if pm:
             sql += " AND p.payment_method=?"; vals.append(pm)
         if op:

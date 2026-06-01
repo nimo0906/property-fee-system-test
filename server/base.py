@@ -270,6 +270,9 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             <a href="/" class="btn btn-primary"><i class="bi bi-house-door"></i> 返回首页</a>
         </div>'''), code)
 
+    def _owner_portal_disabled_page(self):
+        self._html(self._page('业主端已停用', '<div class="alert alert-warning"><strong>业主端已停用</strong><br>当前内测版本暂不开放业主端访问，请使用后台收费和账单管理功能。</div>', ''), 503)
+
     def _serve_static(self, path):
         static_root = os.path.realpath(os.path.join(BASE, 'static'))
         filepath = os.path.realpath(os.path.join(BASE, path.lstrip('/')))
@@ -296,18 +299,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         if p.startswith('/api/v1/'):
             return self._api_get(p)
-        if p == '/owner-portal/login': return self._owner_portal_login_page()
-        if p == '/owner-portal/send-code': return self._redirect('/owner-portal/login')
-        if p == '/owner-portal/logout': return self._owner_portal_logout()
-        if p == '/owner-portal/dashboard': return self._owner_portal_dashboard()
-        if p == '/owner-portal/rooms': return self._owner_portal_rooms_page()
-        if p == '/owner-portal/bills': return self._owner_portal_bills_page()
-        if (m := re.match(r'^/owner-portal/bills/(\d+)$', p)): return self._owner_portal_bill_detail_page(int(m.group(1)))
-        if p == '/owner-portal/payment-orders': return self._owner_portal_payment_orders_page()
-        if (m := re.match(r'^/owner-portal/payment-orders/([^/]+)$', p)): return self._owner_portal_payment_order_detail_page(m.group(1))
-        if p == '/owner-portal/payments': return self._owner_portal_payments_page()
-        if p == '/owner-portal/notifications': return self._owner_portal_notifications_page()
-        if p == '/owner-portal/invoice-requests': return self._owner_portal_invoice_requests_page()
+        if p.startswith('/owner-portal/') or p == '/owner-portal':
+            return self._owner_portal_disabled_page()
         if p not in ('/login', '/logout', '/register') and not p.startswith('/static/'):
             u = self._get_current_user()
             if not u:
@@ -402,16 +395,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path).path
         if p.startswith('/api/v1/'):
             return self._api_post(p, self._post())
-        if p == '/owner-portal/login':
-            return self._owner_portal_login_post(self._post())
-        if p == '/owner-portal/send-code':
-            return self._owner_portal_send_code_post(self._post())
-        if (m := re.match(r'^/owner-portal/bills/(\d+)/preview-payment$', p)):
-            return self._owner_portal_bill_preview_payment_post(int(m.group(1)), self._post())
-        if (m := re.match(r'^/owner-portal/bills/(\d+)/create-order$', p)):
-            return self._owner_portal_create_order_post(int(m.group(1)), self._post())
-        if (m := re.match(r'^/owner-portal/payment-orders/([^/]+)/mock-paid$', p)):
-            return self._owner_portal_mock_paid_post(m.group(1))
+        if p.startswith('/owner-portal/') or p == '/owner-portal':
+            return self._owner_portal_disabled_page()
         # 文件上传不经过 _post()（multipart 由 _import_upload 自行解析）
         if p == '/import/upload':
             u = self._get_current_user()

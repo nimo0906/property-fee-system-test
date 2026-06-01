@@ -5,6 +5,7 @@
 from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs
 from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
+from server.billing_periods import append_period_filter
 from datetime import datetime, date
 import urllib.parse, csv, io
 from server.print_helper import print_page, print_header_row
@@ -25,7 +26,8 @@ class BillExportMixin(BaseHandler):
                    LEFT JOIN fee_types f ON b.fee_type_id=f.id
                    LEFT JOIN owners o ON b.owner_id=o.id WHERE 1=1'''
             vals=[]
-            if period:sql+=" AND b.billing_period=?";vals.append(period)
+            if period:
+                sql, vals = append_period_filter(sql, vals, period, 'b.billing_period')
             if s:sql+=" AND b.status=?";vals.append(s)
             if fid:sql+=" AND b.fee_type_id=?";vals.append(fid)
             if bld:sql+=" AND r.building=?";vals.append(bld)

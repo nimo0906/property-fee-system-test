@@ -4,6 +4,7 @@
 
 from server.db import get_db, get_period, get_fee_type_rate, h, m, qs
 from server.base import BaseHandler
+from server.billing_rules import fee_in_scope
 import json
 
 
@@ -78,17 +79,8 @@ class FeeMixin(BaseHandler):
         rows_by_name = {r['name']: r for r in all_rows}
 
         def _belongs_to_fee_group(row, group_key, defs):
-            name = row['name'] or ''
-            if name in set(defs[group_key]['names']):
-                return True
-            sort_order = row['sort_order'] or 0
-            if group_key == 'commercial':
-                return 30 <= sort_order < 50
-            if group_key == 'property':
-                return 1 <= sort_order < 30 and name not in set(defs['other']['names'])
-            if group_key == 'other':
-                return sort_order >= 50
-            return False
+            del defs
+            return fee_in_scope(row, group_key)
 
         if selected_group in group_defs:
             gd = group_defs[selected_group]

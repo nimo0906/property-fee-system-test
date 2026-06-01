@@ -1205,6 +1205,40 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('暂无账单', body)
 
 
+    def test_owner_portal_is_disabled_for_h5_pages_and_api(self):
+        public_paths = [
+            '/owner-portal/h5',
+            '/owner-portal/login',
+            '/owner-portal/bills',
+            '/owner-portal/payment-orders',
+        ]
+        for path in public_paths:
+            status, body = http_get(path, '', TEST_PORT)
+            self.assertEqual(status, 503, path)
+            self.assertIn('业主端已停用', body)
+
+        for path in ['/api/v1/owner-portal/send-code', '/api/v1/owner-portal/login']:
+            status, body, loc = http_post(path, {'phone': '13800138000', 'code': '123456'}, '', TEST_PORT)
+            self.assertEqual(status, 503, path)
+            payload = json.loads(body)
+            self.assertFalse(payload['ok'])
+            self.assertEqual(payload['error']['code'], 'owner_portal_disabled')
+
+    def test_billing_period_filter_helper_uses_start_month_for_range_periods(self):
+        from server.billing_periods import period_filter_clause
+        clause, params = period_filter_clause('2026-06-01', 'b.billing_period')
+        self.assertIn('LIKE', clause)
+        self.assertEqual(params, ['2026-06', '2026-06~%'])
+
+
+    def test_fee_scope_helper_centralizes_property_and_commercial_fee_groups(self):
+        from server.billing_rules import fee_in_scope
+        self.assertTrue(fee_in_scope({'name': '物业费(商户)', 'sort_order': 10}, 'property'))
+        self.assertFalse(fee_in_scope({'name': '泄水费', 'sort_order': 17}, 'property'))
+        self.assertTrue(fee_in_scope({'name': '泄水费', 'sort_order': 17}, 'commercial'))
+        self.assertTrue(fee_in_scope({'name': '水费(非居民)', 'sort_order': 5}, 'commercial'))
+
+
     def test_billing_calc_get_redirects_back_to_billing_page(self):
         status, body = http_get('/billing/calc', self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
@@ -3859,6 +3893,7 @@ class TestIntegration(unittest.TestCase):
         self.assertTrue(cookie.startswith('owner_portal_token='))
         return cookie
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_login_profile_rooms_bills_payments_and_preview(self):
         ids = self._create_owner_portal_fixture()
         owner_id, _, room_id, _, _, bill_id, other_bill_id = ids
@@ -3906,6 +3941,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_profile_requires_owner_session(self):
         status, body = http_get('/api/v1/owner-portal/profile', '', TEST_PORT)
         self.assertEqual(status, 401)
@@ -3960,6 +3996,7 @@ class TestIntegration(unittest.TestCase):
         db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
         db.commit(); db.close()
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_h5_login_page_and_auth_redirect(self):
         status, body = http_get('/owner-portal/login', '', TEST_PORT)
         self.assertEqual(status, 200)
@@ -3971,6 +4008,7 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/owner-portal/dashboard', '', TEST_PORT)
         self.assertEqual(status, 302)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_h5_dashboard_bills_detail_and_payments(self):
         cookie, ids = self._owner_portal_login_browser_cookie()
         _, _, _, bill_id = ids
@@ -3998,6 +4036,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_h5_send_code_displays_debug_code(self):
         import server.db as db_module
         phone = '13800136666'
@@ -4019,6 +4058,7 @@ class TestIntegration(unittest.TestCase):
             db.execute('DELETE FROM owners WHERE id=?', (owner_id,))
             db.commit(); db.close()
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_h5_logout_clears_cookie(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137778')
         try:
@@ -4036,10 +4076,12 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_send_code_get_redirects_to_login(self):
         status, body = http_get('/owner-portal/send-code', '', TEST_PORT)
         self.assertEqual(status, 302)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_h5_bill_detail_payment_preview_does_not_write(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137779')
         _, _, _, bill_id = ids
@@ -4069,6 +4111,7 @@ class TestIntegration(unittest.TestCase):
 
 
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_invoice_requests_create_list_and_detail(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137788')
         owner_id, _, _, bill_id = ids
@@ -4098,6 +4141,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_notifications_api_and_h5_page(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137787')
         owner_id, _, _, bill_id = ids
@@ -4182,6 +4226,7 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('2032-01~2032-03', list_html)
         self.assertNotIn('暂无账单', list_html)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_payment_order_api_create_and_mock_paid_once(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137780')
         _, _, _, bill_id = ids
@@ -4207,6 +4252,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_h5_create_order_and_mock_paid_updates_payments(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137781')
         _, _, _, bill_id = ids
@@ -4232,6 +4278,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_payment_orders_api_and_h5_pages(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137782')
         _, _, _, bill_id = ids
@@ -4267,6 +4314,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_owner_portal_paid_bill_detail_hides_create_order_and_shows_recent_activity(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137783')
         _, _, _, bill_id = ids
@@ -4294,6 +4342,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_admin_payment_orders_list_and_detail_pages(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137784')
         owner_id, room_id, fee_type_id, bill_id = ids
@@ -4323,6 +4372,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_admin_payment_orders_show_status_metrics_and_related_links(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137785')
         _, _, _, bill_id = ids
@@ -4428,6 +4478,7 @@ class TestIntegration(unittest.TestCase):
             db.commit(); db.close()
 
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_payment_order_detail_shows_reconciliation_summary(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137789')
         _, _, _, bill_id = ids
@@ -4455,6 +4506,7 @@ class TestIntegration(unittest.TestCase):
         finally:
             self._cleanup_owner_portal_h5_fixture(ids)
 
+    @unittest.skip('业主端已停用，旧业主端链路测试跳过')
     def test_mock_payment_callback_api_is_idempotent(self):
         cookie, ids = self._owner_portal_login_browser_cookie('13800137786')
         _, _, _, bill_id = ids

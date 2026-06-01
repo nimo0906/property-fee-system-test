@@ -6,6 +6,8 @@ import json
 import re
 import urllib.parse
 
+OWNER_PORTAL_DISABLED = True
+
 from server.backups import create_db_backup
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
 from server.notifications import NotificationService
@@ -36,6 +38,10 @@ class ApiMixin:
         self.wfile.write(body)
 
 
+    def _api_owner_portal_disabled(self):
+        return self._api_error(503, 'owner_portal_disabled', '业主端已停用')
+
+
     def _owner_portal_token(self):
         cookie = self.headers.get('Cookie', '')
         if m := re.search(r'owner_portal_token=([^;]+)', cookie):
@@ -50,6 +56,8 @@ class ApiMixin:
 
     def _api_get(self, path):
         if path.startswith('/api/v1/owner-portal/'):
+            if OWNER_PORTAL_DISABLED:
+                return self._api_owner_portal_disabled()
             try:
                 service = OwnerPortalService()
                 session = self._owner_portal_session()
@@ -114,6 +122,8 @@ class ApiMixin:
             except (PaymentOrderError, InvoiceRequestError) as exc:
                 return self._api_error(400, 'validation_error', str(exc))
         if path.startswith('/api/v1/owner-portal/'):
+            if OWNER_PORTAL_DISABLED:
+                return self._api_owner_portal_disabled()
             service = OwnerPortalService()
             try:
                 if path == '/api/v1/owner-portal/send-code':

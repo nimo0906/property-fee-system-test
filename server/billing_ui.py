@@ -7,25 +7,7 @@ from server.base import BaseHandler
 from datetime import date
 import json
 
-PROPERTY_FEE_NAMES = {
-    '物业费(居民)', '物业费(商户)', '电梯费', '二次供水运行费',
-    '水费(非居民)', '水费(特行)', '公摊能耗费', '生活垃圾费',
-}
-COMMERCIAL_FEE_NAMES = {
-    '物业费(商业)', '电费(商业)', '水费(商业)', '垃圾清运费',
-    '装修管理费', '装修押金', '泄水费', '空调能源费', '空调费(商业)',
-}
-WATER_FEE_NAMES = {'水费(非居民)', '水费(特行)'}
-
-
-def _is_property_fee(fee):
-    name = fee['name'] or ''
-    return name in PROPERTY_FEE_NAMES or ((fee['sort_order'] or 0) < 30 and name not in COMMERCIAL_FEE_NAMES)
-
-
-def _is_commercial_fee(fee):
-    name = fee['name'] or ''
-    return name in COMMERCIAL_FEE_NAMES or name in WATER_FEE_NAMES or ((fee['sort_order'] or 0) >= 30 and name not in PROPERTY_FEE_NAMES)
+from server.billing_rules import fee_in_scope
 
 
 class BillingUiMixin(BaseHandler):
@@ -42,6 +24,7 @@ class BillingUiMixin(BaseHandler):
 
     def _render_billing(self, mode, active_tab, title, exclude_commercial):
         """渲染收费页面，按 mode 过滤费用类型."""
+        del exclude_commercial
         update_overdue_bills()
         db = get_db()
         room_sql = "SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id"
@@ -101,10 +84,7 @@ class BillingUiMixin(BaseHandler):
         opts = ''.join(opt_parts)
 
         # 过滤费用类型
-        if exclude_commercial:
-            fts = [f for f in all_fts if _is_property_fee(f)]
-        else:
-            fts = [f for f in all_fts if _is_commercial_fee(f)]
+        fts = [f for f in all_fts if fee_in_scope(f, mode)]
 
         fee_html = ''
         if fts:
