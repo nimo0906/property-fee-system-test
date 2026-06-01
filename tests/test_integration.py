@@ -122,12 +122,14 @@ class TestIntegration(unittest.TestCase):
             'notes': '测试更新说明',
             'assets': {'mac': {'url': 'https://example.test/mac.zip', 'sha256': 'abc'}},
         }
+        manifest_url = 'https://updates.example.test/update_manifest.json'
         with mock.patch('server.system_update.SystemUpdateService.fetch_manifest', return_value=manifest):
-            status, body, loc = http_post('/system_update/check', {}, self.cookie, TEST_PORT)
+            status, body, loc = http_post('/system_update/check', {'manifest_url': manifest_url}, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('发现新版本', body)
         self.assertIn('9.9.9', body)
         self.assertIn('测试更新说明', body)
+        self.assertIn(manifest_url, body)
 
     def test_system_update_page_is_admin_only(self):
         operator_cookie = self._create_user_and_login('operator_update_test', 'operator123', 'operator', '更新测试财务')
