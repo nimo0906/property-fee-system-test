@@ -1820,6 +1820,26 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('href="/bills?period=2029-09&amp;building=BACKFILTER&amp;status=unpaid"', detail)
 
+    def test_bill_list_can_select_owner_and_room_bill_groups(self):
+        http_post('/rooms/create', {
+            'building': 'SELECTGROUP', 'unit': 'A座', 'room_number': '801',
+            'floor': '8', 'category': '居民', 'area': '10',
+        }, self.cookie, TEST_PORT)
+        http_post('/bills/generate', {
+            'mode': 'confirm', 'period': '2029-08', 'fee_type_ids': '1,3',
+            'due_day': '28', 'building': 'SELECTGROUP',
+        }, self.cookie, TEST_PORT)
+
+        status, html = http_get('/bills?period=2029-08&building=SELECTGROUP', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('class="owner-group-chk"', html)
+        self.assertIn('class="room-group-chk"', html)
+        self.assertIn('data-owner-group="o1"', html)
+        self.assertIn('data-room-group="o1r', html)
+        self.assertIn('toggleBillGroup', html)
+        self.assertIn(".bill-chk[data-owner-group=", html)
+        self.assertIn(".bill-chk[data-room-group=", html)
+
     def test_bill_list_delete_buttons_are_not_nested_in_batch_form(self):
         http_post('/rooms/create', {
             'building': 'DELETEONE', 'unit': 'A座', 'room_number': '801',

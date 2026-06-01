@@ -131,30 +131,34 @@ class BillListMixin(BaseHandler):
         oidx=0
         for oname, og in owner_groups.items():
             oidx+=1
+            owner_group = f'o{oidx}'
             o_total=sum(b['amount'] for rl in og['rooms'].values() for b in rl['bills'])
             o_paid=sum(b['paid'] for rl in og['rooms'].values() for b in rl['bills'])
             o_rem=o_total-o_paid
             o_rem_html = f'<strong class="money money-due">¥{m(o_rem)}</strong>' if o_rem>0 else '<span class="money money-paid">¥0.00</span>'
-            rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'o{oidx}\')" style="cursor:pointer">'
-            rh+=f'<td colspan="2"><i class="bi bi-chevron-right" id="icon_o{oidx}"></i> <strong>{oname}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span></td>'
+            owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该业主下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
+            rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'{owner_group}\')" style="cursor:pointer">'
+            rh+=f'<td>{owner_chk}</td><td><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{oname}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span></td>'
             rh+=f'<td></td><td></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
             rh+=f'<td class="text-end">{o_rem_html}</td>'
             rh+=f'<td></td><td></td><td></td></tr>'
-            for rid, rl in og['rooms'].items():
+            for ridx, (rid, rl) in enumerate(og['rooms'].items(), 1):
+                room_group = f'{owner_group}r{ridx}'
                 r_total=sum(b['amount'] for b in rl['bills'])
                 r_paid=sum(b['paid'] for b in rl['bills'])
                 r_rem=r_total-r_paid
                 r_rem_html = f'<strong class="money money-due">¥{m(r_rem)}</strong>' if r_rem>0 else '<span class="money money-paid">¥0.00</span>'
-                rh+=f'<tr class="room-detail-o{oidx}" style="display:none;background:#f8f9fa">'
-                rh+=f'<td></td><td style="padding-left:25px"><strong>{rl["name"]}</strong></td>'
+                room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
+                rh+=f'<tr class="room-detail-{owner_group}" style="display:none;background:#f8f9fa">'
+                rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><strong>{rl["name"]}</strong></td>'
                 rh+=f'<td></td><td></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
                 rh+=f'<td class="text-end">{r_rem_html}</td>'
                 rh+=f'<td></td><td></td><td></td></tr>'
                 for b in rl['bills']:
                     rem=b['amount']-b['paid']
                     rem_html = f'<strong class="money money-due">¥{m(rem)}</strong>' if rem>0 else '<span class="money money-paid">¥0.00</span>'
-                    chk=f'<input type=checkbox name=bill_ids value="{b["id"]}" class=bill-chk form="billActionForm">'
-                    rh+=f'<tr class="room-detail-o{oidx}" style="display:none">'
+                    chk=f'<input type=checkbox name=bill_ids value="{b["id"]}" class=bill-chk form="billActionForm" data-owner-group="{owner_group}" data-room-group="{room_group}">'
+                    rh+=f'<tr class="room-detail-{owner_group}" style="display:none">'
                     rh+=f'<td>{chk}</td>'
                     rh+=f'<td><small>{h(b["bill_number"]or"-")}</small></td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'

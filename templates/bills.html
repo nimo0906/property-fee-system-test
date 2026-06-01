@@ -31,7 +31,18 @@
 {PAGE_LINKS}
 {BTN_BOTTOM}
 <script>
+function setGroupChecks(selector, checked){
+    document.querySelectorAll(selector).forEach(function(c){ c.checked = checked; });
+}
+function toggleBillGroup(kind, group, checked){
+    if(kind === 'owner'){
+        setGroupChecks('.bill-chk[data-owner-group="' + group + '"]', checked);
+        setGroupChecks('.room-group-chk[data-owner-group="' + group + '"]', checked);
+    }else if(kind === 'room'){
+        setGroupChecks('.bill-chk[data-room-group="' + group + '"]', checked);
+    }
+}
 document.getElementById('selAll')?.addEventListener('change', function(){
-    document.querySelectorAll('.bill-chk').forEach(function(c){ c.checked = this.checked; });
+    document.querySelectorAll('.bill-chk,.owner-group-chk,.room-group-chk').forEach(function(c){ c.checked = this.checked; }, this);
 });
 </script>
