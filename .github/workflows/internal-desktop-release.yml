@@ -84,8 +84,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release-assets
-          cp artifacts/windows-release/物业管理收费系统-v2.0-windows.zip release-assets/
-          cp artifacts/macos-release/物业管理收费系统-v2.0-macos.zip release-assets/
+          cp artifacts/windows-release/物业管理收费系统-v2.0-windows.zip release-assets/property-fee-system-v2.0-windows.zip
+          cp artifacts/macos-release/物业管理收费系统-v2.0-macos.zip release-assets/property-fee-system-v2.0-macos.zip
           python3 - <<'PY'
           from pathlib import Path
           from urllib.parse import quote
@@ -93,8 +93,8 @@ jobs:
           app_version = Path('server/app_version.py').read_text(encoding='utf-8')
           version = re.search(r"APP_VERSION\s*=\s*'([^']+)'", app_version).group(1)
           base = 'https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/'
-          mac = Path('release-assets/物业管理收费系统-v2.0-macos.zip')
-          win = Path('release-assets/物业管理收费系统-v2.0-windows.zip')
+          mac = Path('release-assets/property-fee-system-v2.0-macos.zip')
+          win = Path('release-assets/property-fee-system-v2.0-windows.zip')
           manifest = {
               'version': version,
               'notes': '内测最新版：包含系统更新中心、数据导入、账单生成、支付订单、系统健康和权限相关修复。',
