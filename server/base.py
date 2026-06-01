@@ -119,8 +119,6 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             ('系统维护', [
                 ('audit_logs', '/audit_logs', 'bi-journal-check', '操作日志'),
                 ('backups', '/backups', 'bi-cloud', '数据备份'),
-                ('system_health', '/system_health', 'bi-shield-check', '系统健康'),
-                ('system_update', '/system_update', 'bi-arrow-repeat', '系统更新'),
             ]),
         ]
         if role == "readonly":
@@ -153,6 +151,14 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                 f'<a class="nav-link{" active" if active == a[0] else ""}" href="{a[1]}"><i class="bi {a[2]}"></i><span>{a[3]}</span></a>'
                 for a in visible
             )
+            if group_name == '系统维护' and role == 'admin':
+                tool_active = 'system_health' if active == 'system_health' else ('system_update' if active == 'system_update' else '')
+                links += (
+                    '<div class="maintenance-tools">'
+                    f'<a class="system-tool-btn {"active" if tool_active == "system_health" else ""}" href="/system_health" title="系统健康"><i class="bi bi-shield-check"></i><span>健康</span></a>'
+                    f'<a class="system-tool-btn {"active" if tool_active == "system_update" else ""}" href="/system_update" title="系统更新"><i class="bi bi-arrow-repeat"></i><span>更新</span></a>'
+                    '</div>'
+                )
             nav_parts.append(f'<div class="nav-section"><div class="nav-section-title">{group_name}</div>{links}</div>')
         nav_html = ''.join(nav_parts)
         icons = {'index': 'bi-speedometer2', 'rooms': 'bi-door-open', 'owners': 'bi-people',

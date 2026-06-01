@@ -722,6 +722,15 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('对账报表', body)
         self.assertNotIn('更多功能', body)
 
+    def test_system_maintenance_links_render_as_compact_buttons(self):
+        status, body = http_get('/system_health', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('maintenance-tools', body)
+        self.assertIn('system-tool-btn active', body)
+        self.assertIn('href="/system_health"', body)
+        self.assertIn('href="/system_update"', body)
+        self.assertNotIn('<a class="nav-link active" href="/system_health"', body)
+
     def test_global_topbar_does_not_repeat_charge_actions_on_every_page(self):
         for path in ['/owners', '/rooms', '/payments', '/reports', '/import']:
             with self.subTest(path=path):
