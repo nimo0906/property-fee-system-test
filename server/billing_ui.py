@@ -149,6 +149,7 @@ class BillingUiMixin(BaseHandler):
         tpl = tpl.replace('{FEE_HTML}', fee_html or '<div class="text-center text-muted py-4">暂无费用类型</div>')
         tpl = tpl.replace('{ELEVATOR_DATA}', elevator_json)
         tpl = tpl.replace('{OWNER_DATA}', owner_json)
+        tpl = tpl.replace('{BILLING_MODE}', mode)
         tpl = tpl.replace('{PERIOD_START}', default_start)
         tpl = tpl.replace('{PERIOD_END}', default_end)
         self._html(self._page(title, tpl, active_tab))

@@ -7,6 +7,10 @@ window.getElevatorRate = function(floor){
 
 window.cycleMonths = function(cycle){ return cycle === 'quarterly' ? 3 : (cycle === 'semiannual' ? 6 : 1); };
 
+window.shouldUseRoomCycle = function(){
+    return window.BILLING_MODE === "commercial";
+};
+
 window.calcMonths = function(){
     var s = document.getElementById("periodStart");
     var e = document.getElementById("periodEnd");
@@ -27,8 +31,9 @@ window.updateMonthDisplay = function(){
     if(ed <= sd) { mc.textContent = "截止须大于起始"; return; }
     var sel = document.getElementById('billingRoom');
     var cycle = sel && sel.value ? (sel.options[sel.selectedIndex].dataset.cycle || '') : '';
-    var months = cycle ? window.cycleMonths(cycle) : window.calcMonths();
-    mc.textContent = cycle ? ("按商户缴费周期：共 " + months + " 个月") : ("共 " + months + " 个月");
+    var useCycle = window.shouldUseRoomCycle() && cycle;
+    var months = useCycle ? window.cycleMonths(cycle) : window.calcMonths();
+    mc.textContent = useCycle ? ("按商户缴费周期：共 " + months + " 个月") : ("共 " + months + " 个月");
 };
 
 window.showOwnerRooms = function(){
@@ -76,7 +81,7 @@ window.calcFees = function(){
         return;
     }
     var o = sel.options[sel.selectedIndex], cat = o.dataset.cat || "", water = o.dataset.water || "非居民", area = parseFloat(o.dataset.area) || 0, floor = parseInt(o.dataset.floor) || 1, roomRate = parseFloat(o.dataset.rate) || 0, roomCycle = o.dataset.cycle || '', total = 0;
-    if(roomCycle) months = window.cycleMonths(roomCycle);
+    if(window.shouldUseRoomCycle() && roomCycle) months = window.cycleMonths(roomCycle);
     document.querySelectorAll(".fee-row").forEach(function(row){
         var n = row.dataset.name || "";
         row.style.display = window.feeMatchesCategory(n, cat, water) ? "" : "none";

@@ -1147,6 +1147,46 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('var n = row.dataset.name || "";', calculation_loop)
         self.assertIn("n.indexOf('物业费')", calculation_loop)
 
+    def test_property_billing_date_range_overrides_room_payment_cycle(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '物业日期区间业主', '13900000009')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='1427', category='居民', area=59.42, owner_id=owner_id)
+        db.execute("UPDATE rooms SET payment_cycle='monthly', custom_rate=NULL WHERE id=?", (room_id,))
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()[0]
+        db.commit(); db.close()
+
+        status, body, loc = http_post('/billing/calc', {
+            'room_id': str(room_id),
+            'fee_types': [str(fee_id)],
+            'period_start': '2026-06-02',
+            'period_end': '2026-10-02',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+
+        db = get_db()
+        bill = db.execute("SELECT amount,billing_period,due_date FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
+        db.close()
+        self.assertIsNotNone(bill)
+        self.assertEqual(bill['billing_period'], '2026-06~2026-10')
+        self.assertEqual(bill['due_date'], '2026-10-02')
+        self.assertAlmostEqual(float(bill['amount']), 451.60)
+
+    def test_billing_frontend_uses_room_cycle_only_in_commercial_mode(self):
+        status, property_body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('window.BILLING_MODE="property"', property_body)
+
+        status, commercial_body = http_get('/commercial_billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('window.BILLING_MODE="commercial"', commercial_body)
+
+        with open(os.path.join(PROJECT_ROOT, 'static', 'billing.js'), encoding='utf-8') as f:
+            js = f.read()
+        self.assertIn('window.shouldUseRoomCycle', js)
+        self.assertIn('window.BILLING_MODE === "commercial"', js)
+        self.assertNotIn('if(roomCycle) months = window.cycleMonths(roomCycle);', js)
+
 
     def test_billing_calc_get_redirects_back_to_billing_page(self):
         status, body = http_get('/billing/calc', self.cookie, TEST_PORT)
