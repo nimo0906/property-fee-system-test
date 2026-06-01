@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal
 set "APP_DATA_DIR=%APPDATA%\PropertyFeeSystem"
 set "ARCHIVE_ROOT=%USERPROFILE%\Desktop\PropertyFeeSystemDataBackups"
