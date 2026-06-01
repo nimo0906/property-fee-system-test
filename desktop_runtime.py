@@ -123,6 +123,7 @@ def build_window_model(url, data_dir, db_path, backup_dir):
             {"label": "打开数据目录", "kind": "open_folder"},
             {"label": "查看诊断信息", "kind": "diagnose"},
             {"label": "打开错误日志", "kind": "open_startup_log"},
+            {"label": "检查更新", "kind": "open_update"},
             {"label": "退出", "kind": "exit"},
         ],
     }

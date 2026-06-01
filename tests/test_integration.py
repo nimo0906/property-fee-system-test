@@ -67,6 +67,7 @@ def _start_server():
     from server.import_data import ImportMixin
     from server.backups import BackupMixin
     from server.data_health import DataHealthMixin
+    from server.system_update_pages import SystemUpdateMixin
     from server.api import ApiMixin
     from server.owner_portal_pages import OwnerPortalPageMixin
 
@@ -78,7 +79,7 @@ def _start_server():
         PaymentMixin, BillingUiMixin,
         RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
         ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
-        ImportMixin, BackupMixin, DataHealthMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
+        ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, ApiMixin, OwnerPortalPageMixin, BaseHandler,
     ): pass
 
     db_init()
@@ -104,6 +105,40 @@ class TestIntegration(unittest.TestCase):
     def setUp(self):
         """Get a fresh cookie before each test."""
         self.cookie = login_and_get_client(TEST_PORT)
+
+
+    def test_system_update_page_renders_current_version(self):
+        from server.app_version import APP_VERSION
+        status, body = http_get('/system_update', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('系统更新', body)
+        self.assertIn(APP_VERSION, body)
+        self.assertIn('检查更新', body)
+        self.assertIn('半自动更新', body)
+
+    def test_system_update_check_uses_manifest_url_and_reports_latest_version(self):
+        manifest = {
+            'version': '9.9.9',
+            'notes': '测试更新说明',
+            'assets': {'mac': {'url': 'https://example.test/mac.zip', 'sha256': 'abc'}},
+        }
+        with mock.patch('server.system_update.SystemUpdateService.fetch_manifest', return_value=manifest):
+            status, body, loc = http_post('/system_update/check', {}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('发现新版本', body)
+        self.assertIn('9.9.9', body)
+        self.assertIn('测试更新说明', body)
+
+    def test_system_update_page_is_admin_only(self):
+        operator_cookie = self._create_user_and_login('operator_update_test', 'operator123', 'operator', '更新测试财务')
+        conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+        conn.request('GET', '/system_update', headers={'Cookie': operator_cookie})
+        resp = conn.getresponse()
+        resp.read()
+        loc = resp.getheader('Location', '')
+        conn.close()
+        self.assertEqual(resp.status, 302)
+        self.assertIn('无权限访问系统更新', urllib.parse.unquote(loc))
 
     def test_admin_system_health_page_reports_and_repairs_schema_and_bill_status(self):
         import server.db as db_module

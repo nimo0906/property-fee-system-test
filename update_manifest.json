@@ -1,0 +1,14 @@
+{
+  "version": "2.0.2",
+  "notes": "内测版本：新增系统内置半自动更新中心，可检查 GitHub 最新版本、下载更新包、校验后生成 Mac/Windows 更新助手；继续包含导入字段、账单跳转、业主支付订单和系统健康修复。",
+  "assets": {
+    "mac": {
+      "url": "https://raw.githubusercontent.com/nimo0906/property-fee-system-test/main/release/macos/%E7%89%A9%E4%B8%9A%E7%AE%A1%E7%90%86%E6%94%B6%E8%B4%B9%E7%B3%BB%E7%BB%9F-v2.0-macos.zip",
+      "sha256": "fedd995b28632c8a09c83fcdcdf6f552ee287c9f455d3a1fa68f7be75cb2869b"
+    },
+    "windows": {
+      "url": "",
+      "sha256": ""
+    }
+  }
+}

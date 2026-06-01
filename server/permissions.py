@@ -17,6 +17,9 @@ ADMIN_POST_PATTERNS = [
     r'^/users(/.*)?$',
     r'^/closing/(close|reopen)$',
     r'^/system_health/repair$',
+    r'^/system_update/check$',
+    r'^/system_update/prepare$',
+    r'^/system_update/open_folder$',
     r'^/import/upload$',
 ]
 

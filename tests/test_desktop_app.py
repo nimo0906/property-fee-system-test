@@ -136,6 +136,7 @@ class TestDesktopPackaging(unittest.TestCase):
         self.assertIn('Windows用户发送文案.md', spec_text)
         self.assertIn('真实数据试运行保护方案.md', spec_text)
         self.assertIn('真实数据导入前验收清单.md', spec_text)
+        self.assertIn('update_manifest.json', spec_text)
         self.assertNotIn("('property.db', '.')", spec_text)
         script_text = script.read_text(encoding='utf-8')
         self.assertIn('pyinstaller', script_text.lower())
@@ -228,6 +229,7 @@ class TestDesktopWindowExperience(unittest.TestCase):
             self.assertIn('打开数据目录', labels)
             self.assertIn('查看诊断信息', labels)
             self.assertIn('打开错误日志', labels)
+            self.assertIn('检查更新', labels)
             self.assertIn('退出', labels)
             self.assertIn('数据保存在本机', model['hint'])
             self.assertEqual(model['startup_log'], str(Path(tmp) / 'startup_error.log'))
@@ -284,7 +286,7 @@ class TestMacDesktopDeployment(unittest.TestCase):
         self.assertIn('desktop_app.py', spec_text)
         self.assertIn('BUNDLE(', spec_text)
         self.assertIn('物业管理收费系统.app', spec_text)
-        for asset in ['server', 'templates', 'static', '用户快速开始.md', '交付验收清单.md', '使用说明.md']:
+        for asset in ['server', 'templates', 'static', '用户快速开始.md', '交付验收清单.md', '使用说明.md', 'update_manifest.json']:
             self.assertIn(asset, spec_text)
         self.assertNotIn("('property.db', '.')", spec_text)
         script_text = script.read_text(encoding='utf-8')

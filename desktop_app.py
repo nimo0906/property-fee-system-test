@@ -104,6 +104,7 @@ def run_gui():
     tk.Button(buttons, text="打开数据目录", width=14, command=lambda: open_folder(data_dir)).grid(row=1, column=0, padx=6, pady=4)
     tk.Button(buttons, text="查看诊断信息", width=14, command=show_diagnostics).grid(row=1, column=1, padx=6, pady=4)
     tk.Button(buttons, text="打开错误日志", width=14, command=open_startup_log).grid(row=2, column=0, padx=6, pady=4)
+    tk.Button(buttons, text="检查更新", width=14, command=lambda: webbrowser.open(url + "/system_update")).grid(row=2, column=1, padx=6, pady=4)
 
     def close_app():
         try:

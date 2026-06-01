@@ -17,6 +17,7 @@ a = Analysis(
         ('使用说明.md', '.'),
         ('用户快速开始.md', '.'),
         ('交付验收清单.md', '.'),
+        ('update_manifest.json', '.'),
     ],
     hiddenimports=collect_submodules('openpyxl') + collect_submodules('xlrd'),
     hookspath=[],

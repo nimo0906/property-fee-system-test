@@ -24,6 +24,7 @@ a = Analysis(
         ('Windows用户发送文案.md', '.'),
         ('真实数据导入前验收清单.md', '.'),
         ('真实数据试运行保护方案.md', '.'),
+        ('update_manifest.json', '.'),
     ],
     hiddenimports=collect_submodules('openpyxl') + collect_submodules('xlrd'),
     hookspath=[],

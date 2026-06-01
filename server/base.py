@@ -103,6 +103,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                 ('audit_logs', '/audit_logs', 'bi-journal-check', '操作日志'),
                 ('backups', '/backups', 'bi-cloud', '数据备份'),
                 ('system_health', '/system_health', 'bi-shield-check', '系统健康'),
+                ('system_update', '/system_update', 'bi-arrow-repeat', '系统更新'),
             ]),
         ]
         if role == "readonly":
@@ -125,6 +126,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             nav_groups[-1][1].append(("users", "/users", "bi-people-fill", "操作员管理"))
             allowed.add('users')
             allowed.add('system_health')
+            allowed.add('system_update')
         nav_parts = []
         for group_name, items in nav_groups:
             visible = [item for item in items if item[0] in allowed]
@@ -143,6 +145,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
                  'shared_expenses': 'bi-diagram-3',
                  'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'payment_orders': 'bi-phone', 'closing': 'bi-lock',
                  'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
+                 'system_update': 'bi-arrow-repeat',
                  'collections': 'bi-telephone-outbound', 'audit_logs': 'bi-journal-check'}
         icon = icons.get(active, 'bi-speedometer2')
         html = html.replace('{TITLE}', h(title))
@@ -351,6 +354,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         elif p == '/audit_logs': return self._audit_logs(q)
         elif p == '/backups': return self._backups(q)
         elif p == '/system_health': return self._system_health(q)
+        elif p == '/system_update': return self._system_update(q)
         elif p == '/backups/cleanup': return self._backup_cleanup_preview(q)
         elif (m := re.match(r'^/backups/(.+)/restore$', p)): return self._backup_restore_confirm(m.group(1))
         elif (m := re.match(r'^/backups/(.+)/delete$', p)): return self._backup_delete_confirm(m.group(1))
@@ -449,6 +453,9 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         elif (m := re.match(r'^/users/(\d+)/edit$', p)): return self._user_edit(int(m.group(1)), d)
         elif (m := re.match(r'^/users/(\d+)/delete$', p)): return self._user_delete(int(m.group(1)))
         elif p == '/system_health/repair': return self._system_health_repair(d)
+        elif p == '/system_update/check': return self._system_update_check(d)
+        elif p == '/system_update/prepare': return self._system_update_prepare(d)
+        elif p == '/system_update/open_folder': return self._system_update_open_folder()
         elif p == '/backups/create': return self._backup_create()
         elif p == '/backups/cleanup': return self._backup_cleanup_apply(d)
         elif (m := re.match(r'^/backups/(.+)/restore$', p)): return self._backup_restore(m.group(1))
