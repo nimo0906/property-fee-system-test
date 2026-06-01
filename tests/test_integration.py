@@ -3420,7 +3420,9 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/owner-portal/login', '', TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('业主自助服务', body)
-        self.assertIn('手机号', body)
+        self.assertEqual(body.count('<label>手机号</label>'), 1)
+        self.assertEqual(body.count('name="phone"'), 2)
+        self.assertIn('type="hidden" name="phone"', body)
 
         status, body = http_get('/owner-portal/dashboard', '', TEST_PORT)
         self.assertEqual(status, 302)
@@ -3464,6 +3466,9 @@ class TestIntegration(unittest.TestCase):
             self.assertIn('验证码已生成', body)
             self.assertRegex(body, r'测试验证码：<strong>\d{6}</strong>')
             self.assertIn(phone, body)
+            self.assertEqual(body.count('<label>手机号</label>'), 1)
+            self.assertEqual(body.count('name="phone"'), 2)
+            self.assertIn('type="hidden" name="phone"', body)
         finally:
             db = db_module.get_db()
             db.execute('DELETE FROM owner_portal_login_codes WHERE phone=?', (phone,))
