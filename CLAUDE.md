@@ -48,3 +48,12 @@
 - Windows 交付入口：`build_windows_exe.bat` -> `dist\PropertyFeeSystem\PropertyFeeSystem.exe`。
 - 新增静态资源、模板、文档或依赖时，要同步检查 PyInstaller spec 是否纳入打包。
 - 声称桌面端完成前，至少运行桌面相关测试；涉及打包资源时优先验证打包后的可执行入口能打开登录页。
+
+#更新与发布强制规范
+- 后续任何用户可见更新，必须同步 macOS、Windows 和 GitHub Release；不能只更新单端。
+- Windows 包必须通过 Windows 环境或 GitHub Actions 产出，并和 macOS 包一起更新 `internal-latest`。
+- 发布前必须运行 `py_compile`、`pytest`、`scripts/desktop_release_check.py`；更新器/打包相关变更还要跑对应专项测试。
+- 更新器、安全边界、发布清单和 SHA256 校验要求见 `docs/release-update-policy.md`。
+- 不提交真实 Excel、数据库、备份、缓存、构建目录、`.env`、日志或系统临时文件。
+- 清理仓库时，缓存和构建产物可清；删除历史文档、发布目录或真实数据前必须先列清单确认。
+- 代码体积严格控制，新增逻辑优先拆模块，避免继续放大已有大文件。

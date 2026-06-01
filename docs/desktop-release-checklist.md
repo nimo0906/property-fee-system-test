@@ -2,6 +2,8 @@
 
 本清单用于 v2.0 桌面 app 发布前检查，覆盖 macOS 和 Windows。目标是保证本地服务、数据库、打包脚本、启动入口和回归测试在两个系统上都有明确验收步骤。
 
+后续每次发布还必须遵守 [`docs/release-update-policy.md`](release-update-policy.md)：macOS、Windows 和 GitHub Release 必须同步更新。
+
 ## 通用验收
 
 1. 代码验证
