@@ -7,13 +7,21 @@ from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
 from server.backups import create_db_backup
 from datetime import datetime, date
+import urllib.parse
 
 
 class BillDetailMixin(BaseHandler):
+
+    def _batch_edit_redirect(self, d, message):
+        back_url = qs(d or {}, 'back', '/bills')
+        if not back_url.startswith('/bills'):
+            back_url = '/bills'
+        separator = '&' if '?' in back_url else '?'
+        return self._redirect(back_url + separator + 'flash=' + urllib.parse.quote(message))
     def _bill_batch_edit(self, d):
         ids = self._batch_bill_ids(d)
         if not ids:
-            return self._redirect('/bills?flash=请勾选要修正的账单')
+            return self._batch_edit_redirect(d, '请先在账单明细左侧勾选要批量修正的账单')
         placeholders = ','.join('?' * len(ids))
         db = get_db()
         rows = db.execute(f'''SELECT b.*,r.building,r.unit,r.room_number,f.name ft
@@ -48,15 +56,15 @@ class BillDetailMixin(BaseHandler):
         amount_percent_raw = qs(d, 'amount_percent')
         approved_by = qs(d, 'approved_by', '管理员')
         if not ids:
-            return self._redirect('/bills?flash=请勾选要修正的账单')
+            return self._batch_edit_redirect(d, '请先在账单明细左侧勾选要批量修正的账单')
         if not due_date and not notes and not amount_mode:
-            return self._redirect('/bills?flash=请填写要修正的内容')
+            return self._batch_edit_redirect(d, '请填写要修正的内容')
         amount_percent = 0
         if amount_mode == 'percent':
             try:
                 amount_percent = float(amount_percent_raw)
             except ValueError:
-                return self._redirect('/bills?flash=金额调整百分比格式错误')
+                return self._batch_edit_redirect(d, '金额调整百分比格式错误')
         placeholders = ','.join('?' * len(ids))
         db = get_db()
         rows = db.execute(f'''SELECT b.id,b.bill_number,b.amount,b.due_date,r.building,r.unit,r.room_number,f.name ft
@@ -99,15 +107,15 @@ class BillDetailMixin(BaseHandler):
         amount_mode = qs(d, 'amount_adjust_mode')
         amount_percent_raw = qs(d, 'amount_percent')
         if not ids:
-            return self._redirect('/bills?flash=请勾选要修正的账单')
+            return self._batch_edit_redirect(d, '请先在账单明细左侧勾选要批量修正的账单')
         if not due_date and not notes and not amount_mode:
-            return self._redirect('/bills?flash=请填写要修正的内容')
+            return self._batch_edit_redirect(d, '请填写要修正的内容')
         amount_percent = 0
         if amount_mode == 'percent':
             try:
                 amount_percent = float(amount_percent_raw)
             except ValueError:
-                return self._redirect('/bills?flash=金额调整百分比格式错误')
+                return self._batch_edit_redirect(d, '金额调整百分比格式错误')
         db = get_db()
         placeholders = ','.join('?' * len(ids))
         bill_rows = db.execute(f'''SELECT b.id,b.bill_number,b.billing_period,b.amount,b.due_date,b.notes,r.building,r.unit,r.room_number,f.name ft

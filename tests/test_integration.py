@@ -1820,6 +1820,23 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('href="/bills?period=2029-09&amp;building=BACKFILTER&amp;status=unpaid"', detail)
 
+    def test_bill_batch_edit_without_selection_preserves_current_bill_filters(self):
+        http_post('/rooms/create', {
+            'building': 'BATCHBACK', 'unit': 'A座', 'room_number': '801',
+            'floor': '8', 'category': '居民', 'area': '10',
+        }, self.cookie, TEST_PORT)
+        http_post('/bills/generate', {
+            'mode': 'confirm', 'period': '2029-07', 'fee_type_ids': '1',
+            'due_day': '28', 'building': 'BATCHBACK',
+        }, self.cookie, TEST_PORT)
+
+        status, _, loc = http_post('/bills/batch_edit', {
+            'back': '/bills?period=2029-07&building=BATCHBACK',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/bills?period=2029-07&building=BATCHBACK', loc)
+        self.assertIn('flash=', loc)
+
     def test_bill_list_can_select_owner_and_room_bill_groups(self):
         http_post('/rooms/create', {
             'building': 'SELECTGROUP', 'unit': 'A座', 'room_number': '801',
