@@ -414,6 +414,21 @@ class TestIntegration(unittest.TestCase):
 
 
 
+    def test_property_billing_excludes_commercial_only_fee_names_even_if_sort_order_is_low(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '物业B座商户业主', '13900000008')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='B-M01', category='商户', owner_id=owner_id)
+        db.execute("UPDATE fee_types SET sort_order=17, is_active=1 WHERE name='泄水费'")
+        db.commit(); db.close()
+
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('金莎国际-B座-B-M01', body)
+        self.assertNotIn('泄水费', body)
+        self.assertNotIn('装修押金', body)
+        self.assertNotIn('空调能源费', body)
+
     def test_commercial_billing_shows_water_fees_for_every_merchant_and_uses_water_standard(self):
         from server.db import get_db
         db = get_db()
