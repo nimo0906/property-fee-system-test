@@ -76,7 +76,7 @@ class InvoiceMixin(BaseHandler):
             rh+='<td class="text-end">¥'+m(r['amount'])+'</td>'
             rh+='<td>'+h(r['issue_date']or'-')+'</td>'
             rh+='<td><span class="badge bg-success">已开具</span></td>'
-            rh+='<td><a href="/invoices/'+str(r['id'])+'/print" class="btn btn-sm btn-outline-info" target="_blank"><i class="bi bi-printer"></i></a> '
+            rh+='<td><a href="/invoices/'+str(r['id'])+'/print" class="btn btn-sm btn-outline-info"><i class="bi bi-printer"></i> 打印</a> '
             rh+='<form method=POST action="/invoices/'+str(r['id'])+'/delete" style=display:inline><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
         av_opts = '<option value="">--选择--</option>'
         for a in avail:

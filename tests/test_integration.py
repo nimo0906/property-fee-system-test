@@ -1424,6 +1424,31 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('INVRANGE-808', body)
         self.assertIn('区间待开发票业主', body)
 
+    def test_invoice_print_link_opens_in_current_window_and_has_content(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '发票打印业主', '13900005555')
+        room_id = create_room(db, building='INVOICEPRINT', unit='A座', room_number='1701', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-06', amount=188, status='paid', owner_id=owner_id)
+        invoice_id = db.execute("""
+            INSERT INTO invoices(bill_id, invoice_number, amount, issue_date, buyer_name, buyer_tax_id)
+            VALUES(?, 'INV-PRINT-001', 188, '2034-06-02', '发票打印抬头', 'TAX001')
+        """, (bill_id,)).lastrowid
+        db.commit()
+        db.close()
+
+        status, page = http_get('/invoices?period=2034-06', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn(f'href="/invoices/{invoice_id}/print"', page)
+        self.assertNotIn(f'href="/invoices/{invoice_id}/print" class="btn btn-sm btn-outline-info" target="_blank"', page)
+
+        status, print_page = http_get(f'/invoices/{invoice_id}/print', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('电子发票', print_page)
+        self.assertIn('INV-PRINT-001', print_page)
+        self.assertIn('发票打印抬头', print_page)
+        self.assertIn('188.00', print_page)
+
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module
         db = db_module.get_db()
