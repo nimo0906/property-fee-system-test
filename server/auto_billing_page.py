@@ -6,7 +6,7 @@ from server.auto_billing_runs import run_row_html
 from server.db import h, m
 
 
-def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs):
+def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs, preview_status='all'):
     fee_checks = ''.join(
         f'''<label class="form-check form-check-inline mb-2">
             <input class="form-check-input" type="checkbox" name="fee_ids" value="{f['id']}"
@@ -16,6 +16,7 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
         for f in fee_options
     )
     hidden_fee_ids = ''.join(f'<input type="hidden" name="fee_ids" value="{fid}">' for fid in selected_fee_ids)
+    status_opts = _status_options(preview_status)
     rows = ''.join(_preview_row(x) for x in items) or _empty_preview_row()
     run_rows = ''.join(run_row_html(r) for r in runs) or '<tr><td colspan="7" class="text-center text-muted py-3">暂无自动出账记录</td></tr>'
     summary = _preview_summary(items)
@@ -27,6 +28,8 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     <form method="GET" action="/auto_billing" class="row g-2 mb-3">
       <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
       <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
+      <div class="col-auto"><label class="col-form-label">预览状态</label></div>
+      <div class="col-auto"><select class="form-select" name="preview_status">{status_opts}</select></div>
       <div class="col-12"><div class="card"><div class="card-header py-2">收费项目选择</div><div class="card-body py-2">{fee_checks}</div></div></div>
       <div class="col-auto"><button class="btn btn-primary">刷新预览</button></div>
     </form>
@@ -40,7 +43,7 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
       </div>
     </div></div>
     <form method="POST" action="/auto_billing/confirm">
-      <input type="hidden" name="advance_days" value="{advance_days}">{hidden_fee_ids}
+      <input type="hidden" name="advance_days" value="{advance_days}"><input type="hidden" name="preview_status" value="{h(preview_status)}">{hidden_fee_ids}
       <div class="table-responsive"><table class="table table-hover align-middle small">
       <thead><tr><th>选择</th><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
       <tbody>{rows}</tbody></table></div>
@@ -72,3 +75,9 @@ def _preview_summary(items):
         'rooms': len({x['room_id'] for x in can_items}),
         'amount': sum(float(x['amount'] or 0) for x in can_items),
     }
+
+
+
+def _status_options(current):
+    options = [('all', '全部'), ('can_generate', '只看可生成'), ('existing', '只看已存在')]
+    return ''.join(f'<option value="{value}"{" selected" if current == value else ""}>{label}</option>' for value, label in options)

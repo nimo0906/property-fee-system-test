@@ -174,11 +174,16 @@ class AutoBillingMixin(BaseHandler):
         advance_days = int(qs(q, 'advance_days', 30) or 30)
         db = get_db()
         selected_fee_ids = _ids_from_form(q) or _default_fee_ids(db)
+        preview_status = qs(q, 'preview_status', 'all') or 'all'
         fee_options = _selectable_fees(db)
         items = build_auto_billing_preview(db, advance_days=advance_days, fee_ids=selected_fee_ids)
+        if preview_status == 'can_generate':
+            items = [x for x in items if x['can_generate']]
+        elif preview_status == 'existing':
+            items = [x for x in items if not x['can_generate']]
         runs = recent_auto_billing_runs(db)
         db.close()
-        body = render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs)
+        body = render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs, preview_status)
         self._html(self._page('自动出账预览', body, 'auto_billing'))
 
     def _auto_billing_run_detail(self, batch_no):

@@ -682,6 +682,30 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('电梯费', body)
 
+        db = get_db()
+        existing_owner = create_owner(db, '已存在筛选业主', '13900008888')
+        existing_room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOEXIST', 'B座', '2703', 27, '居民', 100, existing_owner, '已存在租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        db.execute("""
+            INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,source,service_start,service_end)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)
+        """, (existing_room_id, existing_owner, fee_id, '2026-06~2026-09', 570, '2026-06-26', 'unpaid', 'AUTOEXIST-001', 'auto_contract', '2026-06-27', '2026-09-26'))
+        db.commit(); db.close()
+
+        status, only_can = http_get('/auto_billing?advance_days=30&preview_status=can_generate', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('只看可生成', only_can)
+        self.assertIn('页面租户', only_can)
+        self.assertNotIn('已存在租户', only_can)
+
+        status, only_existing = http_get('/auto_billing?advance_days=30&preview_status=existing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('只看已存在', only_existing)
+        self.assertIn('已存在租户', only_existing)
+        self.assertNotIn('页面租户', only_existing)
+
         item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
         status, body, loc = http_post('/auto_billing/confirm', {
             'advance_days': '30',
