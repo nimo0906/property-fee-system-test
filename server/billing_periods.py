@@ -41,15 +41,14 @@ def period_filter_clause(value, column='billing_period'):
     if '~' in period:
         start, end = period.split('~', 1)
         months = _month_range(start, end)
-        parts = [f'{column}=?']
-        params = [period]
-        for month in months:
-            parts.append(f'{column}=?')
-            params.append(month)
-            parts.append(f'{column} LIKE ?')
-            params.append(f'{month}~%')
-        return '(' + ' OR '.join(parts) + ')', params
-    return f'({column}=? OR {column} LIKE ?)', [period, f'{period}~%']
+        single_placeholders = ','.join('?' * len(months))
+        return (
+            f'({column}=? OR {column} IN ({single_placeholders}) OR '
+            f'(instr({column}, "~")>0 AND substr({column},1,7)<=? AND substr({column},9,7)>=?))'
+        ), [period] + months + [end, start]
+    return (
+        f'({column}=? OR (instr({column}, "~")>0 AND substr({column},1,7)<=? AND substr({column},9,7)>=?))'
+    ), [period, period, period]
 
 
 def append_period_filter(sql, params, value, column='billing_period'):

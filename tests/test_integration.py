@@ -1390,6 +1390,21 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('INVAVAIL-701', body)
         self.assertIn('待开发票业主', body)
 
+    def test_range_paid_bills_are_available_for_invoice_by_inner_month(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '区间待开发票业主', '13900007777')
+        room_id = create_room(db, building='INVRANGE', unit='B座', room_number='808', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-06~2034-09', amount=488, status='paid', owner_id=owner_id)
+        create_payment(db, bill_id=bill_id, amount=488, method='transfer', operator='开票员')
+        db.close()
+
+        status, body = http_get('/invoices?period=2034-07-01', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn(f'value="{bill_id}"', body)
+        self.assertIn('INVRANGE-808', body)
+        self.assertIn('区间待开发票业主', body)
+
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module
         db = db_module.get_db()
@@ -1480,8 +1495,8 @@ class TestIntegration(unittest.TestCase):
     def test_billing_period_filter_helper_uses_start_month_for_range_periods(self):
         from server.billing_periods import period_filter_clause
         clause, params = period_filter_clause('2026-06-01', 'b.billing_period')
-        self.assertIn('LIKE', clause)
-        self.assertEqual(params, ['2026-06', '2026-06~%'])
+        self.assertIn('substr', clause)
+        self.assertEqual(params, ['2026-06', '2026-06', '2026-06'])
 
 
     def test_fee_scope_helper_centralizes_property_and_commercial_fee_groups(self):

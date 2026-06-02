@@ -3,6 +3,7 @@
 """Electronic invoice management."""
 
 from server.db import get_db, get_period, h, m, qs, date_to_period, period_to_date
+from server.billing_periods import append_period_filter
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
 from server.base import BaseHandler
 from datetime import date, datetime
@@ -53,13 +54,18 @@ class InvoiceMixin(BaseHandler):
             LEFT JOIN bills b ON i.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id
             LEFT JOIN owners o ON b.owner_id=o.id
-            WHERE b.billing_period=? ORDER BY i.id DESC'''
-        rows=db.execute(sql,(p,)).fetchall()
-        total=db.execute("SELECT COALESCE(SUM(i.amount),0) FROM invoices i JOIN bills b ON i.bill_id=b.id WHERE b.billing_period=?",(p,)).fetchone()[0]
-        avail=db.execute('''SELECT b.id,b.bill_number,b.amount,b.billing_period,r.building,r.unit,r.room_number,o.name oname
+            WHERE 1=1'''
+        sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
+        rows=db.execute(sql + ' ORDER BY i.id DESC', vals).fetchall()
+        total_sql, total_vals = append_period_filter(
+            "SELECT COALESCE(SUM(i.amount),0) FROM invoices i JOIN bills b ON i.bill_id=b.id WHERE 1=1", [], p, 'b.billing_period'
+        )
+        total=db.execute(total_sql,total_vals).fetchone()[0]
+        avail_sql='''SELECT b.id,b.bill_number,b.amount,b.billing_period,r.building,r.unit,r.room_number,o.name oname
             FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
-            WHERE b.billing_period=? AND b.status='paid' AND b.id NOT IN (SELECT bill_id FROM invoices)
-            ORDER BY r.building,r.room_number''',(p,)).fetchall()
+            WHERE b.status='paid' AND b.id NOT IN (SELECT bill_id FROM invoices)'''
+        avail_sql, avail_vals = append_period_filter(avail_sql, [], p, 'b.billing_period')
+        avail=db.execute(avail_sql + ' ORDER BY r.building,r.room_number', avail_vals).fetchall()
         db.close()
         rh=''
         for r in rows:
