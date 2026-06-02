@@ -33,7 +33,7 @@ class ClosingMixin(BaseHandler):
             pp=p['billing_period']
             if pp not in closed_periods:
                 popts+='<option value="'+h(pp)+'">'+h(pp)+'</option>'
-        html='''<div class="alert alert-info"><i class="bi bi-info-circle"></i> 结账后该账期数据将封存，已缴账单不可修改。反结账后可继续操作。</div>'''
+        html='''<div class="alert alert-info"><i class="bi bi-info-circle"></i> 期末结账用于锁定某一账期，防止已缴账单被误改、误删或重复生成；它不会删除账单、不会自动收款、不会自动开发票。</div>'''
         html+='''<div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">结账操作</div><div class="card-body"><form method=POST action="/closing/close" class="row g-3"><div class="col-12"><label>选择账期</label><select name="period" class="form-select" required><option value="">--请选择--</option>'''+popts+'''</select></div><div class="col-12"><label>备注</label><input name="notes" class="form-control"></div><div class="col-12"><hr><button class="btn btn-outline-primary" name="preview" value="1"><i class="bi bi-search"></i> 提前预览</button> <button class="btn btn-primary" onclick="return confirm(\'确认结账?\')"><i class="bi bi-lock"></i> 执行结账</button></div></form></div></div><p class="text-muted small mt-2">结账后：<br>- 已缴账单不可修改<br>- 不可生成新账单<br>- 反结账后可恢复</p></div>'''
         html+='''<div class="col-md-7"><div class="card"><div class="card-header">结账记录</div><div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th>账期</th><th>状态</th><th>日期</th><th>操作员</th><th>笔数</th><th>金额</th><th>操作</th></tr></thead><tbody>'''+rhtml+'''</tbody></table></div></div></div></div>'''
         self._html(self._page('期末结账', html, 'closing'))
@@ -71,22 +71,54 @@ class ClosingMixin(BaseHandler):
         """,(period,)).fetchone()
         return dict(row)
 
+    def _closing_period_bill_rows(self, db, period):
+        return db.execute("""
+            SELECT b.bill_number,b.billing_period,b.amount,b.status,
+                   r.building,r.unit,r.room_number,r.tenant_name,
+                   o.name owner_name,f.name fee_name,
+                   COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
+            FROM bills b
+            LEFT JOIN rooms r ON b.room_id=r.id
+            LEFT JOIN owners o ON b.owner_id=o.id
+            LEFT JOIN fee_types f ON b.fee_type_id=f.id
+            WHERE b.billing_period=?
+            ORDER BY r.building,r.unit,r.room_number,f.name,b.id
+        """,(period,)).fetchall()
+
     def _render_closing_precheck(self, period, notes, stats, preview=False):
+        db=get_db()
+        bill_rows=self._closing_period_bill_rows(db, period)
+        db.close()
         warnings=[]
         if (stats.get('unpaid_count') or 0)>0: warnings.append('存在未缴账单')
         if (stats.get('partial_count') or 0)>0: warnings.append('存在部分缴费账单')
         if (stats.get('abnormal_count') or 0)>0: warnings.append('存在异常账单')
         warning_html=''.join(f'<li>{h(x)}</li>' for x in warnings) or '<li>未发现明显异常</li>'
-        actions = f'''<a class="btn btn-outline-primary" href="/bills?period={h(period)}">查看账单</a>
-            <a class="btn btn-outline-secondary" href="/closing">返回</a>''' if preview else f'''<form method=POST action="/closing/close">
+        status_names={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
+        detail_rows=''
+        for b in bill_rows:
+            room='-'.join(x for x in [b['building'],b['unit'],b['room_number']] if x) or '-'
+            payer=b['tenant_name'] or b['owner_name'] or '-'
+            detail_rows+=f'''<tr><td>{h(b['bill_number'] or '-')}</td><td>{h(room)}</td><td>{h(payer)}</td>
+                <td>{h(b['fee_name'] or '-')}</td><td>{h(b['billing_period'])}</td>
+                <td class="text-end">¥{m(b['amount'] or 0)}</td><td class="text-end">¥{m(b['paid'] or 0)}</td>
+                <td>{h(status_names.get(b['status'], b['status'] or '-'))}</td></tr>'''
+        if not detail_rows:
+            detail_rows='<tr><td colspan="8" class="text-center text-muted">该账期暂无账单</td></tr>'
+        details_html=f'''<div class="card"><div class="card-header">本次将结账的账单明细</div>
+            <div class="card-body p-0"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
+            <thead><tr><th>编号</th><th>房间</th><th>租户/业主</th><th>收费项目</th><th>账期</th><th class="text-end">金额</th><th class="text-end">已缴</th><th>状态</th></tr></thead>
+            <tbody>{detail_rows}</tbody></table></div></div></div>'''
+        confirm_form = f'''<form method=POST action="/closing/close" class="d-inline">
             <input type=hidden name="period" value="{h(period)}"><input type=hidden name="notes" value="{h(notes)}"><input type=hidden name="confirm" value="1">
             <button class="btn btn-danger" onclick="return confirm('确认结账？结账后该账期将被锁定。')">确认结账</button>
-            <a class="btn btn-outline-primary" href="/bills?period={h(period)}">查看账单</a>
-            <a class="btn btn-outline-secondary" href="/closing">返回</a>
         </form>'''
+        actions = f'''<div class="d-flex flex-wrap gap-2">{confirm_form}
+            <a class="btn btn-outline-primary" href="/bills?period={h(period)}">查看账单</a>
+            <a class="btn btn-outline-secondary" href="/closing">返回修改</a></div>'''
         title = '结账前预览' if preview else '结账前检查'
         self._html(self._page(title,f'''
-        <div class="alert alert-warning"><strong>{title}</strong>：请先核对 {h(period)} 的账单状态和金额，确认后才会正式结账。</div>
+        <div class="alert alert-warning"><strong>{title}</strong>：结账对象是账期 <code>{h(period)}</code> 下方明细里的账单。确认后只会锁定该账期，防止误改、误删和重复生成；不会删除账单、不会自动收款、不会自动开发票。</div>
         <div class="row text-center g-2 mb-3">
             <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">账单总数</div><strong>{stats.get('total_count') or 0}</strong></div></div>
             <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">已缴账单</div><strong>{stats.get('paid_count') or 0}</strong></div></div>
@@ -100,6 +132,7 @@ class ClosingMixin(BaseHandler):
             <tr><td>未缴账单金额</td><td class="text-end">¥{m(stats.get('unpaid_amount') or 0)}</td></tr>
         </table></div></div>
         <div class="alert alert-light border"><strong>异常提醒</strong><ul class="mb-0">{warning_html}</ul></div>
+        {details_html}
         {actions}
         ''','closing'))
 
