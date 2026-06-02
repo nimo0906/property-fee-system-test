@@ -182,6 +182,26 @@ def read_backup_data_summary(path):
     return summary
 
 
+def _backup_summary_html(summary):
+    if not summary['ok']:
+        return f'<div class="alert alert-warning"><strong>备份数据摘要读取失败</strong>：{h(summary["error"])}</div>'
+    return f'''
+        <div class="card"><div class="card-header">备份数据摘要</div>
+        <div class="card-body">
+        <div class="row g-3 mb-3">
+            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">房间数</div><div class="fs-4 fw-bold">{summary['rooms']}</div></div></div>
+            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">业主数</div><div class="fs-4 fw-bold">{summary['owners']}</div></div></div>
+            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">账单数</div><div class="fs-4 fw-bold">{summary['bills']}</div></div></div>
+            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">缴费记录数</div><div class="fs-4 fw-bold">{summary['payments']}</div></div></div>
+        </div>
+        <table class="table table-sm mb-0">
+            <tr><td class="text-muted" style="width:140px">账单金额合计</td><td>{m(summary['bill_amount'])}</td></tr>
+            <tr><td class="text-muted">缴费金额合计</td><td>{m(summary['payment_amount'])}</td></tr>
+            <tr><td class="text-muted">最近账期</td><td>{h(summary['periods'] or '无')}</td></tr>
+            <tr><td class="text-muted">主要楼栋</td><td>{h(summary['buildings'] or '无')}</td></tr>
+        </table></div></div>'''
+
+
 class BackupMixin(BaseHandler):
 
     def _backups(self, q=None):
@@ -210,6 +230,7 @@ class BackupMixin(BaseHandler):
                 <td>{f["size"]}</td>
                 <td>{f["time"]}</td>
                 <td>
+                    <a class="btn btn-sm btn-outline-primary" href="/backups/{h(f["name"])}/preview"><i class="bi bi-search"></i> 预览</a>
                     <a class="btn btn-sm btn-warning" href="/backups/{h(f["name"])}/restore"><i class="bi bi-arrow-counterclockwise"></i> 恢复</a>
                     <a class="btn btn-sm btn-danger" href="/backups/{h(f["name"])}/delete"><i class="bi bi-trash"></i></a>
                 </td>
@@ -252,6 +273,26 @@ class BackupMixin(BaseHandler):
         except FileNotFoundError:
             self._redirect('/backups?flash=数据库文件不存在')
 
+    def _backup_preview(self, name):
+        bp = os.path.join(db_module.BACKUP_DIR, name)
+        if not os.path.exists(bp):
+            return self._redirect('/backups?flash=备份文件不存在')
+        type_key, type_label = describe_backup_name(name)
+        size = _format_size(os.path.getsize(bp))
+        mtime = datetime.fromtimestamp(os.path.getmtime(bp)).strftime('%Y-%m-%d %H:%M:%S')
+        summary_html = _backup_summary_html(read_backup_data_summary(bp))
+        self._html(self._page('备份预览', f'''
+        <div class="alert alert-info"><strong>备份预览</strong>：只读取备份摘要，不会覆盖当前数据库。</div>
+        <div class="card"><div class="card-header">备份文件</div>
+        <div class="card-body"><table class="table table-borderless mb-0">
+        <tr><td class="text-muted" style="width:130px">备份文件</td><td><code>{h(name)}</code></td></tr>
+        <tr><td class="text-muted">备份类型</td><td>{h(type_label)}</td></tr>
+        <tr><td class="text-muted">文件大小</td><td>{h(size)}</td></tr>
+        <tr><td class="text-muted">创建时间</td><td>{h(mtime)}</td></tr>
+        </table></div></div>{summary_html}
+        <a href="/backups" class="btn btn-outline-secondary">返回</a>
+        ''', 'backups'))
+
     def _backup_restore_confirm(self, name):
         bp = os.path.join(db_module.BACKUP_DIR, name)
         if not os.path.exists(bp):
@@ -259,26 +300,7 @@ class BackupMixin(BaseHandler):
         type_key, type_label = describe_backup_name(name)
         size = _format_size(os.path.getsize(bp))
         mtime = datetime.fromtimestamp(os.path.getmtime(bp)).strftime('%Y-%m-%d %H:%M:%S')
-        summary = read_backup_data_summary(bp)
-        if summary['ok']:
-            summary_html = f'''
-        <div class="card"><div class="card-header">备份数据摘要</div>
-        <div class="card-body">
-        <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">房间数</div><div class="fs-4 fw-bold">{summary['rooms']}</div></div></div>
-            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">业主数</div><div class="fs-4 fw-bold">{summary['owners']}</div></div></div>
-            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">账单数</div><div class="fs-4 fw-bold">{summary['bills']}</div></div></div>
-            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">缴费记录数</div><div class="fs-4 fw-bold">{summary['payments']}</div></div></div>
-        </div>
-        <table class="table table-sm mb-0">
-            <tr><td class="text-muted" style="width:140px">账单金额合计</td><td>{m(summary['bill_amount'])}</td></tr>
-            <tr><td class="text-muted">缴费金额合计</td><td>{m(summary['payment_amount'])}</td></tr>
-            <tr><td class="text-muted">最近账期</td><td>{h(summary['periods'] or '无')}</td></tr>
-            <tr><td class="text-muted">主要楼栋</td><td>{h(summary['buildings'] or '无')}</td></tr>
-        </table></div></div>'''
-        else:
-            summary_html = f'''
-        <div class="alert alert-warning"><strong>备份数据摘要读取失败</strong>：{h(summary['error'])}</div>'''
+        summary_html = _backup_summary_html(read_backup_data_summary(bp))
         self._html(self._page('恢复备份确认', f'''
         <div class="alert alert-danger"><strong>恢复备份确认</strong>：恢复会覆盖当前数据库，请确认选择正确。</div>
         <div class="card"><div class="card-header">将恢复的备份</div>

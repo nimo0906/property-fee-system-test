@@ -1275,6 +1275,139 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('金莎国际-B座-1427', body)
         self.assertNotIn('暂无账单', body)
 
+    def test_billing_page_labels_extra_rooms_by_tenant_not_owner(self):
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('同租户其他房间', body)
+        self.assertNotIn('同业主其他房间', body)
+
+        status, commercial_body = http_get('/commercial_billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('同租户其他房间', commercial_body)
+
+    def test_commercial_billing_redirect_shows_generated_range_bill(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '商场跳转租户', '13900001111')
+        room_id = create_room(db, building='金莎国际', unit='商场', room_number='JUMP101', category='商户', area=20, owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='跳转租户', payment_cycle='monthly', custom_rate=5 WHERE id=?", (room_id,))
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()[0]
+        db.commit(); db.close()
+
+        status, body, loc = http_post('/billing/calc', {
+            'room_id': str(room_id),
+            'period_start': '2034-02-01',
+            'period_end': '2034-04-01',
+            'fee_types': str(fee_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        decoded = urllib.parse.unquote(loc)
+        self.assertIn('/bills?period=2034-02~2034-04&keyword=JUMP101', decoded)
+
+        status, list_html = http_get('/bills?period=2034-02~2034-04&keyword=JUMP101', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('JUMP101', list_html)
+        self.assertIn('2034-02~2034-04', list_html)
+        self.assertNotIn('暂无账单', list_html)
+
+    def test_payments_page_has_print_receipt_and_export_actions(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '缴费打印业主', '13900002222')
+        room_id = create_room(db, building='PAYACT', unit='A座', room_number='501', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-03', amount=120, status='paid', owner_id=owner_id)
+        payment_id = create_payment(db, bill_id=bill_id, amount=120, method='cash', operator='打印员')
+        db.close()
+
+        status, body = http_get('/payments?period=2034-03-01', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('/payments/print', body)
+        self.assertIn('/payments/receipts', body)
+        self.assertIn('导出', body)
+        self.assertIn('name="payment_ids"', body)
+
+        status, print_html, _ = http_post('/payments/print', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('缴费记录打印', print_html)
+        self.assertIn('PAYACT-A座-501', print_html)
+
+    def test_paid_bills_available_for_invoice_even_without_existing_invoice(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '待开发票业主', '13900003333')
+        room_id = create_room(db, building='INVAVAIL', unit='B座', room_number='701', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-04', amount=188, status='paid', owner_id=owner_id)
+        create_payment(db, bill_id=bill_id, amount=188, method='transfer', operator='开票员')
+        db.close()
+
+        status, body = http_get('/invoices?period=2034-04-01', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn(f'value="{bill_id}"', body)
+        self.assertIn('INVAVAIL-701', body)
+        self.assertIn('待开发票业主', body)
+
+    def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("INSERT INTO audit_logs(action,entity_type,entity_id,username,role,ip,old_value,new_value,reason) VALUES(?,?,?,?,?,?,?,?,?)",
+                   ('乱码测试', 'bill', 1, 'admin', 'admin', '127.0.0.1', '{"amount":100}', '{"amount":120}', '详情核对'))
+        log_id = db.execute("SELECT MAX(id) FROM audit_logs WHERE action='乱码测试'").fetchone()[0]
+        db.commit(); db.close()
+
+        status, html = http_get('/audit_logs?keyword=%E4%B9%B1%E7%A0%81%E6%B5%8B%E8%AF%95', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('选择', html)
+        self.assertIn('格式化详情', html)
+        self.assertIn('action="/audit_logs/delete"', html)
+        self.assertIn('amount', html)
+
+        status, body, loc = http_post('/audit_logs/delete', {'log_ids': str(log_id)}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        db = db_module.get_db()
+        exists = db.execute('SELECT COUNT(*) FROM audit_logs WHERE id=?', (log_id,)).fetchone()[0]
+        db.close()
+        self.assertEqual(exists, 0)
+
+    def test_backup_page_has_direct_preview_action(self):
+        import server.db as db_module
+        status, body, loc = http_post('/backups/create', {}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        names = sorted([n for n in os.listdir(db_module.BACKUP_DIR) if n.startswith('backup_')], key=lambda n: os.path.getmtime(os.path.join(db_module.BACKUP_DIR, n)), reverse=True)
+        self.assertTrue(names)
+        name = names[0]
+
+        status, page = http_get('/backups', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn(f'/backups/{name}/preview', page)
+
+        status, preview = http_get(f'/backups/{name}/preview', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('备份预览', preview)
+        self.assertIn('备份数据摘要', preview)
+        self.assertNotIn('确认恢复', preview)
+
+    def test_closing_page_has_non_writing_preview_button(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '结账预览业主', '13900004444')
+        room_id = create_room(db, building='CLOSEPRE', unit='A座', room_number='601', owner_id=owner_id)
+        create_bill(db, room_id=room_id, fee_type_id=1, period='2034-05', amount=99, status='unpaid', owner_id=owner_id)
+        db.close()
+
+        status, page = http_get('/closing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('提前预览', page)
+        self.assertIn('name="preview" value="1"', page)
+
+        status, preview, loc = http_post('/closing/close', {'period': '2034-05', 'preview': '1'}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('结账前预览', preview)
+        self.assertNotIn('确认结账', preview)
+        db = db_module.get_db()
+        closed = db.execute("SELECT COUNT(*) FROM closing_records WHERE period='2034-05'").fetchone()[0]
+        db.close()
+        self.assertEqual(closed, 0)
+
 
     def test_owner_portal_routes_are_removed(self):
         for path in ['/owner-portal', '/owner-portal/login', '/owner-portal/bills', '/owner-portal/payment-orders']:

@@ -12,10 +12,14 @@
 <div class="card billing-ledger">
 <div class="card-header d-flex justify-content-between align-items-center">
 <span><i class="bi bi-credit-card"></i> 缴费流水</span>
-<small class="text-muted">按收款时间、方式和经手人核对</small>
+<form id="paymentActionForm" method="POST" class="export-actions">
+<button class="btn btn-sm btn-outline-secondary" type="submit" onclick="this.form.action='/payments/print';this.form.target='_blank'"><i class="bi bi-printer"></i> 打印</button>
+<button class="btn btn-sm btn-outline-secondary" type="submit" onclick="this.form.action='/payments/receipts';this.form.target='_blank'"><i class="bi bi-receipt"></i> 收据</button>
+<button class="btn btn-sm btn-outline-success" type="button" onclick="exportPaymentsCsv(document.querySelector('.filter-bar form'))"><i class="bi bi-download"></i> 导出</button>
+</form>
 </div>
 <div class="table-responsive"><table class="table table-hover align-middle">
-<thead><tr><th>时间</th><th>票据</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th>方式</th><th>经手人</th></tr></thead>
+<thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('input[name=&quot;payment_ids&quot;]').forEach(function(x){x.checked=this.checked})"></th><th>时间</th><th>票据</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th>方式</th><th>经手人</th></tr></thead>
 <tbody>{ROWS}</tbody></table></div>
 </div>
 

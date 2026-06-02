@@ -3,6 +3,7 @@
 """Payment reminder management."""
 
 from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date
+from server.billing_periods import append_period_filter
 from server.base import BaseHandler
 from datetime import date, datetime, timedelta
 
@@ -21,8 +22,8 @@ class ReminderMixin(BaseHandler):
             FROM bills b JOIN rooms r ON b.room_id=r.id
             LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id
-            WHERE b.billing_period=? AND b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
-        vals=[p]
+            WHERE b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
+        sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
         if bld:sql+=" AND r.building=?";vals.append(bld)
         if st:sql+=" AND b.status=?";vals.append(st)
         sql+=" ORDER BY b.due_date ASC,o.id,r.building,r.room_number,f.sort_order"
@@ -129,8 +130,8 @@ class ReminderMixin(BaseHandler):
             FROM bills b JOIN rooms r ON b.room_id=r.id
             LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id
-            WHERE b.billing_period=? AND b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
-        vals=[p]
+            WHERE b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
+        sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
         if oid:sql+=" AND o.id=?";vals.append(oid)
         if bld:sql+=" AND r.building=?";vals.append(bld)
         if st:sql+=" AND b.status=?";vals.append(st)

@@ -8,6 +8,7 @@ from server.base import BaseHandler
 from datetime import datetime, date, timedelta
 import urllib.parse, csv, io, re
 from server.billing_engine import calculate_bill_amount, fee_applies_to_category, fee_applies_to_room
+from server.print_helper import print_page
 from server.backups import create_db_backup
 from server.services import Actor, PaymentService, ServiceError
 
@@ -24,6 +25,8 @@ def _calc_month_count(start_str, end_str):
         return 1
     if ed <= sd:
         return 1
+    if sd.day == 1 and ed.day == 1:
+        return max(1, (ed.year - sd.year) * 12 + ed.month - sd.month + 1)
     days = (ed - sd).days
     return max(1, (days + 15) // 30)
 
@@ -57,7 +60,8 @@ def _room_billing_months(room, fallback_months):
     except Exception:
         cycle = ''
     if _is_mall_commercial_room(room):
-        return _cycle_month_count(cycle) or max(1, int(fallback_months or 1))
+        cycle_months = _cycle_month_count(cycle)
+        return cycle_months if cycle_months > 1 else max(1, int(fallback_months or 1))
     return max(1, int(fallback_months or 1))
 
 
@@ -79,6 +83,19 @@ def _cycle_due_date(start_str, months, fallback_end):
         return (add_months(sd, max(1, int(months or 1))) - timedelta(days=1)).isoformat()
     except Exception:
         return fallback_end
+
+
+def _extract_ids(data, key):
+    raw = data.get(key, []) if data else []
+    if isinstance(raw, str):
+        raw = [raw]
+    ids = []
+    for item in raw:
+        for part in str(item).split(','):
+            cleaned = part.strip().strip('[]').strip().strip("'\"")
+            if cleaned.isdigit():
+                ids.append(cleaned)
+    return ids
 
 
 class PaymentMixin(BaseHandler):
@@ -118,14 +135,15 @@ class PaymentMixin(BaseHandler):
         total_g = 0
         skipped_existing = 0
         room_names = []
+        display_period = period_label
         for rid in all_rids:
             rm = db.execute("SELECT * FROM rooms WHERE id=?", (rid,)).fetchone()
             if not rm:
                 continue
-            is_commercial_cycle = _is_mall_commercial_room(rm) and _cycle_month_count(rm['payment_cycle'] if 'payment_cycle' in rm.keys() else '') > 0
             bill_months = _room_billing_months(rm, months)
-            bill_period_label = _cycle_period_label(period_start, bill_months) if is_commercial_cycle else period_label
-            bill_due_date = _cycle_due_date(period_start, bill_months, period_end) if is_commercial_cycle else due_date
+            bill_period_label = _cycle_period_label(period_start, bill_months) if _is_mall_commercial_room(rm) else period_label
+            bill_due_date = _cycle_due_date(period_start, bill_months, period_end) if _is_mall_commercial_room(rm) else due_date
+            display_period = bill_period_label
             room_names.append(rm['building'] + '-' + rm['room_number'])
             for fid in ft_ids:
                 try:
@@ -165,9 +183,9 @@ class PaymentMixin(BaseHandler):
         db.commit()
         db.close()
         rooms_str = ','.join(room_names)
-        target = f'/bills?period={urllib.parse.quote(period_label)}&keyword={urllib.parse.quote(room_names[0].split("-")[-1] if room_names else "")}'
+        target = f'/bills?period={urllib.parse.quote(display_period)}&keyword={urllib.parse.quote(room_names[0].split("-")[-1] if room_names else "")}'
         if total_g == 0 and skipped_existing:
-            msg = f'{rooms_str}所选费用在{period_label}已存在账单，未重复生成；已为您显示该房间全部状态账单'
+            msg = f'{rooms_str}所选费用在{display_period}已存在账单，未重复生成；已为您显示该房间全部状态账单'
         else:
             msg = f'为{rooms_str}共生成{total_g}笔账单'
         self._redirect(target, msg)
@@ -353,12 +371,12 @@ class PaymentMixin(BaseHandler):
             methods = '、'.join(sorted({x['payment_method'] for x in g['rows'] if x['payment_method']})) or '-'
             rh_parts.append(f'''<tr class="table-light payment-group" style="cursor:pointer" onclick="togglePaymentGroup('{safe_id}')">
 <td><i class="bi bi-chevron-right" id="pay_icon_{safe_id}"></i> <strong>{h(g['room'])}</strong><br><small class="text-muted">{h(g['owner'])}</small></td>
-<td><span class="badge status-neutral">汇总</span></td>
+<td></td><td><span class="badge status-neutral">汇总</span></td>
 <td>{h(period_text)}</td><td><span class="badge status-neutral">{len(g['rows'])}笔</span></td>
 <td class="text-end"><strong class="money money-paid">+¥{m(g['total'])}</strong></td>
 <td>{h(methods)}</td><td colspan="2"><small class="text-muted">最近：{h(latest or '-')}</small></td></tr>''')
             for r in g['rows']:
-                rh_parts.append(f'''<tr class="payment-detail-{safe_id}" style="display:none"><td><small>{h(r["payment_date"]or"-")}</small></td>
+                rh_parts.append(f'''<tr class="payment-detail-{safe_id}" style="display:none"><td><input form="paymentActionForm" type="checkbox" name="payment_ids" value="{r['id']}"></td><td><small>{h(r["payment_date"]or"-")}</small></td>
 <td><small>{h(r["bill_number"]or"-")}</small></td>
 <td>{h(r["building"]or"")}-{h(r["unit"]or"")}-{h(r["room_number"]or"")}</td>
 <td><span class="badge status-info">{h(r["ft"])}</span></td><td>{h(r["billing_period"])}</td>
@@ -370,9 +388,52 @@ class PaymentMixin(BaseHandler):
         tpl=tpl.replace('{SC}',' selected' if pm=='cash' else '').replace('{ST}',' selected' if pm=='transfer' else '')
         tpl=tpl.replace('{SW}',' selected' if pm=='wechat' else '').replace('{SA}',' selected' if pm=='alipay' else '')
         tpl=tpl.replace('<th>经手人</th>', '<th>经手人</th><th>收据号</th>')
-        tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="9" class="text-center text-muted py-4">暂无缴费记录</td></tr>')
+        tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="10" class="text-center text-muted py-4">暂无缴费记录</td></tr>')
         tpl += '''<script>function togglePaymentGroup(id){var rows=document.querySelectorAll('.payment-detail-'+id);var icon=document.getElementById('pay_icon_'+id);rows.forEach(function(r){r.style.display=r.style.display==='none'?'':'none';});if(icon) icon.className=icon.className==='bi bi-chevron-right'?'bi bi-chevron-down':'bi bi-chevron-right';}</script>'''
         self._html(self._page('缴费记录',tpl,'payments'))
+
+
+    def _payments_print(self, d):
+        ids = _extract_ids(d, 'payment_ids')
+        if not ids:
+            return self._redirect('/payments?flash=请勾选缴费记录')
+        rows = self._selected_payment_rows(ids)
+        if not rows:
+            return self._redirect('/payments?flash=未找到缴费记录')
+        detail = ''.join(f'''<tr><td>{h(r["payment_date"] or "-")}</td><td>{h(r["bill_number"] or "-")}</td>
+            <td>{h(r["building"] or "")}-{h(r["unit"] or "")}-{h(r["room_number"] or "")}</td>
+            <td>{h(r["owner_name"] or "-")}</td><td>{h(r["ft"] or "-")}</td><td>{h(r["billing_period"] or "-")}</td>
+            <td class="amt">{m(r["amount_paid"])}</td><td>{h(r["payment_method"] or "-")}</td><td>{h(r["operator"] or "-")}</td></tr>'''
+            for r in rows)
+        total = sum(float(r['amount_paid'] or 0) for r in rows)
+        content = f'''<h1>缴费记录打印</h1><table class="detail"><thead><tr>
+            <th>时间</th><th>票据</th><th>房间</th><th>客户</th><th>项目</th><th>账期</th>
+            <th class="amt">金额</th><th>方式</th><th>经手人</th></tr></thead>
+            <tbody>{detail}</tbody><tfoot><tr class="total-row"><td colspan="6">合计</td>
+            <td class="amt">{m(total)}</td><td colspan="2"></td></tr></tfoot></table>'''
+        self._html(print_page('缴费记录打印', content, back_url='/payments'))
+
+    def _payment_receipts(self, d):
+        ids = _extract_ids(d, 'payment_ids')
+        if not ids:
+            return self._redirect('/payments?flash=请勾选缴费记录')
+        rows = self._selected_payment_rows(ids)
+        bill_ids = ','.join(str(r['bill_id']) for r in rows if r['bill_id'])
+        if not bill_ids:
+            return self._redirect('/payments?flash=未找到可打印收据的账单')
+        return self._receipt_by_ids({'bill_ids': bill_ids, 'back': '/bills'})
+
+    def _selected_payment_rows(self, ids):
+        placeholders = ','.join('?' * len(ids))
+        db = get_db()
+        rows = db.execute(f'''SELECT p.*,b.bill_number,b.billing_period,
+            r.building,r.unit,r.room_number,o.name owner_name,f.name ft
+            FROM payments p JOIN bills b ON p.bill_id=b.id
+            LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
+            LEFT JOIN fee_types f ON b.fee_type_id=f.id
+            WHERE p.id IN ({placeholders}) ORDER BY p.payment_date DESC,p.id DESC''', ids).fetchall()
+        db.close()
+        return rows
 
 
     def _payments_csv(self, q):

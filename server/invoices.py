@@ -74,7 +74,7 @@ class InvoiceMixin(BaseHandler):
             rh+='<form method=POST action="/invoices/'+str(r['id'])+'/delete" style=display:inline><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
         av_opts = '<option value="">--选择--</option>'
         for a in avail:
-            av_opts += '<option value="" + str(a["id"]) + "">' + h(a["building"]) + '-' + h(a["room_number"]) + ' ' + h(a["oname"]) + ' ¥' + m(a["amount"]) + '</option>'
+            av_opts += f'<option value="{a["id"]}">{h(a["building"])}-{h(a["room_number"])} {h(a["oname"])} ¥{m(a["amount"])}</option>'
         # Available bills for invoice
         self._html(self._page("发票管理", f'''
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">

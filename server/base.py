@@ -84,6 +84,14 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         ctx = self._audit_context()
         log_audit(action, entity_type, entity_id, ctx['username'], ctx['role'], ctx['ip'], old_value, new_value, reason)
 
+    def _format_audit_value(self, value):
+        if not value:
+            return ''
+        try:
+            return json.dumps(json.loads(value), ensure_ascii=False, indent=2)
+        except Exception:
+            return str(value)
+
     def _audit_logs(self, q):
         u = self._get_current_user()
         if not u or u.get('role') != 'admin':
@@ -98,8 +106,8 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         if entity:
             cond.append('entity_type=?'); vals.append(entity)
         if kw:
-            cond.append('(username LIKE ? OR reason LIKE ? OR old_value LIKE ? OR new_value LIKE ?)')
-            vals.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%'])
+            cond.append('(action LIKE ? OR username LIKE ? OR reason LIKE ? OR old_value LIKE ? OR new_value LIKE ?)')
+            vals.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%'])
         sql = 'SELECT * FROM audit_logs'
         if cond:
             sql += ' WHERE ' + ' AND '.join(cond)
@@ -116,11 +124,11 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             f'<option value="{h(r["entity_type"])}"{" selected" if entity==r["entity_type"] else ""}>{h(r["entity_type"])}</option>' for r in entities
         )
         body = ''.join(
-            f'''<tr><td><small>{h(r["created_at"])}</small></td><td><span class="badge status-info">{h(r["action"])}</span></td>
+            f'''<tr><td><input type="checkbox" name="log_ids" value="{r["id"]}" form="auditDeleteForm"></td><td><small>{h(r["created_at"])}</small></td><td><span class="badge status-info">{h(r["action"])}</span></td>
             <td>{h(r["entity_type"] or "-")} #{h(r["entity_id"] or "")}</td><td>{h(r["username"] or "系统")}</td>
-            <td>{h(r["reason"] or "-")}</td><td><details><summary>详情</summary><pre class="small mb-0">old: {h(r["old_value"] or "")}\nnew: {h(r["new_value"] or "")}</pre></details></td></tr>'''
+            <td>{h(r["reason"] or "-")}</td><td><details><summary>格式化详情</summary><pre class="small mb-0">old: {h(self._format_audit_value(r["old_value"]))}\nnew: {h(self._format_audit_value(r["new_value"]))}</pre></details></td></tr>'''
             for r in rows
-        ) or '<tr><td colspan="6" class="text-center text-muted py-4">暂无操作日志</td></tr>'
+        ) or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作日志</td></tr>'
         self._html(self._page('操作日志', f'''
         <div class="alert alert-info"><i class="bi bi-journal-check"></i> 记录金额修改、账单删除、备份恢复、用户登录、数据导入等关键操作，便于内部核对。</div>
         <form method="GET" action="/audit_logs" class="row g-2 mb-3">
@@ -129,9 +137,28 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             <div class="col-md-4"><input name="keyword" class="form-control" value="{h(kw)}" placeholder="搜索操作人/原因/详情"></div>
             <div class="col-md-2"><button class="btn btn-primary w-100">筛选</button></div>
         </form>
+        <form method="POST" action="/audit_logs/delete" id="auditDeleteForm" class="mb-2"
+            onsubmit="return confirm('确认删除选中的操作日志？')">
+            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> 删除选中</button>
+        </form>
         <div class="table-responsive"><table class="table table-hover align-middle small">
-        <thead><tr><th>时间</th><th>动作</th><th>对象</th><th>操作人</th><th>原因</th><th>详情</th></tr></thead><tbody>{body}</tbody></table></div>
+        <thead><tr><th>选择</th><th>时间</th><th>动作</th><th>对象</th><th>操作人</th><th>原因</th><th>详情</th></tr></thead><tbody>{body}</tbody></table></div>
         ''', 'audit_logs'))
+
+    def _audit_logs_delete(self, d):
+        u = self._get_current_user()
+        if not u or u.get('role') != 'admin':
+            return self._redirect('/?flash=无权限执行该操作')
+        raw = d.get('log_ids', [])
+        if isinstance(raw, str):
+            raw = [raw]
+        ids = [x for x in raw if str(x).isdigit()]
+        if not ids:
+            return self._redirect('/audit_logs?flash=请勾选要删除的日志')
+        db = get_db()
+        db.execute(f'DELETE FROM audit_logs WHERE id IN ({",".join("?" * len(ids))})', ids)
+        db.commit(); db.close()
+        return self._redirect('/audit_logs?flash=已删除选中日志')
 
     def _empty_state(self, icon, message, btn_text=None, btn_link=None):
         """渲染空状态引导卡片。"""
