@@ -12,7 +12,7 @@ def _is_secondary_path(path):
         return False
     primary_paths = {
         '/rooms', '/owners', '/fee_types', '/batch_ops', '/meter_readings',
-        '/billing', '/commercial_billing', '/shared_expenses', '/bills',
+        '/billing', '/commercial_billing', '/auto_billing', '/shared_expenses', '/bills',
         '/payments', '/collections', '/reminders',
         '/invoices', '/reports', '/closing', '/audit_logs', '/backups',
         '/system_health', '/system_update', '/trial_data_reset', '/users', '/import',
@@ -40,6 +40,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         ('收费业务', [
             ('billing', '/billing', 'bi-cash-coin', '物业收费'),
             ('commercial_billing', '/commercial_billing', 'bi-building', '商业收费'),
+            ('auto_billing', '/auto_billing', 'bi-calendar-check', '自动出账'),
             ('shared_expenses', '/shared_expenses', 'bi-diagram-3', '公摊分摊'),
             ('bills', '/bills', 'bi-receipt', '账单管理'),
             ('payments', '/payments', 'bi-credit-card', '缴费记录'),
@@ -60,7 +61,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         allowed = {'index', 'owners', 'rooms', 'bills', 'collections', 'reminders', 'reports'}
     else:
         allowed = {'index', 'owners', 'rooms', 'fee_types', 'batch_ops', 'meter', 'billing',
-                   'commercial_billing', 'bills', 'payments', 'invoices',
+                   'commercial_billing', 'auto_billing', 'bills', 'payments', 'invoices',
                    'reports', 'closing', 'backups', 'import', 'reminders', 'audit_logs', 'shared_expenses'}
     user_html = ''
     if cur_user:
@@ -102,6 +103,7 @@ def render_page(handler, title, content, active='', top_actions=''):
              'fee_types': 'bi-tags', 'batch_ops': 'bi-pencil-square', 'meter': 'bi-clipboard-data', 'repairs': 'bi-tools',
              'parking': 'bi-car-front', 'invoices': 'bi-receipt-cutoff', 'deposits': 'bi-cash-stack',
              'reminders': 'bi-bell', 'billing': 'bi-cash-coin', 'commercial_billing': 'bi-building',
+             'auto_billing': 'bi-calendar-check',
              'shared_expenses': 'bi-diagram-3',
              'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'closing': 'bi-lock',
              'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',

@@ -18,6 +18,7 @@ from server.bill_print import BillPrintMixin
 from server.bill_receipt import BillReceiptMixin
 from server.payments import PaymentMixin
 from server.billing_ui import BillingUiMixin
+from server.auto_billing import AutoBillingMixin
 from server.repairs import RepairMixin
 from server.parking import ParkingMixin
 from server.invoices import InvoiceMixin
@@ -41,7 +42,7 @@ class Handler(
     FeeMixin, MeterMixin,
     BillListMixin, BillDetailMixin, BillGenerationMixin,
     BillExportMixin, BillPrintMixin, BillReceiptMixin,
-    PaymentMixin, BillingUiMixin,
+    PaymentMixin, BillingUiMixin, AutoBillingMixin,
     RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
     ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin, SharedExpenseMixin, BatchOpsMixin,
     ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,

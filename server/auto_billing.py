@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Tenant contract based billing preview and confirmation."""
+
+from datetime import date, datetime, timedelta
+import urllib.parse
+
+from server.backups import create_db_backup
+from server.base import BaseHandler
+from server.billing_engine import calculate_bill_amount, fee_applies_to_room
+from server.db import add_months, get_db, h, m, qs
+
+
+CYCLE_MONTHS = {'monthly': 1, 'quarterly': 3, 'semiannual': 6}
+EXCLUDED_AUTO_FEE_NAMES = {'装修管理费', '装修押金', '临时收费'}
+
+
+def _as_date(value):
+    if isinstance(value, date):
+        return value
+    return datetime.strptime(str(value), '%Y-%m-%d').date()
+
+
+def _months(cycle):
+    return CYCLE_MONTHS.get(str(cycle or '').strip(), 1)
+
+
+def _billing_period(start, end):
+    first = f'{start.year}-{start.month:02d}'
+    last = f'{end.year}-{end.month:02d}'
+    return first if first == last else f'{first}~{last}'
+
+
+def next_service_period(contract_start, contract_end, cycle, today=None):
+    """Return the next complete contract period whose start is after today."""
+    start = _as_date(contract_start)
+    end = _as_date(contract_end)
+    cursor = start
+    current = _as_date(today or date.today())
+    while cursor <= current:
+        cursor = add_months(cursor, _months(cycle))
+    service_end = add_months(cursor, _months(cycle)) - timedelta(days=1)
+    if service_end > end:
+        return None
+    return cursor, service_end, cursor - timedelta(days=1)
+
+
+def _default_fee_ids(db):
+    rows = db.execute(
+        "SELECT id FROM fee_types WHERE is_active=1 AND name LIKE '物业费(%' ORDER BY sort_order,id"
+    ).fetchall()
+    return {int(row['id']) for row in rows}
+
+
+def _candidate_fees(db, fee_ids=None):
+    selected = {int(x) for x in fee_ids} if fee_ids else _default_fee_ids(db)
+    rows = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order,id").fetchall()
+    return [
+        row for row in rows
+        if int(row['id']) in selected
+        and row['calc_method'] != 'meter'
+        and (row['name'] or '') not in EXCLUDED_AUTO_FEE_NAMES
+    ]
+
+
+def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None):
+    current = _as_date(today or date.today())
+    cutoff = current + timedelta(days=max(0, int(advance_days or 30)))
+    fees = _candidate_fees(db, fee_ids)
+    rooms = db.execute(
+        """SELECT r.*,o.name owner_name FROM rooms r
+        LEFT JOIN owners o ON o.id=r.owner_id
+        WHERE COALESCE(r.contract_start,'')<>'' AND COALESCE(r.contract_end,'')<>''
+        ORDER BY r.building,r.unit,r.room_number"""
+    ).fetchall()
+    items = []
+    for room in rooms:
+        try:
+            service = next_service_period(
+                room['contract_start'], room['contract_end'], room['payment_cycle'], current
+            )
+        except ValueError:
+            continue
+        if not service or service[0] > cutoff:
+            continue
+        service_start, service_end, due_date = service
+        months = _months(room['payment_cycle'])
+        period = _billing_period(service_start, service_end)
+        for fee in fees:
+            if not fee_applies_to_room(fee['name'] or '', room):
+                continue
+            calc = calculate_bill_amount(db, room, fee, period, months)
+            if calc['amount'] <= 0:
+                continue
+            exists = db.execute(
+                """SELECT id FROM bills WHERE room_id=? AND fee_type_id=?
+                AND ((service_start=? AND service_end=?)
+                  OR ((service_start IS NULL OR service_start='') AND billing_period=?))""",
+                (room['id'], fee['id'], service_start.isoformat(), service_end.isoformat(), period)
+            ).fetchone()
+            items.append({
+                'item_key': f"{room['id']}:{fee['id']}:{service_start.isoformat()}:{service_end.isoformat()}",
+                'room_id': room['id'], 'fee_type_id': fee['id'],
+                'room_name': f"{room['building']}-{room['unit']}-{room['room_number']}",
+                'tenant_name': room['tenant_name'] or room['shop_name'] or room['owner_name'] or '-',
+                'fee_name': fee['name'], 'cycle': room['payment_cycle'] or 'monthly',
+                'service_start': service_start.isoformat(), 'service_end': service_end.isoformat(),
+                'due_date': due_date.isoformat(), 'billing_period': period,
+                'amount': calc['amount'], 'can_generate': not bool(exists),
+            })
+    return items
+
+
+def confirm_auto_billing(db, item_keys, today=None, advance_days=30, fee_ids=None):
+    selected = set(item_keys or [])
+    preview = build_auto_billing_preview(db, today=today, advance_days=advance_days, fee_ids=fee_ids)
+    generated = skipped_existing = 0
+    for item in preview:
+        if item['item_key'] not in selected:
+            continue
+        if not item['can_generate']:
+            skipped_existing += 1
+            continue
+        room = db.execute("SELECT * FROM rooms WHERE id=?", (item['room_id'],)).fetchone()
+        seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (item['billing_period'],)).fetchone()[0] + 1
+        bill_number = f"AUTO_{room['building']}-{room['room_number']}_{item['billing_period'].replace('~','-')}_{seq:04d}"
+        db.execute(
+            """INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,
+            bill_number,source,source_ref,service_start,service_end)
+            VALUES(?,?,?,?,?,?,'unpaid',?,'auto_contract',?,?,?)""",
+            (item['room_id'], room['owner_id'], item['fee_type_id'], item['billing_period'],
+             item['amount'], item['due_date'], bill_number, item['item_key'],
+             item['service_start'], item['service_end'])
+        )
+        generated += 1
+    db.commit()
+    return {'generated': generated, 'skipped_existing': skipped_existing}
+
+
+class AutoBillingMixin(BaseHandler):
+    def _auto_billing(self, q):
+        advance_days = int(qs(q, 'advance_days', 30) or 30)
+        db = get_db()
+        items = build_auto_billing_preview(db, advance_days=advance_days)
+        db.close()
+        rows = ''.join(
+            f'''<tr><td><input type="checkbox" name="item_keys" value="{h(x['item_key'])}"
+                {"checked" if x["can_generate"] else "disabled"}></td>
+            <td>{h(x["tenant_name"])}</td><td>{h(x["room_name"])}</td><td>{h(x["fee_name"])}</td>
+            <td>{h(x["service_start"])} 至 {h(x["service_end"])}</td><td>{h(x["due_date"])}</td>
+            <td class="text-end">¥{m(x["amount"])}</td>
+            <td>{"可生成" if x["can_generate"] else "已存在"}</td></tr>'''
+            for x in items
+        ) or '<tr><td colspan="8" class="text-center text-muted py-4">未来指定天数内暂无需要生成的租户账单</td></tr>'
+        body = f'''
+        <div class="alert alert-info">根据租户合同起止日期和缴费周期计算下一期服务日期。这里只做预览，确认后才写入账单；默认只生成适用的物业费，不影响原有手动收费。</div>
+        <form method="GET" action="/auto_billing" class="row g-2 mb-3">
+          <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
+          <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
+          <div class="col-auto"><button class="btn btn-primary">刷新预览</button></div>
+        </form>
+        <form method="POST" action="/auto_billing/confirm" onsubmit="return confirm('确认生成选中的租户账单？')">
+          <input type="hidden" name="advance_days" value="{advance_days}">
+          <div class="table-responsive"><table class="table table-hover align-middle small">
+          <thead><tr><th>选择</th><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
+          <tbody>{rows}</tbody></table></div>
+          <button class="btn btn-success"><i class="bi bi-check2-circle"></i> 确认生成选中账单</button>
+        </form>'''
+        self._html(self._page('自动出账预览', body, 'auto_billing'))
+
+    def _auto_billing_confirm(self, d):
+        keys = d.get('item_keys', [])
+        if isinstance(keys, str):
+            keys = [keys]
+        if not keys:
+            return self._redirect('/auto_billing?flash=请勾选要生成的账单')
+        advance_days = int(qs(d, 'advance_days', 30) or 30)
+        create_db_backup('auto_before_contract_billing')
+        db = get_db()
+        result = confirm_auto_billing(db, keys, advance_days=advance_days)
+        db.close()
+        self._audit('auto_billing_confirm', 'bill', None, None, result, '租户合同自动出账确认')
+        msg = f"已生成{result['generated']}笔账单"
+        if result['skipped_existing']:
+            msg += f"，跳过{result['skipped_existing']}笔已存在账单"
+        self._redirect('/bills', msg)

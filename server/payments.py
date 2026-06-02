@@ -176,8 +176,8 @@ class PaymentMixin(BaseHandler):
                 seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (bill_period_label,)).fetchone()[0] + total_g + 1
                 bn = f"{rshort}_{oname}_{bill_period_label.replace('~','-')}_{seq:04d}"
                 db.execute(
-                    "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,'unpaid',?)",
-                    (rid, rm['owner_id'], fid, bill_period_label, amt, bill_due_date, bn)
+                    "INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,service_start,service_end) VALUES(?,?,?,?,?,?,'unpaid',?,?,?)",
+                    (rid, rm['owner_id'], fid, bill_period_label, amt, bill_due_date, bn, period_start, bill_due_date)
                 )
                 total_g += 1
         db.commit()

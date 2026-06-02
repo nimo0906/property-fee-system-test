@@ -310,6 +310,48 @@ class TestDBLogic(unittest.TestCase):
         row = self.db.execute("SELECT status FROM bills WHERE bill_number='OD-TEST2'").fetchone()
         self.assertEqual(row['status'], 'paid')
 
+    def test_auto_billing_quarterly_service_period_uses_contract_day_range(self):
+        from server.auto_billing import next_service_period
+        start, end, due = next_service_period('2026-06-27', '2027-06-26', 'quarterly', '2026-05-28')
+        self.assertEqual(start.isoformat(), '2026-06-27')
+        self.assertEqual(end.isoformat(), '2026-09-26')
+        self.assertEqual(due.isoformat(), '2026-06-26')
+
+    def test_auto_billing_preview_and_confirm_do_not_duplicate_service_period(self):
+        from server.auto_billing import build_auto_billing_preview, confirm_auto_billing
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('自动出账业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTO', 'A座', '2701', 27, '居民', 100, owner_id, '自动租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        self.db.commit()
+
+        preview = build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30)
+        item = next(x for x in preview if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+        self.assertEqual(item['service_start'], '2026-06-27')
+        self.assertEqual(item['service_end'], '2026-09-26')
+        self.assertEqual(item['due_date'], '2026-06-26')
+        self.assertEqual(item['billing_period'], '2026-06~2026-09')
+        self.assertTrue(item['can_generate'])
+
+        result = confirm_auto_billing(self.db, [item['item_key']], today='2026-05-28', advance_days=30)
+        self.assertEqual(result['generated'], 1)
+        bill = self.db.execute(
+            "SELECT service_start,service_end,due_date,billing_period,amount,status FROM bills WHERE room_id=? AND fee_type_id=?",
+            (room_id, fee_id)
+        ).fetchone()
+        self.assertEqual(bill['service_start'], '2026-06-27')
+        self.assertEqual(bill['service_end'], '2026-09-26')
+        self.assertEqual(bill['due_date'], '2026-06-26')
+        self.assertEqual(bill['billing_period'], '2026-06~2026-09')
+        self.assertEqual(bill['amount'], 570)
+        self.assertEqual(bill['status'], 'unpaid')
+
+        result = confirm_auto_billing(self.db, [item['item_key']], today='2026-05-28', advance_days=30)
+        self.assertEqual(result['generated'], 0)
+        self.assertEqual(result['skipped_existing'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

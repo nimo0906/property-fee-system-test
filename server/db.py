@@ -93,6 +93,8 @@ def db_init():
         "ALTER TABLE payments ADD COLUMN receipt_number TEXT",
         "ALTER TABLE bills ADD COLUMN source TEXT DEFAULT 'normal'",
         "ALTER TABLE bills ADD COLUMN source_ref TEXT",
+        "ALTER TABLE bills ADD COLUMN service_start TEXT",
+        "ALTER TABLE bills ADD COLUMN service_end TEXT",
     ]:
         try: c.execute(col_sql)
         except: pass
@@ -149,6 +151,7 @@ def db_init():
                      "CREATE INDEX IF NOT EXISTS idx_bills_period_room ON bills(billing_period,room_id)",
                      "CREATE INDEX IF NOT EXISTS idx_bills_period_fee ON bills(billing_period,fee_type_id)",
                      "CREATE INDEX IF NOT EXISTS idx_bills_due_status ON bills(due_date,status)",
+                     "CREATE INDEX IF NOT EXISTS idx_bills_service_period ON bills(room_id,fee_type_id,service_start,service_end)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_bill ON payments(bill_id)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_bill_date ON payments(bill_id,payment_date)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date)",

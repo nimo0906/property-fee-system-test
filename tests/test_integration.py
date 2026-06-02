@@ -56,6 +56,7 @@ def _start_server():
     from server.bill_receipt import BillReceiptMixin
     from server.payments import PaymentMixin
     from server.billing_ui import BillingUiMixin
+    from server.auto_billing import AutoBillingMixin
     from server.repairs import RepairMixin
     from server.parking import ParkingMixin
     from server.invoices import InvoiceMixin
@@ -76,7 +77,7 @@ def _start_server():
         FeeMixin, MeterMixin,
         BillListMixin, BillDetailMixin, BillGenerationMixin,
         BillExportMixin, BillPrintMixin, BillReceiptMixin,
-        PaymentMixin, BillingUiMixin,
+        PaymentMixin, BillingUiMixin, AutoBillingMixin,
         RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
         ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
         ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
@@ -645,6 +646,46 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(calculate_bill_amount(db, room, ft, '2033-04', months=3)['amount'], 1440.0)
         self.assertEqual(bill['amount'], 1274.4)
         db.close()
+
+    def test_auto_billing_page_is_independent_and_confirms_contract_based_bills(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '自动出账页面业主', '13900007777')
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOHTTP', 'B座', '2701', 27, '居民', 100, owner_id, '页面租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        db.commit(); db.close()
+
+        status, body = http_get('/auto_billing?advance_days=30', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('自动出账预览', body)
+        self.assertIn('页面租户', body)
+        self.assertIn('2026-06-27 至 2026-09-26', body)
+        self.assertIn('2026-06-26', body)
+        self.assertIn('href="/auto_billing"', body)
+
+        item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
+        status, body, loc = http_post('/auto_billing/confirm', {
+            'advance_days': '30',
+            'item_keys': item_key,
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/bills', loc)
+        self.assertNotIn('keyword=', urllib.parse.unquote(loc))
+
+        db = get_db()
+        bill = db.execute(
+            "SELECT service_start,service_end,due_date,billing_period,source FROM bills WHERE room_id=? AND fee_type_id=?",
+            (room_id, fee_id)
+        ).fetchone()
+        db.close()
+        self.assertEqual(bill['service_start'], '2026-06-27')
+        self.assertEqual(bill['service_end'], '2026-09-26')
+        self.assertEqual(bill['due_date'], '2026-06-26')
+        self.assertEqual(bill['billing_period'], '2026-06~2026-09')
+        self.assertEqual(bill['source'], 'auto_contract')
 
     def test_readonly_menu_is_limited_and_shows_customer_collection(self):
         readonly_cookie = self._create_user_and_login(
