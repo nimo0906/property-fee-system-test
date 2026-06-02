@@ -352,6 +352,25 @@ class TestDBLogic(unittest.TestCase):
         self.assertEqual(result['generated'], 0)
         self.assertEqual(result['skipped_existing'], 1)
 
+    def test_auto_billing_fee_selection_controls_preview_items(self):
+        from server.auto_billing import build_auto_billing_preview
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('自动项目业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOSEL', 'B座', '1801', 18, '居民', 100, owner_id, '项目租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        property_fee = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        elevator_fee = self.db.execute("SELECT id FROM fee_types WHERE name='电梯费'").fetchone()['id']
+        self.db.commit()
+
+        default_items = build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30)
+        default_for_room = [x['fee_type_id'] for x in default_items if x['room_id'] == room_id]
+        self.assertEqual(default_for_room, [property_fee])
+
+        selected_items = build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30, fee_ids=[property_fee, elevator_fee])
+        selected_for_room = [x['fee_type_id'] for x in selected_items if x['room_id'] == room_id]
+        self.assertEqual(selected_for_room, [property_fee, elevator_fee])
+
 
 if __name__ == '__main__':
     unittest.main()

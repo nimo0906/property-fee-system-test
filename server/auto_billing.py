@@ -63,6 +63,20 @@ def _candidate_fees(db, fee_ids=None):
     ]
 
 
+def _selectable_fees(db):
+    return [
+        row for row in db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order,id").fetchall()
+        if row['calc_method'] != 'meter' and (row['name'] or '') not in EXCLUDED_AUTO_FEE_NAMES
+    ]
+
+
+def _ids_from_form(data):
+    raw = data.get('fee_ids', []) if data else []
+    if isinstance(raw, str):
+        raw = [raw]
+    return [int(x) for x in raw if str(x).isdigit()]
+
+
 def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None):
     current = _as_date(today or date.today())
     cutoff = current + timedelta(days=max(0, int(advance_days or 30)))
@@ -141,8 +155,19 @@ class AutoBillingMixin(BaseHandler):
     def _auto_billing(self, q):
         advance_days = int(qs(q, 'advance_days', 30) or 30)
         db = get_db()
-        items = build_auto_billing_preview(db, advance_days=advance_days)
+        selected_fee_ids = _ids_from_form(q) or _default_fee_ids(db)
+        fee_options = _selectable_fees(db)
+        items = build_auto_billing_preview(db, advance_days=advance_days, fee_ids=selected_fee_ids)
         db.close()
+        fee_checks = ''.join(
+            f'''<label class="form-check form-check-inline mb-2">
+                <input class="form-check-input" type="checkbox" name="fee_ids" value="{f['id']}"
+                    {"checked" if int(f['id']) in selected_fee_ids else ""}>
+                <span class="form-check-label">{h(f['name'])}</span>
+            </label>'''
+            for f in fee_options
+        )
+        hidden_fee_ids = ''.join(f'<input type="hidden" name="fee_ids" value="{fid}">' for fid in selected_fee_ids)
         rows = ''.join(
             f'''<tr><td><input type="checkbox" name="item_keys" value="{h(x['item_key'])}"
                 {"checked" if x["can_generate"] else "disabled"}></td>
@@ -157,10 +182,15 @@ class AutoBillingMixin(BaseHandler):
         <form method="GET" action="/auto_billing" class="row g-2 mb-3">
           <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
           <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
+          <div class="col-12">
+            <div class="card"><div class="card-header py-2">收费项目选择</div>
+            <div class="card-body py-2">{fee_checks}</div></div>
+          </div>
           <div class="col-auto"><button class="btn btn-primary">刷新预览</button></div>
         </form>
         <form method="POST" action="/auto_billing/confirm" onsubmit="return confirm('确认生成选中的租户账单？')">
           <input type="hidden" name="advance_days" value="{advance_days}">
+          {hidden_fee_ids}
           <div class="table-responsive"><table class="table table-hover align-middle small">
           <thead><tr><th>选择</th><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
           <tbody>{rows}</tbody></table></div>
@@ -175,9 +205,10 @@ class AutoBillingMixin(BaseHandler):
         if not keys:
             return self._redirect('/auto_billing?flash=请勾选要生成的账单')
         advance_days = int(qs(d, 'advance_days', 30) or 30)
+        fee_ids = _ids_from_form(d)
         create_db_backup('auto_before_contract_billing')
         db = get_db()
-        result = confirm_auto_billing(db, keys, advance_days=advance_days)
+        result = confirm_auto_billing(db, keys, advance_days=advance_days, fee_ids=fee_ids)
         db.close()
         self._audit('auto_billing_confirm', 'bill', None, None, result, '租户合同自动出账确认')
         msg = f"已生成{result['generated']}笔账单"

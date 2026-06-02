@@ -661,10 +661,15 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/auto_billing?advance_days=30', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('自动出账预览', body)
+        self.assertIn('收费项目选择', body)
         self.assertIn('页面租户', body)
         self.assertIn('2026-06-27 至 2026-09-26', body)
         self.assertIn('2026-06-26', body)
         self.assertIn('href="/auto_billing"', body)
+
+        status, body = http_get('/auto_billing?advance_days=30&fee_ids=1&fee_ids=3', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('电梯费', body)
 
         item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
         status, body, loc = http_post('/auto_billing/confirm', {
