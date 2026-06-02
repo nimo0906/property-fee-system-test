@@ -17,6 +17,7 @@ class ReminderMixin(BaseHandler):
         today=date.today()
         sql='''SELECT o.id oid,o.name oname,o.phone ophone,r.id rid,r.building,r.unit,r.room_number,
             r.area,r.category,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
+            b.source,b.service_start,b.service_end,
             f.name ft_name,f.reminder_advance_days,
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
             FROM bills b JOIN rooms r ON b.room_id=r.id
@@ -25,7 +26,8 @@ class ReminderMixin(BaseHandler):
             WHERE b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
         sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
         if bld:sql+=" AND r.building=?";vals.append(bld)
-        if st:sql+=" AND b.status=?";vals.append(st)
+        if st not in ('overdue','approaching') and st:
+            sql+=" AND b.status=?";vals.append(st)
         sql+=" ORDER BY b.due_date ASC,o.id,r.building,r.room_number,f.sort_order"
         rows=db.execute(sql,vals).fetchall()
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
@@ -46,6 +48,10 @@ class ReminderMixin(BaseHandler):
             elif is_approaching:
                 approaching_list.append(r)
         groups=[]
+        if st == 'overdue':
+            approaching_list = []
+        elif st == 'approaching':
+            overdue_list = []
         if overdue_list:
             groups.append(('overdue','已逾期','danger','bi-exclamation-triangle',overdue_list))
         if approaching_list:
@@ -55,7 +61,7 @@ class ReminderMixin(BaseHandler):
         total_amt=sum(r['amount']-r['paid'] for r in all_bills)
         total_late=sum(calc_bill_late_fee(r['bid']) for r in all_bills)
         bld_opts='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
-        st_opts='<option value="">全部状态</option><option value="overdue"{" selected" if st=="overdue" else""}>已逾期</option><option value="approaching"{" selected" if st=="approaching" else""}>即将到期</option>'
+        st_opts=f'<option value="">全部状态</option><option value="overdue"{" selected" if st=="overdue" else""}>已逾期</option><option value="approaching"{" selected" if st=="approaching" else""}>即将到期</option>'
         oh=''
         for gid,glabel,gcolor,gicon,bills in groups:
             oh+=f'<tr style="background:#eee"><td colspan="7"><strong><i class="bi {gicon}"></i> {glabel}</strong> <span class="badge bg-{gcolor.split()[0]}">{len(bills)}笔</span></td></tr>'
@@ -84,12 +90,16 @@ class ReminderMixin(BaseHandler):
                     lf=calc_bill_late_fee(r['bid'])
                     sn={'unpaid':'warning text-dark','overdue':'danger','partial':'info'}
                     ln={'unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
+                    source_badge = '<span class="badge bg-primary">自动出账</span> ' if r['source'] == 'auto_contract' else ''
+                    service_text = ''
+                    if r['service_start'] and r['service_end']:
+                        service_text = f'<br><small class="text-muted">服务期 {h(r["service_start"])} 至 {h(r["service_end"])} · 截止 {h(r["due_date"] or "-")}</small>'
                     oh+=f'<tr class="room-detail-remind{gid}{oid}" style="display:none;font-size:0.9em">'
                     oh+=f'<td></td><td style="padding-left:25px"><small>{h(r["building"])}-{h(r["unit"])}-{h(r["room_number"])}</small></td>'
                     oh+=f'<td><span class="badge bg-info">{h(r["ft_name"])}</span></td><td class="text-end"><small>{h(r["billing_period"])}</small></td>'
                     oh+=f'<td class="text-end text-danger">{m(rem)}</td><td class="text-end text-warning"><small>{m(lf)}</small></td>'
                     oh+=f'<td class="text-end"><strong>{m(rem+lf)}</strong></td>'
-                    oh+=f'<td><span class="badge bg-{sn.get(r["status"],"secondary")}">{ln.get(r["status"],r["status"])}</span></td></tr>'
+                    oh+=f'<td>{source_badge}<span class="badge bg-{sn.get(r["status"],"secondary")}">{ln.get(r["status"],r["status"])}</span>{service_text}</td></tr>'
         if not oh:
             oh='<tr><td colspan="7" class="text-center text-muted py-4">本账期没有催缴记录</td></tr>'
         self._html(self._page('催缴管理',f'''
@@ -125,6 +135,7 @@ class ReminderMixin(BaseHandler):
         sql='''SELECT o.id oid,o.name oname,o.phone ophone,o.id_card oid_card,o.move_in_date,
             r.id rid,r.building,r.unit,r.room_number,r.area,r.category,
             b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
+            b.source,b.service_start,b.service_end,
             f.name ft_name,f.unit_price,f.calc_method,
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
             FROM bills b JOIN rooms r ON b.room_id=r.id
@@ -158,7 +169,7 @@ class ReminderMixin(BaseHandler):
             total_lf=sum(b['late_fee'] for b in o['bills'])
             bill_rows=''.join(f'''<tr><td>{h(b['building'])}-{h(b['unit'])}-{h(b['room_number'])}</td>
     <td><span class="badge bg-info">{h(b['ft_name'])}</span></td>
-    <td>{h(b['billing_period'])}</td>
+    <td>{h(b['billing_period'])}{'<br><small>自动出账 · 服务期 '+h(b['service_start'])+' 至 '+h(b['service_end'])+'</small>' if b['source']=='auto_contract' and b['service_start'] and b['service_end'] else ''}</td>
     <td class="text-end">{m(b['rem'])}</td>
     <td class="text-end">{m(b['late_fee'])}</td>
     <td class="text-end"><strong>{m(b['rem']+b['late_fee'])}</strong></td></tr>''' for b in o['bills'])

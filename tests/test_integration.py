@@ -692,6 +692,32 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(bill['billing_period'], '2026-06~2026-09')
         self.assertEqual(bill['source'], 'auto_contract')
 
+    def test_auto_billing_bill_shows_service_period_in_approaching_reminders(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = db.execute(
+            "INSERT INTO owners(name, phone) VALUES(?, ?)",
+            ('自动催缴业主', '13922223333')
+        ).lastrowid
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name) VALUES(?,?,?,?,?,?,?,?)",
+            ('AUTOREM', 'B座', '2601', 26, '居民', 100, owner_id, '自动催缴租户')
+        ).lastrowid
+        db.execute(
+            """INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,
+            bill_number,source,service_start,service_end) VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+            (room_id, owner_id, 1, '2026-06~2026-09', 570, '2026-06-26', 'unpaid',
+             'AUTO-REMINDER-001', 'auto_contract', '2026-06-27', '2026-09-26')
+        )
+        db.commit(); db.close()
+
+        status, body = http_get('/reminders?period=2026-06-01&status=approaching', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('自动催缴业主', body)
+        self.assertIn('自动出账', body)
+        self.assertIn('服务期 2026-06-27 至 2026-09-26', body)
+        self.assertIn('截止 2026-06-26', body)
+
     def test_readonly_menu_is_limited_and_shows_customer_collection(self):
         readonly_cookie = self._create_user_and_login(
             'readonly_menu_test', 'readonly123', 'readonly', '客服测试'
