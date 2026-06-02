@@ -142,7 +142,7 @@ PropertyFeeSystem\PropertyFeeSystem.exe
 说明那台 Windows 电脑之前运行过系统，旧数据在：
 
 ```text
-%APPDATA%\PropertyFeeSystem
+%APPDATA%\PropertyFeeSystemData
 ```
 
 让用户先关闭程序，再双击：

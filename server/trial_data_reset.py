@@ -73,8 +73,13 @@ class TrialDataResetMixin(BaseHandler):
             f'<tr><td>{h(item["label"])}</td><td class="text-end">{item["count"]}</td></tr>'
             for item in summary['items']
         ) or '<tr><td colspan="2" class="text-center text-muted">暂无试用数据</td></tr>'
-        self._html(self._page('清空试用数据', f'''
-        <div class="alert alert-warning"><strong>清空试用数据</strong>：仅用于内测/演示环境重新验证流程。执行前系统会自动备份当前数据库。</div>
+        self._html(self._page('清空试用业务数据', f'''
+        <div class="alert alert-warning"><strong>清空试用业务数据</strong>：仅用于内测/演示环境重新验证流程。它会真实删除数据库中的业务记录，不是隐藏数据。</div>
+        <div class="alert alert-light border">
+        <div><strong>会删除：</strong>业主、房间、账单、缴费、抄表、发票、结账、公摊等业务记录。</div>
+        <div><strong>不会删除：</strong>操作员账号、收费项目/单价配置、备份文件、系统更新文件、程序文件。</div>
+        <div><strong>安全保护：</strong>执行前会自动生成数据库备份，可通过数据备份页面恢复。</div>
+        </div>
         <div class="card mb-3"><div class="card-header">将清理的数据摘要</div>
         <div class="card-body">
         <div class="row g-3 mb-3">
@@ -84,12 +89,11 @@ class TrialDataResetMixin(BaseHandler):
         </div>
         <table class="table table-sm"><thead><tr><th>类型</th><th class="text-end">数量</th></tr></thead><tbody>{rows}</tbody></table>
         </div></div>
-        <div class="alert alert-light border"><strong>保留内容：</strong>操作员账号、收费项目/单价配置、备份文件、系统更新文件、程序文件。</div>
-        <form method="POST" action="/trial_data_reset" onsubmit="return confirm('确认清空本机试用数据？执行前会自动备份，但当前录入数据会从系统页面移除。')" class="card">
+        <form method="POST" action="/trial_data_reset" onsubmit="return confirm('确认清空试用业务数据？执行前会自动备份，但当前业务记录会从数据库删除。')" class="card">
         <div class="card-body">
         <label class="form-label">请输入 <code>RESET</code> 后执行</label>
         <input name="confirm_text" class="form-control" placeholder="RESET">
-        <button class="btn btn-danger mt-3"><i class="bi bi-trash3"></i> 清空试用数据</button>
+        <button class="btn btn-danger mt-3"><i class="bi bi-trash3"></i> 清空试用业务数据</button>
         <a href="/" class="btn btn-outline-secondary mt-3">取消</a>
         </div></form>
         ''', 'trial_data_reset'))

@@ -281,8 +281,8 @@ POST /api/v1/payment-callbacks/{channel}
 
 当前系统是本地桌面 App：
 
-- macOS 数据目录：`~/Library/Application Support/PropertyFeeSystem`
-- Windows 数据目录：`%APPDATA%\PropertyFeeSystem`
+- macOS 数据目录：`~/Library/Application Support/PropertyFeeSystemData`
+- Windows 数据目录：`%APPDATA%\PropertyFeeSystemData`
 - 默认只监听 `127.0.0.1`
 
 因此真实在线支付存在限制：

@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euo pipefail
-APP_DATA_DIR="$HOME/Library/Application Support/PropertyFeeSystem"
+APP_DATA_DIR="$HOME/Library/Application Support/PropertyFeeSystemData"
 ARCHIVE_ROOT="$HOME/Desktop/PropertyFeeSystemDataBackups"
 TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
 ARCHIVE_DIR="$ARCHIVE_ROOT/PropertyFeeSystem_before_reset_$TIMESTAMP"

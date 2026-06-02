@@ -18,9 +18,15 @@ class TestDesktopApp(unittest.TestCase):
             self.assertEqual(data_dir, Path(tmp))
             self.assertTrue(data_dir.exists())
             self.assertTrue(backup_dir.exists())
-            self.assertEqual(db_path, Path(tmp) / 'property.db')
+            self.assertTrue((Path(tmp) / 'database').exists())
+            self.assertTrue((Path(tmp) / 'imports').exists())
+            self.assertTrue((Path(tmp) / 'exports').exists())
+            self.assertTrue((Path(tmp) / 'updates').exists())
+            self.assertTrue((Path(tmp) / 'logs').exists())
+            self.assertEqual(db_path, Path(tmp) / 'database' / 'property.db')
             self.assertEqual(os.environ['PM_DB_PATH'], str(db_path))
             self.assertEqual(os.environ['PM_BACKUP_DIR'], str(backup_dir))
+            self.assertEqual(os.environ['PM_IMPORT_CACHE_DIR'], str(Path(tmp) / 'imports'))
 
     def test_write_startup_error_creates_readable_log(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -45,6 +51,10 @@ class TestDesktopDeliveryDiagnostics(unittest.TestCase):
             self.assertEqual(status['data_dir'], str(data_dir))
             self.assertEqual(status['db_path'], str(db_path))
             self.assertEqual(status['backup_dir'], str(backup_dir))
+            self.assertEqual(status['import_dir'], str(Path(tmp) / 'imports'))
+            self.assertEqual(status['export_dir'], str(Path(tmp) / 'exports'))
+            self.assertEqual(status['update_dir'], str(Path(tmp) / 'updates'))
+            self.assertEqual(status['log_dir'], str(Path(tmp) / 'logs'))
             self.assertTrue(status['db_exists'])
             self.assertIn('module_that_does_not_exist_for_desktop_test', status['missing_dependencies'])
             self.assertIn('python_version', status)
@@ -54,9 +64,13 @@ class TestDesktopDeliveryDiagnostics(unittest.TestCase):
             'app_title': desktop_app.APP_TITLE,
             'python_version': '3.11.0',
             'executable': r'C:\\Python311\\python.exe',
-            'data_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystem',
-            'db_path': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystem\\property.db',
-            'backup_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystem\\backups',
+            'data_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData',
+            'db_path': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData\\database\\property.db',
+            'backup_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData\\backups',
+            'import_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData\\imports',
+            'export_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData\\exports',
+            'update_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData\\updates',
+            'log_dir': r'C:\\Users\\Tester\\AppData\\Roaming\\PropertyFeeSystemData\\logs',
             'db_exists': True,
             'backup_dir_exists': True,
             'missing_dependencies': ['openpyxl'],
@@ -64,6 +78,8 @@ class TestDesktopDeliveryDiagnostics(unittest.TestCase):
         text = desktop_app.format_runtime_status(status)
         self.assertIn('物业管理收费系统', text)
         self.assertIn('Data directory', text)
+        self.assertIn('Import cache', text)
+        self.assertIn('Export directory', text)
         self.assertIn('Missing dependencies: openpyxl', text)
         self.assertIn('install_windows_dependencies.bat', text)
 
@@ -170,7 +186,7 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat'), Path('明天Windows打包从这里开始.md'), Path('Windows用户发送文案.md'), Path('真实数据试运行保护方案.md'), Path('真实数据导入前验收清单.md')]:
             self.assertTrue(path.exists(), str(path))
         reset = Path('清空本机试用数据.bat').read_text(encoding='utf-8')
-        self.assertIn('%APPDATA%\\PropertyFeeSystem', reset)
+        self.assertIn('%APPDATA%\\PropertyFeeSystemData', reset)
         self.assertIn('PropertyFeeSystemDataBackups', reset)
         self.assertIn('xcopy', reset.lower())
         self.assertIn('rmdir /S /Q "%APP_DATA_DIR%"', reset)
@@ -233,7 +249,7 @@ class TestDesktopWindowExperience(unittest.TestCase):
             self.assertIn('检查更新', labels)
             self.assertIn('退出', labels)
             self.assertIn('数据保存在本机', model['hint'])
-            self.assertEqual(model['startup_log'], str(Path(tmp) / 'startup_error.log'))
+            self.assertEqual(model['startup_log'], str(Path(tmp) / 'logs' / 'startup_error.log'))
 
 
     def test_window_model_shows_service_url_and_restart_action(self):
@@ -299,7 +315,7 @@ class TestMacDesktopDeployment(unittest.TestCase):
         script = Path('清空本机试用数据.command')
         self.assertTrue(script.exists())
         text = script.read_text(encoding='utf-8')
-        self.assertIn('Application Support/PropertyFeeSystem', text)
+        self.assertIn('Application Support/PropertyFeeSystemData', text)
         self.assertIn('PropertyFeeSystemDataBackups', text)
         self.assertIn('cp -R', text)
         self.assertIn('rm -rf "$APP_DATA_DIR"', text)
@@ -314,7 +330,7 @@ class TestMacDesktopDeployment(unittest.TestCase):
         for phrase in [
             '系统设置', '隐私与安全性', 'admin123',
             '清空本机试用数据.command', 'PropertyFeeSystemDataBackups',
-            'Application Support/PropertyFeeSystem', '反馈'
+            'Application Support/PropertyFeeSystemData', '反馈'
         ]:
             self.assertIn(phrase, text)
 

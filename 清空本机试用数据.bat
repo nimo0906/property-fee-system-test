@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 setlocal
-set "APP_DATA_DIR=%APPDATA%\PropertyFeeSystem"
+set "APP_DATA_DIR=%APPDATA%\PropertyFeeSystemData"
 set "ARCHIVE_ROOT=%USERPROFILE%\Desktop\PropertyFeeSystemDataBackups"
 for /f "tokens=1-4 delims=/ " %%a in ("%date%") do set "DATE_PART=%%a%%b%%c%%d"
 for /f "tokens=1-3 delims=:., " %%a in ("%time%") do set "TIME_PART=%%a%%b%%c"

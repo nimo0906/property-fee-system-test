@@ -284,13 +284,13 @@ macOS：
 
 - 仍通过 `desktop_app.py` 或 `dist/物业管理收费系统.app` 启动。
 - 数据表由 `db_init()` 自动补齐。
-- 数据保存在 `~/Library/Application Support/PropertyFeeSystem/property.db`。
+- 数据保存在 `~/Library/Application Support/PropertyFeeSystemData/database/property.db`。
 
 Windows：
 
 - 仍通过 `PropertyFeeSystem.exe` 或 `start_windows.bat` 启动。
 - 数据表由 `db_init()` 自动补齐。
-- 数据保存在 `%APPDATA%\PropertyFeeSystem\property.db`。
+- 数据保存在 `%APPDATA%\PropertyFeeSystemData\property.db`。
 
 通用：
 

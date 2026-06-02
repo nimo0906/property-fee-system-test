@@ -12,7 +12,7 @@ import traceback
 from pathlib import Path
 
 
-APP_DIR_NAME = "PropertyFeeSystem"
+APP_DIR_NAME = "PropertyFeeSystemData"
 APP_TITLE = "物业管理收费系统"
 
 
@@ -39,10 +39,16 @@ def get_app_data_dir():
 
 def prepare_runtime(data_dir=None):
     data_dir = Path(data_dir) if data_dir else get_app_data_dir()
+    database_dir = data_dir / "database"
     backup_dir = data_dir / "backups"
-    db_path = data_dir / "property.db"
+    import_dir = data_dir / "imports"
+    export_dir = data_dir / "exports"
+    update_dir = data_dir / "updates"
+    log_dir = data_dir / "logs"
+    db_path = database_dir / "property.db"
     data_dir.mkdir(parents=True, exist_ok=True)
-    backup_dir.mkdir(parents=True, exist_ok=True)
+    for folder in (database_dir, backup_dir, import_dir, export_dir, update_dir, log_dir):
+        folder.mkdir(parents=True, exist_ok=True)
 
     os.environ["PM_RESOURCE_DIR"] = str(get_resource_dir())
     bundled_db = get_resource_dir() / "property.db"
@@ -51,6 +57,10 @@ def prepare_runtime(data_dir=None):
 
     os.environ["PM_DB_PATH"] = str(db_path)
     os.environ["PM_BACKUP_DIR"] = str(backup_dir)
+    os.environ["PM_IMPORT_CACHE_DIR"] = str(import_dir)
+    os.environ["PM_EXPORT_DIR"] = str(export_dir)
+    os.environ["PM_UPDATE_DIR"] = str(update_dir)
+    os.environ["PM_LOG_DIR"] = str(log_dir)
     os.environ.setdefault("PM_HOST", "127.0.0.1")
     return data_dir, db_path, backup_dir
 
@@ -66,10 +76,14 @@ def get_runtime_status(data_dir=None, dependencies=None):
         "data_dir": str(data_dir),
         "db_path": str(db_path),
         "backup_dir": str(backup_dir),
+        "import_dir": str(data_dir / "imports"),
+        "export_dir": str(data_dir / "exports"),
+        "update_dir": str(data_dir / "updates"),
+        "log_dir": str(data_dir / "logs"),
         "db_exists": db_path.exists(),
         "backup_dir_exists": backup_dir.exists(),
         "missing_dependencies": missing,
-        "startup_log": str(data_dir / "startup_error.log"),
+        "startup_log": str(data_dir / "logs" / "startup_error.log"),
     }
 
 
@@ -82,6 +96,10 @@ def format_runtime_status(status):
         f"Data directory: {status.get('data_dir', '')}",
         f"Database: {status.get('db_path', '')}",
         f"Backup directory: {status.get('backup_dir', '')}",
+        f"Import cache: {status.get('import_dir', '')}",
+        f"Export directory: {status.get('export_dir', '')}",
+        f"Update directory: {status.get('update_dir', '')}",
+        f"Log directory: {status.get('log_dir', '')}",
         f"Database exists: {'yes' if status.get('db_exists') else 'no'}",
         f"Backup directory exists: {'yes' if status.get('backup_dir_exists') else 'no'}",
     ]
@@ -98,15 +116,17 @@ def format_runtime_status(status):
 def write_runtime_status_log(status):
     """Write current runtime diagnostics for support and return the log path."""
     data_dir = Path(status["data_dir"])
-    data_dir.mkdir(parents=True, exist_ok=True)
-    log_path = data_dir / "runtime_status.log"
+    log_dir = Path(status.get("log_dir") or data_dir / "logs")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / "runtime_status.log"
     log_path.write_text(format_runtime_status(status), encoding="utf-8")
     return log_path
 
 
 def build_window_model(url, data_dir, db_path, backup_dir):
-    startup_log = Path(data_dir) / "startup_error.log"
-    runtime_log = Path(data_dir) / "runtime_status.log"
+    log_dir = Path(data_dir) / "logs"
+    startup_log = log_dir / "startup_error.log"
+    runtime_log = log_dir / "runtime_status.log"
     return {
         "title": APP_TITLE,
         "url": url,
@@ -150,6 +170,7 @@ def write_startup_error(exc, data_dir=None):
     """Write a readable startup error log and return its path."""
     try:
         base = Path(data_dir) if data_dir else get_app_data_dir()
+        base = base / "logs"
         base.mkdir(parents=True, exist_ok=True)
     except Exception:
         base = Path.cwd()

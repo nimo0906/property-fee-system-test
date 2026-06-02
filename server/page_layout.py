@@ -93,7 +93,7 @@ def render_page(handler, title, content, active='', top_actions=''):
                 '<div class="maintenance-tools">'
                 f'<a class="system-tool-btn {"active" if tool_active == "system_health" else ""}" href="/system_health" title="系统健康"><i class="bi bi-shield-check"></i><span>健康</span></a>'
                 f'<a class="system-tool-btn {"active" if tool_active == "system_update" else ""}" href="/system_update" title="系统更新"><i class="bi bi-arrow-repeat"></i><span>更新</span></a>'
-                f'<a class="system-tool-btn {"active" if tool_active == "trial_data_reset" else ""}" href="/trial_data_reset" title="清空试用数据"><i class="bi bi-trash3"></i><span>清空</span></a>'
+                f'<a class="system-tool-btn {"active" if tool_active == "trial_data_reset" else ""}" href="/trial_data_reset" title="清空试用业务数据"><i class="bi bi-trash3"></i><span>清空</span></a>'
                 '</div>'
             )
         nav_parts.append(f'<div class="nav-section"><div class="nav-section-title">{group_name}</div>{links}</div>')
@@ -116,4 +116,3 @@ def render_page(handler, title, content, active='', top_actions=''):
     html = html.replace('{TOP_ACTIONS}', top_actions)
     html = html.replace("{FLASH}", flash)
     return html
-

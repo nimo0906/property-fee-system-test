@@ -297,7 +297,7 @@ build_macos_app.command -> dist/物业管理收费系统.app
 数据目录：
 
 ```text
-~/Library/Application Support/PropertyFeeSystem
+~/Library/Application Support/PropertyFeeSystemData
 ```
 
 验收要求：
@@ -319,7 +319,7 @@ build_windows_exe.bat -> dist\PropertyFeeSystem\PropertyFeeSystem.exe
 数据目录：
 
 ```text
-%APPDATA%\PropertyFeeSystem
+%APPDATA%\PropertyFeeSystemData
 ```
 
 验收要求：

@@ -8,10 +8,23 @@ import urllib.parse
 from server.db import qs
 from server.permissions import required_post_role, role_allows
 
+DISABLED_MODULE_PATTERNS = (
+    r'^/repairs(?:/.*)?$',
+    r'^/parking(?:/.*)?$',
+    r'^/deposits(?:/.*)?$',
+)
+
+
+def _is_disabled_module_path(path):
+    return any(re.match(pattern, path) for pattern in DISABLED_MODULE_PATTERNS)
+
+
 # ── GET routing ────────────────────────────────────────────
 def handle_get(handler):
     p = urllib.parse.urlparse(handler.path).path
     q = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
+    if _is_disabled_module_path(p):
+        return handler._error(404)
     if p.startswith('/api/v1/'):
         return handler._api_get(p)
     if p.startswith('/owner-portal/') or p == '/owner-portal':
@@ -108,6 +121,8 @@ def handle_get(handler):
 # ── POST routing ───────────────────────────────────────────
 def handle_post(handler):
     p = urllib.parse.urlparse(handler.path).path
+    if _is_disabled_module_path(p):
+        return handler._error(404)
     if p.startswith('/api/v1/'):
         return handler._api_post(p, handler._post())
     if p.startswith('/owner-portal/') or p == '/owner-portal':

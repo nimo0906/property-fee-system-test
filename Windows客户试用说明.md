@@ -29,7 +29,7 @@ PropertyFeeSystem.exe
 这说明这台电脑之前运行过系统，旧数据保存在当前 Windows 用户目录：
 
 ```text
-%APPDATA%\PropertyFeeSystem
+%APPDATA%\PropertyFeeSystemData
 ```
 
 这不是交付包混入了旧数据库。
@@ -102,7 +102,7 @@ install_windows_dependencies.bat
 默认在：
 
 ```text
-%APPDATA%\PropertyFeeSystem
+%APPDATA%\PropertyFeeSystemData
 ```
 
 主要文件：

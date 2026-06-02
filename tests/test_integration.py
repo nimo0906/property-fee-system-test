@@ -155,7 +155,12 @@ class TestIntegration(unittest.TestCase):
 
         status, confirm_page = http_get('/trial_data_reset', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('清空试用数据', confirm_page)
+        self.assertIn('清空试用业务数据', confirm_page)
+        self.assertIn('会删除', confirm_page)
+        self.assertIn('业主、房间、账单、缴费、抄表、发票、结账、公摊等业务记录', confirm_page)
+        self.assertIn('不会删除', confirm_page)
+        self.assertIn('操作员账号、收费项目/单价配置、备份文件、系统更新文件、程序文件', confirm_page)
+        self.assertIn('执行前会自动生成数据库备份', confirm_page)
         self.assertIn('RESET', confirm_page)
 
         operator_cookie = self._create_user_and_login('reset_operator', 'op123456', 'operator', '清空操作员')
@@ -183,6 +188,21 @@ class TestIntegration(unittest.TestCase):
         db.close()
         after_backups = set(os.listdir(db_module.BACKUP_DIR))
         self.assertTrue(any(name.startswith('auto_before_trial_data_reset_') for name in after_backups - before_backups))
+
+    def test_hidden_modules_are_not_accessible_by_direct_url(self):
+        status, body = http_get('/', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        for text in ['href="/repairs"', 'href="/parking"', 'href="/deposits"', '维修管理', '停车管理', '押金管理']:
+            self.assertNotIn(text, body)
+
+        for path in ['/repairs', '/repairs/create', '/repairs/1', '/parking', '/parking/create', '/parking/1/edit', '/deposits', '/deposits/create', '/deposits/1/edit', '/deposits/1/refund']:
+            status, body = http_get(path, self.cookie, TEST_PORT)
+            self.assertEqual(status, 404, path)
+            self.assertIn('页面未找到', body)
+
+        for path in ['/repairs/create', '/repairs/1/status', '/repairs/1/delete', '/parking/create', '/parking/1/edit', '/parking/1/delete', '/deposits/create', '/deposits/1/edit', '/deposits/1/refund', '/deposits/1/delete']:
+            status, body, _ = http_post(path, {'confirm_text': 'RESET'}, self.cookie, TEST_PORT)
+            self.assertEqual(status, 404, path)
 
     def test_admin_system_health_page_reports_and_repairs_schema_and_bill_status(self):
         import server.db as db_module
@@ -851,8 +871,7 @@ class TestIntegration(unittest.TestCase):
             '/': '收费工作台', '/rooms': '房间管理', '/owners': '业主管理',
             '/fee_types': '收费标准', '/meter_readings': '抄表管理',
             '/billing': '物业收费', '/commercial_billing': '商业收费', '/bills': '账单管理', '/payments': '缴费记录',
-            '/repairs': '维修管理', '/parking': '停车管理',
-            '/invoices': '发票管理', '/deposits': '押金管理',
+            '/invoices': '发票管理',
             '/reminders': '催缴管理', '/closing': '期末结账',
             '/backups': '数据备份', '/import': '数据导入', '/reports': '对账报表',
             '/users': '操作员管理', '/late_fee_config': '滞纳金设置',
