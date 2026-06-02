@@ -8,8 +8,9 @@ from server.backups import create_db_backup
 from server.base import BaseHandler
 from server.auto_billing_runs import (
     get_auto_billing_run, get_auto_billing_run_bills, recent_auto_billing_runs,
-    rollback_auto_billing_batch, run_detail_html, run_row_html,
+    rollback_auto_billing_batch, run_detail_html,
 )
+from server.auto_billing_page import render_auto_billing_page
 from server.billing_engine import calculate_bill_amount, fee_applies_to_room
 from server.db import add_months, get_db, h, m, qs
 
@@ -177,48 +178,7 @@ class AutoBillingMixin(BaseHandler):
         items = build_auto_billing_preview(db, advance_days=advance_days, fee_ids=selected_fee_ids)
         runs = recent_auto_billing_runs(db)
         db.close()
-        fee_checks = ''.join(
-            f'''<label class="form-check form-check-inline mb-2">
-                <input class="form-check-input" type="checkbox" name="fee_ids" value="{f['id']}"
-                    {"checked" if int(f['id']) in selected_fee_ids else ""}>
-                <span class="form-check-label">{h(f['name'])}</span>
-            </label>'''
-            for f in fee_options
-        )
-        hidden_fee_ids = ''.join(f'<input type="hidden" name="fee_ids" value="{fid}">' for fid in selected_fee_ids)
-        rows = ''.join(
-            f'''<tr><td><input type="checkbox" name="item_keys" value="{h(x['item_key'])}"
-                {"checked" if x["can_generate"] else "disabled"}></td>
-            <td>{h(x["tenant_name"])}</td><td>{h(x["room_name"])}</td><td>{h(x["fee_name"])}</td>
-            <td>{h(x["service_start"])} 至 {h(x["service_end"])}</td><td>{h(x["due_date"])}</td>
-            <td class="text-end">¥{m(x["amount"])}</td>
-            <td>{"可生成" if x["can_generate"] else "已存在"}</td></tr>'''
-            for x in items
-        ) or '<tr><td colspan="8" class="text-center text-muted py-4">未来指定天数内暂无需要生成的租户账单</td></tr>'
-        run_rows = ''.join(run_row_html(r) for r in runs) or '<tr><td colspan="7" class="text-center text-muted py-3">暂无自动出账记录</td></tr>'
-        body = f'''
-        <div class="alert alert-info">根据租户合同起止日期和缴费周期计算下一期服务日期。这里只做预览，确认后才写入账单；默认只生成适用的物业费，不影响原有手动收费。</div>
-        <form method="GET" action="/auto_billing" class="row g-2 mb-3">
-          <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
-          <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
-          <div class="col-12">
-            <div class="card"><div class="card-header py-2">收费项目选择</div>
-            <div class="card-body py-2">{fee_checks}</div></div>
-          </div>
-          <div class="col-auto"><button class="btn btn-primary">刷新预览</button></div>
-        </form>
-        <form method="POST" action="/auto_billing/confirm" onsubmit="return confirm('确认生成选中的租户账单？')">
-          <input type="hidden" name="advance_days" value="{advance_days}">
-          {hidden_fee_ids}
-          <div class="table-responsive"><table class="table table-hover align-middle small">
-          <thead><tr><th>选择</th><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
-          <tbody>{rows}</tbody></table></div>
-          <button class="btn btn-success"><i class="bi bi-check2-circle"></i> 确认生成选中账单</button>
-        </form>
-        <div class="card mt-3"><div class="card-header">最近自动出账记录</div>
-        <div class="table-responsive"><table class="table table-hover align-middle small mb-0">
-        <thead><tr><th>批次号</th><th>生成时间</th><th>操作人</th><th class="text-end">笔数</th><th>服务期范围</th><th>状态</th><th>操作</th></tr></thead>
-        <tbody>{run_rows}</tbody></table></div></div>'''
+        body = render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs)
         self._html(self._page('自动出账预览', body, 'auto_billing'))
 
     def _auto_billing_run_detail(self, batch_no):
