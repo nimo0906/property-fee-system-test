@@ -84,7 +84,7 @@ class BillListMixin(BaseHandler):
     def _bills(self, q):
         update_overdue_bills()
         db=get_db();s=qs(q,'status');fid=qs(q,'fee_type_id');raw_period=qs(q,'period',get_period());p=raw_period.strip() if '~' in raw_period else date_to_period(raw_period)
-        kw=qs(q,'keyword');bld=qs(q,'building');cat=qs(q,'category')
+        kw=qs(q,'keyword');bld=qs(q,'building');cat=qs(q,'category');auto_batch_no=qs(q,'auto_batch_no')
         current_query = urllib.parse.urlencode([
             (k, v)
             for k, vals in q.items()
@@ -103,6 +103,7 @@ class BillListMixin(BaseHandler):
         if fid and fid!='0':sql+=" AND b.fee_type_id=?";vals.append(fid)
         if bld:sql+=" AND r.building=?";vals.append(bld)
         if cat:sql+=" AND r.category=?";vals.append(cat)
+        if auto_batch_no:sql+=" AND b.auto_batch_no=?";vals.append(auto_batch_no)
         if kw:sql+=" AND (r.building LIKE ? OR r.room_number LIKE ? OR r.unit LIKE ?)";vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%'])
         sql+=" ORDER BY r.building,r.unit,r.room_number,b.fee_type_id"
         pg=int(qs(q,'page','1'))

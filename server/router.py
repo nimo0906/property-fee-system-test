@@ -71,6 +71,7 @@ def handle_get(handler):
     elif p == '/billing/calc': return handler._redirect('/billing?flash=请从收费页面选择房间和费用后生成账单')
     elif p == '/commercial_billing': return handler._commercial_billing()
     elif p == '/auto_billing': return handler._auto_billing(q)
+    elif (m := re.match(r'^/auto_billing/runs/([^/]+)$', p)): return handler._auto_billing_run_detail(m.group(1))
     elif p == '/shared_expenses': return handler._shared_expenses(q)
     elif p == '/bills': return handler._bills(q)
     elif p == '/bills/review': return handler._bills_review(q)

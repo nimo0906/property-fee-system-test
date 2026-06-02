@@ -6,6 +6,10 @@ from datetime import date, datetime, timedelta
 
 from server.backups import create_db_backup
 from server.base import BaseHandler
+from server.auto_billing_runs import (
+    get_auto_billing_run, get_auto_billing_run_bills, recent_auto_billing_runs,
+    rollback_auto_billing_batch, run_detail_html, run_row_html,
+)
 from server.billing_engine import calculate_bill_amount, fee_applies_to_room
 from server.db import add_months, get_db, h, m, qs
 
@@ -164,57 +168,6 @@ def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=
     return {'generated': generated, 'skipped_existing': skipped_existing, 'batch_no': batch_no if generated else ''}
 
 
-def rollback_auto_billing_batch(db, batch_no):
-    rows = db.execute(
-        """SELECT b.*,COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid,
-        (SELECT COUNT(*) FROM invoices WHERE bill_id=b.id) invoice_count,
-        (SELECT COUNT(*) FROM invoice_requests WHERE bill_id=b.id) invoice_request_count
-        FROM bills b WHERE b.auto_batch_no=? AND b.source='auto_contract' ORDER BY b.id""",
-        (batch_no,)
-    ).fetchall()
-    deleted = blocked = 0
-    for bill in rows:
-        if float(bill['paid'] or 0) > 0 or bill['status'] in ('paid', 'partial'):
-            blocked += 1
-            continue
-        if int(bill['invoice_count'] or 0) > 0 or int(bill['invoice_request_count'] or 0) > 0:
-            blocked += 1
-            continue
-        db.execute("DELETE FROM bills WHERE id=?", (bill['id'],))
-        deleted += 1
-    status = 'rolled_back' if deleted and not blocked else ('partial_rollback' if deleted else 'blocked')
-    db.execute(
-        "UPDATE auto_billing_runs SET rollback_count=rollback_count+?,status=?,rolled_back_at=datetime('now','localtime') WHERE batch_no=?",
-        (deleted, status, batch_no)
-    )
-    db.commit()
-    return {'deleted': deleted, 'blocked': blocked, 'status': status}
-
-
-def recent_auto_billing_runs(db, limit=8):
-    return db.execute(
-        "SELECT * FROM auto_billing_runs ORDER BY created_at DESC,id DESC LIMIT ?",
-        (int(limit),)
-    ).fetchall()
-
-
-def _run_row_html(run):
-    rollback = ''
-    if run['status'] != 'rolled_back':
-        rollback = (
-            f'<form method="POST" action="/auto_billing/runs/{h(run["batch_no"])}/rollback" '
-            'style="display:inline" '
-            'onsubmit="return confirm(\'确认撤回本批次未缴账单？已缴、部分缴费、已开票账单不会撤回。\')">'
-            '<button class="btn btn-sm btn-outline-danger">撤回未缴账单</button></form>'
-        )
-    badge = 'secondary' if run['status'] == 'rolled_back' else 'info'
-    return f'''<tr><td><small>{h(run['batch_no'])}</small></td><td>{h(run['created_at'])}</td>
-    <td>{h(run['operator'] or '-')}</td><td class="text-end">{run['generated_count']}</td>
-    <td>{h(run['service_start_min'] or '-')} 至 {h(run['service_end_max'] or '-')}</td>
-    <td><span class="badge bg-{badge}">{h(run['status'])}</span></td>
-    <td><a class="btn btn-sm btn-outline-primary" href="/bills?source=auto_contract">查看账单</a> {rollback}</td></tr>'''
-
-
 class AutoBillingMixin(BaseHandler):
     def _auto_billing(self, q):
         advance_days = int(qs(q, 'advance_days', 30) or 30)
@@ -242,7 +195,7 @@ class AutoBillingMixin(BaseHandler):
             <td>{"可生成" if x["can_generate"] else "已存在"}</td></tr>'''
             for x in items
         ) or '<tr><td colspan="8" class="text-center text-muted py-4">未来指定天数内暂无需要生成的租户账单</td></tr>'
-        run_rows = ''.join(_run_row_html(r) for r in runs) or '<tr><td colspan="7" class="text-center text-muted py-3">暂无自动出账记录</td></tr>'
+        run_rows = ''.join(run_row_html(r) for r in runs) or '<tr><td colspan="7" class="text-center text-muted py-3">暂无自动出账记录</td></tr>'
         body = f'''
         <div class="alert alert-info">根据租户合同起止日期和缴费周期计算下一期服务日期。这里只做预览，确认后才写入账单；默认只生成适用的物业费，不影响原有手动收费。</div>
         <form method="GET" action="/auto_billing" class="row g-2 mb-3">
@@ -267,6 +220,16 @@ class AutoBillingMixin(BaseHandler):
         <thead><tr><th>批次号</th><th>生成时间</th><th>操作人</th><th class="text-end">笔数</th><th>服务期范围</th><th>状态</th><th>操作</th></tr></thead>
         <tbody>{run_rows}</tbody></table></div></div>'''
         self._html(self._page('自动出账预览', body, 'auto_billing'))
+
+    def _auto_billing_run_detail(self, batch_no):
+        db = get_db()
+        run = get_auto_billing_run(db, batch_no)
+        if not run:
+            db.close()
+            return self._error(404, '自动出账批次不存在')
+        bills = get_auto_billing_run_bills(db, batch_no)
+        db.close()
+        self._html(self._page('自动出账批次详情', run_detail_html(run, bills), 'auto_billing'))
 
     def _auto_billing_confirm(self, d):
         keys = d.get('item_keys', [])
