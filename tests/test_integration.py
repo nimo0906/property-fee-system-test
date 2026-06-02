@@ -1367,6 +1367,8 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('/payments/receipts', body)
         self.assertIn('导出', body)
         self.assertIn('name="payment_ids"', body)
+        self.assertIn('class="payment-group-chk"', body)
+        self.assertIn('togglePaymentSelection', body)
 
         status, print_html, _ = http_post('/payments/print', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)

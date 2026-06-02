@@ -370,13 +370,14 @@ class PaymentMixin(BaseHandler):
             period_text = periods[0] if len(periods) == 1 else (periods[0] + ' ~ ' + periods[-1] if periods else '-')
             methods = '、'.join(sorted({x['payment_method'] for x in g['rows'] if x['payment_method']})) or '-'
             rh_parts.append(f'''<tr class="table-light payment-group" style="cursor:pointer" onclick="togglePaymentGroup('{safe_id}')">
+<td><input type="checkbox" class="payment-group-chk" data-payment-group="{safe_id}" onclick="event.stopPropagation();togglePaymentSelection('{safe_id}',this.checked)"></td>
 <td><i class="bi bi-chevron-right" id="pay_icon_{safe_id}"></i> <strong>{h(g['room'])}</strong><br><small class="text-muted">{h(g['owner'])}</small></td>
-<td></td><td><span class="badge status-neutral">汇总</span></td>
+<td><span class="badge status-neutral">汇总</span></td>
 <td>{h(period_text)}</td><td><span class="badge status-neutral">{len(g['rows'])}笔</span></td>
 <td class="text-end"><strong class="money money-paid">+¥{m(g['total'])}</strong></td>
 <td>{h(methods)}</td><td colspan="2"><small class="text-muted">最近：{h(latest or '-')}</small></td></tr>''')
             for r in g['rows']:
-                rh_parts.append(f'''<tr class="payment-detail-{safe_id}" style="display:none"><td><input form="paymentActionForm" type="checkbox" name="payment_ids" value="{r['id']}"></td><td><small>{h(r["payment_date"]or"-")}</small></td>
+                rh_parts.append(f'''<tr class="payment-detail-{safe_id}" style="display:none"><td><input form="paymentActionForm" type="checkbox" name="payment_ids" data-payment-group="{safe_id}" value="{r['id']}"></td><td><small>{h(r["payment_date"]or"-")}</small></td>
 <td><small>{h(r["bill_number"]or"-")}</small></td>
 <td>{h(r["building"]or"")}-{h(r["unit"]or"")}-{h(r["room_number"]or"")}</td>
 <td><span class="badge status-info">{h(r["ft"])}</span></td><td>{h(r["billing_period"])}</td>
@@ -389,7 +390,11 @@ class PaymentMixin(BaseHandler):
         tpl=tpl.replace('{SW}',' selected' if pm=='wechat' else '').replace('{SA}',' selected' if pm=='alipay' else '')
         tpl=tpl.replace('<th>经手人</th>', '<th>经手人</th><th>收据号</th>')
         tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="10" class="text-center text-muted py-4">暂无缴费记录</td></tr>')
-        tpl += '''<script>function togglePaymentGroup(id){var rows=document.querySelectorAll('.payment-detail-'+id);var icon=document.getElementById('pay_icon_'+id);rows.forEach(function(r){r.style.display=r.style.display==='none'?'':'none';});if(icon) icon.className=icon.className==='bi bi-chevron-right'?'bi bi-chevron-down':'bi bi-chevron-right';}</script>'''
+        tpl += '''<script>
+function togglePaymentGroup(id){var rows=document.querySelectorAll('.payment-detail-'+id);var icon=document.getElementById('pay_icon_'+id);rows.forEach(function(r){r.style.display=r.style.display==='none'?'':'none';});if(icon) icon.className=icon.className==='bi bi-chevron-right'?'bi bi-chevron-down':'bi bi-chevron-right';}
+function togglePaymentSelection(id,checked){document.querySelectorAll('input[name="payment_ids"][data-payment-group="'+id+'"]').forEach(function(x){x.checked=checked;});}
+function toggleAllPayments(checked){document.querySelectorAll('input[name="payment_ids"],.payment-group-chk').forEach(function(x){x.checked=checked;});}
+</script>'''
         self._html(self._page('缴费记录',tpl,'payments'))
 
 

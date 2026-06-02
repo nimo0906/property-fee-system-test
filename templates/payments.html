@@ -19,7 +19,7 @@
 </form>
 </div>
 <div class="table-responsive"><table class="table table-hover align-middle">
-<thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('input[name=&quot;payment_ids&quot;]').forEach(function(x){x.checked=this.checked})"></th><th>时间</th><th>票据</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th>方式</th><th>经手人</th></tr></thead>
+<thead><tr><th><input type="checkbox" onclick="toggleAllPayments(this.checked)"></th><th>时间</th><th>票据</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th>方式</th><th>经手人</th></tr></thead>
 <tbody>{ROWS}</tbody></table></div>
 </div>
 
