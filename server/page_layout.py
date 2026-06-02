@@ -15,7 +15,7 @@ def _is_secondary_path(path):
         '/billing', '/commercial_billing', '/shared_expenses', '/bills',
         '/payments', '/collections', '/reminders',
         '/invoices', '/reports', '/closing', '/audit_logs', '/backups',
-        '/system_health', '/system_update', '/users', '/import',
+        '/system_health', '/system_update', '/trial_data_reset', '/users', '/import',
     }
     return path not in primary_paths
 
@@ -77,6 +77,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         allowed.add('users')
         allowed.add('system_health')
         allowed.add('system_update')
+        allowed.add('trial_data_reset')
     nav_parts = []
     for group_name, items in nav_groups:
         visible = [item for item in items if item[0] in allowed]
@@ -87,11 +88,12 @@ def render_page(handler, title, content, active='', top_actions=''):
             for a in visible
         )
         if group_name == '系统维护' and role == 'admin':
-            tool_active = 'system_health' if active == 'system_health' else ('system_update' if active == 'system_update' else '')
+            tool_active = 'system_health' if active == 'system_health' else ('system_update' if active == 'system_update' else ('trial_data_reset' if active == 'trial_data_reset' else ''))
             links += (
                 '<div class="maintenance-tools">'
                 f'<a class="system-tool-btn {"active" if tool_active == "system_health" else ""}" href="/system_health" title="系统健康"><i class="bi bi-shield-check"></i><span>健康</span></a>'
                 f'<a class="system-tool-btn {"active" if tool_active == "system_update" else ""}" href="/system_update" title="系统更新"><i class="bi bi-arrow-repeat"></i><span>更新</span></a>'
+                f'<a class="system-tool-btn {"active" if tool_active == "trial_data_reset" else ""}" href="/trial_data_reset" title="清空试用数据"><i class="bi bi-trash3"></i><span>清空</span></a>'
                 '</div>'
             )
         nav_parts.append(f'<div class="nav-section"><div class="nav-section-title">{group_name}</div>{links}</div>')
@@ -103,7 +105,7 @@ def render_page(handler, title, content, active='', top_actions=''):
              'shared_expenses': 'bi-diagram-3',
              'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'closing': 'bi-lock',
              'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
-             'system_update': 'bi-arrow-repeat',
+             'system_update': 'bi-arrow-repeat', 'trial_data_reset': 'bi-trash3',
              'collections': 'bi-telephone-outbound', 'audit_logs': 'bi-journal-check'}
     icon = icons.get(active, 'bi-speedometer2')
     html = html.replace('{TITLE}', h(title))

@@ -20,6 +20,7 @@ ADMIN_POST_PATTERNS = [
     r'^/system_update/check$',
     r'^/system_update/prepare$',
     r'^/system_update/open_folder$',
+    r'^/trial_data_reset$',
     r'^/import/upload$',
 ]
 

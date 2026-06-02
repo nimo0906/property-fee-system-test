@@ -68,6 +68,7 @@ def _start_server():
     from server.backups import BackupMixin
     from server.data_health import DataHealthMixin
     from server.system_update_pages import SystemUpdateMixin
+    from server.trial_data_reset import TrialDataResetMixin
     from server.api import ApiMixin
 
     class Handler(
@@ -78,7 +79,7 @@ def _start_server():
         PaymentMixin, BillingUiMixin,
         RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
         ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
-        ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, ApiMixin, BaseHandler,
+        ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
     ): pass
 
     db_init()
@@ -140,6 +141,48 @@ class TestIntegration(unittest.TestCase):
         conn.close()
         self.assertEqual(resp.status, 302)
         self.assertIn('无权限访问系统更新', urllib.parse.unquote(loc))
+
+    def test_trial_data_reset_requires_admin_and_clears_business_data_only(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        fee_id = db.execute("INSERT INTO fee_types(name,calc_method,unit_price) VALUES(?,?,?)", ('保留收费项', 'fixed', 12)).lastrowid
+        owner_id = db.execute("INSERT INTO owners(name,phone) VALUES(?,?)", ('清空测试业主', '13800130000')).lastrowid
+        room_id = db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id) VALUES(?,?,?,?,?,?,?)", ('RESET', 'A座', '101', 1, '居民', 10, owner_id)).lastrowid
+        bill_id = db.execute("INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,status,bill_number) VALUES(?,?,?,?,?,?,?)", (room_id, owner_id, fee_id, '2031-01', 12, 'unpaid', 'RESET-BILL')).lastrowid
+        db.execute("INSERT INTO payments(bill_id,amount_paid,payment_method,operator) VALUES(?,?,?,?)", (bill_id, 5, 'cash', 'tester'))
+        db.execute("INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,status) VALUES(?,?,?,?,?)", (room_id, fee_id, '203101', 8, 'confirmed'))
+        db.commit(); db.close()
+
+        status, confirm_page = http_get('/trial_data_reset', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('清空试用数据', confirm_page)
+        self.assertIn('RESET', confirm_page)
+
+        operator_cookie = self._create_user_and_login('reset_operator', 'op123456', 'operator', '清空操作员')
+        status, _, loc = http_post('/trial_data_reset', {'confirm_text': 'RESET'}, operator_cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('无权限', urllib.parse.unquote(loc))
+
+        status, _, loc = http_post('/trial_data_reset', {'confirm_text': 'WRONG'}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('请输入RESET', urllib.parse.unquote(loc))
+
+        before_backups = set(os.listdir(db_module.BACKUP_DIR)) if os.path.exists(db_module.BACKUP_DIR) else set()
+        status, _, loc = http_post('/trial_data_reset', {'confirm_text': 'RESET'}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/trial_data_reset', loc)
+
+        db = db_module.get_db()
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM owners').fetchone()[0], 0)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM rooms').fetchone()[0], 0)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM bills').fetchone()[0], 0)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM payments').fetchone()[0], 0)
+        self.assertEqual(db.execute('SELECT COUNT(*) FROM meter_readings').fetchone()[0], 0)
+        self.assertIsNotNone(db.execute('SELECT id FROM fee_types WHERE id=?', (fee_id,)).fetchone())
+        self.assertIsNotNone(db.execute("SELECT id FROM users WHERE username='admin'").fetchone())
+        db.close()
+        after_backups = set(os.listdir(db_module.BACKUP_DIR))
+        self.assertTrue(any(name.startswith('auto_before_trial_data_reset_') for name in after_backups - before_backups))
 
     def test_admin_system_health_page_reports_and_repairs_schema_and_bill_status(self):
         import server.db as db_module
