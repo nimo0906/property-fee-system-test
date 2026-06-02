@@ -2282,6 +2282,24 @@ class TestIntegration(unittest.TestCase):
         self.assertIn(".bill-chk[data-owner-group=", html)
         self.assertIn(".bill-chk[data-room-group=", html)
 
+    def test_bill_list_room_summary_rows_expand_their_bill_details(self):
+        http_post('/rooms/create', {
+            'building': 'ROOMFOLD', 'unit': 'B座', 'room_number': '1401',
+            'floor': '14', 'category': '商户', 'area': '10', 'tenant_name': '房间折叠租户',
+        }, self.cookie, TEST_PORT)
+        http_post('/bills/generate', {
+            'mode': 'confirm', 'period': '2029-11', 'fee_type_ids': '1,3',
+            'due_day': '28', 'building': 'ROOMFOLD',
+        }, self.cookie, TEST_PORT)
+
+        status, html = http_get('/bills?period=2029-11&building=ROOMFOLD', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn("onclick=\"toggleBillRoom('o1r1')\"", html)
+        self.assertIn('id="icon_o1r1"', html)
+        self.assertIn('class="bill-detail-o1r1"', html)
+        self.assertIn('function toggleBillRoom(roomGroup)', html)
+        self.assertIn('room-detail-o1 bill-room-row', html)
+
     def test_bill_list_groups_by_tenant_name_before_owner_name(self):
         import server.db as db_module
         db = db_module.get_db()

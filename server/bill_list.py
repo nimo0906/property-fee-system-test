@@ -150,9 +150,9 @@ class BillListMixin(BaseHandler):
                 r_paid=sum(b['paid'] for b in rl['bills'])
                 r_rem=r_total-r_paid
                 r_rem_html = f'<strong class="money money-due">¥{m(r_rem)}</strong>' if r_rem>0 else '<span class="money money-paid">¥0.00</span>'
-                room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
-                rh+=f'<tr class="room-detail-{owner_group}" style="display:none;background:#f8f9fa">'
-                rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><strong>{rl["name"]}</strong></td>'
+                room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
+                rh+=f'<tr class="room-detail-{owner_group} bill-room-row" onclick="toggleBillRoom(\'{room_group}\')" style="display:none;background:#f8f9fa;cursor:pointer">'
+                rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><i class="bi bi-chevron-right" id="icon_{room_group}"></i> <strong>{rl["name"]}</strong></td>'
                 rh+=f'<td></td><td></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
                 rh+=f'<td class="text-end">{r_rem_html}</td>'
                 rh+=f'<td></td><td></td><td></td></tr>'
@@ -160,7 +160,7 @@ class BillListMixin(BaseHandler):
                     rem=b['amount']-b['paid']
                     rem_html = f'<strong class="money money-due">¥{m(rem)}</strong>' if rem>0 else '<span class="money money-paid">¥0.00</span>'
                     chk=f'<input type=checkbox name=bill_ids value="{b["id"]}" class=bill-chk form="billActionForm" data-owner-group="{owner_group}" data-room-group="{room_group}">'
-                    rh+=f'<tr class="room-detail-{owner_group}" style="display:none">'
+                    rh+=f'<tr class="bill-detail-{room_group}" style="display:none">'
                     rh+=f'<td>{chk}</td>'
                     rh+=f'<td><small>{h(b["bill_number"]or"-")}</small></td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'

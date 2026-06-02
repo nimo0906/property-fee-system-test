@@ -42,6 +42,12 @@ function toggleBillGroup(kind, group, checked){
         setGroupChecks('.bill-chk[data-room-group="' + group + '"]', checked);
     }
 }
+function toggleBillRoom(roomGroup){
+    var rows = document.querySelectorAll('.bill-detail-' + roomGroup);
+    var icon = document.getElementById('icon_' + roomGroup);
+    rows.forEach(function(r){ r.style.display = r.style.display === 'none' ? '' : 'none'; });
+    if(icon){ icon.className = icon.className === 'bi bi-chevron-right' ? 'bi bi-chevron-down' : 'bi bi-chevron-right'; }
+}
 document.getElementById('selAll')?.addEventListener('change', function(){
     document.querySelectorAll('.bill-chk,.owner-group-chk,.room-group-chk').forEach(function(c){ c.checked = this.checked; }, this);
 });
