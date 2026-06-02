@@ -692,6 +692,43 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(bill['billing_period'], '2026-06~2026-09')
         self.assertEqual(bill['source'], 'auto_contract')
 
+    def test_auto_billing_page_lists_and_rolls_back_recent_batch(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '自动撤回业主', '13933334444')
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOROLL', 'B座', '2602', 26, '居民', 100, owner_id, '自动撤回租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        db.commit(); db.close()
+
+        item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
+        status, body, loc = http_post('/auto_billing/confirm', {
+            'advance_days': '30',
+            'item_keys': item_key,
+            'fee_ids': str(fee_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+
+        status, page = http_get('/auto_billing?advance_days=30', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('最近自动出账记录', page)
+        self.assertIn('撤回未缴账单', page)
+
+        db = get_db()
+        batch_no = db.execute("SELECT auto_batch_no FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()['auto_batch_no']
+        db.close()
+        status, body, loc = http_post(f'/auto_billing/runs/{batch_no}/rollback', {}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/auto_billing', loc)
+        db = get_db()
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()[0], 0)
+        run = db.execute("SELECT status,rollback_count FROM auto_billing_runs WHERE batch_no=?", (batch_no,)).fetchone()
+        db.close()
+        self.assertEqual(run['status'], 'rolled_back')
+        self.assertEqual(run['rollback_count'], 1)
+
     def test_auto_billing_bill_shows_service_period_in_approaching_reminders(self):
         from server.db import get_db
         db = get_db()
@@ -3539,10 +3576,13 @@ class TestIntegration(unittest.TestCase):
         import server.db as db_module
         db = db_module.get_db()
         owner_id = db.execute("INSERT INTO owners(name, phone) VALUES('恢复结果业主', '13700000000')").lastrowid
-        room_id = db.execute("""
-            INSERT INTO rooms(building, unit, room_number, floor, category, area, owner_id)
-            VALUES('RESTORERESULT', 'A座', '1001', 10, '居民', 66, ?)
-        """, (owner_id,)).lastrowid
+        room_id = None
+        for idx in range(1, 9):
+            cur = db.execute("""
+                INSERT INTO rooms(building, unit, room_number, floor, category, area, owner_id)
+                VALUES('RESTORERESULT', 'A座', ?, 10, '居民', 66, ?)
+            """, (f'10{idx:02d}', owner_id))
+            room_id = room_id or cur.lastrowid
         db.execute("""
             INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
             VALUES(?, ?, 1, '2029-02', 125.4, '2029-02-28', 'unpaid', 'BR-001')
@@ -3551,8 +3591,9 @@ class TestIntegration(unittest.TestCase):
         db.close()
         status, body, loc = http_post('/backups/create', {}, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
-        names = sorted([n for n in os.listdir(db_module.BACKUP_DIR) if n.startswith('backup_')], key=lambda n: os.path.getmtime(os.path.join(db_module.BACKUP_DIR, n)), reverse=True)
-        name = names[0]
+        m = re.search(r'backup_\d{8}_\d{6}_\d+\.db', urllib.parse.unquote(loc))
+        self.assertIsNotNone(m)
+        name = m.group(0)
 
         status, html, loc = http_post(f'/backups/{name}/restore', {}, self.cookie, TEST_PORT)
 

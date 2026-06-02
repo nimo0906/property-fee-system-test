@@ -79,6 +79,7 @@ def db_init():
         CREATE TABLE IF NOT EXISTS audit_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL, entity_type TEXT, entity_id INTEGER, username TEXT, role TEXT, ip TEXT, old_value TEXT, new_value TEXT, reason TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS shared_expense_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, period TEXT NOT NULL, fee_type_id INTEGER NOT NULL REFERENCES fee_types(id), total_amount REAL NOT NULL DEFAULT 0, allocation_method TEXT NOT NULL DEFAULT 'area', building TEXT, category TEXT, room_count INTEGER DEFAULT 0, generated_bill_ids TEXT, operator TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS notification_events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'in_app', target TEXT NOT NULL DEFAULT '', owner_id INTEGER REFERENCES owners(id), bill_id INTEGER REFERENCES bills(id), order_no TEXT, payload TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', error_message TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), sent_at TEXT);
+        CREATE TABLE IF NOT EXISTS auto_billing_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_no TEXT NOT NULL UNIQUE, operator TEXT, advance_days INTEGER DEFAULT 30, fee_ids TEXT, generated_count INTEGER DEFAULT 0, rollback_count INTEGER DEFAULT 0, status TEXT DEFAULT 'generated', service_start_min TEXT, service_end_max TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), rolled_back_at TEXT);
     """
     c.executescript(SQL)
     for col in ['contract_start','contract_end','id_card','id_card_front','id_card_back','business_type','water_rate_type','shop_name','tenant_name','tenant_phone','tenant_id_card','tenant_id_card_front','tenant_id_card_back','payment_cycle']:
@@ -95,6 +96,7 @@ def db_init():
         "ALTER TABLE bills ADD COLUMN source_ref TEXT",
         "ALTER TABLE bills ADD COLUMN service_start TEXT",
         "ALTER TABLE bills ADD COLUMN service_end TEXT",
+        "ALTER TABLE bills ADD COLUMN auto_batch_no TEXT",
     ]:
         try: c.execute(col_sql)
         except: pass
@@ -152,6 +154,8 @@ def db_init():
                      "CREATE INDEX IF NOT EXISTS idx_bills_period_fee ON bills(billing_period,fee_type_id)",
                      "CREATE INDEX IF NOT EXISTS idx_bills_due_status ON bills(due_date,status)",
                      "CREATE INDEX IF NOT EXISTS idx_bills_service_period ON bills(room_id,fee_type_id,service_start,service_end)",
+                     "CREATE INDEX IF NOT EXISTS idx_bills_auto_batch ON bills(auto_batch_no)",
+                     "CREATE INDEX IF NOT EXISTS idx_auto_billing_runs_batch ON auto_billing_runs(batch_no)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_bill ON payments(bill_id)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_bill_date ON payments(bill_id,payment_date)",
                      "CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(payment_date)",

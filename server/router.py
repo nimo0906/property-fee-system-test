@@ -184,6 +184,7 @@ def handle_post(handler):
     elif (m := re.match(r'^/repairs/(\d+)/delete$', p)): return handler._repair_delete(int(m.group(1)))
     elif p == '/billing/calc': return handler._billing_calc(d)
     elif p == '/auto_billing/confirm': return handler._auto_billing_confirm(d)
+    elif (m := re.match(r'^/auto_billing/runs/([^/]+)/rollback$', p)): return handler._auto_billing_rollback(m.group(1))
     elif p == '/payments/print': return handler._payments_print(d)
     elif p == '/payments/receipts': return handler._payment_receipts(d)
     elif p == '/shared_expenses/allocate': return handler._shared_expense_allocate(d)

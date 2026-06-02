@@ -23,6 +23,7 @@ ADMIN_POST_PATTERNS = [
     r'^/trial_data_reset$',
     r'^/audit_logs/delete$',
     r'^/import/upload$',
+    r'^/auto_billing/runs/[^/]+/rollback$',
 ]
 
 

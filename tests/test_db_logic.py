@@ -50,10 +50,13 @@ class TestDBLogic(unittest.TestCase):
 
     def setUp(self):
         # Start each test with a clean slate by deleting test data
+        self.db.execute("DELETE FROM payments")
+        self.db.execute("DELETE FROM invoices")
+        self.db.execute("DELETE FROM invoice_requests")
         self.db.execute("DELETE FROM bills")
+        self.db.execute("DELETE FROM auto_billing_runs")
         self.db.execute("DELETE FROM rooms")
         self.db.execute("DELETE FROM owners")
-        self.db.execute("DELETE FROM payments")
         self.db.execute("DELETE FROM meter_readings")
         self.db.execute("DELETE FROM closing_records")
         self.db.commit()
@@ -351,6 +354,56 @@ class TestDBLogic(unittest.TestCase):
         result = confirm_auto_billing(self.db, [item['item_key']], today='2026-05-28', advance_days=30)
         self.assertEqual(result['generated'], 0)
         self.assertEqual(result['skipped_existing'], 1)
+
+    def test_auto_billing_confirm_records_batch_and_rollback_only_safe_bills(self):
+        from server.auto_billing import build_auto_billing_preview, confirm_auto_billing, rollback_auto_billing_batch
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('批次业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOBATCH', 'A座', '2601', 26, '居民', 100, owner_id, '批次租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        self.db.commit()
+
+        item = next(x for x in build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30) if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+        result = confirm_auto_billing(self.db, [item['item_key']], today='2026-05-28', advance_days=30, operator='tester')
+        self.assertEqual(result['generated'], 1)
+        self.assertTrue(result['batch_no'].startswith('AUTO-'))
+        batch = self.db.execute("SELECT batch_no,operator,generated_count,status FROM auto_billing_runs WHERE batch_no=?", (result['batch_no'],)).fetchone()
+        self.assertEqual(batch['operator'], 'tester')
+        self.assertEqual(batch['generated_count'], 1)
+        self.assertEqual(batch['status'], 'generated')
+        bill = self.db.execute("SELECT id,auto_batch_no FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
+        self.assertEqual(bill['auto_batch_no'], result['batch_no'])
+
+        rb = rollback_auto_billing_batch(self.db, result['batch_no'])
+        self.assertEqual(rb['deleted'], 1)
+        self.assertEqual(rb['blocked'], 0)
+        self.assertIsNone(self.db.execute("SELECT id FROM bills WHERE id=?", (bill['id'],)).fetchone())
+        status = self.db.execute("SELECT status,rollback_count FROM auto_billing_runs WHERE batch_no=?", (result['batch_no'],)).fetchone()
+        self.assertEqual(status['status'], 'rolled_back')
+        self.assertEqual(status['rollback_count'], 1)
+
+    def test_auto_billing_rollback_keeps_paid_bills(self):
+        from server.auto_billing import build_auto_billing_preview, confirm_auto_billing, rollback_auto_billing_batch
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('批次缴费业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOPAID', 'A座', '2602', 26, '居民', 100, owner_id, '批次缴费租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        self.db.commit()
+
+        item = next(x for x in build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30) if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+        result = confirm_auto_billing(self.db, [item['item_key']], today='2026-05-28', advance_days=30)
+        bill_id = self.db.execute("SELECT id FROM bills WHERE auto_batch_no=?", (result['batch_no'],)).fetchone()['id']
+        self.db.execute("INSERT INTO payments(bill_id,amount_paid,payment_method,operator) VALUES(?,?,?,?)", (bill_id, 10, 'cash', 'tester'))
+        self.db.commit()
+
+        rb = rollback_auto_billing_batch(self.db, result['batch_no'])
+        self.assertEqual(rb['deleted'], 0)
+        self.assertEqual(rb['blocked'], 1)
+        self.assertIsNotNone(self.db.execute("SELECT id FROM bills WHERE id=?", (bill_id,)).fetchone())
 
     def test_auto_billing_fee_selection_controls_preview_items(self):
         from server.auto_billing import build_auto_billing_preview
