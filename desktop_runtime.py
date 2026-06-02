@@ -60,24 +60,54 @@ def copy_legacy_runtime_data(data_dir, db_path, backup_dir, log_dir):
     if not legacy_dir or not legacy_dir.exists():
         return []
     copied = []
+    failed = []
     legacy_db = legacy_dir / "property.db"
-    if legacy_db.exists() and not db_path.exists():
-        shutil.copy2(legacy_db, db_path)
-        copied.append(f"database: {legacy_db} -> {db_path}")
+    if legacy_db.exists():
+        if not legacy_db.is_file():
+            failed.append(f"database is not a file: {legacy_db}")
+        elif not db_path.exists():
+            try:
+                shutil.copy2(legacy_db, db_path)
+            except OSError as exc:
+                failed.append(f"database copy failed: {legacy_db}: {exc}")
+            else:
+                if db_path.exists() and db_path.stat().st_size == legacy_db.stat().st_size:
+                    copied.append(f"database: {legacy_db} -> {db_path}")
+                else:
+                    failed.append(f"database verify failed: {legacy_db} -> {db_path}")
+        else:
+            copied.append(f"database skipped because target exists: {db_path}")
     legacy_backups = legacy_dir / "backups"
     if legacy_backups.exists():
         for item in legacy_backups.iterdir():
             if item.is_file():
                 target = backup_dir / item.name
                 if not target.exists():
-                    shutil.copy2(item, target)
-                    copied.append(f"backup: {item} -> {target}")
-    if copied:
+                    try:
+                        shutil.copy2(item, target)
+                    except OSError as exc:
+                        failed.append(f"backup copy failed: {item}: {exc}")
+                    else:
+                        if target.exists() and target.stat().st_size == item.stat().st_size:
+                            copied.append(f"backup: {item} -> {target}")
+                        else:
+                            failed.append(f"backup verify failed: {item} -> {target}")
+                else:
+                    copied.append(f"backup skipped because target exists: {target}")
+    if copied or failed:
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / "legacy_migration.log"
+        if not failed:
+            try:
+                shutil.rmtree(legacy_dir)
+                copied.append(f"deleted legacy directory: {legacy_dir}")
+            except OSError as exc:
+                failed.append(f"delete legacy directory failed: {legacy_dir}: {exc}")
         log_path.write_text(
-            "Copied legacy runtime data without deleting the original files.\n"
+            "Legacy runtime data migration.\n"
             + "\n".join(copied)
+            + ("\n" if copied else "")
+            + "\n".join(failed)
             + "\n",
             encoding="utf-8",
         )

@@ -28,7 +28,7 @@ class TestDesktopApp(unittest.TestCase):
             self.assertEqual(os.environ['PM_BACKUP_DIR'], str(backup_dir))
             self.assertEqual(os.environ['PM_IMPORT_CACHE_DIR'], str(Path(tmp) / 'imports'))
 
-    def test_prepare_runtime_copies_legacy_data_without_deleting_or_overwriting(self):
+    def test_prepare_runtime_copies_legacy_data_then_deletes_legacy_dir(self):
         with tempfile.TemporaryDirectory() as tmp:
             base = Path(tmp)
             legacy = base / 'PropertyFeeSystem'
@@ -44,14 +44,41 @@ class TestDesktopApp(unittest.TestCase):
             self.assertEqual(data_dir, new_dir)
             self.assertEqual(db_path.read_bytes(), b'legacy-db')
             self.assertEqual((backup_dir / 'backup_legacy.db').read_bytes(), b'legacy-backup')
-            self.assertTrue(legacy_db.exists())
-            self.assertTrue((legacy_backups / 'backup_legacy.db').exists())
-            self.assertTrue((new_dir / 'logs' / 'legacy_migration.log').exists())
+            self.assertFalse(legacy.exists())
+            log_text = (new_dir / 'logs' / 'legacy_migration.log').read_text(encoding='utf-8')
+            self.assertIn('deleted legacy directory', log_text)
 
-            db_path.write_bytes(b'new-db')
+    def test_prepare_runtime_deletes_legacy_dir_without_overwriting_new_database(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            legacy = base / 'PropertyFeeSystem'
+            legacy.mkdir(parents=True)
+            legacy_db = legacy / 'property.db'
             legacy_db.write_bytes(b'changed-legacy-db')
+            new_dir = base / 'PropertyFeeSystemData'
+            new_db = new_dir / 'database' / 'property.db'
+            new_db.parent.mkdir(parents=True)
+            new_db.write_bytes(b'new-db')
+
             desktop_app.prepare_runtime(new_dir)
-            self.assertEqual(db_path.read_bytes(), b'new-db')
+
+            self.assertEqual(new_db.read_bytes(), b'new-db')
+            self.assertFalse(legacy.exists())
+
+    def test_prepare_runtime_keeps_legacy_dir_when_copy_verification_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            legacy = base / 'PropertyFeeSystem'
+            legacy.mkdir(parents=True)
+            new_db = base / 'PropertyFeeSystemData' / 'database' / 'property.db'
+            new_db.parent.mkdir(parents=True)
+            new_db.write_bytes(b'new-db')
+            legacy_db = legacy / 'property.db'
+            legacy_db.mkdir()
+
+            desktop_app.prepare_runtime(base / 'PropertyFeeSystemData')
+
+            self.assertTrue(legacy.exists())
 
     def test_write_startup_error_creates_readable_log(self):
         with tempfile.TemporaryDirectory() as tmp:
