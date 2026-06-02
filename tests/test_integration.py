@@ -2759,22 +2759,22 @@ class TestIntegration(unittest.TestCase):
         """, (owner_id,)).lastrowid
         paid_bill = db.execute("""
             INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
-            VALUES(?, ?, 1, '2030-07', 100, '2030-07-28', 'paid', 'RPT-PAID')
+            VALUES(?, ?, 1, '2030-11', 100, '2030-11-28', 'paid', 'RPT-PAID')
         """, (room_a, owner_id)).lastrowid
         db.execute("INSERT INTO payments(bill_id, amount_paid, payment_method, operator) VALUES(?, 100, 'cash', '报表员')", (paid_bill,))
         partial_bill = db.execute("""
             INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
-            VALUES(?, ?, 1, '2030-07', 80, '2030-07-28', 'partial', 'RPT-PARTIAL')
+            VALUES(?, ?, 1, '2030-11', 80, '2030-11-28', 'partial', 'RPT-PARTIAL')
         """, (room_a, owner_id)).lastrowid
         db.execute("INSERT INTO payments(bill_id, amount_paid, payment_method, operator) VALUES(?, 30, 'cash', '报表员')", (partial_bill,))
         db.execute("""
             INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
-            VALUES(?, ?, 1, '2030-07', 60, '2030-07-28', 'unpaid', 'RPT-UNPAID')
+            VALUES(?, ?, 1, '2030-11', 60, '2030-11-28', 'unpaid', 'RPT-UNPAID')
         """, (room_b, owner_id))
         db.commit()
         db.close()
 
-        status, html = http_get('/reports?period=2030-07', self.cookie, TEST_PORT)
+        status, html = http_get('/reports?period=2030-11', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
         self.assertIn('账期对账', html)
@@ -2791,7 +2791,7 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('REPORTB', html)
         self.assertIn('RPT-PARTIAL', html)
         self.assertIn('RPT-UNPAID', html)
-        self.assertIn('/reports/reconciliation.csv?period=2030-07', html)
+        self.assertIn('/reports/reconciliation.csv?period=2030-11', html)
 
     def test_reports_can_select_multi_month_billing_period(self):
         import server.db as db_module
@@ -2818,6 +2818,14 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('150.00', html)
         self.assertIn('<option value="2030-07~2030-10" selected>2030-07~2030-10</option>', html)
         self.assertIn('/reports/reconciliation.csv?period=2030-07~2030-10', html)
+
+        status, inner_html = http_get('/reports?period=2030-08', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('RANGE-RPT', inner_html)
+        self.assertIn('RANGE_REPORT', inner_html)
+        self.assertIn('应收总额</div><div class="metric-value money">¥400.00</div>', inner_html)
+        self.assertIn('已收总额</div><div class="metric-value money money-paid">¥150.00</div>', inner_html)
+        self.assertRegex(inner_html, r'(?s)楼栋缴费统计.*RANGE_REPORT.*¥400\.00.*¥150\.00')
 
 
 

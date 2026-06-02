@@ -11,6 +11,7 @@ import openpyxl.styles
 
 from server.base import BaseHandler
 from server.db import add_months, get_db, get_period, h, m, qs, date_to_period, period_to_date
+from server.billing_periods import period_filter_clause
 
 
 class ReportMixin(BaseHandler):
@@ -23,8 +24,8 @@ class ReportMixin(BaseHandler):
 
     def _report_reconciliation_data(self, period, building='', status=''):
         db = get_db()
-        cond = ['b.billing_period=?']
-        vals = [period]
+        period_clause, vals = period_filter_clause(period, 'b.billing_period')
+        cond = [period_clause]
         if building:
             cond.append('r.building=?')
             vals.append(building)
@@ -91,23 +92,25 @@ class ReportMixin(BaseHandler):
 
     def _collection_summary_data(self, period):
         db = get_db()
+        period_clause, period_vals = period_filter_clause(period, 'b.billing_period')
         rows = db.execute('''SELECT date(p.payment_date) day,p.payment_method,COALESCE(p.operator,'') operator,f.name fee_name,
             COUNT(*) cnt,COALESCE(SUM(p.amount_paid),0) amount
             FROM payments p JOIN bills b ON p.bill_id=b.id LEFT JOIN fee_types f ON b.fee_type_id=f.id
-            WHERE b.billing_period=? GROUP BY day,p.payment_method,p.operator,f.name
-            ORDER BY day DESC,p.payment_method,p.operator,f.name''', (period,)).fetchall()
+            WHERE ''' + period_clause + ''' GROUP BY day,p.payment_method,p.operator,f.name
+            ORDER BY day DESC,p.payment_method,p.operator,f.name''', period_vals).fetchall()
         totals = db.execute('''SELECT p.payment_method,COUNT(*) cnt,COALESCE(SUM(p.amount_paid),0) amount
-            FROM payments p JOIN bills b ON p.bill_id=b.id WHERE b.billing_period=?
-            GROUP BY p.payment_method ORDER BY p.payment_method''', (period,)).fetchall()
+            FROM payments p JOIN bills b ON p.bill_id=b.id WHERE ''' + period_clause + '''
+            GROUP BY p.payment_method ORDER BY p.payment_method''', period_vals).fetchall()
         db.close()
         return {'rows': rows, 'totals': totals, 'amount': sum(float(r['amount'] or 0) for r in rows)}
 
     def _arrears_analysis_data(self, period):
         db = get_db()
+        period_clause, period_vals = period_filter_clause(period, 'b.billing_period')
         by_fee = db.execute('''SELECT f.name fee_name,COUNT(b.id) cnt,COALESCE(SUM(b.amount-COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0)),0) due
             FROM bills b LEFT JOIN fee_types f ON b.fee_type_id=f.id
-            WHERE b.billing_period=? AND b.status IN('unpaid','overdue','partial')
-            GROUP BY f.name ORDER BY due DESC''', (period,)).fetchall()
+            WHERE ''' + period_clause + ''' AND b.status IN('unpaid','overdue','partial')
+            GROUP BY f.name ORDER BY due DESC''', period_vals).fetchall()
         long_due = db.execute('''SELECT o.name owner_name,o.phone,r.building,r.room_number,COUNT(b.id) cnt,
             MIN(b.billing_period) first_period,COALESCE(SUM(b.amount-COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0)),0) due
             FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
@@ -144,11 +147,12 @@ class ReportMixin(BaseHandler):
         business_rows_raw = []
         try:
             db = get_db()
+            business_clause, business_vals = period_filter_clause(period, 'b.billing_period')
             business_rows_raw = db.execute('''SELECT COALESCE(NULLIF(r.business_type,''),'未填写') business_type,COUNT(DISTINCT r.id) room_count,
                 COALESCE(SUM(b.amount),0) amount,COALESCE(SUM((SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=b.id)),0) paid
-                FROM rooms r LEFT JOIN bills b ON b.room_id=r.id AND b.billing_period=?
+                FROM rooms r LEFT JOIN bills b ON b.room_id=r.id AND ''' + business_clause + '''
                 WHERE r.category='商户' OR COALESCE(r.business_type,'')<>''
-                GROUP BY COALESCE(NULLIF(r.business_type,''),'未填写') ORDER BY amount DESC,room_count DESC''', (period,)).fetchall()
+                GROUP BY COALESCE(NULLIF(r.business_type,''),'未填写') ORDER BY amount DESC,room_count DESC''', business_vals).fetchall()
             db.close()
         except Exception:
             business_rows_raw = []
@@ -226,8 +230,8 @@ class ReportMixin(BaseHandler):
         sql += "FROM bills b JOIN rooms r ON b.room_id=r.id "
         sql += "LEFT JOIN owners o ON b.owner_id=o.id "
         sql += "LEFT JOIN fee_types f ON b.fee_type_id=f.id "
-        sql += "WHERE b.billing_period=?"
-        vals = [p]
+        period_clause, vals = period_filter_clause(p, 'b.billing_period')
+        sql += "WHERE " + period_clause
         if bld:
             sql += " AND r.building=?"
             vals.append(bld)
@@ -308,23 +312,25 @@ class ReportMixin(BaseHandler):
 
     def _reports(self, q):
         p=self._report_period(q);bld=qs(q,'building');db=get_db()
+        period_clause_b, period_vals_b = period_filter_clause(p, 'b.billing_period')
+        period_clause_b2, period_vals_b2 = period_filter_clause(p, 'b2.billing_period')
         fts=db.execute('''SELECT f.name,f.unit_price,f.calc_method,
             COUNT(b.id) cnt,COALESCE(SUM(b.amount),0) tot,
-            COALESCE((SELECT SUM(p.amount_paid) FROM payments p WHERE p.bill_id IN (SELECT id FROM bills WHERE fee_type_id=f.id AND billing_period=?) ),0) paid
-            FROM fee_types f LEFT JOIN bills b ON b.fee_type_id=f.id AND b.billing_period=?
-            WHERE f.is_active=1 GROUP BY f.id ORDER BY f.sort_order''',(p,p)).fetchall()
+            COALESCE((SELECT SUM(pay.amount_paid) FROM payments pay JOIN bills b2 ON pay.bill_id=b2.id WHERE b2.fee_type_id=f.id AND ''' + period_clause_b2 + '''),0) paid
+            FROM fee_types f LEFT JOIN bills b ON b.fee_type_id=f.id AND ''' + period_clause_b + '''
+            WHERE f.is_active=1 GROUP BY f.id ORDER BY f.sort_order''', period_vals_b2 + period_vals_b).fetchall()
         daily=db.execute('''SELECT DATE(p.payment_date) day,COUNT(*) cnt,SUM(p.amount_paid) tot
             FROM payments p JOIN bills b ON p.bill_id=b.id
-            WHERE b.billing_period=? GROUP BY day ORDER BY day''',(p,)).fetchall()
+            WHERE ''' + period_clause_b + ''' GROUP BY day ORDER BY day''', period_vals_b).fetchall()
         daily_rows=''.join(f'<tr><td>{h(r["day"])}</td><td class="text-end">{r["cnt"]}</td><td class="text-end"><span class="money money-paid">+¥{m(r["tot"])}</span></td></tr>' for r in daily)
         bld_stats=db.execute('''SELECT r.building,
             COUNT(DISTINCT b.id) bill_cnt,COALESCE(SUM(b.amount),0) tot,
-            COALESCE((SELECT SUM(p.amount_paid) FROM payments p JOIN bills b2 ON p.bill_id=b2.id WHERE b2.room_id IN (SELECT id FROM rooms WHERE building=r.building) AND b2.billing_period=?),0) paid,
+            COALESCE((SELECT SUM(pay.amount_paid) FROM payments pay JOIN bills b2 ON pay.bill_id=b2.id WHERE b2.room_id IN (SELECT id FROM rooms WHERE building=r.building) AND ''' + period_clause_b2 + '''),0) paid,
             COUNT(DISTINCT CASE WHEN b.status IN('unpaid','overdue','partial') THEN b.id END) unpaid_cnt,
             COUNT(DISTINCT r2.id) room_cnt
             FROM rooms r LEFT JOIN rooms r2 ON r2.building=r.building
-            LEFT JOIN bills b ON b.room_id=r2.id AND b.billing_period=?
-            GROUP BY r.building ORDER BY r.building''',(p,p)).fetchall()
+            LEFT JOIN bills b ON b.room_id=r2.id AND ''' + period_clause_b + '''
+            GROUP BY r.building ORDER BY r.building''', period_vals_b2 + period_vals_b).fetchall()
         seen_bld=set();bld_rows_list=[]
         for r in bld_stats:
             if r['building'] not in seen_bld:
@@ -339,18 +345,20 @@ class ReportMixin(BaseHandler):
             SUM(b.amount-COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0)) overdue
             FROM bills b JOIN rooms r ON b.room_id=r.id
             LEFT JOIN owners o ON b.owner_id=o.id
-            WHERE b.billing_period=? AND b.status IN('unpaid','overdue','partial')
-            GROUP BY o.id ORDER BY overdue DESC LIMIT 10''',(p,)).fetchall()
+            WHERE ''' + period_clause_b + ''' AND b.status IN('unpaid','overdue','partial')
+            GROUP BY o.id ORDER BY overdue DESC LIMIT 10''', period_vals_b).fetchall()
         top10_rows=''.join(f'<tr><td><strong>{h(r["name"]or"未知")}</strong></td><td>{h(r["building"]or"")}-{h(r["room_number"]or"")}</td><td class="text-end"><strong class="money money-due">¥{m(r["overdue"])}</strong></td></tr>' for r in top10)
         trends=[]
         for i in range(11,-1,-1):
             d=add_months(date.today(), -i)
             pp=f"{d.year}-{d.month:02d}"
-            ta=db.execute("SELECT COALESCE(SUM(amount),0) FROM bills WHERE billing_period=?",(pp,)).fetchone()[0]
-            tp=db.execute("SELECT COALESCE(SUM(p.amount_paid),0) FROM payments p JOIN bills b ON p.bill_id=b.id WHERE b.billing_period=?",(pp,)).fetchone()[0]
+            trend_clause, trend_vals = period_filter_clause(pp, 'billing_period')
+            trend_pay_clause, trend_pay_vals = period_filter_clause(pp, 'b.billing_period')
+            ta=db.execute("SELECT COALESCE(SUM(amount),0) FROM bills WHERE " + trend_clause, trend_vals).fetchone()[0]
+            tp=db.execute("SELECT COALESCE(SUM(p.amount_paid),0) FROM payments p JOIN bills b ON p.bill_id=b.id WHERE " + trend_pay_clause, trend_pay_vals).fetchone()[0]
             r=round(tp/ta*100,1) if ta>0 else 0
             trends.append({'period':pp,'label':f"{d.year}年{d.month}月",'total':ta,'paid':tp,'rate':r})
-        waiver=db.execute("SELECT COALESCE(SUM(a.old_amount-a.new_amount),0) waiver_total,COUNT(*) waiver_cnt FROM bill_adjustments a JOIN bills b ON a.bill_id=b.id WHERE b.billing_period=? AND a.new_amount<a.old_amount",(p,)).fetchone()
+        waiver=db.execute("SELECT COALESCE(SUM(a.old_amount-a.new_amount),0) waiver_total,COUNT(*) waiver_cnt FROM bill_adjustments a JOIN bills b ON a.bill_id=b.id WHERE " + period_clause_b + " AND a.new_amount<a.old_amount", period_vals_b).fetchone()
         waiver_amt=waiver['waiver_total'] if waiver else 0;waiver_cnt=waiver['waiver_cnt'] if waiver else 0
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
         periods=db.execute("SELECT DISTINCT billing_period FROM bills ORDER BY billing_period DESC").fetchall()
