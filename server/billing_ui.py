@@ -10,6 +10,18 @@ import json
 from server.billing_rules import fee_in_scope
 
 
+def _tenant_group_key(room):
+    """Return a stable tenant grouping key; never fall back to owner_id."""
+    for field in ('tenant_id_card', 'tenant_phone', 'tenant_name', 'shop_name'):
+        try:
+            value = (room[field] or '').strip()
+        except Exception:
+            value = ''
+        if value:
+            return f'{field}:{value.lower()}'
+    return ''
+
+
 class BillingUiMixin(BaseHandler):
 
     def _billing(self):
@@ -35,28 +47,28 @@ class BillingUiMixin(BaseHandler):
         elevator_rows = db.execute("SELECT * FROM elevator_fee_tiers ORDER BY floor_from").fetchall()
         elevator_list = [{'floor_from': e['floor_from'], 'floor_to': e['floor_to'], 'rate': e['rate']}
                          for e in elevator_rows]
-        owner_rooms = {}
+        tenant_rooms = {}
         for r in rooms:
-            oid = r['owner_id']
-            if oid:
-                sok = str(oid)
-                if sok not in owner_rooms:
-                    owner_rooms[sok] = []
-                if mode != 'commercial' or (r['category'] or '') in ('商户','商业'):
-                    owner_rooms[sok].append({
-                        'id': r['id'],
-                        'name': f"{r['building']}-{r['unit']}-{r['room_number']}",
-                        'cat': r['category'] or '',
-                        'area': r['area'],
-                        'floor': r['floor'] or '1',
-                        'water': r['water_rate_type'] or '非居民',
-                        'rate': r['custom_rate'] or '',
-                        'cycle': r['payment_cycle'] or 'monthly'
-                    })
+            tenant_key = _tenant_group_key(r)
+            if not tenant_key:
+                continue
+            if tenant_key not in tenant_rooms:
+                tenant_rooms[tenant_key] = []
+            if mode != 'commercial' or (r['category'] or '') in ('商户','商业'):
+                tenant_rooms[tenant_key].append({
+                    'id': r['id'],
+                    'name': f"{r['building']}-{r['unit']}-{r['room_number']}",
+                    'cat': r['category'] or '',
+                    'area': r['area'],
+                    'floor': r['floor'] or '1',
+                    'water': r['water_rate_type'] or '非居民',
+                    'rate': r['custom_rate'] or '',
+                    'cycle': r['payment_cycle'] or 'monthly'
+                })
         db.close()
 
         elevator_json = json.dumps(elevator_list, ensure_ascii=False)
-        owner_json = json.dumps(owner_rooms, ensure_ascii=False)
+        owner_json = json.dumps(tenant_rooms, ensure_ascii=False)
 
         # 房间下拉选项：按房间管理里的“单元”字段分组，便于区分 A座/B座/商场等。
         groups = []
@@ -73,10 +85,10 @@ class BillingUiMixin(BaseHandler):
             opt_parts.append(f'<optgroup label="{h(unit_key)}">')
             for r in by_unit[unit_key]:
                 opt_parts.append(
-                    '<option value="{}" data-cat="{}" data-water="{}" data-area="{}" data-floor="{}" data-owner="{}" data-rate="{}" data-cycle="{}">'
+                    '<option value="{}" data-cat="{}" data-water="{}" data-area="{}" data-floor="{}" data-owner="{}" data-tenant-key="{}" data-rate="{}" data-cycle="{}">'
                     '{}-{}-{}{} ({})</option>'.format(
                         r["id"], h(r["category"] or ""), h(r["water_rate_type"] or "非居民"), r["area"], r["floor"] or 1, r["owner_id"] or "",
-                        r["custom_rate"] or "", h(r["payment_cycle"] or "monthly"),
+                        h(_tenant_group_key(r)), r["custom_rate"] or "", h(r["payment_cycle"] or "monthly"),
                         h(r["building"]), h(r["unit"]), h(r["room_number"]), (" / " + h(r["shop_name"])) if r["shop_name"] else "", h(r["oname"] or "")
                     )
                 )

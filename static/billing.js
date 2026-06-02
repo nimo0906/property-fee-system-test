@@ -39,9 +39,9 @@ window.updateMonthDisplay = function(){
 window.showOwnerRooms = function(){
     var s = document.getElementById("billingRoom"), sec = document.getElementById("ownerRoomsSection"), lst = document.getElementById("ownerRoomList");
     if(!s || !s.value || !sec || !lst){ if(sec) sec.style.display = "none"; return; }
-    var o = s.options[s.selectedIndex].dataset.owner;
-    if(!o || o === "None" || o === ""){ sec.style.display = "none"; return; }
-    var rm = (window.OWNER_ROOMS || {})[o];
+    var tenantKey = s.options[s.selectedIndex].dataset.tenantKey;
+    if(!tenantKey){ sec.style.display = "none"; return; }
+    var rm = (window.OWNER_ROOMS || {})[tenantKey];
     if(!rm || rm.length <= 1){ sec.style.display = "none"; return; }
     var cur = parseInt(s.value), ot = rm.filter(function(r){ return r.id !== cur; });
     if(ot.length === 0){ sec.style.display = "none"; return; }
@@ -107,9 +107,9 @@ window.calcFees = function(){
         total += amt;
     });
     // Extra rooms
-    var ownerId = o ? o.dataset.owner : null, extraTotal = 0;
-    if(ownerId){
-        var allRm = (window.OWNER_ROOMS || {})[ownerId] || [], tbody = document.querySelector("tbody");
+    var tenantKey = o ? o.dataset.tenantKey : null, extraTotal = 0;
+    if(tenantKey){
+        var allRm = (window.OWNER_ROOMS || {})[tenantKey] || [], tbody = document.querySelector("tbody");
         if(tbody){
             var oldSub = tbody.querySelector(".er-subtotal"); if(oldSub) oldSub.remove();
             document.querySelectorAll("[name=extra_room_ids]:checked").forEach(function(cb){

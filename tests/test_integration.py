@@ -1285,6 +1285,27 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('同租户其他房间', commercial_body)
 
+    def test_billing_extra_rooms_are_grouped_by_tenant_not_owner(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '同一业主不同租户', '13900005555')
+        room_a = create_room(db, building='TENANT', unit='B座', room_number='1402', category='商户', owner_id=owner_id)
+        room_b = create_room(db, building='TENANT', unit='B座', room_number='1403', category='商户', owner_id=owner_id)
+        room_c = create_room(db, building='TENANT', unit='B座', room_number='1404', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='奈思美发店', shop_name='奈思美发店' WHERE id IN (?,?)", (room_a, room_b))
+        db.execute("UPDATE rooms SET tenant_name='其他租户', shop_name='其他租户' WHERE id=?", (room_c,))
+        db.commit(); db.close()
+
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        match = re.search(r'window\.OWNER_ROOMS=(.*?);window\.BILLING_MODE', body)
+        self.assertIsNotNone(match)
+        tenant_rooms = json.loads(match.group(1))
+        groups = [[r['id'] for r in rooms] for rooms in tenant_rooms.values()]
+        self.assertIn([room_a, room_b], [sorted(g) for g in groups])
+        self.assertNotIn(sorted([room_a, room_b, room_c]), [sorted(g) for g in groups])
+        self.assertIn('data-tenant-key=', body)
+
     def test_commercial_billing_redirect_shows_generated_range_bill(self):
         from server.db import get_db
         db = get_db()
