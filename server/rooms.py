@@ -22,7 +22,17 @@ class RoomMixin(BaseHandler):
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
         cats=db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
         db.close()
-        rh=''.join(f'<tr><td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td><td>{h(r["shop_name"] or "-")}</td><td>{h(r["tenant_name"] or "-")}</td><td>{r["floor"] or "-"}F</td><td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td><td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td><td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td><td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a><form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>' for r in rows)
+        rh = ''.join(
+            f'<tr><td><input class="form-check-input room-select" form="roomBatchDeleteForm" type="checkbox" name="room_ids" value="{r["id"]}"></td>'
+            f'<td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td>'
+            f'<td>{h(r["shop_name"] or "-")}</td><td>{h(r["tenant_name"] or "-")}</td><td>{r["floor"] or "-"}F</td>'
+            f'<td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td>'
+            f'<td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td>'
+            f'<td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td>'
+            f'<td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>'
+            f'<form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
+            for r in rows
+        )
         bo='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
         default_cats = ["居民", "商户", "商业"]
         cat_values = []
@@ -32,7 +42,7 @@ class RoomMixin(BaseHandler):
         cat_opts = '<option value="">全部房间类型</option>' + ''.join(f'<option value="{h(x)}"{" selected" if cat==x else""}>{h(x)}</option>' for x in cat_values)
         tpl=self._load_template('rooms.html')
         tpl=tpl.replace('{BOPTS}',bo).replace('{KW}',h(kw)).replace('{CAT_OPTS}', cat_opts)
-        empty = """<tr><td colspan="12" class="text-center text-muted py-5">
+        empty = """<tr><td colspan="13" class="text-center text-muted py-5">
         <div><i class="bi bi-door-open" style="font-size:2rem;color:#adb5bd"></i></div>
         <h6 class="mt-2">还没有房间资料</h6>
         <p class="mb-3">推荐先按模板导入楼栋、房号、楼层、面积、业主和合同日期；少量资料也可以手动添加。</p>
@@ -150,6 +160,28 @@ class RoomMixin(BaseHandler):
                     int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'tenant_phone'),qs(d,'tenant_id_card'),qs(d,'tenant_id_card_front'),qs(d,'tenant_id_card_back'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes'),rid))
         db.commit();db.close()
         self._redirect('/rooms?flash=更新成功')
+
+    def _room_batch_delete(self, d):
+        raw = d.get('room_ids', [])
+        if isinstance(raw, str):
+            raw = [raw]
+        ids = [x for x in raw if str(x).isdigit()]
+        if not ids:
+            return self._redirect('/rooms?flash=请先勾选要删除的房间')
+        placeholders = ','.join('?' * len(ids))
+        db = get_db()
+        bill_count = db.execute(f"SELECT COUNT(*) FROM bills WHERE room_id IN ({placeholders})", ids).fetchone()[0]
+        meter_count = db.execute(f"SELECT COUNT(*) FROM meter_readings WHERE room_id IN ({placeholders})", ids).fetchone()[0]
+        db.execute(f"DELETE FROM meter_readings WHERE room_id IN ({placeholders})", ids)
+        db.execute(f"DELETE FROM bills WHERE room_id IN ({placeholders})", ids)
+        db.execute(f"DELETE FROM rooms WHERE id IN ({placeholders})", ids)
+        db.commit(); db.close()
+        parts = [f'房间{len(ids)}间']
+        if bill_count:
+            parts.append(f'账单{bill_count}笔')
+        if meter_count:
+            parts.append(f'抄表{meter_count}条')
+        self._redirect('/rooms?flash=已批量删除' + '，'.join(parts))
 
     def _room_delete(self, rid):
         db=get_db()

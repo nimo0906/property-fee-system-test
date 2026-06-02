@@ -137,6 +137,7 @@ def handle_post(handler):
     elif p == '/rooms/create': return handler._room_create(d)
     elif (m := re.match(r'^/rooms/(\d+)/edit$', p)): return handler._room_edit(int(m.group(1)), d)
     elif p == '/late_fee_config/update': return handler._late_fee_config_update(d)
+    elif p == '/rooms/batch_delete': return handler._room_batch_delete(d)
     elif (m := re.match(r'^/rooms/(\d+)/delete$', p)): return handler._room_delete(int(m.group(1)))
     elif p == '/owners/create': return handler._owner_create(d)
     elif (m := re.match(r'^/owners/(\d+)/edit$', p)): return handler._owner_edit(int(m.group(1)), d)

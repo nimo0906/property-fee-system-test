@@ -297,6 +297,35 @@ class TestIntegration(unittest.TestCase):
         _, body = http_get('/rooms?keyword=READONLY-BLD', self.cookie, TEST_PORT)
         self.assertNotIn('R001', body)
 
+    def test_rooms_page_supports_batch_delete_selection(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        keep_id = db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES(?,?,?,?,?,?)", ('BATCHDEL', 'A座', 'KEEP', 1, '居民', 10)).lastrowid
+        delete_id = db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES(?,?,?,?,?,?)", ('BATCHDEL', 'A座', 'DEL', 1, '居民', 10)).lastrowid
+        db.commit(); db.close()
+        try:
+            status, body = http_get('/rooms?keyword=BATCHDEL', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertIn('name="room_ids"', body)
+            self.assertIn('/rooms/batch_delete', body)
+            self.assertIn('批量删除', body)
+
+            status, _, loc = http_post('/rooms/batch_delete', {'room_ids': str(delete_id)}, self.cookie, TEST_PORT)
+            self.assertEqual(status, 302)
+            self.assertIn('/rooms?flash=', loc)
+
+            db = db_module.get_db()
+            keep = db.execute('SELECT COUNT(*) FROM rooms WHERE id=?', (keep_id,)).fetchone()[0]
+            gone = db.execute('SELECT COUNT(*) FROM rooms WHERE id=?', (delete_id,)).fetchone()[0]
+            db.execute('DELETE FROM rooms WHERE id=?', (keep_id,))
+            db.commit(); db.close()
+            self.assertEqual(keep, 1)
+            self.assertEqual(gone, 0)
+        finally:
+            db = db_module.get_db()
+            db.execute("DELETE FROM rooms WHERE building='BATCHDEL'")
+            db.commit(); db.close()
+
 
     def _create_user_and_login(self, username, password, role, display_name='测试用户'):
         http_post('/users/create', {
