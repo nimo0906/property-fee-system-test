@@ -2282,6 +2282,24 @@ class TestIntegration(unittest.TestCase):
         self.assertIn(".bill-chk[data-owner-group=", html)
         self.assertIn(".bill-chk[data-room-group=", html)
 
+    def test_bill_list_groups_by_tenant_name_before_owner_name(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '账单分组业主', '13900008801')
+        room_a = create_room(db, building='TENANTBILL', unit='B座', room_number='1401', category='商户', owner_id=owner_id)
+        room_b = create_room(db, building='TENANTBILL', unit='B座', room_number='1402', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name=? WHERE id=?", ('租户甲', room_a))
+        db.execute("UPDATE rooms SET tenant_name=? WHERE id=?", ('租户乙', room_b))
+        create_bill(db, room_id=room_a, owner_id=owner_id, fee_type_id=1, period='2037-01', amount=100, status='unpaid')
+        create_bill(db, room_id=room_b, owner_id=owner_id, fee_type_id=1, period='2037-01', amount=200, status='unpaid')
+        db.close()
+
+        status, html = http_get('/bills?period=2037-01&building=TENANTBILL', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('<strong>租户甲</strong>', html)
+        self.assertIn('<strong>租户乙</strong>', html)
+        self.assertNotIn('<strong>账单分组业主</strong>', html)
+
     def test_bill_list_delete_buttons_are_not_nested_in_batch_form(self):
         http_post('/rooms/create', {
             'building': 'DELETEONE', 'unit': 'A座', 'room_number': '801',

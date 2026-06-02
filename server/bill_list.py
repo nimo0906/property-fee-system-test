@@ -93,7 +93,7 @@ class BillListMixin(BaseHandler):
         ])
         current_path = '/bills' + (f'?{current_query}' if current_query else '')
         detail_back = urllib.parse.urlencode({'back': current_path})
-        sql='''SELECT b.*,r.building,r.unit,r.room_number,r.floor,r.category,f.name ft,o.name owner_name,
+        sql='''SELECT b.*,r.building,r.unit,r.room_number,r.floor,r.category,r.tenant_name,f.name ft,o.name owner_name,
                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
                FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN fee_types f ON b.fee_type_id=f.id LEFT JOIN owners o ON b.owner_id=o.id WHERE 1=1'''
         vals=[]
@@ -123,7 +123,7 @@ class BillListMixin(BaseHandler):
         ln={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
         owner_groups={}
         for r in rows:
-            on=h(r['owner_name'] or '未知')
+            on=h(r['tenant_name'] or r['owner_name'] or '未知')
             if on not in owner_groups: owner_groups[on]={'rooms':{}}
             rid=r['room_id']
             rn=h(r['building']or'')+'-'+h(r['unit']or'')+'-'+h(r['room_number']or'')
@@ -138,7 +138,7 @@ class BillListMixin(BaseHandler):
             o_paid=sum(b['paid'] for rl in og['rooms'].values() for b in rl['bills'])
             o_rem=o_total-o_paid
             o_rem_html = f'<strong class="money money-due">¥{m(o_rem)}</strong>' if o_rem>0 else '<span class="money money-paid">¥0.00</span>'
-            owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该业主下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
+            owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该租户下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
             rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'{owner_group}\')" style="cursor:pointer">'
             rh+=f'<td>{owner_chk}</td><td><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{oname}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span></td>'
             rh+=f'<td></td><td></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
