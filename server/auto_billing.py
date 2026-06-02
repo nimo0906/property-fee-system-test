@@ -239,6 +239,8 @@ class AutoBillingMixin(BaseHandler):
             return self._redirect('/auto_billing?flash=请勾选要生成的账单')
         advance_days = int(qs(d, 'advance_days', 30) or 30)
         fee_ids = _ids_from_form(d)
+        if qs(d, 'confirm') != '1':
+            return self._auto_billing_confirm_preview(keys, advance_days, fee_ids)
         create_db_backup('auto_before_contract_billing')
         db = get_db()
         user = self._get_current_user() or {}
@@ -249,6 +251,44 @@ class AutoBillingMixin(BaseHandler):
         if result['skipped_existing']:
             msg += f"，跳过{result['skipped_existing']}笔已存在账单"
         self._redirect('/bills', msg)
+
+    def _auto_billing_confirm_preview(self, keys, advance_days, fee_ids):
+        selected = set(keys)
+        db = get_db()
+        items = [x for x in build_auto_billing_preview(db, advance_days=advance_days, fee_ids=fee_ids) if x['item_key'] in selected]
+        db.close()
+        can_items = [x for x in items if x['can_generate']]
+        skipped = len(items) - len(can_items)
+        total = sum(float(x['amount'] or 0) for x in can_items)
+        hidden_keys = ''.join(f'<input type="hidden" name="item_keys" value="{h(k)}">' for k in keys)
+        hidden_fees = ''.join(f'<input type="hidden" name="fee_ids" value="{fid}">' for fid in fee_ids)
+        rows = ''.join(
+            f'''<tr><td>{h(x['tenant_name'])}</td><td>{h(x['room_name'])}</td><td>{h(x['fee_name'])}</td>
+            <td>{h(x['service_start'])} 至 {h(x['service_end'])}</td><td>{h(x['due_date'])}</td>
+            <td class="text-end">¥{m(x['amount'])}</td><td>{'将生成' if x['can_generate'] else '已存在，跳过'}</td></tr>'''
+            for x in items
+        ) or '<tr><td colspan="7" class="text-center text-muted py-4">没有可确认的账单</td></tr>'
+        body = f'''
+        <div class="alert alert-warning">请核对以下自动出账内容。确认后才会写入账单；系统会先自动备份，已存在的账单不会重复生成。</div>
+        <div class="card mb-3"><div class="card-header">确认汇总</div><div class="card-body">
+          <div class="row text-center g-3">
+            <div class="col-md-3"><small class="text-muted">生成账单</small><div class="fs-5">将生成 {len(can_items)} 笔账单</div></div>
+            <div class="col-md-3"><small class="text-muted">跳过已存在</small><div class="fs-5">{skipped} 笔</div></div>
+            <div class="col-md-3"><small class="text-muted">应收合计</small><div class="fs-5">¥{m(total)}</div></div>
+            <div class="col-md-3"><small class="text-muted">提前天数</small><div class="fs-5">{advance_days} 天</div></div>
+          </div>
+        </div></div>
+        <div class="table-responsive"><table class="table table-hover align-middle small">
+        <thead><tr><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
+        <tbody>{rows}</tbody></table></div>
+        <form method="POST" action="/auto_billing/confirm" class="d-inline">
+          <input type="hidden" name="confirm" value="1">
+          <input type="hidden" name="advance_days" value="{advance_days}">
+          {hidden_keys}{hidden_fees}
+          <button class="btn btn-success" {'disabled' if not can_items else ''}>确认写入账单</button>
+        </form>
+        <a class="btn btn-outline-secondary" href="/auto_billing?advance_days={advance_days}">返回修改</a>'''
+        self._html(self._page('自动出账确认', body, 'auto_billing'))
 
     def _auto_billing_rollback(self, batch_no):
         create_db_backup('auto_before_contract_billing_rollback')

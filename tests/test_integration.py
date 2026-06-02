@@ -675,6 +675,7 @@ class TestIntegration(unittest.TestCase):
         status, body, loc = http_post('/auto_billing/confirm', {
             'advance_days': '30',
             'item_keys': item_key,
+            'confirm': '1',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         self.assertIn('/bills', loc)
@@ -692,6 +693,39 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(bill['billing_period'], '2026-06~2026-09')
         self.assertEqual(bill['source'], 'auto_contract')
 
+    def test_auto_billing_confirm_page_previews_before_writing_bills(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '自动确认业主', '13922221111')
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOCONFIRM', 'B座', '2702', 27, '居民', 100, owner_id, '确认页租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        db.commit(); db.close()
+
+        item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
+        status, html, loc = http_post('/auto_billing/confirm', {
+            'advance_days': '30',
+            'item_keys': item_key,
+            'fee_ids': str(fee_id),
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('自动出账确认', html)
+        self.assertIn('将生成 1 笔账单', html)
+        self.assertIn('确认页租户', html)
+        self.assertIn('AUTOCONFIRM-B座-2702', html)
+        self.assertIn('2026-06-27 至 2026-09-26', html)
+        self.assertIn('2026-06-26', html)
+        self.assertIn('应收合计', html)
+        self.assertIn('¥570.00', html)
+        self.assertIn('confirm', html)
+        db = get_db()
+        count = db.execute("SELECT COUNT(*) FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()[0]
+        db.close()
+        self.assertEqual(count, 0)
+
     def test_auto_billing_page_lists_and_rolls_back_recent_batch(self):
         from server.db import get_db
         db = get_db()
@@ -708,6 +742,7 @@ class TestIntegration(unittest.TestCase):
             'advance_days': '30',
             'item_keys': item_key,
             'fee_ids': str(fee_id),
+            'confirm': '1',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
 
@@ -745,6 +780,7 @@ class TestIntegration(unittest.TestCase):
             'advance_days': '30',
             'item_keys': item_key,
             'fee_ids': str(fee_id),
+            'confirm': '1',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         db = get_db()
