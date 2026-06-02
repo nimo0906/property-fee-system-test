@@ -28,6 +28,31 @@ class TestDesktopApp(unittest.TestCase):
             self.assertEqual(os.environ['PM_BACKUP_DIR'], str(backup_dir))
             self.assertEqual(os.environ['PM_IMPORT_CACHE_DIR'], str(Path(tmp) / 'imports'))
 
+    def test_prepare_runtime_copies_legacy_data_without_deleting_or_overwriting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            legacy = base / 'PropertyFeeSystem'
+            legacy_backups = legacy / 'backups'
+            legacy_backups.mkdir(parents=True)
+            legacy_db = legacy / 'property.db'
+            legacy_db.write_bytes(b'legacy-db')
+            (legacy_backups / 'backup_legacy.db').write_bytes(b'legacy-backup')
+
+            new_dir = base / 'PropertyFeeSystemData'
+            data_dir, db_path, backup_dir = desktop_app.prepare_runtime(new_dir)
+
+            self.assertEqual(data_dir, new_dir)
+            self.assertEqual(db_path.read_bytes(), b'legacy-db')
+            self.assertEqual((backup_dir / 'backup_legacy.db').read_bytes(), b'legacy-backup')
+            self.assertTrue(legacy_db.exists())
+            self.assertTrue((legacy_backups / 'backup_legacy.db').exists())
+            self.assertTrue((new_dir / 'logs' / 'legacy_migration.log').exists())
+
+            db_path.write_bytes(b'new-db')
+            legacy_db.write_bytes(b'changed-legacy-db')
+            desktop_app.prepare_runtime(new_dir)
+            self.assertEqual(db_path.read_bytes(), b'new-db')
+
     def test_write_startup_error_creates_readable_log(self):
         with tempfile.TemporaryDirectory() as tmp:
             try:

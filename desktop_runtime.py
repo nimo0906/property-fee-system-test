@@ -13,6 +13,7 @@ from pathlib import Path
 
 
 APP_DIR_NAME = "PropertyFeeSystemData"
+LEGACY_APP_DIR_NAME = "PropertyFeeSystem"
 APP_TITLE = "物业管理收费系统"
 
 
@@ -37,6 +38,52 @@ def get_app_data_dir():
     return Path(base) / APP_DIR_NAME
 
 
+def get_legacy_app_data_dir(data_dir=None):
+    if os.environ.get("PM_DATA_DIR"):
+        return None
+    if data_dir:
+        current = Path(data_dir).expanduser()
+        if current.name == APP_DIR_NAME:
+            return current.parent / LEGACY_APP_DIR_NAME
+        return None
+    if sys.platform.startswith("win"):
+        base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+        return Path(base) / LEGACY_APP_DIR_NAME
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / LEGACY_APP_DIR_NAME
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / LEGACY_APP_DIR_NAME
+
+
+def copy_legacy_runtime_data(data_dir, db_path, backup_dir, log_dir):
+    legacy_dir = get_legacy_app_data_dir(data_dir)
+    if not legacy_dir or not legacy_dir.exists():
+        return []
+    copied = []
+    legacy_db = legacy_dir / "property.db"
+    if legacy_db.exists() and not db_path.exists():
+        shutil.copy2(legacy_db, db_path)
+        copied.append(f"database: {legacy_db} -> {db_path}")
+    legacy_backups = legacy_dir / "backups"
+    if legacy_backups.exists():
+        for item in legacy_backups.iterdir():
+            if item.is_file():
+                target = backup_dir / item.name
+                if not target.exists():
+                    shutil.copy2(item, target)
+                    copied.append(f"backup: {item} -> {target}")
+    if copied:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_path = log_dir / "legacy_migration.log"
+        log_path.write_text(
+            "Copied legacy runtime data without deleting the original files.\n"
+            + "\n".join(copied)
+            + "\n",
+            encoding="utf-8",
+        )
+    return copied
+
+
 def prepare_runtime(data_dir=None):
     data_dir = Path(data_dir) if data_dir else get_app_data_dir()
     database_dir = data_dir / "database"
@@ -51,6 +98,7 @@ def prepare_runtime(data_dir=None):
         folder.mkdir(parents=True, exist_ok=True)
 
     os.environ["PM_RESOURCE_DIR"] = str(get_resource_dir())
+    copy_legacy_runtime_data(data_dir, db_path, backup_dir, log_dir)
     bundled_db = get_resource_dir() / "property.db"
     if not db_path.exists() and bundled_db.exists():
         shutil.copy2(bundled_db, db_path)

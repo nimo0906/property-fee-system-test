@@ -13,6 +13,10 @@
 
 import http.server
 
+from desktop_runtime import prepare_runtime
+
+prepare_runtime()
+
 from server import Handler, db_init
 from server.db import HOST, PORT
 from server.backups import ensure_startup_backups

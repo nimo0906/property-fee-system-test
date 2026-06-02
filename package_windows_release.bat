@@ -76,7 +76,7 @@ for /f "delims=" %%i in ('%PYTHON_CMD% --version 2^>^&1') do set "PY_VERSION=%%i
 >> "%RELEASE_DIR%\本次交付记录.md" echo - Python 版本：%PY_VERSION%
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 交付类型：Windows 内部/客户试用包
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 启动入口：PropertyFeeSystem\PropertyFeeSystem.exe
->> "%RELEASE_DIR%\本次交付记录.md" echo - 数据目录：%%APPDATA%%\PropertyFeeSystem
+>> "%RELEASE_DIR%\本次交付记录.md" echo - 数据目录：%%APPDATA%%\PropertyFeeSystemData
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 说明：本交付包不包含本机 property.db、.env、backups 或缓存文件。
 
 where powershell >nul 2>nul
