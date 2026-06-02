@@ -183,7 +183,7 @@ class PaymentMixin(BaseHandler):
         db.commit()
         db.close()
         rooms_str = ','.join(room_names)
-        target = f'/bills?period={urllib.parse.quote(display_period)}&keyword={urllib.parse.quote(room_names[0].split("-")[-1] if room_names else "")}'
+        target = f'/bills?period={urllib.parse.quote(display_period)}'
         if total_g == 0 and skipped_existing:
             msg = f'{rooms_str}所选费用在{display_period}已存在账单，未重复生成；已为您显示该房间全部状态账单'
         else:

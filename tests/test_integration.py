@@ -1343,7 +1343,8 @@ class TestIntegration(unittest.TestCase):
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         decoded = urllib.parse.unquote(loc)
-        self.assertIn('/bills?period=2034-02~2034-04&keyword=JUMP101', decoded)
+        self.assertIn('/bills?period=2034-02~2034-04', decoded)
+        self.assertNotIn('keyword=', decoded)
 
         status, list_html = http_get('/bills?period=2034-02~2034-04&keyword=JUMP101', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
@@ -1556,7 +1557,8 @@ class TestIntegration(unittest.TestCase):
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         decoded = urllib.parse.unquote(loc)
-        self.assertIn('/bills?period=2031-11~2031-12&keyword=1705', decoded)
+        self.assertIn('/bills?period=2031-11~2031-12', decoded)
+        self.assertNotIn('keyword=', decoded)
         self.assertIn('已存在账单，未重复生成', decoded)
 
     def test_bill_generate_preview_does_not_write_until_confirmed(self):
