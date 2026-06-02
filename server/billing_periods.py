@@ -5,6 +5,23 @@
 from server.db import date_to_period, get_period
 
 
+def _month_range(start, end):
+    try:
+        sy, sm = [int(x) for x in start.split('-', 1)]
+        ey, em = [int(x) for x in end.split('-', 1)]
+    except Exception:
+        return [start]
+    months = []
+    y, m = sy, sm
+    while (y, m) <= (ey, em):
+        months.append(f'{y:04d}-{m:02d}')
+        m += 1
+        if m > 12:
+            y += 1
+            m = 1
+    return months[:60]
+
+
 def normalize_period(value):
     text = str(value or '').strip()
     if '~' in text:
@@ -22,7 +39,16 @@ def period_start_month(value):
 def period_filter_clause(value, column='billing_period'):
     period = normalize_period(value)
     if '~' in period:
-        return f'{column}=?', [period]
+        start, end = period.split('~', 1)
+        months = _month_range(start, end)
+        parts = [f'{column}=?']
+        params = [period]
+        for month in months:
+            parts.append(f'{column}=?')
+            params.append(month)
+            parts.append(f'{column} LIKE ?')
+            params.append(f'{month}~%')
+        return '(' + ' OR '.join(parts) + ')', params
     return f'({column}=? OR {column} LIKE ?)', [period, f'{period}~%']
 
 

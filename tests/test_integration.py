@@ -1275,6 +1275,26 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('金莎国际-B座-1427', body)
         self.assertNotIn('暂无账单', body)
 
+    def test_bills_range_filter_keeps_existing_single_month_bills_visible(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '范围过滤业主', '13900006666')
+        room_id = create_room(db, building='RANGEKEEP', unit='B座', room_number='1408', category='商户', owner_id=owner_id)
+        create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period='2035-06', amount=100, status='unpaid')
+        create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period='2035-06~2035-09', amount=400, status='unpaid')
+        create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period='2035-05', amount=50, status='unpaid')
+        db.close()
+
+        status, body = http_get('/bills?period=2035-06~2035-09&keyword=1408', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2035-06', body)
+        self.assertIn('2035-06~2035-09', body)
+        self.assertIn('¥100.00', body)
+        self.assertIn('¥400.00', body)
+        self.assertNotIn('2035-05', body)
+        self.assertNotIn('¥50.00', body)
+        self.assertNotIn('暂无账单', body)
+
     def test_billing_page_labels_extra_rooms_by_tenant_not_owner(self):
         status, body = http_get('/billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
