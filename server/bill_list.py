@@ -165,7 +165,10 @@ class BillListMixin(BaseHandler):
                     rh+=f'<td>{chk}</td>'
                     rh+=f'<td><small>{h(b["bill_number"]or"-")}</small></td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'
-                    rh+=f'<td>{h(b["billing_period"])}</td>'
+                    period_text = h(b["billing_period"])
+                    if b['source'] == 'auto_contract' and b['service_start'] and b['service_end']:
+                        period_text += f'<br><small class="text-muted">自动出账服务期 {h(b["service_start"])} 至 {h(b["service_end"])}</small>'
+                    rh+=f'<td>{period_text}</td>'
                     rh+=f'<td class="text-end"><span class="money">¥{m(b["amount"])}</span></td><td class="text-end"><span class="money money-paid">¥{m(b["paid"])}</span></td>'
                     rh+=f'<td class="text-end">{rem_html}</td>'
                     rh+=f'<td class="text-end"><small class="money money-due">¥{m(calc_bill_late_fee(b["id"]))}</small></td>'
@@ -177,6 +180,13 @@ class BillListMixin(BaseHandler):
         ft_opts='<option value="">全部类型</option>'+''.join(f'<option value="{f["id"]}"{" selected" if fid==str(f["id"]) else""}>{h(f["name"])}</option>' for f in fts)
         bld_opts='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
         tpl=self._load_template('bills.html')
+        batch_notice = ''
+        if auto_batch_no:
+            batch_notice = f'''<div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>当前正在查看自动出账批次 <code>{h(auto_batch_no)}</code></div>
+            <div><a class="btn btn-sm btn-outline-primary" href="/auto_billing/runs/{h(auto_batch_no)}">返回批次详情</a>
+            <a class="btn btn-sm btn-outline-secondary" href="/bills">清除批次筛选</a></div></div>'''
+        tpl = batch_notice + tpl
         tpl=tpl.replace('{PERIOD}',period_to_date(p)).replace('{FT_OPTS}',ft_opts).replace('{BLD_OPTS}',bld_opts)
         tpl=tpl.replace('{KW}',h(kw))
         tpl=tpl.replace('<form method=POST id="billActionForm"></form>',

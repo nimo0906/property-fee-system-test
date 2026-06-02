@@ -863,8 +863,15 @@ class TestIntegration(unittest.TestCase):
 
         status, bills_page = http_get(f'/bills?auto_batch_no={batch_no}', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
+        self.assertIn('当前正在查看自动出账批次', bills_page)
+        self.assertIn(batch_no, bills_page)
+        self.assertIn(f'/auto_billing/runs/{batch_no}', bills_page)
+        self.assertIn('返回批次详情', bills_page)
+        self.assertIn('/bills', bills_page)
+        self.assertIn('清除批次筛选', bills_page)
         self.assertIn('自动详情租户', bills_page)
         self.assertIn('AUTODETAIL-B座-2603', bills_page)
+        self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', bills_page)
 
     def test_auto_billing_bill_shows_service_period_in_approaching_reminders(self):
         from server.db import get_db
