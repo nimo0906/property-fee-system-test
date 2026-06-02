@@ -678,15 +678,26 @@ class TestIntegration(unittest.TestCase):
             'confirm': '1',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
-        self.assertIn('/bills', loc)
+        self.assertIn('/auto_billing/runs/', loc)
         self.assertNotIn('keyword=', urllib.parse.unquote(loc))
 
         db = get_db()
         bill = db.execute(
-            "SELECT service_start,service_end,due_date,billing_period,source FROM bills WHERE room_id=? AND fee_type_id=?",
+            "SELECT service_start,service_end,due_date,billing_period,source,auto_batch_no FROM bills WHERE room_id=? AND fee_type_id=?",
             (room_id, fee_id)
         ).fetchone()
         db.close()
+        self.assertIn(bill['auto_batch_no'], loc)
+        status, detail = http_get(loc, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('自动出账批次详情', detail)
+        self.assertIn('查看本批次账单', detail)
+        self.assertIn('查看相关催缴', detail)
+        status, reminders = http_get('/reminders?period=2026-06-01&status=approaching', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('页面租户', reminders)
+        self.assertIn('自动出账', reminders)
+        self.assertIn('服务期 2026-06-27 至 2026-09-26', reminders)
         self.assertEqual(bill['service_start'], '2026-06-27')
         self.assertEqual(bill['service_end'], '2026-09-26')
         self.assertEqual(bill['due_date'], '2026-06-26')

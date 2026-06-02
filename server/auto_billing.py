@@ -250,7 +250,7 @@ class AutoBillingMixin(BaseHandler):
         msg = f"已生成{result['generated']}笔账单"
         if result['skipped_existing']:
             msg += f"，跳过{result['skipped_existing']}笔已存在账单"
-        self._redirect('/bills', msg)
+        self._redirect(f"/auto_billing/runs/{result['batch_no']}" if result['batch_no'] else '/bills', msg)
 
     def _auto_billing_confirm_preview(self, keys, advance_days, fee_ids):
         selected = set(keys)

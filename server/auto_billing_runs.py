@@ -107,6 +107,7 @@ def run_detail_html(run, bills):
     </div></div></div>
     <div class="d-flex gap-2 my-3">
       <a class="btn btn-primary" href="/bills?auto_batch_no={h(run['batch_no'])}">查看本批次账单</a>
+      <a class="btn btn-outline-warning" href="/reminders?period={h(_run_reminder_period(run))}&status=approaching">查看相关催缴</a>
       {rollback}
       <a class="btn btn-outline-secondary" href="/auto_billing">返回自动出账</a>
     </div>
@@ -170,3 +171,9 @@ def _group_row_html(group):
     return f'''<tr><td>{h(group['tenant'])} / {h(group['room'])}</td><td class="text-end">{group['count']} 笔</td>
     <td class="text-end">¥{m(group['amount'])}</td><td class="text-end">¥{m(group['paid'])}</td>
     <td class="text-end">¥{m(unpaid)}</td></tr>'''
+
+
+
+def _run_reminder_period(run):
+    start = run['service_start_min'] or ''
+    return f'{start[:7]}-01' if len(start) >= 7 else ''

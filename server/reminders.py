@@ -16,7 +16,7 @@ class ReminderMixin(BaseHandler):
         db=get_db();p=date_to_period(qs(q,'period',get_period()));bld=qs(q,'building');st=qs(q,'status')
         today=date.today()
         sql='''SELECT o.id oid,o.name oname,o.phone ophone,r.id rid,r.building,r.unit,r.room_number,
-            r.area,r.category,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
+            r.area,r.category,r.tenant_name,r.shop_name,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
             b.source,b.service_start,b.service_end,
             f.name ft_name,f.reminder_advance_days,
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
@@ -69,18 +69,21 @@ class ReminderMixin(BaseHandler):
             for r in bills:
                 oid=r['oid']
                 if oid not in gowners:
-                    gowners[oid]={'name':r['oname']or'未知','phone':r['ophone']or'','rooms':{},'bills':[],'total':0,'late_fee':0}
+                    gowners[oid]={'name':r['oname']or'未知','phone':r['ophone']or'','rooms':{},'tenants':set(),'bills':[],'total':0,'late_fee':0}
                 rkey=f"{r['building']}-{r['unit']}-{r['room_number']}"
                 if r['rid'] not in gowners[oid]['rooms']:
                     gowners[oid]['rooms'][r['rid']]=rkey
                 gowners[oid]['bills'].append(r)
+                if r['source'] == 'auto_contract' and (r['tenant_name'] or r['shop_name']):
+                    gowners[oid]['tenants'].add(r['tenant_name'] or r['shop_name'])
                 gowners[oid]['total']+=r['amount']-r['paid']
                 gowners[oid]['late_fee']+=calc_bill_late_fee(r['bid'])
             for oid,o in sorted(gowners.items()):
                 rooms_str='、'.join(o['rooms'].values())
+                tenant_hint = ('<br><small class="text-muted">租户：'+h('、'.join(sorted(o['tenants'])))+'</small>') if o['tenants'] else ''
                 due_hint='<span class="badge bg-danger">逾期</span>' if gid=='overdue' else '<span class="badge bg-warning text-dark">即将到期</span>'
                 oh+=f'<tr class="table-light" onclick="toggleRoom(\'remind'+str(gid)+''+str(oid)+'\')" style="cursor:pointer">'
-                oh+=f'<td><i class="bi bi-chevron-right" id="icon_remind{gid}{oid}"></i> <strong>{h(o["name"])}</strong><br><small class="text-muted">{h(o["phone"])}</small></td>'
+                oh+=f'<td><i class="bi bi-chevron-right" id="icon_remind{gid}{oid}"></i> <strong>{h(o["name"])}</strong>{tenant_hint}<br><small class="text-muted">{h(o["phone"])}</small></td>'
                 oh+=f'<td><small>{rooms_str}</small></td><td class="text-end">{len(o["bills"])}</td>'
                 oh+=f'<td class="text-end text-danger">¥{m(o["total"])}</td><td class="text-end text-warning">¥{m(o["late_fee"])}</td>'
                 oh+=f'<td class="text-end"><strong>¥{m(o["total"]+o["late_fee"])}</strong></td>'
