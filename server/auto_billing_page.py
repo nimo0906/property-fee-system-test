@@ -17,9 +17,11 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     )
     hidden_fee_ids = ''.join(f'<input type="hidden" name="fee_ids" value="{fid}">' for fid in selected_fee_ids)
     status_opts = _status_options(preview_status)
-    rows = ''.join(_preview_row(x) for x in items) or _empty_preview_row()
+    rows = ''.join(_preview_row(x) for x in items) or _empty_preview_row(preview_status)
     run_rows = ''.join(run_row_html(r) for r in runs) or '<tr><td colspan="7" class="text-center text-muted py-3">暂无自动出账记录</td></tr>'
     summary = _preview_summary(items)
+    no_can_alert = _no_can_alert(summary['can'])
+    submit_button = _submit_button(summary['can'])
     return f'''
     <div class="alert alert-info">
       <div><strong>自动出账规则：</strong>按租户合同开始日、结束日、缴费周期计算下一期账单。</div>
@@ -42,12 +44,13 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
         <div class="col-md-4"><small class="text-muted">应收合计</small><div>应收合计 ¥{m(summary['amount'])}</div></div>
       </div>
     </div></div>
+    {no_can_alert}
     <form method="POST" action="/auto_billing/confirm">
       <input type="hidden" name="advance_days" value="{advance_days}"><input type="hidden" name="preview_status" value="{h(preview_status)}">{hidden_fee_ids}
       <div class="table-responsive"><table class="table table-hover align-middle small">
       <thead><tr><th>选择</th><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
       <tbody>{rows}</tbody></table></div>
-      <button class="btn btn-success"><i class="bi bi-check2-circle"></i> 进入生成确认</button>
+      {submit_button}
     </form>
     <div class="card mt-3"><div class="card-header">最近自动出账记录</div>
     <div class="table-responsive"><table class="table table-hover align-middle small mb-0">
@@ -59,10 +62,18 @@ def _preview_row(x):
     return f'''<tr><td><input type="checkbox" name="item_keys" value="{h(x['item_key'])}" {"checked" if x["can_generate"] else "disabled"}></td>
     <td>{h(x["tenant_name"])}</td><td>{h(x["room_name"])}</td><td>{h(x["fee_name"])}</td>
     <td>{h(x["service_start"])} 至 {h(x["service_end"])}</td><td>{h(x["due_date"])}</td>
-    <td class="text-end">¥{m(x["amount"])}</td><td>{"可生成" if x["can_generate"] else "已存在"}</td></tr>'''
+    <td class="text-end">¥{m(x["amount"])}</td><td>{_row_status_text(x)}</td></tr>'''
 
 
-def _empty_preview_row():
+def _row_status_text(x):
+    if x['can_generate']:
+        return '可生成'
+    return '已存在<br><small class="text-muted">同房间、同收费项目、同服务期已存在账单</small>'
+
+
+def _empty_preview_row(preview_status):
+    if preview_status == 'can_generate':
+        return '<tr><td colspan="8" class="text-center text-muted py-4">当前筛选条件下没有可生成账单，可切换到“全部”或“只看已存在”查看原因；检查租户合同开始/结束日期、缴费周期、收费项目是否适用。</td></tr>'
     return '<tr><td colspan="8" class="text-center text-muted py-4">未来指定天数内暂无需要生成的租户账单</td></tr>'
 
 
@@ -81,3 +92,16 @@ def _preview_summary(items):
 def _status_options(current):
     options = [('all', '全部'), ('can_generate', '只看可生成'), ('existing', '只看已存在')]
     return ''.join(f'<option value="{value}"{" selected" if current == value else ""}>{label}</option>' for value, label in options)
+
+
+
+def _no_can_alert(can_count):
+    if can_count:
+        return ''
+    return '<div class="alert alert-secondary">当前筛选条件下没有可生成账单，可切换到“全部”或“只看已存在”查看原因；检查租户合同开始/结束日期、缴费周期、收费项目是否适用。</div>'
+
+
+def _submit_button(can_count):
+    if can_count:
+        return '<button class="btn btn-success"><i class="bi bi-check2-circle"></i> 进入生成确认</button>'
+    return '<button class="btn btn-secondary" disabled>暂无可生成账单</button>'

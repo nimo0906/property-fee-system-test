@@ -705,6 +705,13 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('只看已存在', only_existing)
         self.assertIn('已存在租户', only_existing)
         self.assertNotIn('页面租户', only_existing)
+        self.assertIn('同房间、同收费项目、同服务期已存在账单', only_existing)
+        self.assertIn('当前筛选条件下没有可生成账单', only_existing)
+        self.assertIn('可切换到“全部”或“只看已存在”查看原因', only_existing)
+        self.assertIn('检查租户合同开始/结束日期、缴费周期、收费项目是否适用', only_existing)
+        self.assertIn('disabled', only_existing)
+        self.assertIn('暂无可生成账单', only_existing)
+        self.assertNotIn('进入生成确认</button>', only_existing)
 
         item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
         status, body, loc = http_post('/auto_billing/confirm', {
