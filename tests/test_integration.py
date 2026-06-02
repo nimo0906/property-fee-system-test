@@ -2768,6 +2768,32 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('RPT-UNPAID', html)
         self.assertIn('/reports/reconciliation.csv?period=2030-07', html)
 
+    def test_reports_can_select_multi_month_billing_period(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name, phone) VALUES('跨月报表业主', '13200001111')").lastrowid
+        room_id = db.execute("""
+            INSERT INTO rooms(building, unit, room_number, floor, category, area, owner_id)
+            VALUES('RANGE_REPORT', 'A座', '1601', 16, '商户', 90, ?)
+        """, (owner_id,)).lastrowid
+        bill_id = db.execute("""
+            INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
+            VALUES(?, ?, 1, '2030-07~2030-10', 400, '2030-10-28', 'partial', 'RANGE-RPT')
+        """, (room_id, owner_id)).lastrowid
+        db.execute("INSERT INTO payments(bill_id, amount_paid, payment_method, operator) VALUES(?, 150, 'cash', '报表员')", (bill_id,))
+        db.commit()
+        db.close()
+
+        status, html = http_get('/reports?period=2030-07~2030-10', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('账期对账 <small class="text-muted">(2030-07~2030-10)</small>', html)
+        self.assertIn('RANGE-RPT', html)
+        self.assertIn('400.00', html)
+        self.assertIn('150.00', html)
+        self.assertIn('<option value="2030-07~2030-10" selected>2030-07~2030-10</option>', html)
+        self.assertIn('/reports/reconciliation.csv?period=2030-07~2030-10', html)
+
 
 
     def test_reports_reconciliation_print_page_uses_current_filters(self):

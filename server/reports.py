@@ -15,6 +15,12 @@ from server.db import add_months, get_db, get_period, h, m, qs, date_to_period, 
 
 class ReportMixin(BaseHandler):
 
+    def _report_period(self, q):
+        raw = qs(q, 'period', get_period()).strip()
+        if '~' in raw and len(raw) >= 15:
+            return raw
+        return date_to_period(raw)
+
     def _report_reconciliation_data(self, period, building='', status=''):
         db = get_db()
         cond = ['b.billing_period=?']
@@ -301,7 +307,7 @@ class ReportMixin(BaseHandler):
         self.wfile.write(data)
 
     def _reports(self, q):
-        p=date_to_period(qs(q,'period',get_period()));bld=qs(q,'building');db=get_db()
+        p=self._report_period(q);bld=qs(q,'building');db=get_db()
         fts=db.execute('''SELECT f.name,f.unit_price,f.calc_method,
             COUNT(b.id) cnt,COALESCE(SUM(b.amount),0) tot,
             COALESCE((SELECT SUM(p.amount_paid) FROM payments p WHERE p.bill_id IN (SELECT id FROM bills WHERE fee_type_id=f.id AND billing_period=?) ),0) paid
@@ -347,6 +353,7 @@ class ReportMixin(BaseHandler):
         waiver=db.execute("SELECT COALESCE(SUM(a.old_amount-a.new_amount),0) waiver_total,COUNT(*) waiver_cnt FROM bill_adjustments a JOIN bills b ON a.bill_id=b.id WHERE b.billing_period=? AND a.new_amount<a.old_amount",(p,)).fetchone()
         waiver_amt=waiver['waiver_total'] if waiver else 0;waiver_cnt=waiver['waiver_cnt'] if waiver else 0
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
+        periods=db.execute("SELECT DISTINCT billing_period FROM bills ORDER BY billing_period DESC").fetchall()
         db.close()
         ta=sum(f['tot'] for f in fts);tp=sum(f['paid'] for f in fts);rr=round(tp/ta*100,1) if ta>0 else 0
         fr=''.join(f'''<tr><td><span class="badge status-neutral">{h(f["name"])}</span></td><td class="text-end">{f["cnt"]}</td>
@@ -357,11 +364,15 @@ class ReportMixin(BaseHandler):
     <td style="min-width:120px"><div class="progress progress-thin" style="height:12px"><div class="progress-bar bg-success" style="width:{t["rate"]}%"></div></div></td>
     <td><div style="display:flex;align-items:end;height:40px;gap:1px"><div style="width:16px;height:{max(4,t["rate"]/100*36):.0f}px;background:{"#087443" if t["rate"]>=80 else "#b76e00"};border-radius:2px 2px 0 0"></div></div></td></tr>''' for t in trends)
         bld_opts='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
+        period_values=[r['billing_period'] for r in periods]
+        if p not in period_values:
+            period_values.insert(0, p)
+        period_opts=''.join(f'<option value="{h(pp)}"{" selected" if p==pp else ""}>{h(pp)}</option>' for pp in period_values)
         self._html(self._page('对账报表',f'''
     {self._render_reconciliation_section(p, self._report_reconciliation_data(p, bld, qs(q, 'status')), bld, qs(q, 'status'))}
     <div class="filter-bar">
     <form class="row g-2 align-items-end" method=GET>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_to_date(p)}" onchange="this.form.submit()"></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><select name="period" class="form-select form-select-sm" onchange="this.form.submit()">{period_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{bld_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
     <option value="">全部状态</option><option value="unpaid"{" selected" if qs(q,'status')=='unpaid' else ""}>未缴</option><option value="partial"{" selected" if qs(q,'status')=='partial' else ""}>部分缴费</option><option value="paid"{" selected" if qs(q,'status')=='paid' else ""}>已缴</option><option value="arrears"{" selected" if qs(q,'status')=='arrears' else ""}>全部欠费</option></select></div>
