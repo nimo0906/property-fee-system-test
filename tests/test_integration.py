@@ -1948,6 +1948,10 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('价税合计（小写）', print_page)
         self.assertIn('壹佰捌拾捌元整', print_page)
         self.assertIn('本系统打印样式，仅用于内部留存', print_page)
+        self.assertIn('class="invoice-qr"', print_page)
+        self.assertIn('class="invoice-copy-label"', print_page)
+        self.assertIn('class="fiscal-mark"', print_page)
+        self.assertIn('合计', print_page)
 
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module

@@ -166,40 +166,51 @@ class InvoiceMixin(BaseHandler):
         html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>发票 #'''+h(i['invoice_number'])+'''</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-    body{font-family:"SimSun","STSong",serif;background:#f6f6f3;color:#5b2a14;padding:24px}
-    @media print{@page{size:A4 landscape;margin:10mm}body{background:#fff;padding:0}.no-print{display:none!important}.invoice-shell{box-shadow:none;margin:0 auto}}
-    .invoice-shell{max-width:1120px;margin:auto;background:#fffdf7;border:3px solid #b33b1e;padding:18px 22px 22px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
-    .invoice-top{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:start;border-bottom:2px solid #b33b1e;padding-bottom:10px}
-    .invoice-title{text-align:center;color:#b33b1e;letter-spacing:8px;font-size:34px;font-weight:700}
-    .invoice-sub{text-align:center;color:#8a3a23;font-size:16px;margin-top:4px}
-    .code-box,.number-box{font-size:14px;line-height:1.9;color:#5b2a14}.number-box{text-align:right}
-    .notice{font-size:12px;color:#8a6a5c;text-align:center;margin:8px 0 12px}
-    .parties{display:grid;grid-template-columns:1fr 1fr;border:2px solid #b33b1e;border-bottom:0}
-    .party{display:grid;grid-template-columns:32px 1fr;min-height:110px;border-right:2px solid #b33b1e}.party:last-child{border-right:0}
-    .party-title{writing-mode:vertical-rl;text-align:center;letter-spacing:4px;background:#fff3e6;border-right:1px solid #d88b76;color:#b33b1e;font-weight:700;padding:8px 4px}
-    .party-body{display:grid;grid-template-columns:120px 1fr;gap:4px 8px;padding:10px 12px;font-size:14px;align-content:start}
-    .invoice-table{width:100%;border-collapse:collapse;color:#5b2a14}.invoice-table th,.invoice-table td{border:1px solid #b33b1e;padding:8px;text-align:center;font-size:14px}
-    .invoice-table th{background:#fff3e6;color:#8c2f18;font-weight:700}.invoice-table td.left{text-align:left}
-    .total-row{display:grid;grid-template-columns:170px 1fr 180px 170px;border-left:2px solid #b33b1e;border-right:2px solid #b33b1e;border-bottom:2px solid #b33b1e}
-    .total-row div{padding:10px 12px;border-right:1px solid #b33b1e;font-size:15px}.total-row div:last-child{border-right:0;text-align:right;font-weight:700}
-    .remark{border:2px solid #b33b1e;border-top:0;min-height:58px;padding:10px 12px;font-size:14px}
-    .sign-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;margin-top:16px;color:#5b2a14;font-size:14px}
-    .stamp{border:1px dashed #d6a08f;color:#b33b1e;border-radius:50%;width:110px;height:110px;display:flex;align-items:center;justify-content:center;margin:auto;font-size:13px;transform:rotate(-12deg)}
+    body{font-family:"SimSun","STSong",serif;background:#ecebea;color:#6b1f16;padding:20px}
+    @media print{@page{size:A4 landscape;margin:8mm}body{background:#fff;padding:0}.no-print{display:none!important}.invoice-shell{box-shadow:none;margin:0 auto}}
+    .invoice-shell{position:relative;max-width:1120px;margin:auto;background:#fff;border:1px solid #9d2a22;padding:18px 20px 20px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+    .invoice-top{display:grid;grid-template-columns:130px 1fr 260px;align-items:start;gap:18px;margin-bottom:8px}
+    .invoice-qr{width:96px;height:96px;border:2px solid #111;background:
+      linear-gradient(90deg,#111 10px,transparent 10px 18px,#111 18px 26px,transparent 26px 34px,#111 34px 42px,transparent 42px 50px,#111 50px 58px,transparent 58px 66px,#111 66px 74px,transparent 74px),
+      linear-gradient(#111 10px,transparent 10px 18px,#111 18px 26px,transparent 26px 34px,#111 34px 42px,transparent 42px 50px,#111 50px 58px,transparent 58px 66px,#111 66px 74px,transparent 74px);
+      background-size:24px 24px;opacity:.92}
+    .title-wrap{text-align:center;position:relative;padding-top:4px}
+    .invoice-title{color:#9d2a22;letter-spacing:10px;font-size:30px;font-weight:700;border-bottom:3px double #9d2a22;display:inline-block;padding:0 34px 7px}
+    .invoice-sub{color:#9d2a22;font-size:15px;margin-top:4px}
+    .fiscal-mark{position:absolute;left:50%;top:-5px;transform:translateX(-50%) rotate(-8deg);width:104px;height:64px;border:4px solid #d71920;border-radius:50%;color:#d71920;font-size:13px;line-height:1.2;display:flex;align-items:center;justify-content:center;opacity:.72}
+    .number-box{font-size:13px;line-height:2;text-align:right;color:#6b1f16}
+    .notice{font-size:12px;color:#7b5d55;text-align:center;margin:4px 0 8px}
+    .invoice-body{position:relative;border:2px solid #9d2a22}
+    .invoice-copy-label{position:absolute;right:-22px;top:8px;writing-mode:vertical-rl;letter-spacing:4px;font-size:12px;color:#9d2a22}
+    .parties{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #9d2a22}
+    .party{display:grid;grid-template-columns:30px 1fr;min-height:82px;border-right:1px solid #9d2a22}.party:last-child{border-right:0}
+    .party-title{writing-mode:vertical-rl;text-align:center;letter-spacing:4px;border-right:1px solid #9d2a22;color:#9d2a22;font-weight:700;padding:6px 3px}
+    .party-body{display:grid;grid-template-columns:120px 1fr;gap:2px 8px;padding:8px 10px;font-size:13px;align-content:start}
+    .invoice-table{width:100%;border-collapse:collapse;color:#6b1f16;table-layout:fixed}.invoice-table th,.invoice-table td{border-right:1px solid #9d2a22;padding:6px 7px;text-align:center;font-size:13px;vertical-align:top}
+    .invoice-table th{border-bottom:1px solid #9d2a22;color:#9d2a22;font-weight:700}.invoice-table td{height:132px}.invoice-table th:last-child,.invoice-table td:last-child{border-right:0}.invoice-table td.left{text-align:left}
+    .invoice-table .amount-line td{height:auto;border-top:1px solid #9d2a22;font-weight:700}
+    .total-row{display:grid;grid-template-columns:170px 1fr 180px 170px;border-top:1px solid #9d2a22}
+    .total-row div{padding:8px 10px;border-right:1px solid #9d2a22;font-size:14px}.total-row div:last-child{border-right:0;text-align:right;font-weight:700}
+    .remark{display:grid;grid-template-columns:30px 1fr;min-height:74px;border-top:1px solid #9d2a22;font-size:13px}.remark-label{writing-mode:vertical-rl;text-align:center;letter-spacing:5px;border-right:1px solid #9d2a22;color:#9d2a22;font-weight:700;padding:6px 3px}.remark-body{padding:9px 10px;color:#6b1f16}
+    .sign-row{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:16px;color:#6b1f16;font-size:13px}
     </style></head><body>
     <div class="invoice-shell">
-      <div class="invoice-top"><div class="code-box"><div>发票代码：'''+h(i['invoice_number'])+'''</div><div>机器编号：-</div><div>校验码：-</div></div>
-      <div><div class="invoice-title">电子发票</div><div class="invoice-sub">电子发票（普通发票）</div></div>
-      <div class="number-box"><div>发票号码：'''+h(i['invoice_number'])+'''</div><div>开票日期：'''+h(i['issue_date'] or '')+'''</div><div>打印日期：'''+datetime.now().strftime('%Y-%m-%d')+'''</div></div></div>
+      <div class="invoice-top"><div><div class="invoice-qr" aria-label="内部票据二维码占位"></div></div>
+      <div class="title-wrap"><div class="invoice-title">电子发票</div><div class="invoice-sub">电子发票（普通发票）</div><div class="fiscal-mark">内部留存<br>打印样式</div></div>
+      <div class="number-box"><div>发票号码：'''+h(i['invoice_number'])+'''</div><div>开票日期：'''+h(i['issue_date'] or '')+'''</div><div>打印日期：'''+datetime.now().strftime('%Y-%m-%d')+'''</div><div>共1页&nbsp;&nbsp;第1页</div></div></div>
       <div class="notice">本系统打印样式，仅用于内部留存；真实税务发票请以税务平台开具文件为准。</div>
+      <div class="invoice-body"><div class="invoice-copy-label">发票联</div>
       <div class="parties">
         <div class="party"><div class="party-title">购买方信息</div><div class="party-body"><div>名称：</div><div>'''+buyer+'''</div><div>纳税人识别号：</div><div>'''+tax_id+'''</div><div>地址、电话：</div><div>'''+h(i['ophone'] or '-')+'''</div><div>开户行及账号：</div><div>-</div></div></div>
         <div class="party"><div class="party-title">销售方信息</div><div class="party-body"><div>名称：</div><div>物业管理收费系统</div><div>纳税人识别号：</div><div>-</div><div>地址、电话：</div><div>-</div><div>开户行及账号：</div><div>-</div></div></div>
       </div>
-      <table class="invoice-table"><thead><tr><th>项目名称</th><th>规格型号</th><th>单位</th><th>数量</th><th>单价</th><th>金额</th><th>税率</th><th>税额</th></tr></thead>
-      <tbody><tr><td class="left">*物业服务*物业管理费<br><small>房号：'''+room_label+'''；账期：'''+h(i['billing_period'])+'''</small></td><td>-</td><td>项</td><td>1</td><td>'''+amount+'''</td><td>'''+amount+'''</td><td>免税</td><td>0.00</td></tr></tbody></table>
+      <table class="invoice-table"><thead><tr><th style="width:28%">项目名称</th><th>规格型号</th><th>单位</th><th>数量</th><th>单价</th><th>金额</th><th>税率/征收率</th><th>税额</th></tr></thead>
+      <tbody><tr><td class="left">*物业服务*物业管理费<br><small>房号：'''+room_label+'''；账期：'''+h(i['billing_period'])+'''</small></td><td>-</td><td>项</td><td>1</td><td>'''+amount+'''</td><td>'''+amount+'''</td><td>免税</td><td>0.00</td></tr>
+      <tr class="amount-line"><td>合计</td><td colspan="4"></td><td>¥'''+amount+'''</td><td></td><td>¥0.00</td></tr></tbody></table>
       <div class="total-row"><div>价税合计（大写）</div><div>'''+_rmb_upper(float(i['amount'] or 0))+'''</div><div>价税合计（小写）</div><div>¥'''+amount+'''</div></div>
-      <div class="remark"><strong>备注：</strong>账单号 '''+h(i['bill_number'] or '-')+'''；房号 '''+room_label+'''；账期 '''+h(i['billing_period'])+'''</div>
-      <div class="sign-row"><div>收款人：管理员</div><div>复核人：管理员</div><div>开票人：管理员</div><div><div class="stamp">内部留存<br>打印样式</div></div></div>
+      <div class="remark"><div class="remark-label">备注</div><div class="remark-body">账单号 '''+h(i['bill_number'] or '-')+'''；房号 '''+room_label+'''；账期 '''+h(i['billing_period'])+'''</div></div>
+      </div>
+      <div class="sign-row"><div>收款人：管理员</div><div>复核人：管理员</div><div>开票人：管理员</div></div>
     </div>
     <div class="no-print text-center mt-3"><button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button> <a href="/invoices" class="btn btn-outline-secondary">返回</a></div>
     </body></html>'''
