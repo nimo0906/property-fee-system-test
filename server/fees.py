@@ -22,6 +22,13 @@ def _to_int(value, default=0):
         return default
 
 
+def _infer_fee_group(row):
+    for group in ('property', 'commercial', 'other'):
+        if fee_in_scope(row, group):
+            return group
+    return ''
+
+
 class FeeMixin(BaseHandler):
 
     # ── 费用类型 ──────────────────────────────────────────────
@@ -281,6 +288,11 @@ document.getElementById("newTierRate").value="";
         for nc, nr in zip(new_cats, new_rates):
             if nc.strip() and nr.strip():
                 db.execute("INSERT INTO fee_type_tiers(fee_type_id,category,rate) VALUES(?,?,?)", (fid, nc.strip(), float(nr.strip())))
+        if return_group not in ('property', 'commercial', 'other'):
+            return_group = _infer_fee_group({
+                'name': qs(d, 'name'),
+                'sort_order': sort_order,
+            })
         db.commit();db.close()
         suffix = f'?group={return_group}&flash=添加成功' if return_group in ('property','commercial','other') else '?flash=添加成功'
         self._redirect('/fee_types' + suffix)
