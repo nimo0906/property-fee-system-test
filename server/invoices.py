@@ -9,6 +9,40 @@ from server.base import BaseHandler
 from datetime import date, datetime
 
 
+def _rmb_upper(amount):
+    nums = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
+    int_units = ['', '拾', '佰', '仟', '万', '拾', '佰', '仟', '亿']
+    try:
+        cents = int(round(float(amount) * 100))
+    except Exception:
+        cents = 0
+    if cents <= 0:
+        return '零元整'
+    yuan, cents = divmod(cents, 100)
+    text = ''
+    zero = False
+    digits = str(yuan)
+    for idx, ch in enumerate(digits):
+        n = int(ch)
+        unit = int_units[len(digits) - idx - 1]
+        if n == 0:
+            zero = True
+            if unit in ('万', '亿') and not text.endswith(unit):
+                text += unit
+            continue
+        if zero and text and not text.endswith(('万', '亿')):
+            text += '零'
+        text += nums[n] + unit
+        zero = False
+    text = text.rstrip('零') + '元'
+    jiao, fen = divmod(cents, 10)
+    if jiao:
+        text += nums[jiao] + '角'
+    if fen:
+        text += nums[fen] + '分'
+    return text if cents else text + '整'
+
+
 class InvoiceMixin(BaseHandler):
 
     def _invoice_requests(self, q):
@@ -125,37 +159,47 @@ class InvoiceMixin(BaseHandler):
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id WHERE i.id=?''',(iid,)).fetchone()
         db.close()
         if not i: return self._error(404)
-        tot_cn=str(i['amount'])
-        html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>发票 #'''+str(i['invoice_number'])+'''</title>
+        room_label = h(i['building'])+'-'+h(i['unit']or'')+'-'+h(i['room_number'])
+        buyer = h(i['buyer_name'] or i['oname'] or '')
+        tax_id = h(i['buyer_tax_id'] or '-')
+        amount = m(i['amount'])
+        html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>发票 #'''+h(i['invoice_number'])+'''</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-    body{font-family:"SimSun","STSong",serif;padding:30px;max-width:800px;margin:auto}
-    @media print{@page{margin:1.5cm}.no-print{display:none!important}}
-    .invoice-box{border:2px solid #333;padding:30px}
-    .header{text-align:center;margin-bottom:25px}
-    .header h2{font-size:24px;margin-bottom:5px}
-    .header p{color:#666;font-size:12px}
-    table.detail{width:100%;border-collapse:collapse;margin:15px 0}
-    table.detail th,table.detail td{border:1px solid #333;padding:8px 10px;text-align:center}
-    table.detail th{background:#f0f0f0}
-    .total{text-align:right;font-size:18px;font-weight:bold;margin:15px 0}
-    .footer{text-align:center;margin-top:30px;font-size:12px;color:#666}
-    .signature{width:100%;margin-top:25px}
-    .signature td{text-align:center;padding-top:30px}
+    body{font-family:"SimSun","STSong",serif;background:#f6f6f3;color:#5b2a14;padding:24px}
+    @media print{@page{size:A4 landscape;margin:10mm}body{background:#fff;padding:0}.no-print{display:none!important}.invoice-shell{box-shadow:none;margin:0 auto}}
+    .invoice-shell{max-width:1120px;margin:auto;background:#fffdf7;border:3px solid #b33b1e;padding:18px 22px 22px;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+    .invoice-top{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:start;border-bottom:2px solid #b33b1e;padding-bottom:10px}
+    .invoice-title{text-align:center;color:#b33b1e;letter-spacing:8px;font-size:34px;font-weight:700}
+    .invoice-sub{text-align:center;color:#8a3a23;font-size:16px;margin-top:4px}
+    .code-box,.number-box{font-size:14px;line-height:1.9;color:#5b2a14}.number-box{text-align:right}
+    .notice{font-size:12px;color:#8a6a5c;text-align:center;margin:8px 0 12px}
+    .parties{display:grid;grid-template-columns:1fr 1fr;border:2px solid #b33b1e;border-bottom:0}
+    .party{display:grid;grid-template-columns:32px 1fr;min-height:110px;border-right:2px solid #b33b1e}.party:last-child{border-right:0}
+    .party-title{writing-mode:vertical-rl;text-align:center;letter-spacing:4px;background:#fff3e6;border-right:1px solid #d88b76;color:#b33b1e;font-weight:700;padding:8px 4px}
+    .party-body{display:grid;grid-template-columns:120px 1fr;gap:4px 8px;padding:10px 12px;font-size:14px;align-content:start}
+    .invoice-table{width:100%;border-collapse:collapse;color:#5b2a14}.invoice-table th,.invoice-table td{border:1px solid #b33b1e;padding:8px;text-align:center;font-size:14px}
+    .invoice-table th{background:#fff3e6;color:#8c2f18;font-weight:700}.invoice-table td.left{text-align:left}
+    .total-row{display:grid;grid-template-columns:170px 1fr 180px 170px;border-left:2px solid #b33b1e;border-right:2px solid #b33b1e;border-bottom:2px solid #b33b1e}
+    .total-row div{padding:10px 12px;border-right:1px solid #b33b1e;font-size:15px}.total-row div:last-child{border-right:0;text-align:right;font-weight:700}
+    .remark{border:2px solid #b33b1e;border-top:0;min-height:58px;padding:10px 12px;font-size:14px}
+    .sign-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;margin-top:16px;color:#5b2a14;font-size:14px}
+    .stamp{border:1px dashed #d6a08f;color:#b33b1e;border-radius:50%;width:110px;height:110px;display:flex;align-items:center;justify-content:center;margin:auto;font-size:13px;transform:rotate(-12deg)}
     </style></head><body>
-    <div class="invoice-box">
-    <div class="header"><h2>电子发票</h2><p>发票代码：'''+str(i['invoice_number'])+'''</p></div>
-    <table style="width:100%;margin-bottom:15px">
-    <tr><td style="width:50%"><strong>购买方：</strong>'''+h(i['buyer_name'] or i['oname'] or '')+'''</td>
-    <td><strong>纳税人识别号：</strong>'''+h(i['buyer_tax_id'] or '-')+'''</td></tr>
-    <tr><td><strong>房号：</strong>'''+h(i['building'])+'-'+h(i['unit']or'')+'-'+h(i['room_number'])+'''</td>
-    <td><strong>开票日期：</strong>'''+h(i['issue_date'] or '')+'''</td></tr>
-    </table>
-    <table class="detail"><thead><tr><th>项目名称</th><th>账期</th><th>金额（元）</th></tr></thead>
-    <tbody><tr><td>物业管理费</td><td>'''+h(i['billing_period'])+'''</td><td>'''+m(i['amount'])+'''</td></tr></tbody></table>
-    <div class="total">合计金额：¥'''+m(i['amount'])+'''</div>
-    <div class="footer">开票人：管理员 · 打印日期：'''+datetime.now().strftime('%Y-%m-%d')+'''</div>
-    <div class="signature"><table><tr><td>开票人</td><td>复核人</td><td>收款人</td></tr></table></div>
+    <div class="invoice-shell">
+      <div class="invoice-top"><div class="code-box"><div>发票代码：'''+h(i['invoice_number'])+'''</div><div>机器编号：-</div><div>校验码：-</div></div>
+      <div><div class="invoice-title">电子发票</div><div class="invoice-sub">电子发票（普通发票）</div></div>
+      <div class="number-box"><div>发票号码：'''+h(i['invoice_number'])+'''</div><div>开票日期：'''+h(i['issue_date'] or '')+'''</div><div>打印日期：'''+datetime.now().strftime('%Y-%m-%d')+'''</div></div></div>
+      <div class="notice">本系统打印样式，仅用于内部留存；真实税务发票请以税务平台开具文件为准。</div>
+      <div class="parties">
+        <div class="party"><div class="party-title">购买方信息</div><div class="party-body"><div>名称：</div><div>'''+buyer+'''</div><div>纳税人识别号：</div><div>'''+tax_id+'''</div><div>地址、电话：</div><div>'''+h(i['ophone'] or '-')+'''</div><div>开户行及账号：</div><div>-</div></div></div>
+        <div class="party"><div class="party-title">销售方信息</div><div class="party-body"><div>名称：</div><div>物业管理收费系统</div><div>纳税人识别号：</div><div>-</div><div>地址、电话：</div><div>-</div><div>开户行及账号：</div><div>-</div></div></div>
+      </div>
+      <table class="invoice-table"><thead><tr><th>项目名称</th><th>规格型号</th><th>单位</th><th>数量</th><th>单价</th><th>金额</th><th>税率</th><th>税额</th></tr></thead>
+      <tbody><tr><td class="left">*物业服务*物业管理费<br><small>房号：'''+room_label+'''；账期：'''+h(i['billing_period'])+'''</small></td><td>-</td><td>项</td><td>1</td><td>'''+amount+'''</td><td>'''+amount+'''</td><td>免税</td><td>0.00</td></tr></tbody></table>
+      <div class="total-row"><div>价税合计（大写）</div><div>'''+_rmb_upper(float(i['amount'] or 0))+'''</div><div>价税合计（小写）</div><div>¥'''+amount+'''</div></div>
+      <div class="remark"><strong>备注：</strong>账单号 '''+h(i['bill_number'] or '-')+'''；房号 '''+room_label+'''；账期 '''+h(i['billing_period'])+'''</div>
+      <div class="sign-row"><div>收款人：管理员</div><div>复核人：管理员</div><div>开票人：管理员</div><div><div class="stamp">内部留存<br>打印样式</div></div></div>
     </div>
     <div class="no-print text-center mt-3"><button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button> <a href="/invoices" class="btn btn-outline-secondary">返回</a></div>
     </body></html>'''

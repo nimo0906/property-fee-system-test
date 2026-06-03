@@ -1941,6 +1941,13 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('INV-PRINT-001', print_page)
         self.assertIn('发票打印抬头', print_page)
         self.assertIn('188.00', print_page)
+        self.assertIn('电子发票（普通发票）', print_page)
+        self.assertIn('购买方信息', print_page)
+        self.assertIn('销售方信息', print_page)
+        self.assertIn('价税合计（大写）', print_page)
+        self.assertIn('价税合计（小写）', print_page)
+        self.assertIn('壹佰捌拾捌元整', print_page)
+        self.assertIn('本系统打印样式，仅用于内部留存', print_page)
 
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module
