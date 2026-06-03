@@ -4,7 +4,25 @@
 
 from server.db import get_db, get_period, h, m, qs, date_to_period, period_to_date, period_to_compact
 from server.base import BaseHandler
+from server.billing_engine import fee_applies_to_room
 from datetime import date
+
+
+def _water_fee_mismatch_message(db, room_id, fee_type_id):
+    row = db.execute(
+        """SELECT r.*,f.name fee_name FROM rooms r
+           JOIN fee_types f ON f.id=? WHERE r.id=?""",
+        (fee_type_id, room_id),
+    ).fetchone()
+    if not row:
+        return ''
+    fee_name = row['fee_name'] or ''
+    if '水费(' not in fee_name:
+        return ''
+    if fee_applies_to_room(fee_name, row):
+        return ''
+    expected = row['water_rate_type'] or '非居民'
+    return f'水费标准与收费项目不一致：房间水费标准为{expected}，当前选择{fee_name}。请在房间管理调整水费标准，或选择水费({expected})抄表。'
 
 
 class MeterMixin(BaseHandler):
@@ -74,6 +92,9 @@ function loadMeter(){{var r=document.getElementById('mRoom').value;var f=documen
 
     def _meter_create(self, d):
         db=get_db();rid=int(qs(d,'room_id'));fid=int(qs(d,'fee_type_id'))
+        mismatch = _water_fee_mismatch_message(db, rid, fid)
+        if mismatch:
+            db.close(); return self._redirect('/meter_readings/create?flash=' + mismatch)
         cur=float(qs(d,'current_reading',0));prd=period_to_compact(qs(d,'period',get_period()))
         last=db.execute("SELECT current_reading FROM meter_readings WHERE room_id=? AND fee_type_id=? AND status='confirmed' ORDER BY id DESC LIMIT 1",(rid,fid)).fetchone()
         prev=last[0] if last else 0
@@ -85,7 +106,13 @@ function loadMeter(){{var r=document.getElementById('mRoom').value;var f=documen
         self._redirect('/meter_readings?flash=抄表录入成功')
 
     def _meter_confirm(self, mid):
-        db=get_db();db.execute("UPDATE meter_readings SET status='confirmed' WHERE id=?",(mid,));db.commit();db.close()
+        db=get_db()
+        row = db.execute("SELECT room_id,fee_type_id FROM meter_readings WHERE id=?", (mid,)).fetchone()
+        if row:
+            mismatch = _water_fee_mismatch_message(db, row['room_id'], row['fee_type_id'])
+            if mismatch:
+                db.close(); return self._redirect('/meter_readings?flash=' + mismatch)
+        db.execute("UPDATE meter_readings SET status='confirmed' WHERE id=?",(mid,));db.commit();db.close()
         self._redirect('/meter_readings?flash=已确认')
 
     def _meter_delete(self, mid):

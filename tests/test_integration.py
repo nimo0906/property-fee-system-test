@@ -70,6 +70,7 @@ def _start_server():
     from server.data_health import DataHealthMixin
     from server.system_update_pages import SystemUpdateMixin
     from server.trial_data_reset import TrialDataResetMixin
+    from server.shared_expenses import SharedExpenseMixin
     from server.api import ApiMixin
 
     class Handler(
@@ -80,7 +81,8 @@ def _start_server():
         PaymentMixin, BillingUiMixin, AutoBillingMixin,
         RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
         ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
-        ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
+        SharedExpenseMixin, ImportMixin, BackupMixin, DataHealthMixin,
+        SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
     ): pass
 
     db_init()
@@ -623,6 +625,86 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('window.METER_READINGS=', body)
         self.assertIn(f'"{room_id}:{fee_id}:202606": 16.0', body)
+
+    def test_billing_page_exposes_mismatched_water_meter_details_for_warning(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '错档水费业主', '13900000007')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM103', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET water_rate_type='非居民' WHERE id=?", (room_id,))
+        special_fee_id = db.execute("SELECT id FROM fee_types WHERE name='水费(特行)'").fetchone()[0]
+        db.execute(
+            "INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,previous_reading,consumption,status) VALUES(?,?,?,?,?,?,?)",
+            (room_id, special_fee_id, '202606', 392, 0, 392, 'confirmed'),
+        )
+        db.commit(); db.close()
+
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('window.METER_DETAILS=', body)
+        self.assertIn(f'"{room_id}:202606"', body)
+        self.assertIn('"fee_name": "水费(特行)"', body)
+        with open(os.path.join(PROJECT_ROOT, 'static', 'billing.js'), encoding='utf-8') as f:
+            js = f.read()
+        self.assertIn('window.meterMismatchWarning', js)
+
+    def test_meter_create_rejects_water_fee_standard_mismatch(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '抄表错档业主', '13900000011')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM104', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET water_rate_type='非居民' WHERE id=?", (room_id,))
+        special_fee_id = db.execute("SELECT id FROM fee_types WHERE name='水费(特行)'").fetchone()[0]
+        db.commit(); db.close()
+
+        status, body, loc = http_post('/meter_readings/create', {
+            'room_id': str(room_id),
+            'fee_type_id': str(special_fee_id),
+            'period': '2026-06-01',
+            'current_reading': '100',
+            'reading_date': '2026-06-03',
+            'status': 'confirmed',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 302)
+        decoded = urllib.parse.unquote(loc)
+        self.assertIn('水费标准', decoded)
+        self.assertIn('非居民', decoded)
+        self.assertIn('水费(特行)', decoded)
+        db = get_db()
+        count = db.execute("SELECT COUNT(*) FROM meter_readings WHERE room_id=?", (room_id,)).fetchone()[0]
+        db.close()
+        self.assertEqual(count, 0)
+
+    def test_meter_confirm_rejects_water_fee_standard_mismatch(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '确认错档业主', '13900000012')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM105', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET water_rate_type='非居民' WHERE id=?", (room_id,))
+        special_fee_id = db.execute("SELECT id FROM fee_types WHERE name='水费(特行)'").fetchone()[0]
+        mid = db.execute(
+            "INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,previous_reading,consumption,status) VALUES(?,?,?,?,?,?,?)",
+            (room_id, special_fee_id, '202606', 100, 0, 100, 'draft'),
+        ).lastrowid
+        db.commit(); db.close()
+
+        status, body, loc = http_post(f'/meter_readings/{mid}/confirm', {}, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 302)
+        self.assertIn('水费标准', urllib.parse.unquote(loc))
+        db = get_db()
+        status_after = db.execute("SELECT status FROM meter_readings WHERE id=?", (mid,)).fetchone()[0]
+        db.close()
+        self.assertEqual(status_after, 'draft')
+
+    def test_shared_expense_unit_label_matches_room_management_wording(self):
+        status, body = http_get('/shared_expenses', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('单元/区域', body)
+        self.assertIn('全部单元/区域', body)
+        self.assertNotIn('单元/座', body)
 
     def test_nonresident_and_special_water_fees_apply_to_commercial_rooms_not_as_room_types(self):
         from server.billing_engine import fee_applies_to_category

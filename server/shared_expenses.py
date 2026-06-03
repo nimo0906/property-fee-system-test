@@ -69,7 +69,7 @@ class SharedExpenseMixin(BaseHandler):
         db.close()
         fee_opts = ''.join(f'<option value="{f["id"]}"{" selected" if "公摊" in (f["name"] or "") else ""}>{h(f["name"])} - {h(f["calc_method"])}</option>' for f in fts)
         bld_opts = '<option value="">全部楼栋</option>' + ''.join(f'<option value="{h(r["building"])}">{h(r["building"])}</option>' for r in blds)
-        unit_opts = '<option value="">全部单元/座</option>' + ''.join(f'<option value="{h(r["unit"])}">{h(r["unit"])}</option>' for r in units)
+        unit_opts = '<option value="">全部单元/区域</option>' + ''.join(f'<option value="{h(r["unit"])}">{h(r["unit"])}</option>' for r in units)
         cat_opts = '<option value="">全部类别</option>' + ''.join(f'<option value="{h(r["category"])}">{h(r["category"])}</option>' for r in cats)
         recent_rows = ''.join(
             f'''<tr><td>{h(r["created_at"])}</td><td>{h(r["period"])}</td><td>{h(r["fee_name"] or r["fee_type_id"])}</td>
@@ -85,7 +85,7 @@ class SharedExpenseMixin(BaseHandler):
             <div class="col-md-3"><label>截止日</label><input name="due_day" type="number" min="1" max="28" value="28" class="form-control"></div>
             <div class="col-md-3"><label>分摊方式</label><select name="allocation_method" class="form-select"><option value="area">按面积分摊</option><option value="household">按户数平均</option></select></div>
             <div class="col-md-3"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
-            <div class="col-md-3"><label>单元/座</label><select name="unit" class="form-select">{unit_opts}</select></div>
+            <div class="col-md-3"><label>单元/区域</label><select name="unit" class="form-select">{unit_opts}</select></div>
             <div class="col-md-3"><label>类别</label><select name="category" class="form-select">{cat_opts}</select></div>
             <div class="col-md-3"><label>说明</label><input name="notes" class="form-control" placeholder="如：5月公共电费"></div>
             <div class="col-12"><button name="mode" value="preview" class="btn btn-primary btn-lg">预览分摊</button>
