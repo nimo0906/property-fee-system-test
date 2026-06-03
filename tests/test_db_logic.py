@@ -474,6 +474,30 @@ class TestDBLogic(unittest.TestCase):
         self.assertEqual(rb['blocked'], 1)
         self.assertIsNotNone(self.db.execute("SELECT id FROM bills WHERE id=?", (bill_id,)).fetchone())
 
+
+    def test_auto_billing_target_scope_filters_a_b_and_mall_rooms(self):
+        from server.auto_billing import build_auto_billing_preview
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('范围筛选业主')").lastrowid
+        rows = [
+            ('AUTOSCOPE', 'A座', 'A101', '居民', 'A座租户'),
+            ('AUTOSCOPE', 'B座', 'B201', '居民', 'B座租户'),
+            ('AUTOSCOPE', '商场', 'M301', '商户', '商场租户'),
+        ]
+        for building, unit, number, category, tenant in rows:
+            self.db.execute(
+                "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                (building, unit, number, 1, category, 100, owner_id, tenant, '2026-06-27', '2027-06-26', 'quarterly')
+            )
+        property_fee = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        merchant_fee = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()['id']
+        self.db.commit()
+
+        b_items = build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30, fee_ids=[property_fee, merchant_fee], target_scope='b')
+        mall_items = build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30, fee_ids=[property_fee, merchant_fee], target_scope='mall')
+
+        self.assertEqual({x['room_name'] for x in b_items}, {'AUTOSCOPE-B座-B201'})
+        self.assertEqual({x['room_name'] for x in mall_items}, {'AUTOSCOPE-商场-M301'})
+
     def test_auto_billing_fee_selection_controls_preview_items(self):
         from server.auto_billing import build_auto_billing_preview
         owner_id = self.db.execute("INSERT INTO owners(name) VALUES('自动项目业主')").lastrowid
