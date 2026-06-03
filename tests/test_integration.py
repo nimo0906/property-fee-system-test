@@ -507,6 +507,30 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('金莎国际', csv_body)
         self.assertIn('测试经手人', csv_body)
 
+    def test_payments_default_page_shows_all_periods_until_user_filters_period(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '缴费默认全部业主', '13900009999')
+        room_id = create_room(db, building='PAYALL', unit='A座', room_number='9901', category='居民', owner_id=owner_id)
+        paid_june = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period='2038-06', amount=10, status='paid')
+        paid_july = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period='2038-07', amount=20, status='paid')
+        create_payment(db, bill_id=paid_june, amount=10, method='cash', operator='默认全部')
+        create_payment(db, bill_id=paid_july, amount=20, method='cash', operator='默认全部')
+        db.close()
+
+        status, body = http_get('/payments?operator=%E9%BB%98%E8%AE%A4%E5%85%A8%E9%83%A8', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('2038-06', body)
+        self.assertIn('2038-07', body)
+        self.assertIn('¥30.00', body)
+
+        status, filtered = http_get('/payments?period=2038-06-01&operator=%E9%BB%98%E8%AE%A4%E5%85%A8%E9%83%A8', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2038-06', filtered)
+        self.assertNotIn('2038-07', filtered)
+        self.assertIn('¥10.00', filtered)
+
 
 
 

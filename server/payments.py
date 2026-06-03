@@ -337,7 +337,8 @@ class PaymentMixin(BaseHandler):
 
     # ── 缴费记录 ──────────────────────────────────────────────
     def _payments(self, q):
-        db=get_db();p=date_to_period(qs(q,'period',get_period()));pm=qs(q,'method','');op=qs(q,'operator','')
+        raw_period = qs(q, 'period', '').strip()
+        db=get_db();p=date_to_period(raw_period) if raw_period else '';pm=qs(q,'method','');op=qs(q,'operator','')
         sql='''SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.fee_type_id,
             r.building,r.unit,r.room_number,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
@@ -385,7 +386,7 @@ class PaymentMixin(BaseHandler):
 <td>{h(r["payment_method"])}</td><td>{h(r["operator"]or"-")}</td><td><small>{h(r["receipt_number"] or "-")}</small></td></tr>''')
         rh=''.join(rh_parts)
         tpl=self._load_template('payments.html')
-        tpl=tpl.replace('{PERIOD}',period_to_date(p)).replace('{OP}',h(op)).replace('{TOTAL}',m(tc))
+        tpl=tpl.replace('{PERIOD}',period_to_date(p) if p else '').replace('{OP}',h(op)).replace('{TOTAL}',m(tc))
         tpl=tpl.replace('{SC}',' selected' if pm=='cash' else '').replace('{ST}',' selected' if pm=='transfer' else '')
         tpl=tpl.replace('{SW}',' selected' if pm=='wechat' else '').replace('{SA}',' selected' if pm=='alipay' else '')
         tpl=tpl.replace('<th>经手人</th>', '<th>经手人</th><th>收据号</th>')
@@ -442,7 +443,8 @@ function toggleAllPayments(checked){document.querySelectorAll('input[name="payme
 
 
     def _payments_csv(self, q):
-        p = date_to_period(qs(q, 'period', get_period()))
+        raw_period = qs(q, 'period', '').strip()
+        p = date_to_period(raw_period) if raw_period else ''
         pm = qs(q, 'method', '')
         op = qs(q, 'operator', '')
         sql = """SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.fee_type_id,
@@ -466,7 +468,7 @@ function toggleAllPayments(checked){document.querySelectorAll('input[name="payme
         data = buf.getvalue().encode('utf-8-sig')
         self.send_response(200)
         self.send_header('Content-Type', 'text/csv; charset=utf-8')
-        self.send_header('Content-Disposition', f'attachment; filename=payments_{p}.csv')
+        self.send_header('Content-Disposition', f'attachment; filename=payments_{p or "all"}.csv')
         self.send_header('Content-Length', str(len(data)))
         self.end_headers(); self.wfile.write(data)
 
