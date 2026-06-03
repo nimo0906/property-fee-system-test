@@ -876,6 +876,32 @@ a:hover { color: var(--brand-2); }
     min-height: 30px;
 }
 
+.report-export-panel {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+    gap: 10px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.report-export-group {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    background: linear-gradient(180deg, #fff, #f9fbfb);
+    box-shadow: var(--shadow-xs);
+}
+
+.report-export-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    color: #52605c;
+    font-size: 12px;
+    font-weight: 760;
+}
+
 .finance-summary {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -1143,6 +1169,9 @@ footer {
     .batch-bar,
     .export-actions {
         align-items: stretch;
+    }
+    .report-export-panel {
+        grid-template-columns: 1fr;
     }
     .batch-bar .btn,
     .export-actions .btn {

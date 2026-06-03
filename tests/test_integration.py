@@ -3877,6 +3877,23 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('120.00', csv_body)
         self.assertIn('180.00', csv_body)
 
+    def test_reports_export_actions_are_grouped_by_business_purpose(self):
+        status, html = http_get('/reports?period=2031-01', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('class="report-export-panel"', html)
+        self.assertIn('对账与打印', html)
+        self.assertIn('客户维度', html)
+        self.assertIn('欠费分析', html)
+        self.assertIn('打印当前对账单', html)
+        self.assertIn('导出对账CSV', html)
+        self.assertIn('导出租户CSV', html)
+        self.assertIn('租户欠费排行CSV', html)
+        self.assertIn('费用欠费CSV', html)
+        self.assertIn('data-export-group="reconciliation"', html)
+        self.assertIn('data-export-group="tenant"', html)
+        self.assertIn('data-export-group="arrears"', html)
+
     def test_reports_tenant_arrears_ranking_csv_export(self):
         import server.db as db_module
         db = db_module.get_db()

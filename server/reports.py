@@ -291,13 +291,28 @@ class ReportMixin(BaseHandler):
         return f'''
         <div class="card mt-4"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>账期对账 <small class="text-muted">({h(period)})</small></span>
-            <span class="export-actions">
-                <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation/print?{filter_query}"><i class="bi bi-printer"></i> 打印当前对账单</a>
-                <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation.csv?{filter_query}"><i class="bi bi-download"></i> 导出对账CSV</a>
-                <a class="btn btn-sm btn-outline-secondary" href="/reports/tenants.csv?{filter_query}"><i class="bi bi-people"></i> 导出租户CSV</a>
-                <a class="btn btn-sm btn-outline-secondary" href="/reports/tenant_arrears.csv?{filter_query}"><i class="bi bi-exclamation-triangle"></i> 租户欠费排行CSV</a>
-                <a class="btn btn-sm btn-outline-secondary" href="/reports/fee_arrears.csv?{filter_query}"><i class="bi bi-tags"></i> 费用欠费CSV</a>
-            </span></div>
+            <div class="report-export-panel">
+                <div class="report-export-group" data-export-group="reconciliation">
+                    <div class="report-export-title"><i class="bi bi-clipboard-check"></i> 对账与打印</div>
+                    <div class="export-actions">
+                        <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation/print?{filter_query}"><i class="bi bi-printer"></i> 打印当前对账单</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation.csv?{filter_query}"><i class="bi bi-download"></i> 导出对账CSV</a>
+                    </div>
+                </div>
+                <div class="report-export-group" data-export-group="tenant">
+                    <div class="report-export-title"><i class="bi bi-people"></i> 客户维度</div>
+                    <div class="export-actions">
+                        <a class="btn btn-sm btn-outline-secondary" href="/reports/tenants.csv?{filter_query}"><i class="bi bi-people"></i> 导出租户CSV</a>
+                    </div>
+                </div>
+                <div class="report-export-group" data-export-group="arrears">
+                    <div class="report-export-title"><i class="bi bi-exclamation-triangle"></i> 欠费分析</div>
+                    <div class="export-actions">
+                        <a class="btn btn-sm btn-outline-secondary" href="/reports/tenant_arrears.csv?{filter_query}"><i class="bi bi-exclamation-triangle"></i> 租户欠费排行CSV</a>
+                        <a class="btn btn-sm btn-outline-secondary" href="/reports/fee_arrears.csv?{filter_query}"><i class="bi bi-tags"></i> 费用欠费CSV</a>
+                    </div>
+                </div>
+            </div></div>
         <div class="card-body"><div class="row text-center g-2">
             <div class="col-md-3"><div class="summary-tile"><div class="label">应收合计</div><strong class="money">¥{m(data['total'])}</strong></div></div>
             <div class="col-md-3"><div class="summary-tile"><div class="label">已收合计</div><strong class="money money-paid">¥{m(data['paid'])}</strong></div></div>
