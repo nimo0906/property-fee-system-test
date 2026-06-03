@@ -83,7 +83,7 @@ class BillListMixin(BaseHandler):
 
     def _bills(self, q):
         update_overdue_bills()
-        db=get_db();s=qs(q,'status');fid=qs(q,'fee_type_id');raw_period=qs(q,'period',get_period());p=raw_period.strip() if '~' in raw_period else date_to_period(raw_period)
+        db=get_db();s=qs(q,'status');fid=qs(q,'fee_type_id');raw_period=qs(q,'period','').strip();p=raw_period if '~' in raw_period else (date_to_period(raw_period) if raw_period else '')
         kw=qs(q,'keyword');bld=qs(q,'building');cat=qs(q,'category');auto_batch_no=qs(q,'auto_batch_no')
         current_query = urllib.parse.urlencode([
             (k, v)
@@ -193,7 +193,7 @@ class BillListMixin(BaseHandler):
             <div><a class="btn btn-sm btn-outline-primary" href="/auto_billing/runs/{h(auto_batch_no)}">返回批次详情</a>
             <a class="btn btn-sm btn-outline-secondary" href="/bills">清除批次筛选</a></div></div>'''
         tpl = batch_notice + tpl
-        tpl=tpl.replace('{PERIOD}',period_to_date(p)).replace('{FT_OPTS}',ft_opts).replace('{BLD_OPTS}',bld_opts)
+        tpl=tpl.replace('{PERIOD}',period_to_date(p) if p else '').replace('{FT_OPTS}',ft_opts).replace('{BLD_OPTS}',bld_opts)
         tpl=tpl.replace('{KW}',h(kw))
         tpl=tpl.replace('<form method=POST id="billActionForm"></form>',
                         f'<form method=POST id="billActionForm"><input type="hidden" name="back" value="{h(current_path)}"></form>')

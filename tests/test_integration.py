@@ -2835,6 +2835,29 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('60户 / 60笔', body)
         self.assertIn('共 60 条，第 1 / 2 页', body)
 
+    def test_bills_default_page_shows_all_periods_until_user_filters_period(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '默认全部账单业主', '13900008888')
+        room_id = create_room(db, building='BILLALL', unit='A座', room_number='8801', category='居民', area=10, owner_id=owner_id)
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()[0]
+        create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=fee_id, period='2037-06', amount=10, status='unpaid')
+        create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=fee_id, period='2037-07', amount=20, status='unpaid')
+        db.close()
+
+        status, body = http_get('/bills?building=BILLALL', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('共 2 条', body)
+        self.assertIn('2037-06', body)
+        self.assertIn('2037-07', body)
+
+        status, filtered = http_get('/bills?period=2037-06&building=BILLALL', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('共 1 条', filtered)
+        self.assertIn('2037-06', filtered)
+        self.assertNotIn('2037-07', filtered)
+
     def test_bills_default_list_shows_paid_bills_after_returning_from_print(self):
         http_post('/rooms/create', {
             'building': 'BILLDEFAULT', 'unit': 'A座', 'room_number': '801',
