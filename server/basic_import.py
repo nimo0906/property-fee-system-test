@@ -237,6 +237,8 @@ def _normalize_payment_cycle(value):
         return 'quarterly'
     if text in ('半年付', '半年', 'semiannual', 'halfyear', 'half-year', '6', '6个月'):
         return 'semiannual'
+    if text in ('年付', '年度', '全年', 'yearly', 'annual', 'year', '12', '12个月'):
+        return 'yearly'
     return ''
 
 

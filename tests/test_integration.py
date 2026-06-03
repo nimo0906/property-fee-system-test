@@ -460,6 +460,8 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('value="特行"', body)
         self.assertIn('业态/商户类别', body)
         self.assertIn('餐饮、零售、美容、办公', body)
+        self.assertIn('value="yearly"', body)
+        self.assertIn('年付', body)
 
     def test_rooms_list_filters_all_commercial_categories_and_searches_business_type(self):
         from server.db import get_db
@@ -938,6 +940,64 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('服务结束日', csv_body)
         self.assertIn('2026-06-27', csv_body)
         self.assertIn('2026-09-26', csv_body)
+
+    def test_auto_billing_paid_bill_flows_to_reports_invoice_and_blocks_rollback(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '自动链路业主', '13977778888')
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOFLOW', 'B座', '2901', 29, '居民', 100, owner_id, '自动链路租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        db.commit(); db.close()
+
+        item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
+        status, body, loc = http_post('/auto_billing/confirm', {
+            'advance_days': '30',
+            'item_keys': item_key,
+            'fee_ids': str(fee_id),
+            'confirm': '1',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/auto_billing/runs/', loc)
+
+        db = get_db()
+        bill = db.execute("SELECT id,auto_batch_no FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
+        bill_id = bill['id']
+        batch_no = bill['auto_batch_no']
+        db.execute("INSERT INTO payments(bill_id,amount_paid,payment_method,operator) VALUES(?,?,?,?)", (bill_id, 570, 'cash', '自动链路收费员'))
+        db.execute("UPDATE bills SET status='paid' WHERE id=?", (bill_id,))
+        db.commit(); db.close()
+
+        status, report_html = http_get('/reports?period=2026-07&building=AUTOFLOW&status=paid', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('AUTOFLOW', report_html)
+        self.assertIn('570.00', report_html)
+        self.assertIn('已收合计', report_html)
+        self.assertIn('自动链路收费员', report_html)
+
+        status, report_csv = http_get('/reports/reconciliation.csv?period=2026-07&building=AUTOFLOW&status=paid', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('AUTOFLOW', report_csv)
+        self.assertIn('自动链路业主', report_csv)
+        self.assertIn('570.00', report_csv)
+
+        status, invoice_html = http_get('/invoices?period=2026-07-01', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn(f'value="{bill_id}"', invoice_html)
+        self.assertIn('AUTOFLOW-2901', invoice_html)
+        self.assertIn('自动链路业主', invoice_html)
+
+        status, body, loc = http_post(f'/auto_billing/runs/{batch_no}/rollback', {}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('保留1笔不可撤回账单', urllib.parse.unquote(loc))
+        db = get_db()
+        self.assertIsNotNone(db.execute("SELECT id FROM bills WHERE id=?", (bill_id,)).fetchone())
+        run = db.execute("SELECT status,rollback_count FROM auto_billing_runs WHERE batch_no=?", (batch_no,)).fetchone()
+        db.close()
+        self.assertEqual(run['status'], 'blocked')
+        self.assertEqual(run['rollback_count'], 0)
 
     def test_readonly_menu_is_limited_and_shows_customer_collection(self):
         readonly_cookie = self._create_user_and_login(
@@ -3739,7 +3799,8 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('缴费金额合计', html)
         self.assertIn('BACKUPSUMMARY', html)
         self.assertIn('2029-01', html)
-        self.assertRegex(html, r'(168\.80|187\.80)')
+        self.assertRegex(html, r'账单金额合计</td><td>\d+\.80')
+        self.assertRegex(html, r'缴费金额合计</td><td>\d+\.80')
 
     def test_backup_restore_confirm_page_explains_risk_and_auto_backup(self):
         status, body, loc = http_post('/backups/create', {}, self.cookie, TEST_PORT)

@@ -320,6 +320,13 @@ class TestDBLogic(unittest.TestCase):
         self.assertEqual(end.isoformat(), '2026-09-26')
         self.assertEqual(due.isoformat(), '2026-06-26')
 
+    def test_auto_billing_supports_yearly_service_period(self):
+        from server.auto_billing import next_service_period
+        start, end, due = next_service_period('2026-06-27', '2028-06-26', 'yearly', '2026-05-28')
+        self.assertEqual(start.isoformat(), '2026-06-27')
+        self.assertEqual(end.isoformat(), '2027-06-26')
+        self.assertEqual(due.isoformat(), '2026-06-26')
+
     def test_auto_billing_preview_and_confirm_do_not_duplicate_service_period(self):
         from server.auto_billing import build_auto_billing_preview, confirm_auto_billing
         owner_id = self.db.execute("INSERT INTO owners(name) VALUES('自动出账业主')").lastrowid

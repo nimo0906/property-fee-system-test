@@ -147,6 +147,22 @@ class TestBasicImport(unittest.TestCase):
         self.assertIn('缺少物业费单价', reasons)
         self.assertIn('缺少缴费周期', reasons)
 
+    def test_import_normalizes_yearly_payment_cycle(self):
+        self.db.execute("ALTER TABLE rooms ADD COLUMN payment_cycle TEXT")
+        headers = ['楼栋', '单元/座', '铺位号', '房屋类别', '面积㎡', '商户名称', '缴费周期']
+        col_map = {
+            'building': 0, 'unit': 1, 'room_number': 2, 'category': 3,
+            'area': 4, 'owner_name': 5, 'payment_cycle': 6,
+        }
+        rows = [['金莎国际', '商场', '1F-201', '商户', '88.5', '年付商户', '年付']]
+
+        result = import_basic_info(self.db, headers, rows, col_map)
+        self.db.commit()
+
+        self.assertEqual(result['imported_rooms'], 1)
+        room = self.db.execute("SELECT payment_cycle FROM rooms WHERE room_number='1F-201'").fetchone()
+        self.assertEqual(room['payment_cycle'], 'yearly')
+
 
 if __name__ == '__main__':
     unittest.main()

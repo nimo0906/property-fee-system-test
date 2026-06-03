@@ -15,7 +15,7 @@ from server.billing_engine import calculate_bill_amount, fee_applies_to_room
 from server.db import add_months, get_db, h, m, qs
 
 
-CYCLE_MONTHS = {'monthly': 1, 'quarterly': 3, 'semiannual': 6}
+CYCLE_MONTHS = {'monthly': 1, 'quarterly': 3, 'semiannual': 6, 'yearly': 12}
 EXCLUDED_AUTO_FEE_NAMES = {'装修管理费', '装修押金', '临时收费'}
 
 
