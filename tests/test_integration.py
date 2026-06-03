@@ -3493,6 +3493,38 @@ class TestIntegration(unittest.TestCase):
         _, body = http_get('/fee_types?group=commercial', self.cookie, TEST_PORT)
         self.assertIn('测试商业收费项', body)
 
+
+    def test_fee_type_delete_hides_referenced_item_and_returns_group(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '删除收费项业主', '13900009991')
+        room_id = create_room(db, building='FEEDEL', unit='A座', room_number='101', owner_id=owner_id)
+        fee_id = db.execute("""
+            INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active)
+            VALUES('删除引用测试费','fixed',88,'元','monthly',29,1)
+        """).lastrowid
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=fee_id, period='2036-06', amount=88, status='unpaid', owner_id=owner_id)
+        db.commit(); db.close()
+
+        status, page = http_get('/fee_types?group=property', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('删除引用测试费', page)
+        self.assertIn(f'name="return_group" value="property"', page)
+
+        status, body, loc = http_post(f'/fee_types/{fee_id}/delete', {'return_group': 'property'}, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/fee_types?group=property', loc)
+
+        status, page = http_get('/fee_types?group=property', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertNotIn('删除引用测试费', page)
+        db = db_module.get_db()
+        fee = db.execute('SELECT is_active FROM fee_types WHERE id=?', (fee_id,)).fetchone()
+        bill = db.execute('SELECT fee_type_id FROM bills WHERE id=?', (bill_id,)).fetchone()
+        db.close()
+        self.assertEqual(fee['is_active'], 0)
+        self.assertEqual(bill['fee_type_id'], fee_id)
+
     def test_fee_type_edit_allows_blank_optional_numbers(self):
         status, _, loc = http_post('/fee_types/13/edit', {
             'name': '泄水费',

@@ -75,7 +75,7 @@ class FeeMixin(BaseHandler):
             html = '<div class="col-md-6 col-lg-4 mb-3"><div class="card fee-card h-100"><div class="card-body">'
             html += '<div class="d-flex justify-content-between gap-2"><h5>' + h(r['name']) + '</h5><div>'
             html += '<a href="/fee_types/' + str(r['id']) + '/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>'
-            html += '<form method=POST action="/fee_types/' + str(r['id']) + '/delete" style=display:inline onsubmit="return confirm(\'确定删除？\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></div>'
+            html += '<form method=POST action="/fee_types/' + str(r['id']) + '/delete" style=display:inline onsubmit="return confirm(\'确定删除？\')"><input type="hidden" name="return_group" value="' + h(selected_group) + '"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></div>'
             html += '<hr><div class="row text-center"><div class="col-4 border-end"><small class="text-muted d-block">计算方式</small><span class="badge status-info">' + calc_n.get(r['calc_method'], r['calc_method']) + '</span></div>'
             html += '<div class="col-4 border-end"><small class="text-muted d-block">单价</small><strong class="fee-price">¥' + m(r['unit_price']) + '</strong></div>'
             html += '<div class="col-4"><small class="text-muted d-block">适用</small>' + cat_hint + '</div></div>'
@@ -320,19 +320,27 @@ document.getElementById("newTierRate").value="";
         db.commit();db.close()
         self._redirect(f'/fee_types/{fid}/edit?flash=更新成功')
 
-    def _fee_type_delete(self, fid):
+    def _fee_type_delete(self, fid, data=None):
+        data = data or {}
+        return_group = qs(data, 'return_group')
+        suffix = f'?group={return_group}' if return_group in ('property', 'commercial', 'other') else ''
         db=get_db()
         bc=db.execute("SELECT COUNT(*) FROM bills WHERE fee_type_id=?",(fid,)).fetchone()[0]
         mc=db.execute("SELECT COUNT(*) FROM meter_readings WHERE fee_type_id=?",(fid,)).fetchone()[0]
+        fee=db.execute("SELECT name FROM fee_types WHERE id=?",(fid,)).fetchone()
+        if not fee:
+            db.close()
+            return self._redirect('/fee_types' + suffix + ('&' if suffix else '?') + 'flash=收费项目不存在')
         if bc>0 or mc>0:
             details=[]
             if bc>0: details.append(f'{bc}条账单')
             if mc>0: details.append(f'{mc}条抄表记录')
-            db.close()
-            return self._redirect(f'/fee_types?flash=该费用类型下有{"、".join(details)}引用，无法删除')
-        db.execute("DELETE FROM fee_types WHERE id=?",(fid,))
+            db.execute("UPDATE fee_types SET is_active=0 WHERE id=?",(fid,))
+            db.commit(); db.close()
+            return self._redirect('/fee_types' + suffix + ('&' if suffix else '?') + f'flash=已隐藏“{h(fee["name"])}”，历史{"、".join(details)}仍保留')
+        db.execute("UPDATE fee_types SET is_active=0 WHERE id=?",(fid,))
         db.commit();db.close()
-        self._redirect('/fee_types?flash=已删除')
+        self._redirect('/fee_types' + suffix + ('&' if suffix else '?') + 'flash=已删除')
 
     # ── 电梯费阶梯设置 ──────────────────────────────────────────
     def _elevator_tiers(self):

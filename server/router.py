@@ -166,7 +166,7 @@ def handle_post(handler):
     elif p == '/batch_ops/fee_rate': return handler._batch_fee_rate(d)
     elif p == '/elevator_tiers/update': return handler._elevator_tiers_update(d)
     elif (m := re.match(r'^/fee_types/(\d+)/edit$', p)): return handler._fee_type_edit(int(m.group(1)), d)
-    elif (m := re.match(r'^/fee_types/(\d+)/delete$', p)): return handler._fee_type_delete(int(m.group(1)))
+    elif (m := re.match(r'^/fee_types/(\d+)/delete$', p)): return handler._fee_type_delete(int(m.group(1)), d)
     elif p == '/meter_readings/create': return handler._meter_create(d)
     elif (m := re.match(r'^/meter_readings/(\d+)/confirm$', p)): return handler._meter_confirm(int(m.group(1)))
     elif (m := re.match(r'^/meter_readings/(\d+)/delete$', p)): return handler._meter_delete(int(m.group(1)))
