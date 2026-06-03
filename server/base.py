@@ -189,7 +189,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         body = ''.join(
             f'''<tr><td><input type="checkbox" name="log_ids" value="{r["id"]}" form="auditDeleteForm"></td><td><small>{h(r["created_at"])}</small></td><td><span class="badge status-info">{h(r["action"])}</span></td>
             <td>{h(r["entity_type"] or "-")} #{h(r["entity_id"] or "")}</td><td>{h(r["username"] or "系统")}</td>
-            <td>{h(r["reason"] or "-")}</td><td><details><summary>格式化详情</summary><pre class="small mb-0">old: {h(self._format_audit_value(r["old_value"]))}\nnew: {h(self._format_audit_value(r["new_value"]))}</pre>{self._audit_diff_html(r["old_value"], r["new_value"])}</details></td></tr>'''
+            <td>{h(r["reason"] or "-")}</td><td><details><summary>查看变更详情（格式化详情）</summary><pre class="small mb-0">old: {h(self._format_audit_value(r["old_value"]))}\nnew: {h(self._format_audit_value(r["new_value"]))}</pre>{self._audit_diff_html(r["old_value"], r["new_value"])}</details></td></tr>'''
             for r in rows
         ) or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作日志</td></tr>'
         self._html(self._page('操作日志', f'''
@@ -199,25 +199,39 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             <div class="metric-card danger"><div class="metric-label">高风险操作</div><div class="metric-value">{summary["risk_count"] or 0}</div><small class="text-muted">删除/恢复/清空/金额修改</small></div>
             <div class="metric-card success"><div class="metric-label">登录事件</div><div class="metric-value">{summary["login_count"] or 0}</div><small class="text-muted">登录成功/失败/停用</small></div>
         </div>
-        <div class="d-flex gap-2 flex-wrap mb-3"><span class="badge bg-light text-dark border">高风险快捷筛选</span>
-            <a class="btn btn-sm {"btn-danger" if params["risk"]=="high" else "btn-outline-danger"}" href="/audit_logs?risk=high"><i class="bi bi-shield-exclamation"></i> 只看高风险</a>
-            <input type="hidden" name="risk" value="{h(params["risk"])}" form="auditFilterForm">
+        <div class="audit-control-panel">
+            <section class="audit-control-section" data-audit-section="filters">
+                <div class="audit-section-title"><i class="bi bi-funnel"></i> 筛选日志</div>
+                <form method="GET" action="/audit_logs" class="row g-2" id="auditFilterForm">
+                    <div class="col-md-2"><select name="action" class="form-select">{action_opts}</select></div>
+                    <div class="col-md-2"><select name="entity_type" class="form-select">{entity_opts}</select></div>
+                    <div class="col-md-2"><input name="username" class="form-control" value="{h(params["username"])}" placeholder="操作人"></div>
+                    <div class="col-md-2"><input name="date_from" type="date" class="form-control" value="{h(params["date_from"])}"></div>
+                    <div class="col-md-2"><input name="date_to" type="date" class="form-control" value="{h(params["date_to"])}"></div>
+                    <div class="col-md-2"><input name="keyword" class="form-control" value="{h(params["kw"])}" placeholder="原因/详情/IP"></div>
+                    <input type="hidden" name="risk" value="{h(params["risk"])}" form="auditFilterForm">
+                    <div class="col-md-12 d-flex gap-2 flex-wrap"><button class="btn btn-primary"><i class="bi bi-search"></i> 筛选</button><a class="btn btn-outline-secondary" href="/audit_logs">重置</a></div>
+                </form>
+            </section>
+            <section class="audit-control-section audit-risk-section" data-audit-section="risk">
+                <div class="audit-section-title"><i class="bi bi-shield-exclamation"></i> 高风险快捷筛选</div>
+                <p class="text-muted small mb-2">快速查看删除、恢复、清空、金额修改、批量操作等高风险日志。</p>
+                <a class="btn btn-sm {"btn-danger" if params["risk"]=="high" else "btn-outline-danger"}" href="/audit_logs?risk=high"><i class="bi bi-shield-exclamation"></i> 只看高风险</a>
+            </section>
+            <section class="audit-control-section" data-audit-section="actions">
+                <div class="audit-section-title"><i class="bi bi-tools"></i> 批量操作</div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a class="btn btn-sm btn-outline-success" href="/audit_logs/export.csv?{h(query)}"><i class="bi bi-download"></i> 导出当前筛选CSV</a>
+                    <form method="POST" action="/audit_logs/delete" id="auditDeleteForm" class="m-0"
+                        onsubmit="return confirm('确认删除选中的操作日志？')">
+                        <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> 删除选中日志</button>
+                    </form>
+                </div>
+            </section>
         </div>
-        <form method="GET" action="/audit_logs" class="row g-2 mb-3" id="auditFilterForm">
-            <div class="col-md-2"><select name="action" class="form-select">{action_opts}</select></div>
-            <div class="col-md-2"><select name="entity_type" class="form-select">{entity_opts}</select></div>
-            <div class="col-md-2"><input name="username" class="form-control" value="{h(params["username"])}" placeholder="操作人"></div>
-            <div class="col-md-2"><input name="date_from" type="date" class="form-control" value="{h(params["date_from"])}"></div>
-            <div class="col-md-2"><input name="date_to" type="date" class="form-control" value="{h(params["date_to"])}"></div>
-            <div class="col-md-2"><input name="keyword" class="form-control" value="{h(params["kw"])}" placeholder="原因/详情/IP"></div>
-            <div class="col-md-12 d-flex gap-2"><button class="btn btn-primary"><i class="bi bi-search"></i> 筛选</button><a class="btn btn-outline-secondary" href="/audit_logs">重置</a><a class="btn btn-outline-success" href="/audit_logs/export.csv?{h(query)}"><i class="bi bi-download"></i> 导出CSV</a></div>
-        </form>
-        <form method="POST" action="/audit_logs/delete" id="auditDeleteForm" class="mb-2"
-            onsubmit="return confirm('确认删除选中的操作日志？')">
-            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> 删除选中</button>
-        </form>
-        <div class="table-responsive"><table class="table table-hover align-middle small">
+        <div class="audit-log-table"><div class="table-responsive"><table class="table table-hover align-middle small">
         <thead><tr><th>选择</th><th>时间</th><th>动作</th><th>对象</th><th>操作人</th><th>原因</th><th>详情</th></tr></thead><tbody>{body}</tbody></table></div>
+        </div>
         ''', 'audit_logs'))
 
     def _audit_logs_csv(self, q):

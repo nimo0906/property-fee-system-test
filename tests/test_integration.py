@@ -2429,6 +2429,28 @@ class TestIntegration(unittest.TestCase):
         db.close()
         self.assertEqual(exists, 0)
 
+    def test_audit_logs_page_groups_filter_risk_actions_and_details(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("INSERT INTO audit_logs(action,entity_type,entity_id,username,role,ip,old_value,new_value,reason) VALUES(?,?,?,?,?,?,?,?,?)",
+                   ('bill_amount_update', 'bill', 101, 'admin', 'admin', '127.0.0.1', '{"amount":300}', '{"amount":330}', '页面分组'))
+        db.commit(); db.close()
+
+        status, html = http_get('/audit_logs?keyword=%E9%A1%B5%E9%9D%A2%E5%88%86%E7%BB%84', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('class="audit-control-panel"', html)
+        self.assertIn('data-audit-section="filters"', html)
+        self.assertIn('筛选日志', html)
+        self.assertIn('data-audit-section="risk"', html)
+        self.assertIn('高风险快捷筛选', html)
+        self.assertIn('data-audit-section="actions"', html)
+        self.assertIn('导出当前筛选CSV', html)
+        self.assertIn('删除选中日志', html)
+        self.assertIn('class="audit-log-table"', html)
+        self.assertIn('查看变更详情', html)
+        self.assertIn('字段差异', html)
+
     def test_audit_logs_high_risk_quick_filter(self):
         import server.db as db_module
         db = db_module.get_db()

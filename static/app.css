@@ -902,6 +902,42 @@ a:hover { color: var(--brand-2); }
     font-weight: 760;
 }
 
+.audit-control-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(220px, .8fr) minmax(220px, .8fr);
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.audit-control-section {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    background: linear-gradient(180deg, #fff, #f9fbfb);
+    box-shadow: var(--shadow-xs);
+}
+
+.audit-risk-section {
+    background: linear-gradient(180deg, #fff7f5, #fff);
+    border-color: #f2cfca;
+}
+
+.audit-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    color: #52605c;
+    font-size: 13px;
+    font-weight: 780;
+}
+
+.audit-log-table details summary {
+    cursor: pointer;
+    color: var(--brand);
+    font-weight: 700;
+}
+
 .finance-summary {
     border: 1px solid var(--line);
     border-radius: 8px;
@@ -1171,6 +1207,9 @@ footer {
         align-items: stretch;
     }
     .report-export-panel {
+        grid-template-columns: 1fr;
+    }
+    .audit-control-panel {
         grid-template-columns: 1fr;
     }
     .batch-bar .btn,
