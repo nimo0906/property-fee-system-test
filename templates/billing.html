@@ -1,5 +1,5 @@
 <div class="alert alert-info d-flex align-items-center gap-2"><i class="bi bi-info-circle"></i><div>选择房间自动计算，金额可编辑。日期区间内按月数累计，提交前请核对右侧收银明细。{MODE_NOTE}</div></div>
-<script>window.ELEVATOR_TIERS={ELEVATOR_DATA};window.OWNER_ROOMS={OWNER_DATA};window.BILLING_MODE="{BILLING_MODE}";</script>
+<script>window.ELEVATOR_TIERS={ELEVATOR_DATA};window.OWNER_ROOMS={OWNER_DATA};window.BILLING_MODE="{BILLING_MODE}";window.METER_READINGS={METER_DATA};</script>
 <form method=POST action="/billing/calc" id="billingForm">
 <div class="row g-4">
 <div class="col-lg-4">
@@ -53,4 +53,4 @@ window.filterRooms=function(){
 </div>
 </div>
 </form>
-<script src="/static/billing.js?v=20260602tenant"></script>
+<script src="/static/billing.js?v=20260603meter"></script>

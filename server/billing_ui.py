@@ -65,10 +65,25 @@ class BillingUiMixin(BaseHandler):
                     'rate': r['custom_rate'] or '',
                     'cycle': r['payment_cycle'] or 'monthly'
                 })
+        room_ids = [r['id'] for r in rooms]
+        meter_map = {}
+        if room_ids:
+            placeholders = ','.join('?' for _ in room_ids)
+            meter_rows = db.execute(
+                f"""SELECT room_id,fee_type_id,period,COALESCE(SUM(consumption),0) consumption
+                    FROM meter_readings
+                    WHERE status='confirmed' AND room_id IN ({placeholders})
+                    GROUP BY room_id,fee_type_id,period""",
+                room_ids,
+            ).fetchall()
+            for mr in meter_rows:
+                key = f"{mr['room_id']}:{mr['fee_type_id']}:{mr['period']}"
+                meter_map[key] = float(mr['consumption'] or 0)
         db.close()
 
         elevator_json = json.dumps(elevator_list, ensure_ascii=False)
         owner_json = json.dumps(tenant_rooms, ensure_ascii=False)
+        meter_json = json.dumps(meter_map, ensure_ascii=False)
 
         # 房间下拉选项：按房间管理里的“单元”字段分组，便于区分 A座/B座/商场等。
         groups = []
@@ -141,6 +156,7 @@ class BillingUiMixin(BaseHandler):
         tpl = tpl.replace('{FEE_HTML}', fee_html or '<div class="text-center text-muted py-4">暂无费用类型</div>')
         tpl = tpl.replace('{ELEVATOR_DATA}', elevator_json)
         tpl = tpl.replace('{OWNER_DATA}', owner_json)
+        tpl = tpl.replace('{METER_DATA}', meter_json)
         tpl = tpl.replace('{BILLING_MODE}', mode)
         tpl = tpl.replace('{PERIOD_START}', default_start)
         tpl = tpl.replace('{PERIOD_END}', default_end)

@@ -58,15 +58,17 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
         monthly = calc_elevator_fee(room['floor'], room['area'])
         formula = f"楼层{room['floor']}阶梯×{room['area']}"
     elif method == 'meter':
-        cp = period.split('~')[0].replace('-', '')
+        periods = _period_compact_months(period)
+        placeholders = ','.join('?' for _ in periods)
         mr = db.execute(
-            "SELECT consumption FROM meter_readings WHERE room_id=? AND fee_type_id=? AND period=? AND status='confirmed' LIMIT 1",
-            (room['id'], fid, cp)
+            f"""SELECT COALESCE(SUM(consumption),0) FROM meter_readings
+                WHERE room_id=? AND fee_type_id=? AND period IN ({placeholders}) AND status='confirmed'""",
+            (room['id'], fid, *periods)
         ).fetchone()
         rate = get_fee_type_rate(fid, rcat)
         consumption = mr[0] if mr else 0
         monthly = round(consumption * rate, 2)
-        formula = f"{consumption}×{rate}"
+        formula = f"用量合计{_fmt_num(consumption)}×{rate}"
     elif method == 'fixed':
         monthly = fee_type['unit_price']
         formula = f"固定{fee_type['unit_price']}"
@@ -74,7 +76,7 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
         monthly = fee_type['unit_price']
         formula = f"按户{fee_type['unit_price']}"
 
-    month_count = max(1, int(months or 1))
+    month_count = 1 if method == 'meter' else max(1, int(months or 1))
     amount = round(float(monthly or 0) * month_count, 2)
     if month_count > 1 and formula != '自定义':
         formula = f"{formula}×{month_count}个月"
@@ -96,3 +98,50 @@ def _uses_room_property_rate(fee_name, room):
     except Exception:
         has_rate = False
     return has_rate
+
+
+def _period_compact_months(period):
+    """Return compact YYYYMM months covered by a billing period label."""
+    text = str(period or '').strip()
+    parts = [p.strip() for p in text.split('~') if p.strip()]
+    start = _parse_period_month(parts[0] if parts else '')
+    end = _parse_period_month(parts[-1] if len(parts) > 1 else (parts[0] if parts else ''))
+    if not start:
+        return ['']
+    if not end:
+        end = start
+    sy, sm = start
+    ey, em = end
+    if (ey, em) < (sy, sm):
+        ey, em = sy, sm
+    out = []
+    y, m = sy, sm
+    while (y, m) <= (ey, em):
+        out.append(f'{y}{m:02d}')
+        m += 1
+        if m > 12:
+            y += 1
+            m = 1
+    return out
+
+
+def _parse_period_month(value):
+    text = str(value or '').strip()
+    if len(text) >= 7 and text[4] == '-':
+        try:
+            return int(text[:4]), int(text[5:7])
+        except ValueError:
+            return None
+    if len(text) >= 6 and text[:6].isdigit():
+        return int(text[:4]), int(text[4:6])
+    return None
+
+
+def _fmt_num(value):
+    try:
+        num = float(value or 0)
+    except Exception:
+        return '0'
+    if num.is_integer():
+        return str(int(num))
+    return f'{num:.2f}'.rstrip('0').rstrip('.')

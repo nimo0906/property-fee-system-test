@@ -70,6 +70,29 @@ window.isFeeRowSelected = function(row){
     return !cb || cb.checked;
 };
 
+window.billingMeterPeriods = function(){
+    var s = document.getElementById("periodStart"), e = document.getElementById("periodEnd");
+    if(!s || !e || !s.value || !e.value) return [];
+    var sd = new Date(s.value), ed = new Date(e.value);
+    if(isNaN(sd.getTime()) || isNaN(ed.getTime())) return [];
+    var y = sd.getFullYear(), m = sd.getMonth() + 1;
+    var ey = ed.getFullYear(), em = ed.getMonth() + 1, out = [];
+    while(y < ey || (y === ey && m <= em)){
+        out.push(String(y) + (m < 10 ? "0" + m : String(m)));
+        m++;
+        if(m > 12){ y++; m = 1; }
+    }
+    return out;
+};
+
+window.sumMeterConsumption = function(roomId, feeId){
+    var data = window.METER_READINGS || {}, total = 0;
+    window.billingMeterPeriods().forEach(function(period){
+        total += parseFloat(data[String(roomId) + ":" + String(feeId) + ":" + period]) || 0;
+    });
+    return total;
+};
+
 window.calcFees = function(){
     window.updateMonthDisplay();
     var months = window.calcMonths();
@@ -93,17 +116,17 @@ window.calcFees = function(){
         var fid = parseInt(row.dataset.ft), mid = row.dataset.method, dp = parseFloat(row.dataset.price) || 0, amt = 0, f = "", monthly = 0;
         if(mid == "area"){ var rate = (n.indexOf('物业费') >= 0 && roomRate > 0) ? roomRate : dp; monthly = area * rate; f = '面积' + area.toFixed(2) + '×单价' + rate.toFixed(2); }
         else if(mid == "floor"){ var er = window.getElevatorRate(floor); monthly = er * area; f = "楼层系数" + er.toFixed(2) + "×" + area.toFixed(2); }
-        else if(mid == "meter"){ var mi = document.getElementById("meterReading_" + fid), con = mi ? parseFloat(mi.dataset.consumption) || 0 : 0; monthly = con * dp; f = con > 0 ? "用量 " + con + " × " + dp.toFixed(2) : "(无抄表) × " + dp.toFixed(2); }
+        else if(mid == "meter"){ var con = window.sumMeterConsumption(sel.value, fid); monthly = con * dp; f = con > 0 ? "用量合计 " + con + " × " + dp.toFixed(2) : "(无抄表) × " + dp.toFixed(2); }
         else if(mid == "fixed"){ monthly = dp; f = "固定 " + dp.toFixed(2); }
         else if(mid == "household"){ monthly = dp; f = "按户 " + dp.toFixed(2); }
-        amt = monthly * months;
+        amt = mid == "meter" ? monthly : monthly * months;
         var ft = document.getElementById("feeAmt_" + fid);
         if(ft){
             if(!ft.dataset.edited) ft.value = amt.toFixed(2);
             else { amt = parseFloat(ft.value) || 0; f = "自定义"; }
         }
         var fm = document.getElementById("formula_" + fid);
-        if(fm) fm.textContent = (ft && ft.dataset.edited) ? f + " = ¥" + amt.toFixed(2) : f + " × " + months + "个月 = ¥" + amt.toFixed(2);
+        if(fm) fm.textContent = (ft && ft.dataset.edited || mid == "meter") ? f + " = ¥" + amt.toFixed(2) : f + " × " + months + "个月 = ¥" + amt.toFixed(2);
         total += amt;
     });
     // Extra rooms
@@ -129,6 +152,7 @@ window.calcFees = function(){
                     var fid = parseInt(row.dataset.ft), mid = row.dataset.method, dp = parseFloat(row.dataset.price) || 0, x = 0, formula = "";
                     if(mid == "area"){ var xr = (en.indexOf('物业费') >= 0 && rr > 0) ? rr : dp; x = ea * xr * rmMonths; formula = '面积' + ea.toFixed(2) + '×单价' + xr.toFixed(2) + '×' + rmMonths + '个月'; }
                     else if(mid == "floor"){ var er = window.getElevatorRate(ef); x = er * ea * rmMonths; formula = "楼层系数" + er.toFixed(2) + "×" + ea.toFixed(2) + "×" + rmMonths + "个月"; }
+                    else if(mid == "meter"){ var con = window.sumMeterConsumption(rd.id, fid); x = con * dp; formula = con > 0 ? "用量合计 " + con + " × " + dp.toFixed(2) : "(无抄表) × " + dp.toFixed(2); }
                     else if(mid == "fixed"){ x = dp * rmMonths; formula = "固定 " + dp.toFixed(2) + " × " + rmMonths + "个月"; }
                     else if(mid == "household"){ x = dp * rmMonths; formula = "按户 " + dp.toFixed(2) + " × " + rmMonths + "个月"; }
                     if(x > 0){

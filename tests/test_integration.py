@@ -582,6 +582,48 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(calculate_bill_amount(db, special_room, special_fee, '2026-05')['amount'], 201.1)
         db.close()
 
+    def test_meter_billing_sums_confirmed_readings_across_selected_range(self):
+        from server.db import get_db
+        from server.billing_engine import calculate_bill_amount
+        db = get_db()
+        owner_id = create_owner(db, '跨月水费业主', '13900000005')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM101', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET water_rate_type='非居民' WHERE id=?", (room_id,))
+        room = db.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
+        fee = db.execute("SELECT * FROM fee_types WHERE name='水费(非居民)'").fetchone()
+        for period, consumption, status in [('202606', 10, 'confirmed'), ('202607', 8, 'confirmed'), ('202608', 4, 'draft')]:
+            db.execute(
+                "INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,previous_reading,consumption,status) VALUES(?,?,?,?,?,?,?)",
+                (room_id, fee['id'], period, consumption, 0, consumption, status),
+            )
+        db.commit()
+
+        calc = calculate_bill_amount(db, room, fee, '2026-06~2026-08', 3)
+
+        self.assertEqual(calc['amount'], 104.4)
+        self.assertIn('用量合计18', calc['formula'])
+        self.assertNotIn('×3个月', calc['formula'])
+        db.close()
+
+    def test_billing_page_embeds_confirmed_meter_readings_for_frontend_calculation(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '收费页抄表业主', '13900000006')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM102', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET water_rate_type='非居民' WHERE id=?", (room_id,))
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='水费(非居民)'").fetchone()[0]
+        db.execute(
+            "INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,previous_reading,consumption,status) VALUES(?,?,?,?,?,?,?)",
+            (room_id, fee_id, '202606', 16, 0, 16, 'confirmed'),
+        )
+        db.commit(); db.close()
+
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('window.METER_READINGS=', body)
+        self.assertIn(f'"{room_id}:{fee_id}:202606": 16.0', body)
+
     def test_nonresident_and_special_water_fees_apply_to_commercial_rooms_not_as_room_types(self):
         from server.billing_engine import fee_applies_to_category
         self.assertTrue(fee_applies_to_category('水费(非居民)', '商户'))
