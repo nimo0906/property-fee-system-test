@@ -1568,6 +1568,24 @@ class TestIntegration(unittest.TestCase):
         ]
         self.assertEqual(ordered, expected)
 
+    def test_room_form_allows_underground_negative_floor(self):
+        status, body = http_get('/rooms/create', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('name="floor" type="number"', body)
+        self.assertNotIn('name="floor" type="number" class="form-control" value="7" min="1"', body)
+        self.assertIn('min="-99"', body)
+
+        status, _, loc = http_post('/rooms/create', {
+            'building': '地下测试', 'unit': '商场', 'room_number': 'B3-001',
+            'floor': '-3', 'category': '商户', 'area': '30',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/rooms?flash=', loc)
+
+        _, list_body = http_get('/rooms?keyword=B3-001', self.cookie, TEST_PORT)
+        self.assertIn('B3-001', list_body)
+        self.assertIn('-3F', list_body)
+
     def test_room_edit_form(self):
         # First create a room
         http_post('/rooms/create', {
