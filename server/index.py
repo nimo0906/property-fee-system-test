@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Home page dashboard — clean, chart-driven overview."""
 
-from server.db import get_db, get_period, add_months, h, m, qs, update_overdue_bills
+from server.db import get_db, get_period, add_months, h, m, qs, update_overdue_bills, period_to_date
 from server.base import BaseHandler
 from datetime import date
 import json
@@ -51,6 +51,20 @@ class IndexMixin(BaseHandler):
         expired_contract_count = db.execute("SELECT COUNT(*) FROM rooms WHERE contract_end IS NOT NULL AND contract_end<>'' AND contract_end < ?", (today,)).fetchone()[0]
         meter_needed = db.execute("""SELECT COUNT(*) FROM fee_types f WHERE f.is_active=1 AND f.calc_method='meter'
             AND NOT EXISTS (SELECT 1 FROM meter_readings m WHERE m.fee_type_id=f.id AND m.period=replace(?, '-', '') AND m.status='confirmed')""", (p,)).fetchone()[0]
+        overdue_cnt = db.execute(
+            "SELECT COUNT(*) FROM bills WHERE billing_period=? AND status='overdue'",
+            (p,)
+        ).fetchone()[0]
+        today_payment_cnt = db.execute(
+            "SELECT COUNT(*) FROM payments WHERE date(payment_date)=date('now','localtime')"
+        ).fetchone()[0]
+        invoice_todo_cnt = db.execute("""SELECT COUNT(*) FROM bills b
+            WHERE b.status='paid' AND b.id NOT IN (SELECT bill_id FROM invoices)
+            AND b.id NOT IN (SELECT bill_id FROM invoice_requests WHERE status IN('pending','submitted','issued'))""").fetchone()[0]
+        zero_amount_cnt = db.execute(
+            "SELECT COUNT(*) FROM bills WHERE billing_period=? AND amount<=0",
+            (p,)
+        ).fetchone()[0]
 
         # 待收费账单
         pending_bills = db.execute(
@@ -131,6 +145,33 @@ class IndexMixin(BaseHandler):
             </div>
         </div>'''
 
+        todo_cards = f'''
+        <div class="card">
+            <div class="card-header py-2"><i class="bi bi-lightning-charge"></i> 待办中心</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-2 col-6"><a class="summary-tile d-block text-decoration-none" href="/reminders?status=overdue&period={period_to_date(p)}"><div class="label">逾期未收</div><strong>{overdue_cnt}</strong><span class="text-muted small"> 笔</span></a></div>
+                    <div class="col-md-2 col-6"><a class="summary-tile d-block text-decoration-none" href="/bills?status=unpaid&period={period_to_date(p)}"><div class="label">待收费</div><strong>{pending_cnt}</strong><span class="text-muted small"> 笔</span></a></div>
+                    <div class="col-md-2 col-6"><a class="summary-tile d-block text-decoration-none" href="/reports?period={period_to_date(p)}"><div class="label">本月收缴率</div><strong>{rate}%</strong></a></div>
+                    <div class="col-md-2 col-6"><a class="summary-tile d-block text-decoration-none" href="/payments"><div class="label">今日收款</div><strong>{today_payment_cnt}</strong><span class="text-muted small"> 笔</span></a></div>
+                    <div class="col-md-2 col-6"><a class="summary-tile d-block text-decoration-none" href="/invoices"><div class="label">待开票缴费</div><strong>{invoice_todo_cnt}</strong><span class="text-muted small"> 笔</span></a></div>
+                    <div class="col-md-2 col-6"><a class="summary-tile d-block text-decoration-none" href="/auto_billing?preview_status=expiring"><div class="label">即将到期合同</div><strong>{len(expiring_contracts)}</strong><span class="text-muted small"> 户</span></a></div>
+                </div>
+            </div>
+        </div>'''
+        exception_cards = f'''
+        <div class="card border-warning">
+            <div class="card-header py-2 text-warning"><i class="bi bi-exclamation-triangle"></i> 异常提醒</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-3 col-6"><a class="summary-tile d-block text-decoration-none" href="/bills?period={period_to_date(p)}&keyword=0"><div class="label">零金额账单</div><strong>{zero_amount_cnt}</strong><span class="text-muted small"> 笔</span></a></div>
+                    <div class="col-md-3 col-6"><a class="summary-tile d-block text-decoration-none" href="/rooms"><div class="label">过期合同</div><strong>{expired_contract_count}</strong><span class="text-muted small"> 户</span></a></div>
+                    <div class="col-md-3 col-6"><a class="summary-tile d-block text-decoration-none" href="/meter_readings"><div class="label">待确认抄表</div><strong>{meter_needed}</strong><span class="text-muted small"> 项</span></a></div>
+                    <div class="col-md-3 col-6"><a class="summary-tile d-block text-decoration-none" href="/system_health"><div class="label">异常账单</div><strong>检查</strong><span class="text-muted small"> 状态/金额</span></a></div>
+                </div>
+            </div>
+        </div>'''
+
         self._html(self._page('收费工作台', f'''
         {self._default_password_warning_html()}
         <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -147,6 +188,10 @@ class IndexMixin(BaseHandler):
             <div class="col-md-4"><div class="card border-warning"><div class="card-body"><div class="text-muted small">即将到期合同</div><strong>{len(expiring_contracts)}</strong><span class="text-muted ms-2">30天内</span></div></div></div>
             <div class="col-md-4"><div class="card border-danger"><div class="card-body"><div class="text-muted small">已过期合同</div><strong>{expired_contract_count}</strong><span class="text-muted ms-2">需核对</span></div></div></div>
             <div class="col-md-4"><div class="card border-info"><div class="card-body"><div class="text-muted small">待确认抄表项目</div><strong>{meter_needed}</strong><span class="text-muted ms-2">本账期</span></div></div></div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-12">{todo_cards}</div>
+            <div class="col-12">{exception_cards}</div>
         </div>
         {first_run}
         <div class="row g-3 mb-3">

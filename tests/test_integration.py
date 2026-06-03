@@ -1399,6 +1399,32 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('发票管理', body)
         self.assertNotIn('维修', body)
 
+    def test_home_shows_actionable_todo_and_exception_cards(self):
+        from server.db import get_db, get_period
+        db = get_db()
+        period = get_period()
+        owner_id = create_owner(db, '首页待办业主', '13900008888')
+        room_id = create_room(db, building='HOME', unit='B座', room_number='TODO-1', area=88, owner_id=owner_id)
+        unpaid_id = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=1, period=period, amount=100, status='overdue')
+        paid_id = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=2, period=period, amount=200, status='paid')
+        zero_id = create_bill(db, room_id=room_id, owner_id=owner_id, fee_type_id=3, period=period, amount=0, status='unpaid')
+        db.execute("UPDATE bills SET due_date=date('now','localtime','-1 day') WHERE id=?", (unpaid_id,))
+        create_payment(db, bill_id=paid_id, amount=200, method='cash', operator='首页测试')
+        db.commit(); db.close()
+
+        status, body = http_get('/', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('待办中心', body)
+        self.assertIn('异常提醒', body)
+        self.assertIn('逾期未收', body)
+        self.assertIn('/reminders?status=overdue', body)
+        self.assertIn('待开票缴费', body)
+        self.assertIn('/invoices', body)
+        self.assertIn('异常账单', body)
+        self.assertIn('/system_health', body)
+        self.assertIn('零金额账单', body)
+
     def test_navigation_names_are_scoped_to_charge_software(self):
         status, body = http_get('/', self.cookie, TEST_PORT)
 
