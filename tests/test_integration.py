@@ -2356,6 +2356,8 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('价税合计（小写）', print_page)
         self.assertIn('壹佰捌拾捌元整', print_page)
         self.assertIn('本系统打印样式，仅用于内部留存', print_page)
+        self.assertIn('保存为PDF', print_page)
+        self.assertIn('打印对话框中选择“保存为 PDF”', print_page)
         self.assertIn('class="invoice-qr"', print_page)
         self.assertIn('class="invoice-copy-label"', print_page)
         self.assertIn('class="fiscal-mark"', print_page)
@@ -2366,6 +2368,26 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('class="invoice-password-zone"', print_page)
         self.assertIn('class="invoice-watermark"', print_page)
         self.assertIn('数电票据样式参考，仅用于内部留存', print_page)
+
+    def test_invoice_list_filters_by_keyword_and_buyer(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '发票筛选业主', '13900006666')
+        room_id = create_room(db, building='INVFILTER', unit='商场', room_number='2F-301', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-08', amount=260, status='paid', owner_id=owner_id)
+        db.execute("""
+            INSERT INTO invoices(bill_id, invoice_number, amount, issue_date, buyer_name, buyer_tax_id)
+            VALUES(?, 'INV-FILTER-001', 260, '2034-08-02', '筛选抬头公司', 'FILTER-TAX')
+        """, (bill_id,))
+        db.commit(); db.close()
+
+        status, html = http_get('/invoices?period=2034-08&keyword=%E7%AD%9B%E9%80%89%E6%8A%AC%E5%A4%B4', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('name="keyword"', html)
+        self.assertIn('筛选抬头公司', html)
+        self.assertIn('INV-FILTER-001', html)
+        self.assertIn('INVFILTER-商场-2F-301', html)
+        self.assertIn('发票列表筛选', html)
 
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module
@@ -2399,6 +2421,23 @@ class TestIntegration(unittest.TestCase):
         exists = db.execute('SELECT COUNT(*) FROM audit_logs WHERE id=?', (log_id,)).fetchone()[0]
         db.close()
         self.assertEqual(exists, 0)
+
+    def test_audit_logs_high_risk_quick_filter(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("INSERT INTO audit_logs(action,entity_type,entity_id,username,role,ip,reason) VALUES(?,?,?,?,?,?,?)",
+                   ('bill_delete', 'bill', 88, 'admin', 'admin', '127.0.0.1', '高风险删除'))
+        db.execute("INSERT INTO audit_logs(action,entity_type,entity_id,username,role,ip,reason) VALUES(?,?,?,?,?,?,?)",
+                   ('login_success', 'user', 1, 'admin', 'admin', '127.0.0.1', '普通登录'))
+        db.commit(); db.close()
+
+        status, html = http_get('/audit_logs?risk=high', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('高风险快捷筛选', html)
+        self.assertIn('name="risk" value="high"', html)
+        self.assertIn('bill_delete', html)
+        self.assertIn('高风险删除', html)
+        self.assertNotIn('普通登录', html)
 
     def test_backup_page_has_direct_preview_action(self):
         import server.db as db_module
@@ -3771,6 +3810,36 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('RPT-PARTIAL', html)
         self.assertIn('RPT-UNPAID', html)
         self.assertIn('/reports/reconciliation.csv?period=2030-11', html)
+
+    def test_reports_tenant_summary_csv_export_and_link(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name, phone) VALUES('租户报表业主', '12800000000')").lastrowid
+        room_id = db.execute("""
+            INSERT INTO rooms(building, unit, room_number, floor, category, area, owner_id, tenant_name, tenant_phone, shop_name, business_type)
+            VALUES('TENANTRPT', '商场', '1F-201', 1, '商户', 88, ?, '张租户', '13812345678', '测试奶茶店', '餐饮')
+        """, (owner_id,)).lastrowid
+        bill_id = db.execute("""
+            INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
+            VALUES(?, ?, 1, '2031-01', 300, '2031-01-28', 'partial', 'TENANT-RPT-1')
+        """, (room_id, owner_id)).lastrowid
+        db.execute("INSERT INTO payments(bill_id, amount_paid, payment_method, operator) VALUES(?, 120, 'wechat', '报表员')", (bill_id,))
+        db.commit(); db.close()
+
+        status, html = http_get('/reports?period=2031-01&building=TENANTRPT', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('导出租户CSV', html)
+        self.assertIn('/reports/tenants.csv?period=2031-01&amp;building=TENANTRPT', html)
+
+        status, csv_body = http_get('/reports/tenants.csv?period=2031-01&building=TENANTRPT', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('tenant,shop,building,room,business_type,bill_count,amount,paid,due,phone', csv_body)
+        self.assertIn('张租户', csv_body)
+        self.assertIn('测试奶茶店', csv_body)
+        self.assertIn('餐饮', csv_body)
+        self.assertIn('300.00', csv_body)
+        self.assertIn('120.00', csv_body)
+        self.assertIn('180.00', csv_body)
 
     def test_reports_can_select_multi_month_billing_period(self):
         import server.db as db_module

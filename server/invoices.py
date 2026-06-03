@@ -83,6 +83,7 @@ class InvoiceMixin(BaseHandler):
 
     def _invoices(self, q):
         db=get_db();p=date_to_period(qs(q,'period',get_period()))
+        kw=qs(q,'keyword').strip()
         sql='''SELECT i.*,b.bill_number,b.billing_period,b.amount bill_amount,
             r.building,r.unit,r.room_number,o.name oname FROM invoices i
             LEFT JOIN bills b ON i.bill_id=b.id
@@ -90,6 +91,10 @@ class InvoiceMixin(BaseHandler):
             LEFT JOIN owners o ON b.owner_id=o.id
             WHERE 1=1'''
         sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
+        if kw:
+            sql += ''' AND (i.invoice_number LIKE ? OR i.buyer_name LIKE ? OR i.buyer_tax_id LIKE ?
+                OR o.name LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.room_number LIKE ?)'''
+            vals.extend([f'%{kw}%'] * 7)
         rows=db.execute(sql + ' ORDER BY i.id DESC', vals).fetchall()
         total_sql, total_vals = append_period_filter(
             "SELECT COALESCE(SUM(i.amount),0) FROM invoices i JOIN bills b ON i.bill_id=b.id WHERE 1=1", [], p, 'b.billing_period'
@@ -106,7 +111,9 @@ class InvoiceMixin(BaseHandler):
             rh+='<tr>'
             rh+='<td><small>'+h(r['invoice_number'] or '-')+'</small></td>'
             rh+='<td>'+h(r['building']or'')+'-'+h(r['unit']or'')+'-'+h(r['room_number']or'')+'</td>'
-            rh+='<td>'+h(r['oname']or'-')+'</td>'
+            buyer_hint = h(r['buyer_name'] or r['oname'] or '-')
+            owner_hint = h(r['oname'] or '-')
+            rh+='<td><strong>'+buyer_hint+'</strong><br><small class="text-muted">业主：'+owner_hint+'</small></td>'
             rh+='<td class="text-end">¥'+m(r['amount'])+'</td>'
             rh+='<td>'+h(r['issue_date']or'-')+'</td>'
             rh+='<td><span class="badge bg-success">已开具</span></td>'
@@ -118,8 +125,9 @@ class InvoiceMixin(BaseHandler):
         # Available bills for invoice
         self._html(self._page("发票管理", f'''
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
-    <form class="row g-2" method=GET>
-    <div class="col-auto"><input type="date" name="period" class="form-control form-control-sm" value="{period_to_date(p)}" onchange="this.form.submit()"></div>
+    <form class="row g-2 align-items-end" method=GET>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_to_date(p)}" onchange="this.form.submit()"></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">发票列表筛选</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="发票号/抬头/税号/房号"></div>
     <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button><a href="/invoices" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
     </div>
     <div class="row g-4">
@@ -219,7 +227,7 @@ class InvoiceMixin(BaseHandler):
       </div>
       <div class="sign-row"><div>收款人：管理员</div><div>复核人：管理员</div><div>开票人：管理员</div></div>
     </div>
-    <div class="no-print text-center mt-3"><button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button> <a href="/invoices" class="btn btn-outline-secondary">返回</a></div>
+    <div class="no-print text-center mt-3"><div class="alert alert-light border d-inline-block text-start small mb-2"><strong>保存为PDF：</strong>点击打印后，在打印对话框中选择“保存为 PDF”。</div><br><button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button> <a href="/invoices" class="btn btn-outline-secondary">返回</a></div>
     </body></html>'''
         self._html(html)
 

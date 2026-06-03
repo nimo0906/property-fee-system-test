@@ -154,6 +154,7 @@ def handle_get(handler):
     elif p == '/reports': return handler._reports(q)
     elif p == '/reports/reconciliation.csv': return handler._reports_reconciliation_csv(q)
     elif p == '/reports/collections.csv': return handler._reports_collections_csv(q)
+    elif p == '/reports/tenants.csv': return handler._reports_tenants_csv(q)
     elif p == '/reports/reconciliation/print': return handler._reports_reconciliation_print(q)
     elif (m := re.match(r'^/api/rooms/(\d+)/meter/(\d+)$', p)):
         return handler._api_meter(int(m.group(1)), int(m.group(2)))

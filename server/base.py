@@ -99,6 +99,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         username = qs(q, 'username')
         date_from = qs(q, 'date_from')
         date_to = qs(q, 'date_to')
+        risk = qs(q, 'risk')
         cond = []
         vals = []
         if action:
@@ -111,12 +112,14 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             cond.append('created_at>=?'); vals.append(date_from + ' 00:00:00')
         if date_to:
             cond.append('created_at<=?'); vals.append(date_to + ' 23:59:59')
+        if risk == 'high':
+            cond.append('(action LIKE "%delete%" OR action LIKE "%restore%" OR action LIKE "%reset%" OR action LIKE "%rollback%" OR action LIKE "%amount_update%" OR action LIKE "batch_%")')
         if kw:
             cond.append('(action LIKE ? OR username LIKE ? OR ip LIKE ? OR reason LIKE ? OR old_value LIKE ? OR new_value LIKE ?)')
             vals.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%'])
         return cond, vals, {
             'action': action, 'entity': entity, 'kw': kw,
-            'username': username, 'date_from': date_from, 'date_to': date_to,
+            'username': username, 'date_from': date_from, 'date_to': date_to, 'risk': risk,
         }
 
     def _audit_logs(self, q):
@@ -145,7 +148,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         )
         query = urllib.parse.urlencode({
             'action': params['action'], 'entity_type': params['entity'], 'keyword': params['kw'],
-            'username': params['username'], 'date_from': params['date_from'], 'date_to': params['date_to'],
+            'username': params['username'], 'date_from': params['date_from'], 'date_to': params['date_to'], 'risk': params['risk'],
         })
         body = ''.join(
             f'''<tr><td><input type="checkbox" name="log_ids" value="{r["id"]}" form="auditDeleteForm"></td><td><small>{h(r["created_at"])}</small></td><td><span class="badge status-info">{h(r["action"])}</span></td>
@@ -160,7 +163,11 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             <div class="metric-card danger"><div class="metric-label">高风险操作</div><div class="metric-value">{summary["risk_count"] or 0}</div><small class="text-muted">删除/恢复/清空/金额修改</small></div>
             <div class="metric-card success"><div class="metric-label">登录事件</div><div class="metric-value">{summary["login_count"] or 0}</div><small class="text-muted">登录成功/失败/停用</small></div>
         </div>
-        <form method="GET" action="/audit_logs" class="row g-2 mb-3">
+        <div class="d-flex gap-2 flex-wrap mb-3"><span class="badge bg-light text-dark border">高风险快捷筛选</span>
+            <a class="btn btn-sm {"btn-danger" if params["risk"]=="high" else "btn-outline-danger"}" href="/audit_logs?risk=high"><i class="bi bi-shield-exclamation"></i> 只看高风险</a>
+            <input type="hidden" name="risk" value="{h(params["risk"])}" form="auditFilterForm">
+        </div>
+        <form method="GET" action="/audit_logs" class="row g-2 mb-3" id="auditFilterForm">
             <div class="col-md-2"><select name="action" class="form-select">{action_opts}</select></div>
             <div class="col-md-2"><select name="entity_type" class="form-select">{entity_opts}</select></div>
             <div class="col-md-2"><input name="username" class="form-control" value="{h(params["username"])}" placeholder="操作人"></div>

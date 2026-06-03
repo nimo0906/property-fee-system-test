@@ -99,6 +99,49 @@ class ReportMixin(BaseHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _reports_tenants_csv(self, q):
+        p = qs(q, 'period', get_period())
+        building = qs(q, 'building')
+        status = qs(q, 'status')
+        period_clause, vals = period_filter_clause(p, 'b.billing_period')
+        cond = [period_clause]
+        if building:
+            cond.append('r.building=?')
+            vals.append(building)
+        if status:
+            if status == 'arrears':
+                cond.append("b.status IN ('unpaid','overdue','partial')")
+            else:
+                cond.append('b.status=?')
+                vals.append(status)
+        db = get_db()
+        rows = db.execute('''SELECT
+            COALESCE(NULLIF(r.tenant_name,''),NULLIF(r.shop_name,''),o.name,'-') tenant,
+            COALESCE(NULLIF(r.shop_name,''),'-') shop,
+            r.building,r.unit,r.room_number,COALESCE(NULLIF(r.business_type,''),'-') business_type,
+            COALESCE(NULLIF(r.tenant_phone,''),o.phone,'') phone,
+            COUNT(b.id) bill_count,COALESCE(SUM(b.amount),0) amount,
+            COALESCE(SUM((SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=b.id)),0) paid
+            FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
+            WHERE ''' + ' AND '.join(cond) + '''
+            GROUP BY r.id ORDER BY r.building,r.unit,r.room_number''', vals).fetchall()
+        db.close()
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(['tenant','shop','building','room','business_type','bill_count','amount','paid','due','phone'])
+        for r in rows:
+            amount = float(r['amount'] or 0)
+            paid = float(r['paid'] or 0)
+            room = f"{r['unit'] or ''}-{r['room_number'] or ''}".strip('-')
+            w.writerow([r['tenant'], r['shop'], r['building'] or '', room, r['business_type'], r['bill_count'], m(amount), m(paid), m(amount - paid), r['phone'] or ''])
+        raw = buf.getvalue().encode('utf-8-sig')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/csv; charset=utf-8')
+        self.send_header('Content-Disposition', f'attachment; filename=tenants_{p}.csv')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def _collection_summary_data(self, period):
         db = get_db()
         period_clause, period_vals = period_filter_clause(period, 'b.billing_period')
@@ -180,6 +223,7 @@ class ReportMixin(BaseHandler):
             <span class="export-actions">
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation/print?{filter_query}"><i class="bi bi-printer"></i> 打印当前对账单</a>
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation.csv?{filter_query}"><i class="bi bi-download"></i> 导出对账CSV</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/reports/tenants.csv?{filter_query}"><i class="bi bi-people"></i> 导出租户CSV</a>
             </span></div>
         <div class="card-body"><div class="row text-center g-2">
             <div class="col-md-3"><div class="summary-tile"><div class="label">应收合计</div><strong class="money">¥{m(data['total'])}</strong></div></div>
