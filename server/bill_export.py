@@ -10,6 +10,8 @@ from datetime import datetime, date
 import urllib.parse, csv, io
 from server.print_helper import print_page, print_header_row
 
+BILL_EXPORT_HEADERS = ['票据编号','楼栋','房号','业主','电话','类别','费用类型','账期','服务开始日','服务结束日','金额','已缴','欠费','状态','截止日']
+
 
 class BillExportMixin(BaseHandler):
 
@@ -37,14 +39,14 @@ class BillExportMixin(BaseHandler):
             db.close()
             buf=io.StringIO()
             w=csv.writer(buf)
-            w.writerow(['票据编号','楼栋','房号','业主','电话','类别','费用类型','账期','金额','已缴','欠费','状态','截止日'])
+            w.writerow(BILL_EXPORT_HEADERS)
             sn={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
             for r in rows:
                 rem=r['amount']-r['paid']
                 w.writerow([
                     r['bill_number'] or '', f"{r['building'] or ''}-{r['unit'] or ''}", r['room_number'] or '',
                     r['owner_name'] or '', r['owner_phone'] or '', r['category'] or '',
-                    r['ft'] or '', r['billing_period'], r['amount'], r['paid'],
+                    r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
                     round(rem,2), sn.get(r['status'],r['status']), r['due_date'] or ''
                 ])
             csv_data=buf.getvalue()
@@ -73,14 +75,14 @@ class BillExportMixin(BaseHandler):
             db.close()
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(['票据编号','楼栋','房号','业主','电话','类别','费用类型','账期','金额','已缴','欠费','状态','截止日'])
+            w.writerow(BILL_EXPORT_HEADERS)
             sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
             for r in rows:
                 rem = r['amount'] - r['paid']
                 w.writerow([
                     r['bill_number'] or '', f"{r['building'] or ''}-{r['unit'] or ''}", r['room_number'] or '',
                     r['owner_name'] or '', r['owner_phone'] or '', r['category'] or '',
-                    r['ft'] or '', r['billing_period'], r['amount'], r['paid'],
+                    r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
                     round(rem, 2), sn.get(r['status'], r['status']), r['due_date'] or ''
                 ])
             csv_data = buf.getvalue()
@@ -112,14 +114,14 @@ class BillExportMixin(BaseHandler):
             db.close()
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(['票据编号','楼栋','房号','业主','电话','类别','费用类型','账期','金额','已缴','欠费','状态','截止日'])
+            w.writerow(BILL_EXPORT_HEADERS)
             sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
             for r in rows:
                 rem = r['amount'] - r['paid']
                 w.writerow([
                     r['bill_number'] or '', f"{r['building'] or ''}-{r['unit'] or ''}", r['room_number'] or '',
                     r['owner_name'] or '', r['owner_phone'] or '', r['category'] or '',
-                    r['ft'] or '', r['billing_period'], r['amount'], r['paid'],
+                    r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
                     round(rem, 2), sn.get(r['status'], r['status']), r['due_date'] or ''
                 ])
             csv_data = buf.getvalue()

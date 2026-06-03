@@ -10,6 +10,11 @@ import urllib.parse, csv, io
 
 from server.print_helper import print_page, print_header_row
 
+def _receipt_service_period(bill):
+    if bill['source'] == 'auto_contract' and bill['service_start'] and bill['service_end']:
+        return f'<br><small>自动出账服务期 {h(bill["service_start"])} 至 {h(bill["service_end"])}</small>'
+    return ''
+
 
 class BillReceiptMixin(BaseHandler):
 
@@ -87,7 +92,7 @@ class BillReceiptMixin(BaseHandler):
                 rows_html += f'''<tr>
                     <td>{h(row_room)}</td>
                     <td>{h(b['ft'])}</td>
-                    <td>{h(b['billing_period'])}</td>
+                    <td>{h(b['billing_period'])}{_receipt_service_period(b)}</td>
                     <td>{usage_str}</td>
                     <td>1</td>
                     <td class="amt">{up}</td>

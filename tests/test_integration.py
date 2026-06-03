@@ -899,6 +899,46 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('服务期 2026-06-27 至 2026-09-26', body)
         self.assertIn('截止 2026-06-26', body)
 
+    def test_auto_billing_outputs_show_service_period(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '自动输出业主', '13966667777')
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOOUTPUT', 'B座', '2801', 28, '居民', 100, owner_id, '自动输出租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        bill_id = db.execute("""
+            INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,
+            bill_number,source,service_start,service_end,auto_batch_no)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            room_id, owner_id, fee_id, '2026-06~2026-09', 570, '2026-06-26', 'unpaid',
+            'AUTO-OUTPUT-001', 'auto_contract', '2026-06-27', '2026-09-26', 'AUTO-OUTPUT-BATCH'
+        )).lastrowid
+        db.commit(); db.close()
+
+        status, print_html, loc = http_post('/bills/print_selected', {
+            'bill_ids': str(bill_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', print_html)
+
+        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+            'bill_ids': str(bill_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', receipt_html)
+
+        status, csv_body, loc = http_post('/bills/export_selected', {
+            'bill_ids': str(bill_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('服务开始日', csv_body)
+        self.assertIn('服务结束日', csv_body)
+        self.assertIn('2026-06-27', csv_body)
+        self.assertIn('2026-09-26', csv_body)
+
     def test_readonly_menu_is_limited_and_shows_customer_collection(self):
         readonly_cookie = self._create_user_and_login(
             'readonly_menu_test', 'readonly123', 'readonly', '客服测试'

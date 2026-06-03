@@ -8,6 +8,11 @@ from server.print_helper import print_page, print_header_row
 from datetime import datetime, date
 import urllib.parse, csv, io
 
+def _service_period_text(bill):
+    if bill['source'] == 'auto_contract' and bill['service_start'] and bill['service_end']:
+        return f'<br><small>自动出账服务期 {h(bill["service_start"])} 至 {h(bill["service_end"])}</small>'
+    return ''
+
 def _combined_bill_print_html(rows):
     status_names = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
     first = rows[0]
@@ -36,7 +41,7 @@ def _combined_bill_print_html(rows):
                 <td>{h(bill['bill_number'] or '-')}</td>
                 <td>{h(room_name)}</td>
                 <td>{h(bill['ft'] or '-')}</td>
-                <td>{h(bill['billing_period'] or '-')}</td>
+                <td>{h(bill['billing_period'] or '-')}{_service_period_text(bill)}</td>
                 <td class="amt">¥{m(bill['amount'])}</td>
                 <td>{status_names.get(bill['status'], h(bill['status'] or '-'))}</td>
             </tr>
@@ -118,12 +123,13 @@ class BillPrintMixin(BaseHandler):
             pages = ''
             sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
             for i, b in enumerate(rows):
+                period = f'{h(b["billing_period"])}{_service_period_text(b)}'
                 info = ''.join(print_header_row(k, v) for k, v in [
                     ('房号', f'{h(b["building"])}-{h(b["unit"])}-{h(b["room_number"])}'),
                     ('业主', h(b["oname"] or '-')),
                     ('电话', h(b["ophone"] or '-')),
                     ('费用项目', h(b["ft"])),
-                    ('账期', h(b["billing_period"])),
+                    ('账期', period),
                     ('面积', f'{b["area"] or "-"} m2'),
                     ('票据号', h(b["bill_number"] or '-')),
                     ('截止日', h(b["due_date"] or '-')),
