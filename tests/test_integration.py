@@ -50,50 +50,7 @@ def _start_server():
     db_module.DB_PATH = os.environ['PM_DB_PATH']
     db_module.BACKUP_DIR = os.path.join(os.path.dirname(db_module.DB_PATH), 'backups')
 
-    from server import db_init
-    from server.base import BaseHandler
-    from server.auth import AuthMixin
-    from server.index import IndexMixin
-    from server.rooms import RoomMixin
-    from server.owners import OwnerMixin
-    from server.fees import FeeMixin
-    from server.meter import MeterMixin
-    from server.bill_list import BillListMixin
-    from server.bill_detail import BillDetailMixin
-    from server.bill_generation import BillGenerationMixin
-    from server.bill_export import BillExportMixin
-    from server.bill_print import BillPrintMixin
-    from server.bill_receipt import BillReceiptMixin
-    from server.payments import PaymentMixin
-    from server.billing_ui import BillingUiMixin
-    from server.auto_billing import AutoBillingMixin
-    from server.repairs import RepairMixin
-    from server.parking import ParkingMixin
-    from server.invoices import InvoiceMixin
-    from server.deposits import DepositMixin
-    from server.reminders import ReminderMixin
-    from server.collections import CollectionMixin
-    from server.closing import ClosingMixin
-    from server.reports import ReportMixin
-    from server.import_data import ImportMixin
-    from server.backups import BackupMixin
-    from server.data_health import DataHealthMixin
-    from server.system_update_pages import SystemUpdateMixin
-    from server.trial_data_reset import TrialDataResetMixin
-    from server.shared_expenses import SharedExpenseMixin
-    from server.api import ApiMixin
-
-    class Handler(
-        AuthMixin, IndexMixin, RoomMixin, OwnerMixin,
-        FeeMixin, MeterMixin,
-        BillListMixin, BillDetailMixin, BillGenerationMixin,
-        BillExportMixin, BillPrintMixin, BillReceiptMixin,
-        PaymentMixin, BillingUiMixin, AutoBillingMixin,
-        RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
-        ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin,
-        SharedExpenseMixin, ImportMixin, BackupMixin, DataHealthMixin,
-        SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
-    ): pass
+    from server import Handler, db_init
 
     db_init()
     srv = http.server.ThreadingHTTPServer((BASE_URL, TEST_PORT), Handler)
@@ -4647,6 +4604,35 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('删除后无法从系统内恢复', html)
         self.assertIn(f'action="/backups/{name}/delete"', html)
         self.assertIn('确认删除', html)
+
+
+    def test_backup_routes_reject_path_traversal_names(self):
+        import server.db as db_module
+        outside = os.path.join(os.path.dirname(db_module.BACKUP_DIR), 'outside_backup_escape.db')
+        with open(outside, 'wb') as f:
+            f.write(b'not a valid backup')
+        try:
+            traversal_names = [
+                '../outside_backup_escape.db',
+                '..%2Foutside_backup_escape.db',
+            ]
+            for traversal_name in traversal_names:
+                for action in ['preview', 'restore', 'delete']:
+                    status, body = http_get(f'/backups/{traversal_name}/{action}', self.cookie, TEST_PORT)
+                    self.assertNotEqual(status, 200, f'{traversal_name} {action}')
+                    self.assertNotIn('outside_backup_escape.db', body)
+
+            for traversal_name in traversal_names:
+                status, body, loc = http_post(f'/backups/{traversal_name}/delete', {}, self.cookie, TEST_PORT)
+                self.assertTrue(os.path.exists(outside))
+                self.assertNotEqual(status, 200)
+
+                status, body, loc = http_post(f'/backups/{traversal_name}/restore', {}, self.cookie, TEST_PORT)
+                self.assertTrue(os.path.exists(outside))
+                self.assertNotEqual(status, 200)
+        finally:
+            if os.path.exists(outside):
+                os.remove(outside)
 
 
     def test_backup_restore_confirm_page_shows_backup_data_summary(self):

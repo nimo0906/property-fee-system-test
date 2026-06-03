@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Database backup and restore."""
 
-import os, shutil, sqlite3
+import os, shutil, sqlite3, urllib.parse
 from datetime import datetime, date
 
 import server.db as db_module
@@ -95,6 +95,17 @@ def _format_size(size):
     if size >= 1024 * 1024:
         return f'{size / 1024 / 1024:.1f}MB'
     return f'{size / 1024:.1f}KB'
+
+
+def _safe_backup_path(name):
+    safe_name = urllib.parse.unquote(name or '')
+    if not safe_name or safe_name != os.path.basename(safe_name):
+        return None
+    root = os.path.realpath(db_module.BACKUP_DIR)
+    path = os.path.realpath(os.path.join(root, safe_name))
+    if path == root or not path.startswith(root + os.sep):
+        return None
+    return path
 
 
 def _automatic_backup_type_keys():
@@ -277,8 +288,8 @@ class BackupMixin(BaseHandler):
             self._redirect('/backups?flash=数据库文件不存在')
 
     def _backup_preview(self, name):
-        bp = os.path.join(db_module.BACKUP_DIR, name)
-        if not os.path.exists(bp):
+        bp = _safe_backup_path(name)
+        if not bp or not os.path.exists(bp):
             return self._redirect('/backups?flash=备份文件不存在')
         type_key, type_label = describe_backup_name(name)
         size = _format_size(os.path.getsize(bp))
@@ -297,8 +308,8 @@ class BackupMixin(BaseHandler):
         ''', 'backups'))
 
     def _backup_restore_confirm(self, name):
-        bp = os.path.join(db_module.BACKUP_DIR, name)
-        if not os.path.exists(bp):
+        bp = _safe_backup_path(name)
+        if not bp or not os.path.exists(bp):
             return self._redirect('/backups?flash=备份文件不存在')
         type_key, type_label = describe_backup_name(name)
         size = _format_size(os.path.getsize(bp))
@@ -323,8 +334,8 @@ class BackupMixin(BaseHandler):
         ''', 'backups'))
 
     def _backup_restore(self, name):
-        bp = os.path.join(db_module.BACKUP_DIR, name)
-        if not os.path.exists(bp):
+        bp = _safe_backup_path(name)
+        if not bp or not os.path.exists(bp):
             return self._redirect('/backups?flash=备份文件不存在')
         restore_backup_name = ''
         if os.path.exists(db_module.DB_PATH):
@@ -438,8 +449,8 @@ class BackupMixin(BaseHandler):
         self._redirect(f'/backups?flash=已清理自动备份 {deleted_count} 个，释放空间 {_format_size(freed_size)}')
 
     def _backup_delete_confirm(self, name):
-        fp = os.path.join(db_module.BACKUP_DIR, name)
-        if not os.path.exists(fp):
+        fp = _safe_backup_path(name)
+        if not fp or not os.path.exists(fp):
             return self._redirect('/backups?flash=备份文件不存在')
         type_key, type_label = describe_backup_name(name)
         size = _format_size(os.path.getsize(fp))
@@ -461,8 +472,8 @@ class BackupMixin(BaseHandler):
         ''', 'backups'))
 
     def _backup_delete(self, name):
-        fp = os.path.join(db_module.BACKUP_DIR, name)
-        if os.path.exists(fp):
+        fp = _safe_backup_path(name)
+        if fp and os.path.exists(fp):
             os.remove(fp)
             self._audit('backup_delete', 'backup', None, {'backup': name}, None, '删除备份文件')
         self._redirect('/backups?flash=已删除')
