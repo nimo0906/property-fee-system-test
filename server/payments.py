@@ -338,9 +338,9 @@ class PaymentMixin(BaseHandler):
     # ── 缴费记录 ──────────────────────────────────────────────
     def _payments(self, q):
         raw_period = qs(q, 'period', '').strip()
-        db=get_db();p=date_to_period(raw_period) if raw_period else '';pm=qs(q,'method','');op=qs(q,'operator','')
+        db=get_db();p=date_to_period(raw_period) if raw_period else '';pm=qs(q,'method','');op=qs(q,'operator','');kw=qs(q,'keyword','').strip()
         sql='''SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.fee_type_id,
-            r.building,r.unit,r.room_number,o.name owner_name,f.name ft
+            r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE 1=1'''
@@ -349,6 +349,14 @@ class PaymentMixin(BaseHandler):
             sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if pm:sql+=" AND p.payment_method=?";vals.append(pm)
         if op:sql+=" AND p.operator LIKE ?";vals.append(f'%{op}%')
+        if kw:
+            like = f'%{kw}%'
+            sql += ''' AND (
+                r.room_number LIKE ? OR r.tenant_name LIKE ? OR r.shop_name LIKE ?
+                OR o.name LIKE ? OR r.building LIKE ? OR r.unit LIKE ?
+                OR b.bill_number LIKE ? OR p.receipt_number LIKE ? OR f.name LIKE ?
+            )'''
+            vals.extend([like] * 9)
         sql+=" ORDER BY p.payment_date DESC"
         rows=db.execute(sql,vals).fetchall()
         db.close()
@@ -386,7 +394,7 @@ class PaymentMixin(BaseHandler):
 <td>{h(r["payment_method"])}</td><td>{h(r["operator"]or"-")}</td><td><small>{h(r["receipt_number"] or "-")}</small></td></tr>''')
         rh=''.join(rh_parts)
         tpl=self._load_template('payments.html')
-        tpl=tpl.replace('{PERIOD}',period_to_date(p) if p else '').replace('{OP}',h(op)).replace('{TOTAL}',m(tc))
+        tpl=tpl.replace('{PERIOD}',period_to_date(p) if p else '').replace('{OP}',h(op)).replace('{KW}',h(kw)).replace('{TOTAL}',m(tc))
         tpl=tpl.replace('{SC}',' selected' if pm=='cash' else '').replace('{ST}',' selected' if pm=='transfer' else '')
         tpl=tpl.replace('{SW}',' selected' if pm=='wechat' else '').replace('{SA}',' selected' if pm=='alipay' else '')
         tpl=tpl.replace('<th>经手人</th>', '<th>经手人</th><th>收据号</th>')
@@ -447,8 +455,9 @@ function toggleAllPayments(checked){document.querySelectorAll('input[name="payme
         p = date_to_period(raw_period) if raw_period else ''
         pm = qs(q, 'method', '')
         op = qs(q, 'operator', '')
+        kw = qs(q, 'keyword', '').strip()
         sql = """SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.fee_type_id,
-            r.building,r.unit,r.room_number,o.name owner_name,f.name ft
+            r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE 1=1"""
@@ -459,6 +468,14 @@ function toggleAllPayments(checked){document.querySelectorAll('input[name="payme
             sql += " AND p.payment_method=?"; vals.append(pm)
         if op:
             sql += " AND p.operator LIKE ?"; vals.append(f'%{op}%')
+        if kw:
+            like = f'%{kw}%'
+            sql += """ AND (
+                r.room_number LIKE ? OR r.tenant_name LIKE ? OR r.shop_name LIKE ?
+                OR o.name LIKE ? OR r.building LIKE ? OR r.unit LIKE ?
+                OR b.bill_number LIKE ? OR p.receipt_number LIKE ? OR f.name LIKE ?
+            )"""
+            vals.extend([like] * 9)
         sql += " ORDER BY p.payment_date DESC"
         db = get_db(); rows = db.execute(sql, vals).fetchall(); db.close()
         buf = io.StringIO(); w = csv.writer(buf)

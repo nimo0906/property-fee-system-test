@@ -2,6 +2,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
 <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()" placeholder="全部账期"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" placeholder="房号/租户/业主" value="{KW}" style="width:150px"></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">方式</label><select name="method" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部方式</option><option value="cash"{SC}>现金</option><option value="transfer"{ST}>转账</option><option value="wechat"{SW}>微信</option><option value="alipay"{SA}>支付宝</option></select></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">经手人</label><input name="operator" class="form-control form-control-sm" placeholder="经手人" value="{OP}" style="width:110px"></div>
 <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/payments" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a><button type="button" class="btn btn-sm btn-outline-success" onclick="exportPaymentsCsv(this.form)"><i class="bi bi-download"></i> 导出CSV</button></div>

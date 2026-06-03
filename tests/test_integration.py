@@ -507,6 +507,40 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('金莎国际', csv_body)
         self.assertIn('测试经手人', csv_body)
 
+    def test_payments_keyword_filters_by_room_owner_tenant_and_exports_csv(self):
+        from server.db import get_db
+        db = get_db()
+        owner_a = create_owner(db, '缴费搜索业主A', '13900001001')
+        owner_b = create_owner(db, '缴费搜索业主B', '13900001002')
+        room_a = create_room(db, building='金莎国际', unit='B座', room_number='PAY-1423', category='商户', owner_id=owner_a)
+        room_b = create_room(db, building='金莎国际', unit='B座', room_number='PAY-9999', category='商户', owner_id=owner_b)
+        db.execute("UPDATE rooms SET tenant_name=? WHERE id=?", ('搜索租户甲', room_a))
+        db.execute("UPDATE rooms SET tenant_name=? WHERE id=?", ('搜索租户乙', room_b))
+        bill_a = create_bill(db, room_id=room_a, owner_id=owner_a, fee_type_id=1, period='2038-08', amount=1423, status='paid')
+        bill_b = create_bill(db, room_id=room_b, owner_id=owner_b, fee_type_id=1, period='2038-08', amount=9999, status='paid')
+        create_payment(db, bill_id=bill_a, amount=1423, method='transfer', operator='搜索经手人')
+        create_payment(db, bill_id=bill_b, amount=9999, method='transfer', operator='搜索经手人')
+        db.commit(); db.close()
+
+        status, body = http_get('/payments?period=2038-08-01&operator=%E6%90%9C%E7%B4%A2%E7%BB%8F%E6%89%8B%E4%BA%BA&keyword=1423', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('name="keyword"', body)
+        self.assertIn('value="1423"', body)
+        self.assertIn('PAY-1423', body)
+        self.assertNotIn('PAY-9999', body)
+        self.assertIn('¥1423.00', body)
+        self.assertNotIn('¥9999.00', body)
+
+        status, tenant_body = http_get('/payments?period=2038-08-01&operator=%E6%90%9C%E7%B4%A2%E7%BB%8F%E6%89%8B%E4%BA%BA&keyword=%E6%90%9C%E7%B4%A2%E7%A7%9F%E6%88%B7%E4%B9%99', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('PAY-9999', tenant_body)
+        self.assertNotIn('PAY-1423', tenant_body)
+
+        status, csv_body = http_get('/payments/export.csv?period=2038-08-01&operator=%E6%90%9C%E7%B4%A2%E7%BB%8F%E6%89%8B%E4%BA%BA&keyword=1423', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('PAY-1423', csv_body)
+        self.assertNotIn('PAY-9999', csv_body)
+
     def test_payments_default_page_shows_all_periods_until_user_filters_period(self):
         from server.db import get_db
         db = get_db()
