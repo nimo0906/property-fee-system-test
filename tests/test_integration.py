@@ -1416,6 +1416,57 @@ class TestIntegration(unittest.TestCase):
             self.assertEqual(status, 302, path)
             self.assertIn('无权限', urllib.parse.unquote(loc), path)
 
+    def test_admin_role_is_reserved_and_not_creatable_from_user_form(self):
+        status, form = http_get('/users/create', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="manager"', form)
+        self.assertIn('业务管理员', form)
+        self.assertNotIn('value="admin"', form)
+        self.assertNotIn('>管理员</option>', form)
+
+        status, _, loc = http_post('/users/create', {
+            'username': 'forged_admin_create',
+            'password': 'admin12345',
+            'display_name': '伪造管理员',
+            'role': 'admin',
+            'is_active': 'on',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('超级管理员账号不可新增', urllib.parse.unquote(loc))
+
+        from server.db import get_db
+        db = get_db()
+        existing = db.execute("SELECT id FROM users WHERE username='forged_admin_create'").fetchone()
+        db.close()
+        self.assertIsNone(existing)
+
+    def test_existing_user_cannot_be_upgraded_to_super_admin(self):
+        http_post('/users/create', {
+            'username': 'operator_upgrade_guard',
+            'password': 'operator123',
+            'display_name': '升级保护',
+            'role': 'operator',
+            'is_active': 'on',
+        }, self.cookie, TEST_PORT)
+        from server.db import get_db
+        db = get_db()
+        uid = db.execute("SELECT id FROM users WHERE username='operator_upgrade_guard'").fetchone()['id']
+        db.close()
+
+        status, _, loc = http_post(f'/users/{uid}/edit', {
+            'username': 'operator_upgrade_guard',
+            'display_name': '升级保护',
+            'role': 'admin',
+            'is_active': 'on',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('超级管理员账号不可新增或升级', urllib.parse.unquote(loc))
+
+        db = get_db()
+        role = db.execute('SELECT role FROM users WHERE id=?', (uid,)).fetchone()['role']
+        db.close()
+        self.assertEqual(role, 'operator')
+
     def test_manager_can_manage_business_users_but_not_system_maintenance(self):
         manager_cookie = self._create_user_and_login(
             'manager_scope_test', 'manager123', 'manager', '业务管理员测试'

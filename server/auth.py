@@ -231,6 +231,9 @@ class AuthMixin(BaseHandler):
         active = user["is_active"] if user else 1
         pw_required = "" if uid else "required"
         pw_label = "密码" if uid else "密码 *"
+        admin_option = ''
+        if uid and user and user["role"] == "admin":
+            admin_option = '<option value="admin" selected>管理员</option>'
         self._html(self._page(t, f'''<form method=POST action="{a}" class="row g-3">
 <div class="col-md-6"><label>用户名 <span class="text-danger">*</span></label><input name="username" class="form-control" value="{un}" required></div>
 <div class="col-md-6"><label>{pw_label}</label><input name="password" type="password" class="form-control" {"required" if not uid else ""} placeholder="留空不修改密码"></div>
@@ -238,7 +241,7 @@ class AuthMixin(BaseHandler):
 <div class="col-md-3"><label>角色</label><select name="role" class="form-select">
 <option value="manager"{" selected" if role=="manager" else ""} {"disabled" if u["role"]!="admin" else ""}>业务管理员</option>
 <option value="operator"{" selected" if role=="operator" else ""}>财务收费</option>
-<option value="admin"{" selected" if role=="admin" else ""} {"disabled" if u["role"]!="admin" or (uid and user["username"]=="admin") else ""}>管理员</option>
+{admin_option}
 <option value="readonly"{" selected" if role=="readonly" else ""}>客服只读</option></select></div>
 <div class="col-md-3"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="is_active" id="ia" {"checked" if active else ""}><label class="form-check-label" for="ia">启用</label></div></div>
 <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/users" class="btn btn-outline-secondary">取消</a></div></form>''', "users"))
@@ -250,6 +253,8 @@ class AuthMixin(BaseHandler):
         password = qs(d, "password", "")
         if not username or not password: return self._redirect("/users/create?flash=用户名和密码不能为空")
         role = qs(d, "role", "operator")
+        if role == "admin":
+            return self._redirect("/users?flash=超级管理员账号不可新增")
         if u["role"] == "manager" and role in ("admin", "manager"):
             return self._redirect("/users?flash=业务管理员只能创建财务收费或客服只读账号")
         pw_hash = hash_password(password)
@@ -274,6 +279,8 @@ class AuthMixin(BaseHandler):
         if not target:
             db.close(); return self._redirect("/users?flash=操作员不存在或已删除")
         new_role = qs(d, "role", "operator")
+        if target["role"] != "admin" and new_role == "admin":
+            db.close(); return self._redirect("/users?flash=超级管理员账号不可新增或升级")
         if target["username"] == "admin" and new_role != "admin":
             db.close(); return self._redirect("/users?flash=超级管理员不可降级")
         if u["role"] == "manager" and (target["role"] == "admin" or new_role in ("admin", "manager")):
