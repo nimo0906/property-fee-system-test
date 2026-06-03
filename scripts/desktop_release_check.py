@@ -15,6 +15,8 @@ CHECKS = [
     ('Windows build script', ROOT / 'build_windows_exe.bat'),
     ('Windows diagnosis script', ROOT / 'diagnose_windows.bat'),
     ('Windows PyInstaller spec', ROOT / 'property_fee_system.spec'),
+    ('macOS desktop icon', ROOT / 'static' / 'desktop-app-icon.icns'),
+    ('Windows desktop icon', ROOT / 'static' / 'desktop-app-icon.ico'),
     ('release checklist', ROOT / 'docs' / 'desktop-release-checklist.md'),
 ]
 

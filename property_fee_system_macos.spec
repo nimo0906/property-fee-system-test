@@ -57,7 +57,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name='物业管理收费系统.app',
-    icon=None,
+    icon='static/desktop-app-icon.icns',
     bundle_identifier='local.propertyfeesystem.desktop',
     info_plist={
         'CFBundleName': '物业管理收费系统',

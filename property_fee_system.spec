@@ -49,6 +49,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
+    icon='static/desktop-app-icon.ico',
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
