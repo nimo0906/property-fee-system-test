@@ -2294,6 +2294,8 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('缴费记录打印', print_html)
         self.assertIn('PAYACT-A座-501', print_html)
+        self.assertIn('class="print-toolbar"', print_html)
+        self.assertIn('保存为PDF', print_html)
 
     def test_paid_bills_available_for_invoice_even_without_existing_invoice(self):
         from server.db import get_db
@@ -2438,6 +2440,22 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('bill_delete', html)
         self.assertIn('高风险删除', html)
         self.assertNotIn('普通登录', html)
+
+    def test_audit_logs_highlight_old_new_diff_fields(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("INSERT INTO audit_logs(action,entity_type,entity_id,username,role,ip,old_value,new_value,reason) VALUES(?,?,?,?,?,?,?,?,?)",
+                   ('bill_amount_update', 'bill', 99, 'admin', 'admin', '127.0.0.1', '{"amount":100,"due_date":"2031-02-01"}', '{"amount":120,"due_date":"2031-02-15"}', '差异高亮'))
+        db.commit(); db.close()
+
+        status, html = http_get('/audit_logs?keyword=%E5%B7%AE%E5%BC%82%E9%AB%98%E4%BA%AE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('字段差异', html)
+        self.assertIn('audit-diff-table', html)
+        self.assertIn('amount', html)
+        self.assertIn('100', html)
+        self.assertIn('120', html)
+        self.assertIn('due_date', html)
 
     def test_backup_page_has_direct_preview_action(self):
         import server.db as db_module
@@ -3841,6 +3859,32 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('120.00', csv_body)
         self.assertIn('180.00', csv_body)
 
+    def test_reports_tenant_arrears_ranking_csv_export(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name, phone) VALUES('租户欠费排行业主', '12700000000')").lastrowid
+        room_id = db.execute("""
+            INSERT INTO rooms(building, unit, room_number, floor, category, area, owner_id, tenant_name, tenant_phone, shop_name, business_type)
+            VALUES('TENANTDUE', '商场', '2F-501', 2, '商户', 66, ?, '欠费租户', '13712345678', '欠费咖啡店', '餐饮')
+        """, (owner_id,)).lastrowid
+        db.execute("""
+            INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
+            VALUES(?, ?, 1, '2031-02', 500, '2031-02-28', 'unpaid', 'TENANT-DUE-1')
+        """, (room_id, owner_id))
+        db.commit(); db.close()
+
+        status, html = http_get('/reports?period=2031-02&building=TENANTDUE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('租户欠费排行CSV', html)
+        self.assertIn('/reports/tenant_arrears.csv?period=2031-02&amp;building=TENANTDUE', html)
+
+        status, csv_body = http_get('/reports/tenant_arrears.csv?period=2031-02&building=TENANTDUE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('tenant,shop,building,room,business_type,bill_count,due,phone', csv_body)
+        self.assertIn('欠费租户', csv_body)
+        self.assertIn('欠费咖啡店', csv_body)
+        self.assertIn('500.00', csv_body)
+
     def test_reports_can_select_multi_month_billing_period(self):
         import server.db as db_module
         db = db_module.get_db()
@@ -3914,6 +3958,8 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('PRINT-B-PAID', print_html)
         self.assertIn('window.print()', print_html)
         self.assertIn('@media print', print_html)
+        self.assertIn('class="print-toolbar"', print_html)
+        self.assertIn('保存为PDF', print_html)
         self.assertIn('账单状态分布', print_html)
         self.assertIn('未缴账单', print_html)
         self.assertIn('本期回款缺口', print_html)

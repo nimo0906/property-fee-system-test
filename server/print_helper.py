@@ -13,6 +13,9 @@ PRINT_CSS = """
 body { font-family: "SimSun", "STSong", "PingFang SC", serif;
        font-size: 12pt; color: #222; background: #fff; padding: 20pt; max-width: 210mm; margin: auto; }
 @media print { @page { margin: 1.5cm; } body { padding: 0; } .no-print { display: none !important; } }
+.print-toolbar { text-align: center; margin-bottom: 10pt; padding: 8pt; border: 1px solid #ddd; background: #fafafa; }
+.print-toolbar-tip { font-size: 9pt; color: #555; margin-bottom: 6pt; }
+@media print { .print-toolbar { display: none !important; } }
 h1 { text-align: center; font-size: 18pt; margin-bottom: 6pt; letter-spacing: 4pt; }
 h2 { text-align: center; font-size: 14pt; margin-bottom: 16pt; color: #333; }
 .header-info { width: 100%; margin-bottom: 14pt; font-size: 10pt; }
@@ -38,7 +41,8 @@ def print_page(title, content, show_back=True, back_url='/'):
     if show_back:
         safe_back_url = html.escape(back_url, quote=True)
         back_btn = f'''
-        <div class="no-print" style="text-align:center;margin-bottom:10pt">
+        <div class="print-toolbar">
+            <div class="print-toolbar-tip"><strong>保存为PDF：</strong>点击打印后，在打印对话框中选择“保存为 PDF”。</div>
             <button onclick="window.print()" style="padding:6pt 18pt;font-size:11pt;cursor:pointer;margin-right:6pt">
                 🖨️ 打印
             </button>

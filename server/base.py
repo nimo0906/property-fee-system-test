@@ -92,6 +92,32 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         except Exception:
             return str(value)
 
+    def _audit_diff_html(self, old_value, new_value):
+        try:
+            old_data = json.loads(old_value or '{}')
+            new_data = json.loads(new_value or '{}')
+        except Exception:
+            return ''
+        if not isinstance(old_data, dict) or not isinstance(new_data, dict):
+            return ''
+        rows = []
+        for key in sorted(set(old_data.keys()) | set(new_data.keys())):
+            old = old_data.get(key, '')
+            new = new_data.get(key, '')
+            if old == new:
+                continue
+            rows.append(
+                f'<tr><td>{h(key)}</td><td><code>{h(old)}</code></td><td><code>{h(new)}</code></td></tr>'
+            )
+        if not rows:
+            return ''
+        return (
+            '<div class="mt-2"><div class="fw-semibold text-danger mb-1">字段差异</div>'
+            '<table class="table table-sm table-bordered audit-diff-table mb-0">'
+            '<thead><tr><th>字段</th><th>原值</th><th>新值</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table></div>'
+        )
+
     def _audit_log_filters(self, q):
         action = qs(q, 'action')
         entity = qs(q, 'entity_type')
@@ -153,7 +179,7 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         body = ''.join(
             f'''<tr><td><input type="checkbox" name="log_ids" value="{r["id"]}" form="auditDeleteForm"></td><td><small>{h(r["created_at"])}</small></td><td><span class="badge status-info">{h(r["action"])}</span></td>
             <td>{h(r["entity_type"] or "-")} #{h(r["entity_id"] or "")}</td><td>{h(r["username"] or "系统")}</td>
-            <td>{h(r["reason"] or "-")}</td><td><details><summary>格式化详情</summary><pre class="small mb-0">old: {h(self._format_audit_value(r["old_value"]))}\nnew: {h(self._format_audit_value(r["new_value"]))}</pre></details></td></tr>'''
+            <td>{h(r["reason"] or "-")}</td><td><details><summary>格式化详情</summary><pre class="small mb-0">old: {h(self._format_audit_value(r["old_value"]))}\nnew: {h(self._format_audit_value(r["new_value"]))}</pre>{self._audit_diff_html(r["old_value"], r["new_value"])}</details></td></tr>'''
             for r in rows
         ) or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作日志</td></tr>'
         self._html(self._page('操作日志', f'''

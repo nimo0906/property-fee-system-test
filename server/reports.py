@@ -142,6 +142,45 @@ class ReportMixin(BaseHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _reports_tenant_arrears_csv(self, q):
+        p = qs(q, 'period', get_period())
+        building = qs(q, 'building')
+        status = qs(q, 'status')
+        period_clause, vals = period_filter_clause(p, 'b.billing_period')
+        cond = [period_clause]
+        if building:
+            cond.append('r.building=?')
+            vals.append(building)
+        if status and status != 'arrears':
+            cond.append('b.status=?')
+            vals.append(status)
+        cond.append("b.status IN ('unpaid','overdue','partial')")
+        db = get_db()
+        rows = db.execute('''SELECT
+            COALESCE(NULLIF(r.tenant_name,''),NULLIF(r.shop_name,''),o.name,'-') tenant,
+            COALESCE(NULLIF(r.shop_name,''),'-') shop,
+            r.building,r.unit,r.room_number,COALESCE(NULLIF(r.business_type,''),'-') business_type,
+            COALESCE(NULLIF(r.tenant_phone,''),o.phone,'') phone,
+            COUNT(b.id) bill_count,
+            COALESCE(SUM(b.amount-COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0)),0) due
+            FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
+            WHERE ''' + ' AND '.join(cond) + '''
+            GROUP BY r.id HAVING due>0.001 ORDER BY due DESC,r.building,r.unit,r.room_number''', vals).fetchall()
+        db.close()
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(['tenant','shop','building','room','business_type','bill_count','due','phone'])
+        for r in rows:
+            room = f"{r['unit'] or ''}-{r['room_number'] or ''}".strip('-')
+            w.writerow([r['tenant'], r['shop'], r['building'] or '', room, r['business_type'], r['bill_count'], m(r['due']), r['phone'] or ''])
+        raw = buf.getvalue().encode('utf-8-sig')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/csv; charset=utf-8')
+        self.send_header('Content-Disposition', f'attachment; filename=tenant_arrears_{p}.csv')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def _collection_summary_data(self, period):
         db = get_db()
         period_clause, period_vals = period_filter_clause(period, 'b.billing_period')
@@ -224,6 +263,7 @@ class ReportMixin(BaseHandler):
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation/print?{filter_query}"><i class="bi bi-printer"></i> 打印当前对账单</a>
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation.csv?{filter_query}"><i class="bi bi-download"></i> 导出对账CSV</a>
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/tenants.csv?{filter_query}"><i class="bi bi-people"></i> 导出租户CSV</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/reports/tenant_arrears.csv?{filter_query}"><i class="bi bi-exclamation-triangle"></i> 租户欠费排行CSV</a>
             </span></div>
         <div class="card-body"><div class="row text-center g-2">
             <div class="col-md-3"><div class="summary-tile"><div class="label">应收合计</div><strong class="money">¥{m(data['total'])}</strong></div></div>
@@ -274,9 +314,12 @@ class ReportMixin(BaseHandler):
         .status-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
         .section-title{{font-weight:700;margin:14px 0 8px;border-left:4px solid #111;padding-left:8px}}
         table{{width:100%;border-collapse:collapse;font-size:12px}} th,td{{border:1px solid #999;padding:6px}} th{{background:#f2f2f2}} .amt{{text-align:right}} .muted{{text-align:center;color:#777}}
-        .actions{{margin-bottom:16px;text-align:right}} @media print{{.actions{{display:none}} body{{margin:0}}}}
+        .print-toolbar{{text-align:center;margin-bottom:16px;padding:10px;border:1px solid #ddd;background:#fafafa}}
+        .print-toolbar-tip{{font-size:12px;color:#555;margin-bottom:6px}}
+        .print-toolbar button,.print-toolbar a{{padding:6px 14px;margin:0 4px}}
+        @media print{{.print-toolbar{{display:none}} body{{margin:0}}}}
         </style></head><body>
-        <div class="actions"><button onclick="window.print()">打印</button> <a href="{back}">返回报表</a></div>
+        <div class="print-toolbar"><div class="print-toolbar-tip"><strong>保存为PDF：</strong>点击打印后，在打印对话框中选择“保存为 PDF”。</div><button onclick="window.print()">打印</button> <a href="{back}">返回报表</a></div>
         <h1>对账单打印</h1><div class="meta">账期：{h(period)}　楼栋：{h(building or '全部')}　状态：{h(status_label)}</div>
         <div class="summary"><div class="box">应收合计<strong>{m(data['total'])}</strong></div><div class="box">已收合计<strong>{m(data['paid'])}</strong></div><div class="box">未收合计<strong>{m(data['due'])}</strong></div><div class="box">收缴率<strong>{data['rate']}%</strong></div></div>
         <div class="section-title">账单状态分布</div>
