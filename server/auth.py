@@ -169,16 +169,16 @@ class AuthMixin(BaseHandler):
 
     def _users(self):
         u = self._get_current_user()
-        if not u or u["role"] != "admin":
+        if not u or u["role"] not in ("admin", "manager"):
             return self._redirect("/?flash=无权限访问")
         db = get_db()
         rows = db.execute("SELECT * FROM users ORDER BY id").fetchall()
         db.close()
-        role_names = {"admin":"管理员","operator":"财务收费","readonly":"客服只读"}
+        role_names = {"admin":"管理员","manager":"业务管理员","operator":"财务收费","readonly":"客服只读"}
         rh = ""
         for r in rows:
             rl = role_names.get(r["role"], r["role"])
-            rl_badge = "danger" if r["role"]=="admin" else "info" if r["role"]=="operator" else "secondary"
+            rl_badge = "danger" if r["role"]=="admin" else "primary" if r["role"]=="manager" else "info" if r["role"]=="operator" else "secondary"
             st_badge = "success" if r["is_active"] else "secondary"
             st_text = "启用" if r["is_active"] else "待审核/停用"
             rh += "<tr>"
@@ -194,10 +194,11 @@ class AuthMixin(BaseHandler):
             rh += "</td></tr>"
         guide = '''<div class="alert alert-info border-info">
             <h6 class="mb-2"><i class="bi bi-person-gear"></i> 首次账号设置建议</h6>
-            <div class="small">这是本地账号，不是互联网开户注册。单人本地试用可以先只用 admin；正式收费建议修改默认密码，并至少创建一个财务收费账号。客服需要查看催费对象时，再创建客服只读账号。</div>
+            <div class="small">这是本地账号，不是互联网开户注册。正式交付建议由你保留超级管理员 admin，给客户负责人创建业务管理员，再按岗位创建财务收费账号、客服只读账号。</div>
             <div class="mt-2 d-flex gap-2 flex-wrap">
-                <span class="badge bg-danger">管理员：账号、配置、备份恢复、系统维护、全部业务权限</span>
-                <span class="badge bg-info">财务收费账号：出账、收费、抄表、公摊、发票、催缴、对账、结账</span>
+                <span class="badge bg-danger">超级管理员：admin 保留，系统维护、更新、备份恢复、清空试用数据、全部业务权限</span>
+                <span class="badge bg-primary">业务管理员：客户负责人，账号管理、基础资料、收费配置、出账、收费、发票、催缴、对账、结账</span>
+                <span class="badge bg-info">财务收费账号：日常出账、收费、抄表、公摊、发票、催缴、对账、结账</span>
                 <span class="badge bg-secondary">客服只读账号：查看资料、账单、缴费记录、催缴对象和报表摘要</span>
             </div>
         </div>'''
@@ -213,13 +214,15 @@ class AuthMixin(BaseHandler):
     def _user_form(self, uid):
         """添加/编辑操作员表单"""
         u = self._get_current_user()
-        if not u or u["role"] != "admin":
+        if not u or u["role"] not in ("admin", "manager"):
             return self._redirect("/?flash=无权限访问")
         db = get_db(); user = None
         if uid: user = db.execute("SELECT * FROM users WHERE id=?", (uid,)).fetchone()
         db.close()
         if uid and not user:
             return self._redirect("/users?flash=操作员不存在或已删除")
+        if u["role"] == "manager" and user and user["role"] == "admin":
+            return self._redirect("/users?flash=无权限编辑超级管理员")
         a = f"/users/{uid}/edit" if uid else "/users/create"
         t = "编辑操作员" if uid else "添加操作员"
         un = h(user["username"]) if user else ""
@@ -233,23 +236,27 @@ class AuthMixin(BaseHandler):
 <div class="col-md-6"><label>{pw_label}</label><input name="password" type="password" class="form-control" {"required" if not uid else ""} placeholder="留空不修改密码"></div>
 <div class="col-md-6"><label>显示名</label><input name="display_name" class="form-control" value="{dn}"></div>
 <div class="col-md-3"><label>角色</label><select name="role" class="form-select">
+<option value="manager"{" selected" if role=="manager" else ""} {"disabled" if u["role"]!="admin" else ""}>业务管理员</option>
 <option value="operator"{" selected" if role=="operator" else ""}>财务收费</option>
-<option value="admin"{" selected" if role=="admin" else ""} {"disabled" if uid and user["username"]=="admin" else ""}>管理员</option>
+<option value="admin"{" selected" if role=="admin" else ""} {"disabled" if u["role"]!="admin" or (uid and user["username"]=="admin") else ""}>管理员</option>
 <option value="readonly"{" selected" if role=="readonly" else ""}>客服只读</option></select></div>
 <div class="col-md-3"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="is_active" id="ia" {"checked" if active else ""}><label class="form-check-label" for="ia">启用</label></div></div>
 <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/users" class="btn btn-outline-secondary">取消</a></div></form>''', "users"))
 
     def _user_create(self, d):
         u = self._get_current_user()
-        if not u or u["role"] != "admin": return self._redirect("/?flash=无权限访问")
+        if not u or u["role"] not in ("admin", "manager"): return self._redirect("/?flash=无权限访问")
         username = qs(d, "username", "").strip()
         password = qs(d, "password", "")
         if not username or not password: return self._redirect("/users/create?flash=用户名和密码不能为空")
+        role = qs(d, "role", "operator")
+        if u["role"] == "manager" and role in ("admin", "manager"):
+            return self._redirect("/users?flash=业务管理员只能创建财务收费或客服只读账号")
         pw_hash = hash_password(password)
         db = get_db()
         try:
             db.execute("INSERT INTO users(username,password_hash,display_name,role) VALUES(?,?,?,?)",
-                       (username, pw_hash, qs(d,"display_name"), qs(d,"role","operator")))
+                       (username, pw_hash, qs(d,"display_name"), role))
             db.commit()
         except:
             db.close(); return self._redirect("/users/create?flash=用户名已存在")
@@ -258,29 +265,40 @@ class AuthMixin(BaseHandler):
 
     def _user_edit(self, uid, d):
         u = self._get_current_user()
-        if not u or u["role"] != "admin": return self._redirect("/?flash=无权限访问")
+        if not u or u["role"] not in ("admin", "manager"): return self._redirect("/?flash=无权限访问")
         username = qs(d, "username", "").strip()
         password = qs(d, "password", "")
         if not username: return self._redirect(f"/users/{uid}/edit?flash=用户名不能为空")
         db = get_db()
+        target = db.execute("SELECT username,role FROM users WHERE id=?", (uid,)).fetchone()
+        if not target:
+            db.close(); return self._redirect("/users?flash=操作员不存在或已删除")
+        new_role = qs(d, "role", "operator")
+        if target["username"] == "admin" and new_role != "admin":
+            db.close(); return self._redirect("/users?flash=超级管理员不可降级")
+        if u["role"] == "manager" and (target["role"] == "admin" or new_role in ("admin", "manager")):
+            db.close(); return self._redirect("/users?flash=业务管理员不能管理超级管理员或业务管理员")
         if password:
             pw_hash = hash_password(password)
             db.execute("UPDATE users SET username=?,password_hash=?,display_name=?,role=?,is_active=? WHERE id=?",
-                       (username, pw_hash, qs(d,"display_name"), qs(d,"role","operator"), 1 if qs(d,"is_active") else 0, uid))
+                       (username, pw_hash, qs(d,"display_name"), new_role, 1 if qs(d,"is_active") else 0, uid))
         else:
             db.execute("UPDATE users SET username=?,display_name=?,role=?,is_active=? WHERE id=?",
-                       (username, qs(d,"display_name"), qs(d,"role","operator"), 1 if qs(d,"is_active") else 0, uid))
+                       (username, qs(d,"display_name"), new_role, 1 if qs(d,"is_active") else 0, uid))
         db.commit(); db.close()
         self._redirect("/users?flash=更新成功")
 
     def _user_delete(self, uid):
         u = self._get_current_user()
-        if not u or u["role"] != "admin": return self._redirect("/?flash=无权限访问")
+        if not u or u["role"] not in ("admin", "manager"): return self._redirect("/?flash=无权限访问")
         db = get_db()
         target = db.execute("SELECT username,role FROM users WHERE id=?", (uid,)).fetchone()
         if target and target["username"] == "admin":
             db.close()
-            return self._redirect("/users?flash=admin账户不可删除")
+            return self._redirect("/users?flash=超级管理员不可删除")
+        if target and u["role"] == "manager" and target["role"] in ("admin", "manager"):
+            db.close()
+            return self._redirect("/users?flash=业务管理员不能删除超级管理员或业务管理员")
         db.execute("DELETE FROM sessions WHERE user_id=?", (uid,))
         db.execute("DELETE FROM users WHERE id=?", (uid,))
         db.commit(); db.close()

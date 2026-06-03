@@ -41,11 +41,22 @@ OPERATOR_GET_BLOCKED = (
 )
 
 
+MANAGER_GET_BLOCKED = (
+    r'^/backups(?:/.*)?$',
+    r'^/audit_logs$',
+    r'^/system_health(?:/.*)?$',
+    r'^/system_update(?:/.*)?$',
+    r'^/trial_data_reset$',
+)
+
+
 def _role_blocks_get(role, path):
     if role == 'readonly':
         return not any(re.match(pattern, path) for pattern in READONLY_GET_ALLOWED)
     if role == 'operator':
         return any(re.match(pattern, path) for pattern in OPERATOR_GET_BLOCKED)
+    if role == 'manager':
+        return any(re.match(pattern, path) for pattern in MANAGER_GET_BLOCKED)
     return False
 
 

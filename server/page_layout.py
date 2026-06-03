@@ -65,7 +65,7 @@ def render_page(handler, title, content, active='', top_actions=''):
                    'reports', 'closing', 'import', 'reminders', 'shared_expenses'}
     user_html = ''
     if cur_user:
-        role_label = {"admin": "管理员", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])
+        role_label = {"admin": "管理员", "manager": "业务管理员", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])
         user_html = f'''<div class="sidebar-user">
             <div class="d-flex align-items-center justify-content-between gap-2">
                 <div><div class="name"><i class="bi bi-person-circle"></i> {h(cur_user["display_name"] or cur_user["username"])}</div>
@@ -73,9 +73,10 @@ def render_page(handler, title, content, active='', top_actions=''):
                 <a href="/logout" class="btn btn-sm btn-outline-light" title="退出"><i class="bi bi-box-arrow-right"></i></a>
             </div>
         </div>'''
-    if cur_user and cur_user["role"] == "admin":
+    if cur_user and cur_user["role"] in ("admin", "manager"):
         nav_groups[-1][1].append(("users", "/users", "bi-people-fill", "操作员管理"))
         allowed.add('users')
+    if cur_user and cur_user["role"] == "admin":
         allowed.add('system_health')
         allowed.add('system_update')
         allowed.add('trial_data_reset')

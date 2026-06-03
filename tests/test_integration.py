@@ -1416,6 +1416,58 @@ class TestIntegration(unittest.TestCase):
             self.assertEqual(status, 302, path)
             self.assertIn('无权限', urllib.parse.unquote(loc), path)
 
+    def test_manager_can_manage_business_users_but_not_system_maintenance(self):
+        manager_cookie = self._create_user_and_login(
+            'manager_scope_test', 'manager123', 'manager', '业务管理员测试'
+        )
+
+        status, body = http_get('/', manager_cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('业务管理员测试', body)
+        self.assertIn('业务管理员', body)
+        for text in ['收费项目', '数据导入', '自动出账', '公摊分摊', '发票管理', '期末结账', '操作员管理']:
+            self.assertIn(text, body)
+        for text in ['数据备份', '系统健康', '系统更新', '清空试用业务数据']:
+            self.assertNotIn(text, body)
+
+        status, users_body = http_get('/users', manager_cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('添加操作员', users_body)
+        self.assertIn('业务管理员', users_body)
+
+        status, _, loc = http_post('/users/create', {
+            'username': 'manager_created_finance',
+            'password': 'finance123',
+            'display_name': '业务管理员创建财务',
+            'role': 'operator',
+            'is_active': 'on',
+        }, manager_cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/users?flash=', loc)
+
+        for path in ['/backups', '/audit_logs', '/system_health', '/system_update', '/trial_data_reset']:
+            status, _, loc = http_get_with_location(path, manager_cookie, TEST_PORT)
+            self.assertEqual(status, 302, path)
+            self.assertIn('无权限', urllib.parse.unquote(loc), path)
+
+    def test_manager_cannot_delete_or_downgrade_super_admin(self):
+        manager_cookie = self._create_user_and_login(
+            'manager_super_guard_test', 'manager123', 'manager', '业务管理员保护测试'
+        )
+
+        status, _, loc = http_post('/users/1/delete', {}, manager_cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('超级管理员不可删除', urllib.parse.unquote(loc))
+
+        status, _, loc = http_post('/users/1/edit', {
+            'username': 'admin',
+            'display_name': '管理员',
+            'role': 'manager',
+            'is_active': 'on',
+        }, manager_cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('超级管理员不可降级', urllib.parse.unquote(loc))
+
     def test_operator_cannot_access_user_management(self):
         operator_cookie = self._create_user_and_login(
             'operator_user_mgmt_test', 'operator123', 'operator', '财务收费'

@@ -14,7 +14,6 @@ ADMIN_POST_PATTERNS = [
     r'^/bills/\d+/delete$',
     r'^/bills/undo_generated$',
     r'^/backups(/.*)?$',
-    r'^/users(/.*)?$',
     r'^/closing/(close|reopen)$',
     r'^/system_health/repair$',
     r'^/system_update/check$',
@@ -26,11 +25,18 @@ ADMIN_POST_PATTERNS = [
     r'^/auto_billing/runs/[^/]+/rollback$',
 ]
 
+MANAGER_POST_PATTERNS = [
+    r'^/users(/.*)?$',
+]
+
 
 def required_post_role(path):
     for pattern in ADMIN_POST_PATTERNS:
         if re.match(pattern, path):
             return 'admin'
+    for pattern in MANAGER_POST_PATTERNS:
+        if re.match(pattern, path):
+            return 'manager'
     return ''
 
 
@@ -39,4 +45,6 @@ def role_allows(user_role, required_role):
         return True
     if required_role == 'admin':
         return user_role == 'admin'
+    if required_role == 'manager':
+        return user_role in ('manager', 'admin')
     return user_role in (required_role, 'admin')
