@@ -938,6 +938,30 @@ a:hover { color: var(--brand-2); }
     font-weight: 700;
 }
 
+.invoice-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.invoice-section {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    background: linear-gradient(180deg, #fff, #f9fbfb);
+    box-shadow: var(--shadow-xs);
+}
+
+.invoice-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    color: #52605c;
+    font-size: 13px;
+    font-weight: 780;
+}
+
 .finance-summary {
     border: 1px solid var(--line);
     border-radius: 8px;

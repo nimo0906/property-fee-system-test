@@ -124,24 +124,28 @@ class InvoiceMixin(BaseHandler):
             av_opts += f'<option value="{a["id"]}">{h(a["building"])}-{h(a["room_number"])} {h(a["oname"])} ¥{m(a["amount"])}</option>'
         # Available bills for invoice
         self._html(self._page("发票管理", f'''
-    <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
+    <div class="invoice-dashboard">
+    <section class="invoice-section" data-invoice-section="filters">
+    <div class="invoice-section-title"><i class="bi bi-funnel"></i> 筛选发票</div>
+    <div class="row g-2 align-items-end">
     <form class="row g-2 align-items-end" method=GET>
     <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_to_date(p)}" onchange="this.form.submit()"></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">发票列表筛选</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="发票号/抬头/税号/房号"></div>
-    <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button><a href="/invoices" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
-    </div>
+    <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/invoices" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
+    <div class="col-auto ms-auto"><div class="summary-tile py-2 px-3"><div class="label">本期已开票金额</div><strong class="money">¥{m(total)}</strong></div></div>
+    </div></section>
     <div class="row g-4">
-    <div class="col-md-8"><div class="card"><div class="card-header">发票列表 <small class="text-muted">({p})</small></div>
-    <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th>发票号</th><th>房间</th><th>业主</th><th class="text-end">金额</th><th>开票日期</th><th>状态</th><th style="width:100px">操作</th></tr></thead>
-    <tbody>{rh or '<tr><td colspan="7" class="text-center text-muted py-3">暂无发票</td></tr>'}</tbody></table></div></div></div>
-    <div class="col-md-4"><div class="card"><div class="card-header">开具发票</div>
+    <div class="col-md-8"><section class="invoice-section" data-invoice-section="issued"><div class="invoice-section-title"><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({p})</small></div>
+    <div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>发票号</th><th>房间</th><th>业主</th><th class="text-end">金额</th><th>开票日期</th><th>状态</th><th style="width:100px">操作</th></tr></thead>
+    <tbody>{rh or '<tr><td colspan="7" class="text-center text-muted py-3">暂无发票</td></tr>'}</tbody></table></div></section></div>
+    <div class="col-md-4"><section class="invoice-section" data-invoice-section="available"><div class="invoice-section-title"><i class="bi bi-receipt"></i> 待开票账单</div>
     <div class="card-body"><form method=POST action="/invoices/create" class="row g-3">
     <div class="col-12"><label>选择已缴费账单</label><select name="bill_id" class="form-select" required>{av_opts}</select></div>
     <div class="col-12"><label>开票日期</label><input name="issue_date" type="date" class="form-control" value="{date.today().isoformat()}"></div>
     <div class="col-12"><label>购买方名称</label><input name="buyer_name" class="form-control" placeholder="单位名称或个人姓名"></div>
     <div class="col-12"><label>纳税人识别号</label><input name="buyer_tax_id" class="form-control" placeholder="税号（选填）"></div>
     <div class="col-12"><hr><button class="btn btn-success"><i class="bi bi-receipt"></i> 开具发票</button></div>
-    </form></div></div></div></div>''', "invoices"))
+    </form></div></section></div></div></div>''', "invoices"))
 
     def _invoice_create(self, d):
         db=get_db()

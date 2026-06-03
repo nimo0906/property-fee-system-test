@@ -2395,6 +2395,37 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('INVFILTER-商场-2F-301', html)
         self.assertIn('发票列表筛选', html)
 
+    def test_invoice_page_groups_filter_issued_and_available_bills(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '发票分区业主', '13900007777')
+        room_id = create_room(db, building='INVSECTIONS', unit='B座', room_number='1801', owner_id=owner_id)
+        issued_bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-09', amount=180, status='paid', owner_id=owner_id)
+        db.execute("""
+            INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
+            VALUES(?, ?, 1, '2034-09', 220, '2034-09-28', 'paid', 'INV-SECTION-AVAILABLE')
+        """, (room_id, owner_id))
+        db.execute("""
+            INSERT INTO invoices(bill_id, invoice_number, amount, issue_date, buyer_name, buyer_tax_id)
+            VALUES(?, 'INV-SECTION-001', 180, '2034-09-02', '分区抬头', 'SECTION-TAX')
+        """, (issued_bill_id,))
+        db.commit(); db.close()
+
+        status, html = http_get('/invoices?period=2034-09', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('class="invoice-dashboard"', html)
+        self.assertIn('data-invoice-section="filters"', html)
+        self.assertIn('筛选发票', html)
+        self.assertIn('data-invoice-section="issued"', html)
+        self.assertIn('已开发票列表', html)
+        self.assertIn('data-invoice-section="available"', html)
+        self.assertIn('待开票账单', html)
+        self.assertIn('INV-SECTION-001', html)
+        self.assertIn('¥180.00', html)
+        self.assertIn('¥220.00', html)
+        self.assertIn('本期已开票金额', html)
+
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module
         db = db_module.get_db()
