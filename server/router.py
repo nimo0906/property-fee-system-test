@@ -139,6 +139,7 @@ def handle_get(handler):
     elif (m := re.match(r'^/import/problem_rows/([A-Za-z0-9_-]+)\.csv$', p)): return handler._import_problem_rows_download(m.group(1))
     elif (m := re.match(r'^/import/fee_mapping/([A-Za-z0-9_-]+)\.csv$', p)): return handler._fee_mapping_csv_download(m.group(1))
     elif p == '/audit_logs': return handler._audit_logs(q)
+    elif p == '/audit_logs/export.csv': return handler._audit_logs_csv(q)
     elif p == '/backups': return handler._backups(q)
     elif p == '/system_health': return handler._system_health(q)
     elif p == '/system_update': return handler._system_update(q)

@@ -53,6 +53,15 @@ class ReportMixin(BaseHandler):
         arrears = [r for r in rows if float(r['amount'] or 0) - float(r['paid'] or 0) > 0.001]
         return {'rows': rows, 'building_rows': building_rows, 'total': total, 'paid': paid, 'due': due, 'rate': rate, 'arrears': arrears}
 
+    def _report_status_counts(self, rows):
+        counts = {'paid': 0, 'partial': 0, 'unpaid': 0, 'overdue': 0}
+        for r in rows:
+            st = r['status'] or ''
+            if st in counts:
+                counts[st] += 1
+        open_count = counts['unpaid'] + counts['partial'] + counts['overdue']
+        return {**counts, 'open': open_count, 'total': sum(counts.values())}
+
     def _reports_reconciliation_csv(self, q):
         p = qs(q, 'period', get_period())
         building = qs(q, 'building')
@@ -121,6 +130,7 @@ class ReportMixin(BaseHandler):
         return {'by_fee': by_fee, 'long_due': long_due}
 
     def _render_reconciliation_section(self, period, data, building='', status=''):
+        status_counts = self._report_status_counts(data['rows'])
         building_rows = ''.join(
             f'''<tr><td>{h(r["building"])}</td><td class="text-end">{r["bill_count"]}</td>
             <td class="text-end"><span class="money">¥{m(r["amount"])}</span></td>
@@ -177,6 +187,12 @@ class ReportMixin(BaseHandler):
             <div class="col-md-3"><div class="summary-tile"><div class="label">未收合计</div><strong class="money money-due">¥{m(data['due'])}</strong></div></div>
             <div class="col-md-3"><div class="summary-tile"><div class="label">收缴率</div><strong>{data['rate']}%</strong></div></div>
         </div></div></div>
+        <div class="card"><div class="card-header">账单状态分布</div><div class="card-body"><div class="row text-center g-2">
+            <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">已缴账单</div><strong>{status_counts['paid']}</strong></div></div>
+            <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">部分缴费</div><strong>{status_counts['partial']}</strong></div></div>
+            <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">未缴账单</div><strong>{status_counts['unpaid'] + status_counts['overdue']}</strong></div></div>
+            <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">本期回款缺口</div><strong class="money money-due">¥{m(data['due'])}</strong></div></div>
+        </div></div></div>
         <div class="card"><div class="card-header">楼栋对账统计</div><div class="table-responsive"><table class="table table-sm mb-0">
         <thead><tr><th>楼栋</th><th class="text-end">账单数</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">未收</th></tr></thead><tbody>{building_rows}</tbody></table></div></div>
         <div class="card"><div class="card-header">欠费清单</div><div class="table-responsive"><table class="table table-sm mb-0">
@@ -193,6 +209,7 @@ class ReportMixin(BaseHandler):
         building = qs(q, 'building')
         status = qs(q, 'status')
         data = self._report_reconciliation_data(period, building, status)
+        status_counts = self._report_status_counts(data['rows'])
         status_label = {'unpaid':'未缴','partial':'部分缴费','paid':'已缴','arrears':'全部欠费','':'全部状态'}.get(status, status)
         row_parts = []
         for r in data['rows']:
@@ -210,12 +227,16 @@ class ReportMixin(BaseHandler):
         h1{{text-align:center;font-size:22px;margin:0 0 8px}} .meta{{text-align:center;color:#555;margin-bottom:18px}}
         .summary{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
         .box{{border:1px solid #ccc;padding:10px;text-align:center}} .box strong{{display:block;font-size:18px;margin-top:4px}}
+        .status-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
+        .section-title{{font-weight:700;margin:14px 0 8px;border-left:4px solid #111;padding-left:8px}}
         table{{width:100%;border-collapse:collapse;font-size:12px}} th,td{{border:1px solid #999;padding:6px}} th{{background:#f2f2f2}} .amt{{text-align:right}} .muted{{text-align:center;color:#777}}
         .actions{{margin-bottom:16px;text-align:right}} @media print{{.actions{{display:none}} body{{margin:0}}}}
         </style></head><body>
         <div class="actions"><button onclick="window.print()">打印</button> <a href="{back}">返回报表</a></div>
         <h1>对账单打印</h1><div class="meta">账期：{h(period)}　楼栋：{h(building or '全部')}　状态：{h(status_label)}</div>
         <div class="summary"><div class="box">应收合计<strong>{m(data['total'])}</strong></div><div class="box">已收合计<strong>{m(data['paid'])}</strong></div><div class="box">未收合计<strong>{m(data['due'])}</strong></div><div class="box">收缴率<strong>{data['rate']}%</strong></div></div>
+        <div class="section-title">账单状态分布</div>
+        <div class="status-grid"><div class="box">已缴账单<strong>{status_counts['paid']}</strong></div><div class="box">部分缴费<strong>{status_counts['partial']}</strong></div><div class="box">未缴账单<strong>{status_counts['unpaid'] + status_counts['overdue']}</strong></div><div class="box">本期回款缺口<strong>{m(data['due'])}</strong></div></div>
         <table><thead><tr><th>账单号</th><th>房间</th><th>业主</th><th>电话</th><th>项目</th><th>应收</th><th>已收</th><th>未收</th></tr></thead><tbody>{rows}</tbody></table>
         </body></html>'''
         self._html(html)

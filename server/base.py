@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Base handler class with shared methods and URL routing."""
 
-import http.server, urllib.parse, re, json, os
+import csv, http.server, io, urllib.parse, re, json, os
 
 from server.db import get_db, h, qs, log_audit
 from server.page_layout import render_page
@@ -92,37 +92,61 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         except Exception:
             return str(value)
 
-    def _audit_logs(self, q):
-        u = self._get_current_user()
-        if not u or u.get('role') != 'admin':
-            return self._redirect('/?flash=无权限访问操作日志')
+    def _audit_log_filters(self, q):
         action = qs(q, 'action')
         entity = qs(q, 'entity_type')
         kw = qs(q, 'keyword')
+        username = qs(q, 'username')
+        date_from = qs(q, 'date_from')
+        date_to = qs(q, 'date_to')
         cond = []
         vals = []
         if action:
             cond.append('action=?'); vals.append(action)
         if entity:
             cond.append('entity_type=?'); vals.append(entity)
+        if username:
+            cond.append('username LIKE ?'); vals.append(f'%{username}%')
+        if date_from:
+            cond.append('created_at>=?'); vals.append(date_from + ' 00:00:00')
+        if date_to:
+            cond.append('created_at<=?'); vals.append(date_to + ' 23:59:59')
         if kw:
-            cond.append('(action LIKE ? OR username LIKE ? OR reason LIKE ? OR old_value LIKE ? OR new_value LIKE ?)')
-            vals.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%'])
+            cond.append('(action LIKE ? OR username LIKE ? OR ip LIKE ? OR reason LIKE ? OR old_value LIKE ? OR new_value LIKE ?)')
+            vals.extend([f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%', f'%{kw}%'])
+        return cond, vals, {
+            'action': action, 'entity': entity, 'kw': kw,
+            'username': username, 'date_from': date_from, 'date_to': date_to,
+        }
+
+    def _audit_logs(self, q):
+        u = self._get_current_user()
+        if not u or u.get('role') != 'admin':
+            return self._redirect('/?flash=无权限访问操作日志')
+        cond, vals, params = self._audit_log_filters(q)
         sql = 'SELECT * FROM audit_logs'
         if cond:
             sql += ' WHERE ' + ' AND '.join(cond)
         sql += ' ORDER BY created_at DESC,id DESC LIMIT 300'
         db = get_db()
         rows = db.execute(sql, vals).fetchall()
+        summary_sql = 'SELECT COUNT(*) total, SUM(CASE WHEN action LIKE "%delete%" OR action LIKE "%restore%" OR action LIKE "%reset%" OR action LIKE "%rollback%" OR action LIKE "%amount_update%" OR action LIKE "batch_%" THEN 1 ELSE 0 END) risk_count, SUM(CASE WHEN action LIKE "login_%" THEN 1 ELSE 0 END) login_count FROM audit_logs'
+        if cond:
+            summary_sql += ' WHERE ' + ' AND '.join(cond)
+        summary = db.execute(summary_sql, vals).fetchone()
         actions = db.execute('SELECT DISTINCT action FROM audit_logs ORDER BY action').fetchall()
         entities = db.execute("SELECT DISTINCT entity_type FROM audit_logs WHERE entity_type IS NOT NULL AND entity_type<>'' ORDER BY entity_type").fetchall()
         db.close()
         action_opts = '<option value="">全部动作</option>' + ''.join(
-            f'<option value="{h(r["action"])}"{" selected" if action==r["action"] else ""}>{h(r["action"])}</option>' for r in actions
+            f'<option value="{h(r["action"])}"{" selected" if params["action"]==r["action"] else ""}>{h(r["action"])}</option>' for r in actions
         )
         entity_opts = '<option value="">全部对象</option>' + ''.join(
-            f'<option value="{h(r["entity_type"])}"{" selected" if entity==r["entity_type"] else ""}>{h(r["entity_type"])}</option>' for r in entities
+            f'<option value="{h(r["entity_type"])}"{" selected" if params["entity"]==r["entity_type"] else ""}>{h(r["entity_type"])}</option>' for r in entities
         )
+        query = urllib.parse.urlencode({
+            'action': params['action'], 'entity_type': params['entity'], 'keyword': params['kw'],
+            'username': params['username'], 'date_from': params['date_from'], 'date_to': params['date_to'],
+        })
         body = ''.join(
             f'''<tr><td><input type="checkbox" name="log_ids" value="{r["id"]}" form="auditDeleteForm"></td><td><small>{h(r["created_at"])}</small></td><td><span class="badge status-info">{h(r["action"])}</span></td>
             <td>{h(r["entity_type"] or "-")} #{h(r["entity_id"] or "")}</td><td>{h(r["username"] or "系统")}</td>
@@ -131,11 +155,19 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         ) or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作日志</td></tr>'
         self._html(self._page('操作日志', f'''
         <div class="alert alert-info"><i class="bi bi-journal-check"></i> 记录金额修改、账单删除、备份恢复、用户登录、数据导入等关键操作，便于内部核对。</div>
+        <div class="metric-grid mb-3">
+            <div class="metric-card primary"><div class="metric-label">审计摘要</div><div class="metric-value">{summary["total"] or 0}</div><small class="text-muted">当前筛选日志</small></div>
+            <div class="metric-card danger"><div class="metric-label">高风险操作</div><div class="metric-value">{summary["risk_count"] or 0}</div><small class="text-muted">删除/恢复/清空/金额修改</small></div>
+            <div class="metric-card success"><div class="metric-label">登录事件</div><div class="metric-value">{summary["login_count"] or 0}</div><small class="text-muted">登录成功/失败/停用</small></div>
+        </div>
         <form method="GET" action="/audit_logs" class="row g-2 mb-3">
-            <div class="col-md-3"><select name="action" class="form-select">{action_opts}</select></div>
-            <div class="col-md-3"><select name="entity_type" class="form-select">{entity_opts}</select></div>
-            <div class="col-md-4"><input name="keyword" class="form-control" value="{h(kw)}" placeholder="搜索操作人/原因/详情"></div>
-            <div class="col-md-2"><button class="btn btn-primary w-100">筛选</button></div>
+            <div class="col-md-2"><select name="action" class="form-select">{action_opts}</select></div>
+            <div class="col-md-2"><select name="entity_type" class="form-select">{entity_opts}</select></div>
+            <div class="col-md-2"><input name="username" class="form-control" value="{h(params["username"])}" placeholder="操作人"></div>
+            <div class="col-md-2"><input name="date_from" type="date" class="form-control" value="{h(params["date_from"])}"></div>
+            <div class="col-md-2"><input name="date_to" type="date" class="form-control" value="{h(params["date_to"])}"></div>
+            <div class="col-md-2"><input name="keyword" class="form-control" value="{h(params["kw"])}" placeholder="原因/详情/IP"></div>
+            <div class="col-md-12 d-flex gap-2"><button class="btn btn-primary"><i class="bi bi-search"></i> 筛选</button><a class="btn btn-outline-secondary" href="/audit_logs">重置</a><a class="btn btn-outline-success" href="/audit_logs/export.csv?{h(query)}"><i class="bi bi-download"></i> 导出CSV</a></div>
         </form>
         <form method="POST" action="/audit_logs/delete" id="auditDeleteForm" class="mb-2"
             onsubmit="return confirm('确认删除选中的操作日志？')">
@@ -144,6 +176,31 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         <div class="table-responsive"><table class="table table-hover align-middle small">
         <thead><tr><th>选择</th><th>时间</th><th>动作</th><th>对象</th><th>操作人</th><th>原因</th><th>详情</th></tr></thead><tbody>{body}</tbody></table></div>
         ''', 'audit_logs'))
+
+    def _audit_logs_csv(self, q):
+        u = self._get_current_user()
+        if not u or u.get('role') != 'admin':
+            return self._redirect('/?flash=无权限访问操作日志')
+        cond, vals, _ = self._audit_log_filters(q)
+        sql = 'SELECT * FROM audit_logs'
+        if cond:
+            sql += ' WHERE ' + ' AND '.join(cond)
+        sql += ' ORDER BY created_at DESC,id DESC LIMIT 2000'
+        db = get_db()
+        rows = db.execute(sql, vals).fetchall()
+        db.close()
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(['created_at','action','entity_type','entity_id','username','role','ip','reason','old_value','new_value'])
+        for r in rows:
+            w.writerow([r['created_at'], r['action'], r['entity_type'], r['entity_id'], r['username'], r['role'], r['ip'], r['reason'], r['old_value'], r['new_value']])
+        raw = buf.getvalue().encode('utf-8-sig')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/csv; charset=utf-8')
+        self.send_header('Content-Disposition', 'attachment; filename=audit_logs.csv')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
 
     def _audit_logs_delete(self, d):
         u = self._get_current_user()

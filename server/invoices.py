@@ -179,8 +179,13 @@ class InvoiceMixin(BaseHandler):
     .invoice-sub{color:#9d2a22;font-size:15px;margin-top:4px}
     .fiscal-mark{position:absolute;left:50%;top:-5px;transform:translateX(-50%) rotate(-8deg);width:104px;height:64px;border:4px solid #d71920;border-radius:50%;color:#d71920;font-size:13px;line-height:1.2;display:flex;align-items:center;justify-content:center;opacity:.72}
     .number-box{font-size:13px;line-height:2;text-align:right;color:#6b1f16}
+    .invoice-code-line{display:flex;justify-content:space-between;gap:18px;border-top:1px dashed #c46b62;border-bottom:1px dashed #c46b62;padding:6px 4px;margin:4px 0 8px;font-size:12px;color:#7a2a22}
+    .invoice-password-zone{border:1px solid #9d2a22;margin:0 0 8px;padding:6px 8px;display:grid;grid-template-columns:90px 1fr;color:#6b1f16;font-size:12px;letter-spacing:1px}
+    .invoice-password-zone .label{color:#9d2a22;font-weight:700;border-right:1px solid #9d2a22;margin-right:8px}
     .notice{font-size:12px;color:#7b5d55;text-align:center;margin:4px 0 8px}
-    .invoice-body{position:relative;border:2px solid #9d2a22}
+    .invoice-body{position:relative;border:2px solid #9d2a22;overflow:hidden}
+    .invoice-watermark{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%) rotate(-18deg);font-size:72px;font-weight:700;color:rgba(157,42,34,.055);letter-spacing:14px;white-space:nowrap;pointer-events:none;z-index:0}
+    .invoice-body>*:not(.invoice-watermark){position:relative;z-index:1}
     .invoice-copy-label{position:absolute;right:-22px;top:8px;writing-mode:vertical-rl;letter-spacing:4px;font-size:12px;color:#9d2a22}
     .parties{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #9d2a22}
     .party{display:grid;grid-template-columns:30px 1fr;min-height:82px;border-right:1px solid #9d2a22}.party:last-child{border-right:0}
@@ -198,8 +203,10 @@ class InvoiceMixin(BaseHandler):
       <div class="invoice-top"><div><div class="invoice-qr" aria-label="内部票据二维码占位"></div></div>
       <div class="title-wrap"><div class="invoice-title">电子发票</div><div class="invoice-sub">电子发票（普通发票）</div><div class="fiscal-mark">内部留存<br>打印样式</div></div>
       <div class="number-box"><div>发票号码：'''+h(i['invoice_number'])+'''</div><div>开票日期：'''+h(i['issue_date'] or '')+'''</div><div>打印日期：'''+datetime.now().strftime('%Y-%m-%d')+'''</div><div>共1页&nbsp;&nbsp;第1页</div></div></div>
-      <div class="notice">本系统打印样式，仅用于内部留存；真实税务发票请以税务平台开具文件为准。</div>
-      <div class="invoice-body"><div class="invoice-copy-label">发票联</div>
+      <div class="invoice-code-line"><span>机器编号：PF-LOCAL-001</span><span>发票代码：'''+h(i['invoice_number'])+'''</span><span>开票校验码：'''+h(str(i['id']).zfill(6))+'''-'''+h(str(i['bill_id']).zfill(6))+'''</span></div>
+      <div class="notice">本系统打印样式，仅用于内部留存；数电票据样式参考，仅用于内部留存；真实税务发票请以税务平台开具文件为准。</div>
+      <div class="invoice-password-zone"><div class="label">密码区</div><div>本地内部票据无税控密码；如需正式税务发票，请以税务平台生成的 OFD/PDF 文件为准。</div></div>
+      <div class="invoice-body"><div class="invoice-watermark">内部留存</div><div class="invoice-copy-label">发票联</div>
       <div class="parties">
         <div class="party"><div class="party-title">购买方信息</div><div class="party-body"><div>名称：</div><div>'''+buyer+'''</div><div>纳税人识别号：</div><div>'''+tax_id+'''</div><div>地址、电话：</div><div>'''+h(i['ophone'] or '-')+'''</div><div>开户行及账号：</div><div>-</div></div></div>
         <div class="party"><div class="party-title">销售方信息</div><div class="party-body"><div>名称：</div><div>物业管理收费系统</div><div>纳税人识别号：</div><div>-</div><div>地址、电话：</div><div>-</div><div>开户行及账号：</div><div>-</div></div></div>

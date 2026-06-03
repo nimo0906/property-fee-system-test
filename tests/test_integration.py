@@ -2360,6 +2360,12 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('class="invoice-copy-label"', print_page)
         self.assertIn('class="fiscal-mark"', print_page)
         self.assertIn('合计', print_page)
+        self.assertIn('class="invoice-code-line"', print_page)
+        self.assertIn('机器编号', print_page)
+        self.assertIn('开票校验码', print_page)
+        self.assertIn('class="invoice-password-zone"', print_page)
+        self.assertIn('class="invoice-watermark"', print_page)
+        self.assertIn('数电票据样式参考，仅用于内部留存', print_page)
 
     def test_audit_logs_details_are_readable_and_admin_can_delete_selected(self):
         import server.db as db_module
@@ -2375,6 +2381,17 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('格式化详情', html)
         self.assertIn('action="/audit_logs/delete"', html)
         self.assertIn('amount', html)
+        self.assertIn('审计摘要', html)
+        self.assertIn('高风险操作', html)
+        self.assertIn('name="username"', html)
+        self.assertIn('name="date_from"', html)
+        self.assertIn('/audit_logs/export.csv?', html)
+
+        status, csv_body = http_get('/audit_logs/export.csv?keyword=%E4%B9%B1%E7%A0%81%E6%B5%8B%E8%AF%95', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('created_at,action,entity_type,entity_id,username,role,ip,reason,old_value,new_value', csv_body)
+        self.assertIn('乱码测试', csv_body)
+        self.assertIn('详情核对', csv_body)
 
         status, body, loc = http_post('/audit_logs/delete', {'log_ids': str(log_id)}, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
@@ -3741,6 +3758,11 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('已收合计', html)
         self.assertIn('未收合计', html)
         self.assertIn('收缴率', html)
+        self.assertIn('账单状态分布', html)
+        self.assertIn('已缴账单', html)
+        self.assertIn('部分缴费', html)
+        self.assertIn('未缴账单', html)
+        self.assertIn('本期回款缺口', html)
         self.assertIn('240.00', html)
         self.assertIn('130.00', html)
         self.assertIn('110.00', html)
@@ -3823,6 +3845,9 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('PRINT-B-PAID', print_html)
         self.assertIn('window.print()', print_html)
         self.assertIn('@media print', print_html)
+        self.assertIn('账单状态分布', print_html)
+        self.assertIn('未缴账单', print_html)
+        self.assertIn('本期回款缺口', print_html)
 
     def test_reports_reconciliation_filters_by_building_and_status(self):
         import server.db as db_module
