@@ -320,6 +320,47 @@ class TestDBLogic(unittest.TestCase):
         self.assertEqual(end.isoformat(), '2026-09-26')
         self.assertEqual(due.isoformat(), '2026-06-26')
 
+    def test_auto_billing_preview_can_override_room_cycle_for_this_run(self):
+        from server.auto_billing import build_auto_billing_preview
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('自定义账期业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOCYCLE', '商场', 'C101', 1, '商户', 100, owner_id, '自定义账期租户', '2026-06-08', '2027-06-07', 'monthly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()['id']
+        self.db.commit()
+
+        items = build_auto_billing_preview(
+            self.db, today='2026-05-09', advance_days=30, fee_ids=[fee_id], period_cycle='quarterly'
+        )
+        item = next(x for x in items if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+
+        self.assertEqual(item['cycle'], 'quarterly')
+        self.assertEqual(item['service_start'], '2026-06-08')
+        self.assertEqual(item['service_end'], '2026-09-07')
+        self.assertEqual(item['billing_period'], '2026-06~2026-09')
+        self.assertEqual(item['amount'], 1500)
+
+    def test_auto_billing_cycle_override_keeps_next_due_start_from_room_cycle(self):
+        from server.auto_billing import build_auto_billing_preview
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('历史月付商户业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOCYCLE2', 'B座', '1401', 1, '商户', 100, owner_id, '历史月付商户', '2024-11-08', '2027-11-07', 'monthly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()['id']
+        self.db.commit()
+
+        items = build_auto_billing_preview(
+            self.db, today='2026-06-03', advance_days=30, fee_ids=[fee_id], period_cycle='quarterly'
+        )
+        item = next(x for x in items if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+
+        self.assertEqual(item['service_start'], '2026-06-08')
+        self.assertEqual(item['service_end'], '2026-09-07')
+        self.assertEqual(item['billing_period'], '2026-06~2026-09')
+        self.assertEqual(item['amount'], 1500)
+
     def test_auto_billing_supports_yearly_service_period(self):
         from server.auto_billing import next_service_period
         start, end, due = next_service_period('2026-06-27', '2028-06-26', 'yearly', '2026-05-28')

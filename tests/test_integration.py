@@ -706,6 +706,9 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn('自动出账预览', body)
         self.assertIn('收费项目选择', body)
+        self.assertIn('name="period_cycle"', body)
+        self.assertIn('按租户资料周期', body)
+        self.assertIn('季度', body)
         self.assertIn('按租户合同开始日、结束日、缴费周期计算下一期账单', body)
         self.assertIn('提前 30 天只是筛选即将到期的下一期', body)
         self.assertIn('生成后按缴费截止日进入催缴管理', body)
@@ -725,6 +728,11 @@ class TestIntegration(unittest.TestCase):
         status, body = http_get('/auto_billing?advance_days=30&fee_ids=1&fee_ids=3', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('电梯费', body)
+
+        status, quarter_body = http_get(f'/auto_billing?advance_days=30&period_cycle=quarterly&fee_ids={fee_id}', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-06-27 至 2026-09-26', quarter_body)
+        self.assertIn('value="quarterly" selected', quarter_body)
 
         db = get_db()
         existing_owner = create_owner(db, '已存在筛选业主', '13900008888')

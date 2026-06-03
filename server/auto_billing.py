@@ -29,6 +29,13 @@ def _months(cycle):
     return CYCLE_MONTHS.get(str(cycle or '').strip(), 1)
 
 
+def _effective_cycle(room, period_cycle=None):
+    override = str(period_cycle or '').strip()
+    if override in CYCLE_MONTHS:
+        return override
+    return room['payment_cycle'] or 'monthly'
+
+
 def _billing_period(start, end):
     first = f'{start.year}-{start.month:02d}'
     last = f'{end.year}-{end.month:02d}'
@@ -81,7 +88,7 @@ def _ids_from_form(data):
     return [int(x) for x in raw if str(x).isdigit()]
 
 
-def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None):
+def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None, period_cycle=None):
     current = _as_date(today or date.today())
     cutoff = current + timedelta(days=max(0, int(advance_days or 30)))
     fees = _candidate_fees(db, fee_ids)
@@ -94,15 +101,20 @@ def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None):
     items = []
     for room in rooms:
         try:
+            schedule_cycle = room['payment_cycle'] or 'monthly'
+            cycle = _effective_cycle(room, period_cycle)
             service = next_service_period(
-                room['contract_start'], room['contract_end'], room['payment_cycle'], current
+                room['contract_start'], room['contract_end'], schedule_cycle, current
             )
         except ValueError:
             continue
         if not service or service[0] > cutoff:
             continue
-        service_start, service_end, due_date = service
-        months = _months(room['payment_cycle'])
+        service_start, _schedule_end, due_date = service
+        months = _months(cycle)
+        service_end = add_months(service_start, months) - timedelta(days=1)
+        if service_end > _as_date(room['contract_end']):
+            continue
         period = _billing_period(service_start, service_end)
         for fee in fees:
             if not fee_applies_to_room(fee['name'] or '', room):
@@ -121,7 +133,7 @@ def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None):
                 'room_id': room['id'], 'fee_type_id': fee['id'],
                 'room_name': f"{room['building']}-{room['unit']}-{room['room_number']}",
                 'tenant_name': room['tenant_name'] or room['shop_name'] or room['owner_name'] or '-',
-                'fee_name': fee['name'], 'cycle': room['payment_cycle'] or 'monthly',
+                'fee_name': fee['name'], 'cycle': cycle,
                 'service_start': service_start.isoformat(), 'service_end': service_end.isoformat(),
                 'due_date': due_date.isoformat(), 'billing_period': period,
                 'amount': calc['amount'], 'can_generate': not bool(exists),
@@ -129,13 +141,13 @@ def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None):
     return items
 
 
-def confirm_auto_billing(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员'):
-    return create_auto_billing_run(db, item_keys, today=today, advance_days=advance_days, fee_ids=fee_ids, operator=operator)
+def confirm_auto_billing(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None):
+    return create_auto_billing_run(db, item_keys, today=today, advance_days=advance_days, fee_ids=fee_ids, operator=operator, period_cycle=period_cycle)
 
 
-def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员'):
+def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None):
     selected = set(item_keys or [])
-    preview = build_auto_billing_preview(db, today=today, advance_days=advance_days, fee_ids=fee_ids)
+    preview = build_auto_billing_preview(db, today=today, advance_days=advance_days, fee_ids=fee_ids, period_cycle=period_cycle)
     generated = skipped_existing = 0
     batch_no = f"AUTO-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
     generated_items = []
@@ -172,18 +184,19 @@ def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=
 class AutoBillingMixin(BaseHandler):
     def _auto_billing(self, q):
         advance_days = int(qs(q, 'advance_days', 30) or 30)
+        period_cycle = qs(q, 'period_cycle', 'tenant') or 'tenant'
         db = get_db()
         selected_fee_ids = _ids_from_form(q) or _default_fee_ids(db)
         preview_status = qs(q, 'preview_status', 'all') or 'all'
         fee_options = _selectable_fees(db)
-        items = build_auto_billing_preview(db, advance_days=advance_days, fee_ids=selected_fee_ids)
+        items = build_auto_billing_preview(db, advance_days=advance_days, fee_ids=selected_fee_ids, period_cycle=period_cycle)
         if preview_status == 'can_generate':
             items = [x for x in items if x['can_generate']]
         elif preview_status == 'existing':
             items = [x for x in items if not x['can_generate']]
         runs = recent_auto_billing_runs(db)
         db.close()
-        body = render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs, preview_status)
+        body = render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs, preview_status, period_cycle)
         self._html(self._page('自动出账预览', body, 'auto_billing'))
 
     def _auto_billing_run_detail(self, batch_no):
@@ -203,13 +216,14 @@ class AutoBillingMixin(BaseHandler):
         if not keys:
             return self._redirect('/auto_billing?flash=请勾选要生成的账单')
         advance_days = int(qs(d, 'advance_days', 30) or 30)
+        period_cycle = qs(d, 'period_cycle', 'tenant') or 'tenant'
         fee_ids = _ids_from_form(d)
         if qs(d, 'confirm') != '1':
-            return self._auto_billing_confirm_preview(keys, advance_days, fee_ids)
+            return self._auto_billing_confirm_preview(keys, advance_days, fee_ids, period_cycle)
         create_db_backup('auto_before_contract_billing')
         db = get_db()
         user = self._get_current_user() or {}
-        result = confirm_auto_billing(db, keys, advance_days=advance_days, fee_ids=fee_ids, operator=user.get('display_name') or user.get('username') or '管理员')
+        result = confirm_auto_billing(db, keys, advance_days=advance_days, fee_ids=fee_ids, operator=user.get('display_name') or user.get('username') or '管理员', period_cycle=period_cycle)
         db.close()
         self._audit('auto_billing_confirm', 'bill', None, None, result, '租户合同自动出账确认')
         msg = f"已生成{result['generated']}笔账单"
@@ -217,10 +231,10 @@ class AutoBillingMixin(BaseHandler):
             msg += f"，跳过{result['skipped_existing']}笔已存在账单"
         self._redirect(f"/auto_billing/runs/{result['batch_no']}" if result['batch_no'] else '/bills', msg)
 
-    def _auto_billing_confirm_preview(self, keys, advance_days, fee_ids):
+    def _auto_billing_confirm_preview(self, keys, advance_days, fee_ids, period_cycle):
         selected = set(keys)
         db = get_db()
-        items = [x for x in build_auto_billing_preview(db, advance_days=advance_days, fee_ids=fee_ids) if x['item_key'] in selected]
+        items = [x for x in build_auto_billing_preview(db, advance_days=advance_days, fee_ids=fee_ids, period_cycle=period_cycle) if x['item_key'] in selected]
         db.close()
         can_items = [x for x in items if x['can_generate']]
         skipped = len(items) - len(can_items)
@@ -249,10 +263,11 @@ class AutoBillingMixin(BaseHandler):
         <form method="POST" action="/auto_billing/confirm" class="d-inline">
           <input type="hidden" name="confirm" value="1">
           <input type="hidden" name="advance_days" value="{advance_days}">
+          <input type="hidden" name="period_cycle" value="{h(period_cycle)}">
           {hidden_keys}{hidden_fees}
           <button class="btn btn-success" {'disabled' if not can_items else ''}>确认写入账单</button>
         </form>
-        <a class="btn btn-outline-secondary" href="/auto_billing?advance_days={advance_days}">返回修改</a>'''
+        <a class="btn btn-outline-secondary" href="/auto_billing?advance_days={advance_days}&period_cycle={h(period_cycle)}">返回修改</a>'''
         self._html(self._page('自动出账确认', body, 'auto_billing'))
 
     def _auto_billing_rollback(self, batch_no):
