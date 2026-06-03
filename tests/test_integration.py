@@ -1181,6 +1181,29 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('对账报表', body)
         self.assertNotIn('更多功能', body)
 
+    def test_fee_type_created_from_group_stays_visible_in_that_group(self):
+        unique_name = '物业专项测试费'
+        status, body, loc = http_post('/fee_types/create', {
+            'return_group': 'property',
+            'name': unique_name,
+            'calc_method': 'fixed',
+            'unit_price': '12',
+            'unit': '元/月',
+            'billing_cycle': 'monthly',
+            'sort_order': '0',
+            'is_active': 'on',
+            'notes': '分组新增可见性测试',
+            'reminder_advance_days': '30',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/fee_types?group=property', loc)
+
+        status, group_page = http_get('/fee_types?group=property', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn(unique_name, group_page)
+        self.assertIn('分组新增可见性测试', group_page)
+
     def test_system_maintenance_links_render_as_compact_buttons(self):
         status, body = http_get('/system_health', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)

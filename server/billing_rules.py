@@ -30,7 +30,10 @@ def fee_in_scope(fee, scope):
     name = fee_name(fee)
     sort_order = fee_sort_order(fee)
     if scope == 'property':
-        return name in PROPERTY_FEE_NAMES or (1 <= sort_order < 30 and name not in COMMERCIAL_FEE_NAMES)
+        return (
+            name in PROPERTY_FEE_NAMES
+            or ((sort_order == 0 or 1 <= sort_order < 30) and name not in COMMERCIAL_FEE_NAMES and name not in OTHER_FEE_NAMES)
+        )
     if scope == 'commercial':
         return name in COMMERCIAL_FEE_NAMES or name in WATER_FEE_NAMES or (30 <= sort_order < 50 and name not in PROPERTY_FEE_NAMES)
     if scope == 'other':
