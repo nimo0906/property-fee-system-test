@@ -2813,6 +2813,28 @@ class TestIntegration(unittest.TestCase):
         _, body = http_get('/bills?period=2026-06', self.cookie, TEST_PORT)
         self.assertIn('2026-06', body)
 
+    def test_bills_summary_counts_all_filtered_rows_not_current_page(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '账单统计业主', '13900007777')
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()[0]
+        for i in range(60):
+            room_id = create_room(
+                db, building='SUMMARYALL', unit='A座', room_number=f'{1000+i}',
+                category='居民', area=10, owner_id=owner_id,
+            )
+            create_bill(
+                db, room_id=room_id, owner_id=owner_id, fee_type_id=fee_id,
+                period='2036-06', amount=10, status='unpaid',
+            )
+        db.close()
+
+        status, body = http_get('/bills?period=2036-06&building=SUMMARYALL', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('60户 / 60笔', body)
+        self.assertIn('共 60 条，第 1 / 2 页', body)
+
     def test_bills_default_list_shows_paid_bills_after_returning_from_print(self):
         http_post('/rooms/create', {
             'building': 'BILLDEFAULT', 'unit': 'A座', 'room_number': '801',

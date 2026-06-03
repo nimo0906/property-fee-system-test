@@ -109,16 +109,22 @@ class BillListMixin(BaseHandler):
         pg=int(qs(q,'page','1'))
         per_page=50
         total_rows=db.execute("SELECT COUNT(*) FROM ("+sql+")",vals).fetchone()[0]
+        summary=db.execute(
+            "SELECT COUNT(DISTINCT room_id) rooms,COUNT(*) bills,COALESCE(SUM(amount),0) amount,"
+            "COALESCE(SUM(paid),0) paid,SUM(CASE WHEN status IN ('unpaid','overdue') THEN 1 ELSE 0 END) unpaid,"
+            "SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) paid_count FROM ("+sql+")",
+            vals,
+        ).fetchone()
         sql+=" LIMIT ? OFFSET ?"
         vals.extend([per_page, (pg-1)*per_page])
         rows=db.execute(sql,vals).fetchall()
         total_pages=max(1,(total_rows+per_page-1)//per_page)
         fts=db.execute("SELECT * FROM fee_types ORDER BY sort_order").fetchall()
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
-        ta=sum(r['amount'] for r in rows);tp=sum(r['paid'] for r in rows)
-        t_unpaid=sum(1 for r in rows if r['status'] in ('unpaid','overdue'))
-        t_paid=sum(1 for r in rows if r['status']=='paid')
-        t_rooms=len(set(r['room_id'] for r in rows))
+        ta=summary['amount'];tp=summary['paid']
+        t_unpaid=summary['unpaid'] or 0
+        t_paid=summary['paid_count'] or 0
+        t_rooms=summary['rooms'] or 0
         db.close()
         sn={'paid':'status-paid','unpaid':'status-unpaid','overdue':'status-overdue','partial':'status-partial'}
         ln={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
@@ -193,7 +199,7 @@ class BillListMixin(BaseHandler):
                         f'<form method=POST id="billActionForm"><input type="hidden" name="back" value="{h(current_path)}"></form>')
         tpl=tpl.replace('{SUN}',' selected' if s=='unpaid' else '').replace('{SPA}',' selected' if s=='paid' else '')
         tpl=tpl.replace('{SOV}',' selected' if s=='overdue' else '')
-        tpl=tpl.replace('{ROOMS}',str(t_rooms)).replace('{COUNT}',str(len(rows)))
+        tpl=tpl.replace('{ROOMS}',str(t_rooms)).replace('{COUNT}',str(total_rows))
         tpl=tpl.replace('{TOTAL_ROWS}',str(total_rows)).replace('{PAGE}',str(pg)).replace('{TOTAL_PAGES}',str(total_pages))
         tpl=tpl.replace('{TOTAL_AMT}',m(ta)).replace('{TOTAL_PAID}',m(tp))
         tpl=tpl.replace('{UNPAID_CNT}',str(t_unpaid))
