@@ -755,6 +755,23 @@ class TestIntegration(unittest.TestCase):
             js = f.read()
         self.assertIn('window.meterMismatchWarning', js)
 
+    def test_meter_create_page_hints_room_water_rate_type_for_fee_selection(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '抄表提示业主', '13900000013')
+        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM106', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET water_rate_type='特行' WHERE id=?", (room_id,))
+        db.commit(); db.close()
+
+        status, body = http_get('/meter_readings/create', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('房间管理水费类型提示', body)
+        self.assertIn('data-water="特行"', body)
+        self.assertIn('WM106', body)
+        self.assertIn('建议选择：水费(特行)', body)
+        self.assertIn('id="waterFeeHint"', body)
+
     def test_meter_create_rejects_water_fee_standard_mismatch(self):
         from server.db import get_db
         db = get_db()

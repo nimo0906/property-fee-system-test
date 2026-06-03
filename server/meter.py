@@ -75,11 +75,16 @@ class MeterMixin(BaseHandler):
         rooms=db.execute("SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id ORDER BY r.building,r.room_number").fetchall()
         db.close()
         ft_opts='<option value="">--选择--</option>'+''.join(f'<option value="{f["id"]}">{h(f["name"])}</option>' for f in fts)
-        rm_opts='<option value="">--选择--</option>'+''.join(f'<option value="{r["id"]}">{h(r["building"])}-{h(r["room_number"])} ({h(r["oname"]or"")})</option>' for r in rooms)
+        rm_opts='<option value="">--选择--</option>'+''.join(
+            f'<option value="{r["id"]}" data-water="{h(r["water_rate_type"] or "非居民")}">'
+            f'{h(r["building"])}-{h(r["room_number"])} ({h(r["oname"]or"")})</option>'
+            for r in rooms
+        )
         self._html(self._page('录入抄表',f'''
 <form method=POST action="/meter_readings/create" class="row g-3">
 <div class="col-md-6"><label>房间 *</label><select name="room_id" class="form-select" id="mRoom" required>{rm_opts}</select></div>
-<div class="col-md-6"><label>费用类型 *</label><select name="fee_type_id" class="form-select" id="mFt" required>{ft_opts}</select></div>
+<div class="col-md-6"><label>费用类型 *</label><select name="fee_type_id" class="form-select" id="mFt" required>{ft_opts}</select>
+<small class="text-muted d-block mt-1" id="waterFeeHint">房间管理水费类型提示：选择房间后，会显示该房间在房间管理中录入的水费标准，便于选择水费(非居民)或水费(特行)。例如水费类型为“特行”时，建议选择：水费(特行)。</small></div>
 <div class="col-md-4"><label>账期日期</label><input type="date" name="period" class="form-control" value="{period_to_date(get_period())}"><small class="text-muted">系统按所选日期所在月份作为账期</small></div>
 <div class="col-md-4"><label>抄表日期</label><input type="date" name="reading_date" class="form-control" value="{date.today().isoformat()}"></div>
 <div class="col-md-4"><label>状态</label><select name="status" class="form-select"><option value="draft">草稿</option><option value="confirmed">已确认</option></select></div>
@@ -87,8 +92,23 @@ class MeterMixin(BaseHandler):
 <div class="col-md-6"><label>本次读数 *</label><input name="current_reading" type="number" class="form-control" step="0.01" required></div>
 <div class="col-12"><label>备注</label><input name="notes" class="form-control"></div>
 <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/meter_readings" class="btn btn-outline-secondary">取消</a></div></form>
-<script>document.getElementById('mRoom').addEventListener('change',loadMeter);document.getElementById('mFt').addEventListener('change',loadMeter);
-function loadMeter(){{var r=document.getElementById('mRoom').value;var f=document.getElementById('mFt').value;if(r&&f)fetch('/api/rooms/'+r+'/meter/'+f).then(x=>x.json()).then(d=>document.getElementById('mPrev').value=d.previous_reading).catch(()=>{{}});}}</script>''','meter'))
+<script>
+function updateWaterFeeHint(){{
+    var sel=document.getElementById('mRoom');
+    var opt=sel.options[sel.selectedIndex];
+    var water=(opt&&opt.dataset&&opt.dataset.water)||'';
+    var hint=document.getElementById('waterFeeHint');
+    if(!hint) return;
+    if(water){{
+        hint.textContent='房间管理水费类型提示：该房间水费类型为 '+water+'，建议选择：水费('+water+')。';
+    }}else{{
+        hint.textContent='房间管理水费类型提示：选择房间后，会显示该房间在房间管理中录入的水费标准，便于选择水费(非居民)或水费(特行)。例如水费类型为“特行”时，建议选择：水费(特行)。';
+    }}
+}}
+document.getElementById('mRoom').addEventListener('change',function(){{updateWaterFeeHint();loadMeter();}});document.getElementById('mFt').addEventListener('change',loadMeter);
+function loadMeter(){{var r=document.getElementById('mRoom').value;var f=document.getElementById('mFt').value;if(r&&f)fetch('/api/rooms/'+r+'/meter/'+f).then(x=>x.json()).then(d=>document.getElementById('mPrev').value=d.previous_reading).catch(()=>{{}});}}
+updateWaterFeeHint();
+</script>''','meter'))
 
     def _meter_create(self, d):
         db=get_db();rid=int(qs(d,'room_id'));fid=int(qs(d,'fee_type_id'))
