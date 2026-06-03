@@ -16,7 +16,7 @@ db_module.DB_PATH = _db_path
 db_module.BACKUP_DIR = os.path.join(os.path.dirname(_db_path), 'backups_v1_internal')
 
 from server.db import db_init, get_db, room_active_in_period, log_audit
-from server.shared_expenses import allocate_shared_amount
+from server.shared_expenses import allocate_shared_amount, shared_expense_rooms
 
 
 class TestV1InternalFeatures(unittest.TestCase):
@@ -75,6 +75,18 @@ class TestV1InternalFeatures(unittest.TestCase):
         allocations = allocate_shared_amount(100, rows, 'household')
         self.assertAlmostEqual(sum(a['amount'] for a in allocations), 100.0)
         self.assertEqual(allocations[-1]['amount'], 33.34)
+
+
+    def test_shared_expense_room_filter_supports_unit(self):
+        fee = self.db.execute("SELECT * FROM fee_types WHERE name='公摊能耗费' LIMIT 1").fetchone()
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('金莎国际','A座','101',1,'居民',30)")
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('金莎国际','B座','201',1,'居民',40)")
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('其他楼栋','A座','301',1,'居民',50)")
+        self.db.commit()
+
+        rooms = shared_expense_rooms(self.db, fee, '2026-06', building='金莎国际', unit='B座')
+
+        self.assertEqual([r['room_number'] for r in rooms], ['201'])
 
     def test_room_contract_overlap_filter(self):
         active_id = self._room('201', 50, '2026-01-01', '2026-12-31')

@@ -8,7 +8,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from server.base import BaseHandler
 from server.backups import create_db_backup
 from server.db import get_db, get_period, h, m, qs, is_period_closed, room_active_in_period, date_to_period, period_to_date
-from server.billing_engine import fee_applies_to_category, fee_applies_to_room
+from server.billing_engine import fee_applies_to_room
 
 
 def allocate_shared_amount(total_amount, rooms, method='area'):
@@ -35,6 +35,26 @@ def allocate_shared_amount(total_amount, rooms, method='area'):
     return allocations
 
 
+def shared_expense_rooms(db, fee_type, period, building='', unit='', category=''):
+    cond = []
+    vals = []
+    if building:
+        cond.append('building=?'); vals.append(building)
+    if unit:
+        cond.append('unit=?'); vals.append(unit)
+    if category:
+        cond.append('category=?'); vals.append(category)
+    sql = 'SELECT * FROM rooms'
+    if cond:
+        sql += ' WHERE ' + ' AND '.join(cond)
+    sql += ' ORDER BY building,unit,room_number'
+    rooms = db.execute(sql, vals).fetchall()
+    return [
+        r for r in rooms
+        if fee_applies_to_room(fee_type['name'] or '', r) and room_active_in_period(r, period)
+    ]
+
+
 class SharedExpenseMixin(BaseHandler):
 
     def _shared_expenses(self, q=None):
@@ -42,12 +62,14 @@ class SharedExpenseMixin(BaseHandler):
         db = get_db()
         fts = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         blds = db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
+        units = db.execute("SELECT DISTINCT unit FROM rooms WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit").fetchall()
         cats = db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
         recent = db.execute('''SELECT s.*,f.name fee_name FROM shared_expense_runs s LEFT JOIN fee_types f ON s.fee_type_id=f.id
             ORDER BY s.created_at DESC,s.id DESC LIMIT 10''').fetchall()
         db.close()
         fee_opts = ''.join(f'<option value="{f["id"]}"{" selected" if "公摊" in (f["name"] or "") else ""}>{h(f["name"])} - {h(f["calc_method"])}</option>' for f in fts)
         bld_opts = '<option value="">全部楼栋</option>' + ''.join(f'<option value="{h(r["building"])}">{h(r["building"])}</option>' for r in blds)
+        unit_opts = '<option value="">全部单元/座</option>' + ''.join(f'<option value="{h(r["unit"])}">{h(r["unit"])}</option>' for r in units)
         cat_opts = '<option value="">全部类别</option>' + ''.join(f'<option value="{h(r["category"])}">{h(r["category"])}</option>' for r in cats)
         recent_rows = ''.join(
             f'''<tr><td>{h(r["created_at"])}</td><td>{h(r["period"])}</td><td>{h(r["fee_name"] or r["fee_type_id"])}</td>
@@ -63,6 +85,7 @@ class SharedExpenseMixin(BaseHandler):
             <div class="col-md-3"><label>截止日</label><input name="due_day" type="number" min="1" max="28" value="28" class="form-control"></div>
             <div class="col-md-3"><label>分摊方式</label><select name="allocation_method" class="form-select"><option value="area">按面积分摊</option><option value="household">按户数平均</option></select></div>
             <div class="col-md-3"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
+            <div class="col-md-3"><label>单元/座</label><select name="unit" class="form-select">{unit_opts}</select></div>
             <div class="col-md-3"><label>类别</label><select name="category" class="form-select">{cat_opts}</select></div>
             <div class="col-md-3"><label>说明</label><input name="notes" class="form-control" placeholder="如：5月公共电费"></div>
             <div class="col-12"><button name="mode" value="preview" class="btn btn-primary btn-lg">预览分摊</button>
@@ -79,6 +102,7 @@ class SharedExpenseMixin(BaseHandler):
         total = float(qs(d, 'total_amount', '0') or 0)
         method = qs(d, 'allocation_method', 'area')
         building = qs(d, 'building')
+        unit = qs(d, 'unit')
         category = qs(d, 'category')
         due_day = int(qs(d, 'due_day', '28') or 28)
         due_day = min(28, max(1, due_day))
@@ -87,24 +111,14 @@ class SharedExpenseMixin(BaseHandler):
         ft = db.execute('SELECT * FROM fee_types WHERE id=? AND is_active=1', (fid,)).fetchone()
         if not ft:
             db.close(); return self._redirect('/shared_expenses?flash=收费项目不存在')
-        cond = []
-        vals = []
-        if building:
-            cond.append('building=?'); vals.append(building)
-        if category:
-            cond.append('category=?'); vals.append(category)
-        sql = 'SELECT * FROM rooms'
-        if cond:
-            sql += ' WHERE ' + ' AND '.join(cond)
-        sql += ' ORDER BY building,unit,room_number'
-        rooms = [r for r in db.execute(sql, vals).fetchall() if fee_applies_to_room(ft['name'] or '', r) and room_active_in_period(r, period)]
+        rooms = shared_expense_rooms(db, ft, period, building, unit, category)
         existing = {row[0] for row in db.execute('SELECT room_id FROM bills WHERE billing_period=? AND fee_type_id=?', (period, fid)).fetchall()}
         rooms = [r for r in rooms if r['id'] not in existing]
         allocations = allocate_shared_amount(total, rooms, method)
         if not allocations:
             db.close(); return self._redirect('/shared_expenses?flash=没有可分摊房间或金额无效')
         if qs(d, 'mode') == 'preview':
-            db.close(); return self._render_shared_preview(period, fid, total, method, building, category, due_day, notes, allocations, len(existing))
+            db.close(); return self._render_shared_preview(period, fid, total, method, building, unit, category, due_day, notes, allocations, len(existing))
         backup_name = create_db_backup('auto_before_bill_generation')
         parts = period.split('-')
         due_date = f'{parts[0]}-{parts[1]}-{due_day:02d}'
@@ -126,9 +140,9 @@ class SharedExpenseMixin(BaseHandler):
         self._audit('shared_expense_generate', 'shared_expense_run', run_id, None, {'period': period, 'fee_type_id': fid, 'total': total, 'bill_ids': bill_ids}, notes)
         return self._render_shared_result(period, total, method, allocations, backup_name, bill_ids)
 
-    def _render_shared_preview(self, period, fid, total, method, building, category, due_day, notes, allocations, skipped):
-        rows = ''.join(f'<tr><td>{h(a["room"]["building"])}-{h(a["room"]["room_number"])}</td><td>{h(a["room"]["category"])}</td><td class="text-end">{m(a["weight"])}</td><td class="text-end money">¥{m(a["amount"])}</td></tr>' for a in allocations[:80])
-        hidden = ''.join(f'<input type="hidden" name="{k}" value="{h(v)}">' for k, v in {'period':period,'fee_type_id':fid,'total_amount':total,'allocation_method':method,'building':building,'category':category,'due_day':due_day,'notes':notes}.items())
+    def _render_shared_preview(self, period, fid, total, method, building, unit, category, due_day, notes, allocations, skipped):
+        rows = ''.join(f'<tr><td>{h(a["room"]["building"])}-{h(a["room"]["unit"] or "")}-{h(a["room"]["room_number"])}</td><td>{h(a["room"]["category"])}</td><td class="text-end">{m(a["weight"])}</td><td class="text-end money">¥{m(a["amount"])}</td></tr>' for a in allocations[:80])
+        hidden = ''.join(f'<input type="hidden" name="{k}" value="{h(v)}">' for k, v in {'period':period,'fee_type_id':fid,'total_amount':total,'allocation_method':method,'building':building,'unit':unit,'category':category,'due_day':due_day,'notes':notes}.items())
         self._html(self._page('公摊分摊预览', f'''
         <div class="alert alert-warning">当前仅预览，不写入账单。确认后会生成 {len(allocations)} 笔公摊账单，跳过已有账单房间 {skipped} 间。</div>
         <div class="row text-center g-2 mb-3"><div class="col-md-4"><div class="summary-tile">房间数<br><strong>{len(allocations)}</strong></div></div><div class="col-md-4"><div class="summary-tile">总金额<br><strong class="money">¥{m(total)}</strong></div></div><div class="col-md-4"><div class="summary-tile">分摊合计<br><strong class="money">¥{m(sum(a["amount"] for a in allocations))}</strong></div></div></div>
