@@ -11,6 +11,9 @@ from server.auto_billing_runs import (
     rollback_auto_billing_batch, run_detail_html,
 )
 from server.auto_billing_page import render_auto_billing_page
+from server.auto_billing_adjustments import (
+    adjustments_from_form, confirm_edit_row, safe_amount, safe_due_date,
+)
 from server.billing_engine import calculate_bill_amount, fee_applies_to_room
 from server.db import add_months, get_db, h, m, qs
 
@@ -141,12 +144,13 @@ def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None, pe
     return items
 
 
-def confirm_auto_billing(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None):
-    return create_auto_billing_run(db, item_keys, today=today, advance_days=advance_days, fee_ids=fee_ids, operator=operator, period_cycle=period_cycle)
+def confirm_auto_billing(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None, adjustments=None):
+    return create_auto_billing_run(db, item_keys, today=today, advance_days=advance_days, fee_ids=fee_ids, operator=operator, period_cycle=period_cycle, adjustments=adjustments)
 
 
-def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None):
+def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None, adjustments=None):
     selected = set(item_keys or [])
+    adjustments = adjustments or {}
     preview = build_auto_billing_preview(db, today=today, advance_days=advance_days, fee_ids=fee_ids, period_cycle=period_cycle)
     generated = skipped_existing = 0
     batch_no = f"AUTO-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
@@ -157,6 +161,9 @@ def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=
         if not item['can_generate']:
             skipped_existing += 1
             continue
+        adj = adjustments.get(item['item_key'], {})
+        amount = safe_amount(adj.get('amount'), item['amount'])
+        due_date = safe_due_date(adj.get('due_date'), item['due_date'])
         room = db.execute("SELECT * FROM rooms WHERE id=?", (item['room_id'],)).fetchone()
         seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (item['billing_period'],)).fetchone()[0] + 1
         bill_number = f"AUTO_{room['building']}-{room['room_number']}_{item['billing_period'].replace('~','-')}_{seq:04d}"
@@ -165,10 +172,10 @@ def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=
             bill_number,source,source_ref,service_start,service_end,auto_batch_no)
             VALUES(?,?,?,?,?,?,'unpaid',?,'auto_contract',?,?,?,?)""",
             (item['room_id'], room['owner_id'], item['fee_type_id'], item['billing_period'],
-             item['amount'], item['due_date'], bill_number, item['item_key'],
+             amount, due_date, bill_number, item['item_key'],
              item['service_start'], item['service_end'], batch_no)
         )
-        generated_items.append(item)
+        generated_items.append({**item, 'amount': amount, 'due_date': due_date})
         generated += 1
     if generated:
         db.execute(
@@ -223,7 +230,8 @@ class AutoBillingMixin(BaseHandler):
         create_db_backup('auto_before_contract_billing')
         db = get_db()
         user = self._get_current_user() or {}
-        result = confirm_auto_billing(db, keys, advance_days=advance_days, fee_ids=fee_ids, operator=user.get('display_name') or user.get('username') or '管理员', period_cycle=period_cycle)
+        adjustments = adjustments_from_form(d, keys)
+        result = confirm_auto_billing(db, keys, advance_days=advance_days, fee_ids=fee_ids, operator=user.get('display_name') or user.get('username') or '管理员', period_cycle=period_cycle, adjustments=adjustments)
         db.close()
         self._audit('auto_billing_confirm', 'bill', None, None, result, '租户合同自动出账确认')
         msg = f"已生成{result['generated']}笔账单"
@@ -241,12 +249,7 @@ class AutoBillingMixin(BaseHandler):
         total = sum(float(x['amount'] or 0) for x in can_items)
         hidden_keys = ''.join(f'<input type="hidden" name="item_keys" value="{h(k)}">' for k in keys)
         hidden_fees = ''.join(f'<input type="hidden" name="fee_ids" value="{fid}">' for fid in fee_ids)
-        rows = ''.join(
-            f'''<tr><td>{h(x['tenant_name'])}</td><td>{h(x['room_name'])}</td><td>{h(x['fee_name'])}</td>
-            <td>{h(x['service_start'])} 至 {h(x['service_end'])}</td><td>{h(x['due_date'])}</td>
-            <td class="text-end">¥{m(x['amount'])}</td><td>{'将生成' if x['can_generate'] else '已存在，跳过'}</td></tr>'''
-            for x in items
-        ) or '<tr><td colspan="7" class="text-center text-muted py-4">没有可确认的账单</td></tr>'
+        rows = ''.join(confirm_edit_row(x) for x in items) or '<tr><td colspan="7" class="text-center text-muted py-4">没有可确认的账单</td></tr>'
         body = f'''
         <div class="alert alert-warning">请核对以下自动出账内容。确认后才会写入账单；系统会先自动备份，已存在的账单不会重复生成。</div>
         <div class="card mb-3"><div class="card-header">确认汇总</div><div class="card-body">

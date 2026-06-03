@@ -403,6 +403,27 @@ class TestDBLogic(unittest.TestCase):
         self.assertEqual(result['generated'], 0)
         self.assertEqual(result['skipped_existing'], 1)
 
+    def test_auto_billing_confirm_applies_editable_amount_and_due_date(self):
+        from server.auto_billing import build_auto_billing_preview, confirm_auto_billing
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('确认编辑业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOEDIT', 'B座', '2501', 25, '居民', 100, owner_id, '确认编辑租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        self.db.commit()
+
+        item = next(x for x in build_auto_billing_preview(self.db, today='2026-05-28', advance_days=30) if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+        result = confirm_auto_billing(
+            self.db, [item['item_key']], today='2026-05-28', advance_days=30,
+            adjustments={item['item_key']: {'amount': '618.88', 'due_date': '2026-07-05'}}
+        )
+
+        self.assertEqual(result['generated'], 1)
+        bill = self.db.execute("SELECT amount,due_date FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
+        self.assertEqual(bill['amount'], 618.88)
+        self.assertEqual(bill['due_date'], '2026-07-05')
+
     def test_auto_billing_confirm_records_batch_and_rollback_only_safe_bills(self):
         from server.auto_billing import build_auto_billing_preview, confirm_auto_billing, rollback_auto_billing_batch
         owner_id = self.db.execute("INSERT INTO owners(name) VALUES('批次业主')").lastrowid

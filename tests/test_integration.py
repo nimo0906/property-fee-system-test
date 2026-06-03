@@ -798,6 +798,51 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(bill['billing_period'], '2026-06~2026-09')
         self.assertEqual(bill['source'], 'auto_contract')
 
+    def test_auto_billing_confirm_page_allows_editing_before_final_write(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '自动确认编辑业主', '13900009991')
+        room_id = db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOEDITHTTP', 'B座', '2502', 25, '居民', 100, owner_id, '自动确认编辑租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        db.commit(); db.close()
+        item_key = f'{room_id}:{fee_id}:2026-06-27:2026-09-26'
+
+        status, html, loc = http_post('/auto_billing/confirm', {
+            'advance_days': '30',
+            'item_keys': item_key,
+            'fee_ids': str(fee_id),
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('确认后才会写入账单', html)
+        self.assertIn(f'name="amount__{item_key}"', html)
+        self.assertIn(f'name="due_date__{item_key}"', html)
+        self.assertIn('value="570.00"', html)
+
+        status, body, loc = http_post('/auto_billing/confirm', {
+            'advance_days': '30',
+            'confirm': '1',
+            'item_keys': item_key,
+            'fee_ids': str(fee_id),
+            f'amount__{item_key}': '618.88',
+            f'due_date__{item_key}': '2026-07-05',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/auto_billing/runs/', loc)
+
+        db = get_db()
+        bill = db.execute("SELECT amount,due_date,auto_batch_no FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
+        self.assertEqual(bill['amount'], 618.88)
+        self.assertEqual(bill['due_date'], '2026-07-05')
+        db.execute("DELETE FROM bills WHERE room_id=?", (room_id,))
+        db.execute("DELETE FROM auto_billing_runs WHERE batch_no=?", (bill['auto_batch_no'],))
+        db.execute("DELETE FROM rooms WHERE id=?", (room_id,))
+        db.execute("DELETE FROM owners WHERE id=?", (owner_id,))
+        db.commit(); db.close()
+
     def test_auto_billing_confirm_page_previews_before_writing_bills(self):
         from server.db import get_db
         db = get_db()
