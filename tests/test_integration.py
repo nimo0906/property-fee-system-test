@@ -30,6 +30,16 @@ from tests.conftest import (
 )
 
 
+def http_get_with_location(path, cookie, port=TEST_PORT):
+    conn = http.client.HTTPConnection(BASE_URL, port)
+    conn.request('GET', path, headers={'Cookie': cookie})
+    resp = conn.getresponse()
+    body = resp.read().decode('utf-8')
+    location = resp.getheader('Location', '')
+    conn.close()
+    return resp.status, body, location
+
+
 def _start_server():
     """Start the server once for the whole test class."""
     os.environ['PM_DB_PATH'] = os.path.join(
@@ -143,7 +153,7 @@ class TestIntegration(unittest.TestCase):
         loc = resp.getheader('Location', '')
         conn.close()
         self.assertEqual(resp.status, 302)
-        self.assertIn('无权限访问系统更新', urllib.parse.unquote(loc))
+        self.assertIn('无权限访问', urllib.parse.unquote(loc))
 
     def test_trial_data_reset_requires_admin_and_clears_business_data_only(self):
         import server.db as db_module
@@ -1371,6 +1381,40 @@ class TestIntegration(unittest.TestCase):
         db.execute('DELETE FROM users WHERE username=?', (username,))
         db.commit(); db.close()
         self.assertTrue(upgraded.startswith('pbkdf2_sha256$'))
+
+    def test_operator_menu_excludes_system_maintenance_and_high_risk_pages(self):
+        operator_cookie = self._create_user_and_login(
+            'operator_role_scope_test', 'operator123', 'operator', '财务权限测试'
+        )
+
+        status, body = http_get('/', operator_cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('自动出账', body)
+        self.assertIn('公摊分摊', body)
+        self.assertIn('发票管理', body)
+        self.assertIn('期末结账', body)
+        self.assertNotIn('数据备份', body)
+        self.assertNotIn('操作日志', body)
+        self.assertNotIn('系统健康', body)
+        self.assertNotIn('系统更新', body)
+        self.assertNotIn('清空', body)
+        self.assertNotIn('操作员管理', body)
+
+        for path in ['/backups', '/audit_logs', '/system_health', '/system_update', '/trial_data_reset', '/users']:
+            status, _, loc = http_get_with_location(path, operator_cookie, TEST_PORT)
+            self.assertEqual(status, 302, path)
+            self.assertIn('无权限', urllib.parse.unquote(loc), path)
+
+    def test_readonly_cannot_direct_access_write_modules_added_recently(self):
+        readonly_cookie = self._create_user_and_login(
+            'readonly_role_scope_test', 'readonly123', 'readonly', '客服权限测试'
+        )
+
+        for path in ['/billing', '/commercial_billing', '/auto_billing', '/shared_expenses', '/payments', '/invoices', '/closing', '/import']:
+            status, _, loc = http_get_with_location(path, readonly_cookie, TEST_PORT)
+            self.assertEqual(status, 302, path)
+            self.assertIn('无权限', urllib.parse.unquote(loc), path)
 
     def test_operator_cannot_access_user_management(self):
         operator_cookie = self._create_user_and_login(

@@ -196,9 +196,9 @@ class AuthMixin(BaseHandler):
             <h6 class="mb-2"><i class="bi bi-person-gear"></i> 首次账号设置建议</h6>
             <div class="small">这是本地账号，不是互联网开户注册。单人本地试用可以先只用 admin；正式收费建议修改默认密码，并至少创建一个财务收费账号。客服需要查看催费对象时，再创建客服只读账号。</div>
             <div class="mt-2 d-flex gap-2 flex-wrap">
-                <span class="badge bg-danger">管理员：配置、账号、备份恢复</span>
-                <span class="badge bg-info">财务收费账号：出账、收费、打印、对账</span>
-                <span class="badge bg-secondary">客服只读账号：查看资料、账单、催费对象</span>
+                <span class="badge bg-danger">管理员：账号、配置、备份恢复、系统维护、全部业务权限</span>
+                <span class="badge bg-info">财务收费账号：出账、收费、抄表、公摊、发票、催缴、对账、结账</span>
+                <span class="badge bg-secondary">客服只读账号：查看资料、账单、缴费记录、催缴对象和报表摘要</span>
             </div>
         </div>'''
         self._html(self._page("操作员管理",

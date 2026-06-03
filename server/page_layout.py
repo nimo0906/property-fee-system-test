@@ -62,7 +62,7 @@ def render_page(handler, title, content, active='', top_actions=''):
     else:
         allowed = {'index', 'owners', 'rooms', 'fee_types', 'batch_ops', 'meter', 'billing',
                    'commercial_billing', 'auto_billing', 'bills', 'payments', 'invoices',
-                   'reports', 'closing', 'backups', 'import', 'reminders', 'audit_logs', 'shared_expenses'}
+                   'reports', 'closing', 'import', 'reminders', 'shared_expenses'}
     user_html = ''
     if cur_user:
         role_label = {"admin": "管理员", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])

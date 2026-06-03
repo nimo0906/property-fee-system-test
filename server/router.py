@@ -19,6 +19,36 @@ def _is_disabled_module_path(path):
     return any(re.match(pattern, path) for pattern in DISABLED_MODULE_PATTERNS)
 
 
+READONLY_GET_ALLOWED = (
+    r'^/$',
+    r'^/owners$',
+    r'^/rooms$',
+    r'^/bills(?:/.*)?$',
+    r'^/collections(?:/.*)?$',
+    r'^/reminders(?:/.*)?$',
+    r'^/reports(?:/.*)?$',
+    r'^/logout$',
+)
+
+
+OPERATOR_GET_BLOCKED = (
+    r'^/backups(?:/.*)?$',
+    r'^/audit_logs$',
+    r'^/system_health(?:/.*)?$',
+    r'^/system_update(?:/.*)?$',
+    r'^/trial_data_reset$',
+    r'^/users(?:/.*)?$',
+)
+
+
+def _role_blocks_get(role, path):
+    if role == 'readonly':
+        return not any(re.match(pattern, path) for pattern in READONLY_GET_ALLOWED)
+    if role == 'operator':
+        return any(re.match(pattern, path) for pattern in OPERATOR_GET_BLOCKED)
+    return False
+
+
 # ── GET routing ────────────────────────────────────────────
 def handle_get(handler):
     p = urllib.parse.urlparse(handler.path).path
@@ -33,6 +63,8 @@ def handle_get(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        if _role_blocks_get(u.get('role'), p):
+            return handler._redirect('/?flash=无权限访问该页面')
     if p == '/login': return handler._login()
     elif p == '/register': return handler._register()
     elif p == '/logout': return handler._logout()

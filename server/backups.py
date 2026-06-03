@@ -205,6 +205,9 @@ def _backup_summary_html(summary):
 class BackupMixin(BaseHandler):
 
     def _backups(self, q=None):
+        u = self._get_current_user() or {}
+        if u.get('role') != 'admin':
+            return self._redirect('/?flash=无权限访问数据备份')
         q = q or {}
         selected_type = q.get('type', [''])[0] if isinstance(q.get('type'), list) else q.get('type', '')
         if not os.path.exists(db_module.BACKUP_DIR):
