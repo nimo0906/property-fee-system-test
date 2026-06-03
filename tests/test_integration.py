@@ -2370,6 +2370,10 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('class="invoice-password-zone"', print_page)
         self.assertIn('class="invoice-watermark"', print_page)
         self.assertIn('数电票据样式参考，仅用于内部留存', print_page)
+        self.assertIn('内部凭证信息', print_page)
+        self.assertIn('服务账期', print_page)
+        self.assertIn('缴费截止日', print_page)
+        self.assertIn('2034-06', print_page)
 
     def test_invoice_list_filters_by_keyword_and_buyer(self):
         import server.db as db_module
@@ -2413,7 +2417,8 @@ class TestIntegration(unittest.TestCase):
 
         status, csv_body = http_get('/audit_logs/export.csv?keyword=%E4%B9%B1%E7%A0%81%E6%B5%8B%E8%AF%95', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('created_at,action,entity_type,entity_id,username,role,ip,reason,old_value,new_value', csv_body)
+        self.assertIn('created_at,action,entity_type,entity_id,username,role,ip,reason,changed_fields,old_value,new_value', csv_body)
+        self.assertIn('amount', csv_body)
         self.assertIn('乱码测试', csv_body)
         self.assertIn('详情核对', csv_body)
 
@@ -2456,6 +2461,19 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('100', html)
         self.assertIn('120', html)
         self.assertIn('due_date', html)
+
+    def test_audit_logs_csv_includes_changed_fields_summary(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("INSERT INTO audit_logs(action,entity_type,entity_id,username,role,ip,old_value,new_value,reason) VALUES(?,?,?,?,?,?,?,?,?)",
+                   ('bill_amount_update', 'bill', 100, 'admin', 'admin', '127.0.0.1', '{"amount":200,"due_date":"2031-03-01"}', '{"amount":260,"due_date":"2031-03-15"}', 'CSV字段摘要'))
+        db.commit(); db.close()
+
+        status, csv_body = http_get('/audit_logs/export.csv?keyword=CSV%E5%AD%97%E6%AE%B5%E6%91%98%E8%A6%81', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('created_at,action,entity_type,entity_id,username,role,ip,reason,changed_fields,old_value,new_value', csv_body)
+        self.assertIn('amount;due_date', csv_body)
 
     def test_backup_page_has_direct_preview_action(self):
         import server.db as db_module
@@ -3884,6 +3902,31 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('欠费租户', csv_body)
         self.assertIn('欠费咖啡店', csv_body)
         self.assertIn('500.00', csv_body)
+
+    def test_reports_fee_arrears_csv_export(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = db.execute("INSERT INTO owners(name, phone) VALUES('费用欠费业主', '12700000001')").lastrowid
+        room_id = db.execute("""
+            INSERT INTO rooms(building, unit, room_number, floor, category, area, owner_id)
+            VALUES('FEEDUE', 'A座', '1901', 19, '居民', 80, ?)
+        """, (owner_id,)).lastrowid
+        db.execute("""
+            INSERT INTO bills(room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number)
+            VALUES(?, ?, 1, '2031-04', 410, '2031-04-28', 'unpaid', 'FEE-DUE-1')
+        """, (room_id, owner_id))
+        db.commit(); db.close()
+
+        status, html = http_get('/reports?period=2031-04&building=FEEDUE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('费用欠费CSV', html)
+        self.assertIn('/reports/fee_arrears.csv?period=2031-04&amp;building=FEEDUE', html)
+
+        status, csv_body = http_get('/reports/fee_arrears.csv?period=2031-04&building=FEEDUE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('fee_type,bill_count,due', csv_body)
+        self.assertIn('物业费(居民)', csv_body)
+        self.assertIn('410.00', csv_body)
 
     def test_reports_can_select_multi_month_billing_period(self):
         import server.db as db_module

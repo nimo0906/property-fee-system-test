@@ -205,6 +205,8 @@ class InvoiceMixin(BaseHandler):
     .total-row{display:grid;grid-template-columns:170px 1fr 180px 170px;border-top:1px solid #9d2a22}
     .total-row div{padding:8px 10px;border-right:1px solid #9d2a22;font-size:14px}.total-row div:last-child{border-right:0;text-align:right;font-weight:700}
     .remark{display:grid;grid-template-columns:30px 1fr;min-height:74px;border-top:1px solid #9d2a22;font-size:13px}.remark-label{writing-mode:vertical-rl;text-align:center;letter-spacing:5px;border-right:1px solid #9d2a22;color:#9d2a22;font-weight:700;padding:6px 3px}.remark-body{padding:9px 10px;color:#6b1f16}
+    .voucher-row{display:grid;grid-template-columns:120px 1fr 120px 1fr 120px 1fr;border-top:1px solid #9d2a22;font-size:12px}
+    .voucher-row div{padding:6px 8px;border-right:1px solid #9d2a22}.voucher-row div:nth-child(odd){color:#9d2a22;font-weight:700;background:#fff8f7}.voucher-row div:last-child{border-right:0}
     .sign-row{display:grid;grid-template-columns:1fr 1fr 1fr;margin-top:16px;color:#6b1f16;font-size:13px}
     </style></head><body>
     <div class="invoice-shell">
@@ -224,6 +226,7 @@ class InvoiceMixin(BaseHandler):
       <tr class="amount-line"><td>合计</td><td colspan="4"></td><td>¥'''+amount+'''</td><td></td><td>¥0.00</td></tr></tbody></table>
       <div class="total-row"><div>价税合计（大写）</div><div>'''+_rmb_upper(float(i['amount'] or 0))+'''</div><div>价税合计（小写）</div><div>¥'''+amount+'''</div></div>
       <div class="remark"><div class="remark-label">备注</div><div class="remark-body">账单号 '''+h(i['bill_number'] or '-')+'''；房号 '''+room_label+'''；账期 '''+h(i['billing_period'])+'''</div></div>
+      <div class="voucher-row"><div>内部凭证信息</div><div>'''+h(i['bill_number'] or '-')+'''</div><div>服务账期</div><div>'''+h(i['billing_period'] or '-')+'''</div><div>缴费截止日</div><div>'''+h(i['due_date'] or '-')+'''</div></div>
       </div>
       <div class="sign-row"><div>收款人：管理员</div><div>复核人：管理员</div><div>开票人：管理员</div></div>
     </div>

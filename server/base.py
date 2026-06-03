@@ -93,30 +93,40 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
             return str(value)
 
     def _audit_diff_html(self, old_value, new_value):
+        changed_fields = self._audit_changed_fields(old_value, new_value)
+        if not changed_fields:
+            return ''
         try:
             old_data = json.loads(old_value or '{}')
             new_data = json.loads(new_value or '{}')
         except Exception:
             return ''
-        if not isinstance(old_data, dict) or not isinstance(new_data, dict):
-            return ''
         rows = []
-        for key in sorted(set(old_data.keys()) | set(new_data.keys())):
+        for key in changed_fields:
             old = old_data.get(key, '')
             new = new_data.get(key, '')
-            if old == new:
-                continue
             rows.append(
                 f'<tr><td>{h(key)}</td><td><code>{h(old)}</code></td><td><code>{h(new)}</code></td></tr>'
             )
-        if not rows:
-            return ''
         return (
             '<div class="mt-2"><div class="fw-semibold text-danger mb-1">字段差异</div>'
             '<table class="table table-sm table-bordered audit-diff-table mb-0">'
             '<thead><tr><th>字段</th><th>原值</th><th>新值</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table></div>'
         )
+
+    def _audit_changed_fields(self, old_value, new_value):
+        try:
+            old_data = json.loads(old_value or '{}')
+            new_data = json.loads(new_value or '{}')
+        except Exception:
+            return []
+        if not isinstance(old_data, dict) or not isinstance(new_data, dict):
+            return []
+        return [
+            key for key in sorted(set(old_data.keys()) | set(new_data.keys()))
+            if old_data.get(key, '') != new_data.get(key, '')
+        ]
 
     def _audit_log_filters(self, q):
         action = qs(q, 'action')
@@ -224,9 +234,10 @@ class BaseHandler(http.server.BaseHTTPRequestHandler):
         db.close()
         buf = io.StringIO()
         w = csv.writer(buf)
-        w.writerow(['created_at','action','entity_type','entity_id','username','role','ip','reason','old_value','new_value'])
+        w.writerow(['created_at','action','entity_type','entity_id','username','role','ip','reason','changed_fields','old_value','new_value'])
         for r in rows:
-            w.writerow([r['created_at'], r['action'], r['entity_type'], r['entity_id'], r['username'], r['role'], r['ip'], r['reason'], r['old_value'], r['new_value']])
+            changed_fields = ';'.join(self._audit_changed_fields(r['old_value'], r['new_value']))
+            w.writerow([r['created_at'], r['action'], r['entity_type'], r['entity_id'], r['username'], r['role'], r['ip'], r['reason'], changed_fields, r['old_value'], r['new_value']])
         raw = buf.getvalue().encode('utf-8-sig')
         self.send_response(200)
         self.send_header('Content-Type', 'text/csv; charset=utf-8')

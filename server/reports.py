@@ -181,6 +181,38 @@ class ReportMixin(BaseHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _reports_fee_arrears_csv(self, q):
+        p = qs(q, 'period', get_period())
+        building = qs(q, 'building')
+        status = qs(q, 'status')
+        period_clause, vals = period_filter_clause(p, 'b.billing_period')
+        cond = [period_clause, "b.status IN ('unpaid','overdue','partial')"]
+        if building:
+            cond.append('r.building=?')
+            vals.append(building)
+        if status and status != 'arrears':
+            cond.append('b.status=?')
+            vals.append(status)
+        db = get_db()
+        rows = db.execute('''SELECT COALESCE(f.name,'-') fee_type,COUNT(b.id) bill_count,
+            COALESCE(SUM(b.amount-COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0)),0) due
+            FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN fee_types f ON b.fee_type_id=f.id
+            WHERE ''' + ' AND '.join(cond) + '''
+            GROUP BY f.id,f.name HAVING due>0.001 ORDER BY due DESC,fee_type''', vals).fetchall()
+        db.close()
+        buf = io.StringIO()
+        w = csv.writer(buf)
+        w.writerow(['fee_type','bill_count','due'])
+        for r in rows:
+            w.writerow([r['fee_type'], r['bill_count'], m(r['due'])])
+        raw = buf.getvalue().encode('utf-8-sig')
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/csv; charset=utf-8')
+        self.send_header('Content-Disposition', f'attachment; filename=fee_arrears_{p}.csv')
+        self.send_header('Content-Length', str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def _collection_summary_data(self, period):
         db = get_db()
         period_clause, period_vals = period_filter_clause(period, 'b.billing_period')
@@ -264,6 +296,7 @@ class ReportMixin(BaseHandler):
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/reconciliation.csv?{filter_query}"><i class="bi bi-download"></i> 导出对账CSV</a>
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/tenants.csv?{filter_query}"><i class="bi bi-people"></i> 导出租户CSV</a>
                 <a class="btn btn-sm btn-outline-secondary" href="/reports/tenant_arrears.csv?{filter_query}"><i class="bi bi-exclamation-triangle"></i> 租户欠费排行CSV</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/reports/fee_arrears.csv?{filter_query}"><i class="bi bi-tags"></i> 费用欠费CSV</a>
             </span></div>
         <div class="card-body"><div class="row text-center g-2">
             <div class="col-md-3"><div class="summary-tile"><div class="label">应收合计</div><strong class="money">¥{m(data['total'])}</strong></div></div>
