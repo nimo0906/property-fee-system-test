@@ -1266,3 +1266,100 @@ footer {
     background: var(--brand-soft) !important;
     border-color: #b9dcd5;
 }
+
+/* 2026-06 pre-release UI polish for high-frequency desktop pages */
+.workbench-hero,
+.operator-console,
+.auto-billing-console {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: linear-gradient(135deg, #ffffff 0%, #fbf7ed 42%, #eef8f5 100%);
+    box-shadow: var(--shadow-sm);
+}
+
+.workbench-hero {
+    padding: 18px 20px;
+    margin-bottom: 14px;
+}
+
+.workbench-hero .hero-kicker {
+    color: var(--brand-gold);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .12em;
+}
+
+.workbench-hero h2 {
+    margin: 4px 0 6px;
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--ink-strong);
+}
+
+.workbench-hero p { margin: 0; color: var(--muted); }
+
+.workbench-primary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.ledger-toolbar,
+.auto-filter-panel {
+    border-radius: 12px;
+    background: #fff;
+    border-left: 4px solid var(--brand);
+}
+
+.ledger-summary-strip .metric-card {
+    min-height: 96px;
+}
+
+.cashier-layout .cashier-panel,
+.cashier-object-card,
+.cashier-fee-card {
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.cashier-object-card .card-header,
+.cashier-fee-card .card-header,
+.auto-run-history .card-header {
+    background: linear-gradient(180deg, #fff 0, #f8faf9 100%);
+    font-weight: 850;
+}
+
+.auto-billing-console {
+    padding: 14px;
+    background: linear-gradient(180deg, #fff 0, #f7fbfa 100%);
+}
+
+.auto-filter-panel {
+    padding: 12px;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.auto-run-history {
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.operator-console {
+    padding: 16px;
+    background: #fff;
+}
+
+.role-guide-grid .badge {
+    padding: 8px 10px;
+    text-align: left;
+    line-height: 1.45;
+}
+
+@media (max-width: 575.98px) {
+    .workbench-hero h2 { font-size: 20px; }
+    .workbench-primary-actions { justify-content: flex-start; }
+    .operator-console,
+    .auto-billing-console { padding: 10px; }
+}

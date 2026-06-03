@@ -13,7 +13,7 @@
 <div class="card-header d-flex justify-content-between align-items-center">
 <span><i class="bi bi-door-open"></i> 房间台账</span>
 <div class="d-flex align-items-center gap-2">
-<form id="roomBatchDeleteForm" method="POST" action="/rooms/batch_delete" onsubmit="return confirm('确定批量删除选中的房间？相关账单和抄表记录将一并删除！')"></form>
+<form id="roomBatchDeleteForm" method="POST" action="/rooms/batch_delete" onsubmit="return confirm('确定批量删除选中的空房间？已有账单或抄表记录的房间会自动跳过，不会删除业务记录。')"></form>
 <button form="roomBatchDeleteForm" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> 批量删除</button>
 <small class="text-muted">单元=空间分组；房间类型=收费适用；业态=商户统计</small>
 </div>

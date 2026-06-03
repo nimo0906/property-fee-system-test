@@ -1,4 +1,4 @@
-<div class="filter-bar">
+<div class="filter-bar ledger-toolbar">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
 <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()"></div>
@@ -11,7 +11,7 @@
 <a href="/bills/generate" class="btn btn-primary btn-sm"><i class="bi bi-file-earmark-plus"></i> 生成账单</a>
 </div>
 </div>
-<div class="metric-grid">
+<div class="metric-grid ledger-summary-strip">
 <div class="metric-card primary"><div class="metric-label">房间 / 账单</div><div class="metric-value">{ROOMS}户 / {COUNT}笔</div></div>
 <div class="metric-card"><div class="metric-label">应收</div><div class="metric-value money">¥{TOTAL_AMT}</div></div>
 <div class="metric-card success"><div class="metric-label">已收</div><div class="metric-value money money-paid">¥{TOTAL_PAID}</div></div>

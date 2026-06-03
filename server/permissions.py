@@ -6,6 +6,7 @@ import re
 
 ADMIN_POST_PATTERNS = [
     r'^/rooms/\d+/delete$',
+    r'^/rooms/batch_delete$',
     r'^/owners/\d+/delete$',
     r'^/fee_types/(create|\d+/edit|\d+/delete)$',
     r'^/elevator_tiers/update$',

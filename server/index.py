@@ -174,9 +174,17 @@ class IndexMixin(BaseHandler):
 
         self._html(self._page('收费工作台', f'''
         {self._default_password_warning_html()}
-        <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div><strong>当前账期：{p}</strong><span class="text-muted ms-2">财务收费人员日常出账、收费、打印、对账入口。</span></div>
-            <small class="text-muted">常用操作已放在页面顶部和快捷操作区。</small>
+        <div class="workbench-hero d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <div class="hero-kicker">今日收费工作台</div>
+                <h2>当前账期：{p}</h2>
+                <p>日常出账、收费、打印、对账、催缴和开票提醒统一集中在这里。</p>
+            </div>
+            <div class="workbench-primary-actions">
+                <span class="badge status-info">先看待办</span>
+                <span class="badge status-warning">再处理异常</span>
+                <span class="badge status-neutral">最后核对报表</span>
+            </div>
         </div>
         <div class="metric-grid">
             <div class="metric-card primary"><div class="metric-label"><i class="bi bi-receipt"></i> 本月应收</div><div class="metric-value money">¥{m(ta)}</div></div>

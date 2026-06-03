@@ -170,29 +170,37 @@ class RoomMixin(BaseHandler):
             return self._redirect('/rooms?flash=请先勾选要删除的房间')
         placeholders = ','.join('?' * len(ids))
         db = get_db()
-        bill_count = db.execute(f"SELECT COUNT(*) FROM bills WHERE room_id IN ({placeholders})", ids).fetchone()[0]
-        meter_count = db.execute(f"SELECT COUNT(*) FROM meter_readings WHERE room_id IN ({placeholders})", ids).fetchone()[0]
-        db.execute(f"DELETE FROM meter_readings WHERE room_id IN ({placeholders})", ids)
-        db.execute(f"DELETE FROM bills WHERE room_id IN ({placeholders})", ids)
-        db.execute(f"DELETE FROM rooms WHERE id IN ({placeholders})", ids)
+        protected_rows = db.execute(
+            f'''SELECT r.id,
+                      (SELECT COUNT(*) FROM bills b WHERE b.room_id=r.id) bill_count,
+                      (SELECT COUNT(*) FROM meter_readings m WHERE m.room_id=r.id) meter_count
+               FROM rooms r WHERE r.id IN ({placeholders})''',
+            ids
+        ).fetchall()
+        protected = {
+            str(r['id']) for r in protected_rows
+            if int(r['bill_count'] or 0) > 0 or int(r['meter_count'] or 0) > 0
+        }
+        deletable = [x for x in ids if x not in protected]
+        if deletable:
+            delete_placeholders = ','.join('?' * len(deletable))
+            db.execute(f"DELETE FROM rooms WHERE id IN ({delete_placeholders})", deletable)
         db.commit(); db.close()
-        parts = [f'房间{len(ids)}间']
-        if bill_count:
-            parts.append(f'账单{bill_count}笔')
-        if meter_count:
-            parts.append(f'抄表{meter_count}条')
-        self._redirect('/rooms?flash=已批量删除' + '，'.join(parts))
+        msg = f'已删除房间{len(deletable)}间' if deletable else '没有删除房间'
+        if protected:
+            msg += f'，跳过{len(protected)}间有关联记录的房间'
+        self._redirect('/rooms?flash=' + msg)
 
     def _room_delete(self, rid):
         db=get_db()
         bc=db.execute("SELECT COUNT(*) FROM bills WHERE room_id=?",(rid,)).fetchone()[0]
         mc=db.execute("SELECT COUNT(*) FROM meter_readings WHERE room_id=?",(rid,)).fetchone()[0]
-        db.execute("DELETE FROM meter_readings WHERE room_id=?",(rid,))
-        db.execute("DELETE FROM bills WHERE room_id=?",(rid,))
+        if bc or mc:
+            db.close()
+            parts=[]
+            if bc>0: parts.append(f'账单{bc}笔')
+            if mc>0: parts.append(f'抄表{mc}条')
+            return self._redirect('/rooms?flash=该房间存在账单或抄表记录，不能删除（' + '、'.join(parts) + '）')
         db.execute("DELETE FROM rooms WHERE id=?",(rid,))
         db.commit();db.close()
-        parts=[]
-        if bc>0: parts.append(f'账单{bc}笔')
-        if mc>0: parts.append(f'抄表{mc}条')
-        detail='，连带删除' + '、'.join(parts) if parts else ''
-        self._redirect(f'/rooms?flash=已删除{detail}')
+        self._redirect('/rooms?flash=已删除房间')

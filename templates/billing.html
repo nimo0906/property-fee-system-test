@@ -1,9 +1,9 @@
 <div class="alert alert-info d-flex align-items-center gap-2"><i class="bi bi-info-circle"></i><div>选择房间自动计算，金额可编辑。日期区间内按月数累计，提交前请核对右侧收银明细。{MODE_NOTE}</div></div>
 <script>window.ELEVATOR_TIERS={ELEVATOR_DATA};window.OWNER_ROOMS={OWNER_DATA};window.BILLING_MODE="{BILLING_MODE}";window.METER_READINGS={METER_DATA};window.METER_DETAILS={METER_DETAIL_DATA};</script>
 <form method=POST action="/billing/calc" id="billingForm">
-<div class="row g-4">
+<div class="row g-4 cashier-layout">
 <div class="col-lg-4">
-<div class="card h-100 cashier-panel"><div class="card-header"><i class="bi bi-door-open"></i> 选择收费对象</div>
+<div class="card h-100 cashier-panel cashier-object-card"><div class="card-header"><i class="bi bi-door-open"></i> 选择收费对象</div>
 <div class="card-body">
 <div class="mb-3"><label class="form-label">房间</label>
 <input type="text" class="form-control form-control-sm mb-2" id="roomSearch" placeholder="输入楼栋/房号/业主搜索..." oninput="filterRooms()">
@@ -41,7 +41,7 @@ window.filterRooms=function(){
 </div></div>
 </div>
 <div class="col-lg-8">
-<div class="card h-100 cashier-panel">
+<div class="card h-100 cashier-panel cashier-fee-card">
 <div class="card-header d-flex justify-content-between align-items-center">
 <span><i class="bi bi-list-check"></i> 应收费用核对单</span>
 <strong id="totalAmt" class="cashier-total">¥0.00</strong>

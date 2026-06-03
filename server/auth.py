@@ -192,7 +192,7 @@ class AuthMixin(BaseHandler):
             rh += "<a href='/users/" + str(r["id"]) + "/edit' class='btn btn-sm btn-outline-primary'><i class='bi bi-pencil'></i></a> "
             rh += "<form method=POST action='/users/" + str(r["id"]) + "/delete' style=display:inline onsubmit=\"return confirm('确定删除？')\"><button class='btn btn-sm btn-outline-danger'><i class='bi bi-trash'></i></button></form>"
             rh += "</td></tr>"
-        guide = '''<div class="alert alert-info border-info">
+        guide = '''<div class="alert alert-info border-info role-guide-grid">
             <h6 class="mb-2"><i class="bi bi-person-gear"></i> 首次账号设置建议</h6>
             <div class="small">这是本地账号，不是互联网开户注册。正式交付建议由你保留超级管理员 admin，给客户负责人创建业务管理员，再按岗位创建财务收费账号、客服只读账号。</div>
             <div class="mt-2 d-flex gap-2 flex-wrap">
@@ -203,13 +203,13 @@ class AuthMixin(BaseHandler):
             </div>
         </div>'''
         self._html(self._page("操作员管理",
-            self._default_password_warning_html() + guide +
+            '<div class="operator-console">' + self._default_password_warning_html() + guide +
             '<div class="d-flex justify-content-between mb-3"><p class="text-muted small mb-0">管理系统操作员账号，<strong>admin</strong>为超级管理员不可删除。</p>'
             '<a href="/users/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加操作员</a></div>'
             '<div class="alert alert-light border small mb-3"><i class="bi bi-info-circle"></i> 登录页提交的申请账号会显示为“待审核/停用”，管理员编辑账号、勾选“启用”后才能登录。</div>'
             '<div class="table-responsive"><table class="table table-hover align-middle">'
             '<thead><tr><th>ID</th><th>用户名</th><th>显示名</th><th>角色</th><th>状态</th><th>创建时间</th><th style="width:100px">操作</th></tr></thead>'
-            '<tbody>' + (rh or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作员</td></tr>') + '</tbody></table></div>', "users"))
+            '<tbody>' + (rh or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作员</td></tr>') + '</tbody></table></div></div>', "users"))
 
     def _user_form(self, uid):
         """添加/编辑操作员表单"""

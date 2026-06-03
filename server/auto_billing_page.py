@@ -19,11 +19,12 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     no_can_alert = _no_can_alert(summary['can'])
     submit_button = _submit_button(summary['can'])
     return f'''
+    <div class="auto-billing-console">
     <div class="alert alert-info">
       <div><strong>自动出账规则：</strong>按租户合同开始日、结束日、缴费周期计算下一期账单。</div>
       <div>提前 {advance_days} 天只是筛选即将到期的下一期；已存在账单不会重复生成；生成后按缴费截止日进入催缴管理。</div>
     </div>
-    <form method="GET" action="/auto_billing" class="row g-2 mb-3">
+    <form method="GET" action="/auto_billing" class="row g-2 mb-3 auto-filter-panel">
       <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
       <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
       <div class="col-auto"><label class="col-form-label">本次出账账期</label></div>
@@ -52,10 +53,11 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
       <tbody>{rows}</tbody></table></div>
       {submit_button}
     </form>
-    <div class="card mt-3"><div class="card-header">最近自动出账记录</div>
+    <div class="card mt-3 auto-run-history"><div class="card-header">最近自动出账记录</div>
     <div class="table-responsive"><table class="table table-hover align-middle small mb-0">
     <thead><tr><th>批次号</th><th>生成时间</th><th>操作人</th><th class="text-end">笔数</th><th>服务期范围</th><th>状态</th><th>操作</th></tr></thead>
-    <tbody>{run_rows}</tbody></table></div></div>'''
+    <tbody>{run_rows}</tbody></table></div></div>
+    </div>'''
 
 
 def _grouped_fee_checks(fee_options, selected_fee_ids):

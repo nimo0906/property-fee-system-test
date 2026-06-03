@@ -402,6 +402,44 @@ class TestIntegration(unittest.TestCase):
             db.execute("DELETE FROM rooms WHERE building='BATCHDEL'")
             db.commit(); db.close()
 
+    def test_room_delete_skips_rooms_with_business_records_and_batch_delete_is_admin_only(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '删除保护业主', '13900001234')
+        linked_room = create_room(db, building='SAFEDEL', unit='A座', room_number='LINKED', owner_id=owner_id)
+        empty_room = create_room(db, building='SAFEDEL', unit='A座', room_number='EMPTY', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=linked_room, owner_id=owner_id, fee_type_id=1, period='2039-01', amount=88, status='paid')
+        create_payment(db, bill_id=bill_id, amount=88, method='cash', operator='删除保护')
+        db.commit(); db.close()
+        try:
+            operator_cookie = self._create_user_and_login('room_batch_delete_operator', 'operator123', 'operator', '批删财务')
+            status, _, loc = http_post('/rooms/batch_delete', {'room_ids': str(empty_room)}, operator_cookie, TEST_PORT)
+            self.assertEqual(status, 302)
+            self.assertIn('无权限', urllib.parse.unquote(loc))
+
+            status, _, loc = http_post(f'/rooms/{linked_room}/delete', {}, self.cookie, TEST_PORT)
+            self.assertEqual(status, 302)
+            self.assertIn('存在账单或抄表记录，不能删除', urllib.parse.unquote(loc))
+
+            status, _, loc = http_post('/rooms/batch_delete', [('room_ids', str(linked_room)), ('room_ids', str(empty_room))], self.cookie, TEST_PORT)
+            self.assertEqual(status, 302)
+            self.assertIn('已删除房间1间', urllib.parse.unquote(loc))
+            self.assertIn('跳过1间有关联记录的房间', urllib.parse.unquote(loc))
+
+            db = db_module.get_db()
+            self.assertIsNotNone(db.execute('SELECT id FROM rooms WHERE id=?', (linked_room,)).fetchone())
+            self.assertIsNotNone(db.execute('SELECT id FROM bills WHERE id=?', (bill_id,)).fetchone())
+            self.assertIsNotNone(db.execute('SELECT id FROM payments WHERE bill_id=?', (bill_id,)).fetchone())
+            self.assertIsNone(db.execute('SELECT id FROM rooms WHERE id=?', (empty_room,)).fetchone())
+            db.close()
+        finally:
+            db = db_module.get_db()
+            db.execute("DELETE FROM payments WHERE bill_id IN (SELECT id FROM bills WHERE room_id IN (SELECT id FROM rooms WHERE building='SAFEDEL'))")
+            db.execute("DELETE FROM bills WHERE room_id IN (SELECT id FROM rooms WHERE building='SAFEDEL')")
+            db.execute("DELETE FROM rooms WHERE building='SAFEDEL'")
+            db.execute("DELETE FROM owners WHERE name='删除保护业主'")
+            db.commit(); db.close()
+
 
     def _create_user_and_login(self, username, password, role, display_name='测试用户'):
         http_post('/users/create', {
@@ -1584,6 +1622,20 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('费用类型', body)
         self.assertNotIn('电子发票', body)
         self.assertNotIn('统计报表', body)
+
+    def test_core_desktop_pages_include_refined_ui_sections(self):
+        checks = [
+            ('/', ['workbench-hero', 'workbench-primary-actions', '待办中心']),
+            ('/bills', ['ledger-toolbar', 'ledger-summary-strip', '按租户和房间折叠展示']),
+            ('/billing', ['cashier-layout', 'cashier-object-card', 'cashier-fee-card']),
+            ('/auto_billing?advance_days=30', ['auto-billing-console', 'auto-filter-panel', 'auto-run-history']),
+            ('/users', ['operator-console', 'role-guide-grid', '超级管理员：admin 保留']),
+        ]
+        for path, expected in checks:
+            status, body = http_get(path, self.cookie, TEST_PORT)
+            self.assertEqual(status, 200, path)
+            for text in expected:
+                self.assertIn(text, body, path)
 
     def test_non_core_modules_hidden_from_main_menu_but_invoice_and_reports_kept(self):
         status, body = http_get('/', self.cookie, TEST_PORT)
