@@ -5,6 +5,18 @@ cd /d "%~dp0"
 
 echo Starting Property Fee System...
 
+if exist "PropertyFeeSystem\PropertyFeeSystem.exe" (
+    "PropertyFeeSystem\PropertyFeeSystem.exe"
+    if errorlevel 1 (
+        echo.
+        echo Startup failed.
+        echo Please run diagnose_windows.bat and send the displayed information to support.
+        pause
+        exit /b 1
+    )
+    exit /b 0
+)
+
 where py >nul 2>nul
 if %errorlevel%==0 (
     set "PYTHON_CMD=py -3"

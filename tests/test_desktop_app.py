@@ -225,7 +225,10 @@ class TestDesktopPackaging(unittest.TestCase):
         self.assertIn('PM_HOST=0.0.0.0', server_text)
         self.assertIn('PM_PORT=5001', server_text)
         self.assertIn('PM_DB_PATH', server_text)
+        self.assertIn('PropertyFeeSystem\\PropertyFeeSystem.exe', server_text)
         self.assertIn('--serve-only', server_text)
+        launcher_text = Path('start_windows.bat').read_text(encoding='utf-8')
+        self.assertIn('PropertyFeeSystem\\PropertyFeeSystem.exe', launcher_text)
 
 class TestDesktopDeliveryDocs(unittest.TestCase):
     def test_delivery_docs_exist_and_cover_first_run_checklist(self):
