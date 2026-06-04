@@ -64,6 +64,7 @@ copy /Y "真实数据试运行保护方案.md" "%RELEASE_DIR%\真实数据试运
 copy /Y "真实数据导入前验收清单.md" "%RELEASE_DIR%\真实数据导入前验收清单.md" >nul
 copy /Y "清空本机试用数据.bat" "%RELEASE_DIR%\清空本机试用数据.bat" >nul
 copy /Y "diagnose_windows.bat" "%RELEASE_DIR%\diagnose_windows.bat" >nul
+copy /Y "start_windows_server.bat" "%RELEASE_DIR%\start_windows_server.bat" >nul
 copy /Y "check_windows_packaging_ready.bat" "%RELEASE_DIR%\check_windows_packaging_ready.bat" >nul
 
 for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set "COMMIT=%%i"

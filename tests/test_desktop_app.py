@@ -248,6 +248,10 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('用户快速开始.md', build_text)
         self.assertIn('交付验收清单.md', build_text)
         self.assertIn('Windows客户试用说明.md', build_text)
+        package_text = Path('package_windows_release.bat').read_text(encoding='utf-8')
+        self.assertIn('start_windows_server.bat', package_text)
+        ready_text = Path('check_windows_packaging_ready.bat').read_text(encoding='utf-8')
+        self.assertIn('start_windows_server.bat', ready_text)
 
     def test_final_delivery_assets_and_docs_are_ready_for_release_closeout(self):
         final_checklist = Path('正式交付清单.md')
