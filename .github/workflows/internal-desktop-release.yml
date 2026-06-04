@@ -42,28 +42,12 @@ jobs:
           APP_NAME='物业管理收费系统.app'
           rm -rf "$RELEASE_DIR/$APP_NAME"
           cp -R "dist/$APP_NAME" "$RELEASE_DIR/$APP_NAME"
-          python3 - <<'PY'
-          from pathlib import Path
-          from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
-          import stat, time
-          base = Path('release/macos')
-          src = base / '物业管理收费系统-v2.0-macos'
-          zip_path = base / '物业管理收费系统-v2.0-macos.zip'
-          if zip_path.exists():
-              zip_path.unlink()
-          with ZipFile(zip_path, 'w', ZIP_DEFLATED) as zf:
-              for path in sorted(src.rglob('*')):
-                  arc = path.relative_to(base).as_posix()
-                  st = path.stat()
-                  zi = ZipInfo(arc + ('/' if path.is_dir() else ''))
-                  zi.date_time = time.localtime(st.st_mtime)[:6]
-                  mode = stat.S_IMODE(st.st_mode)
-                  zi.external_attr = ((mode | (stat.S_IFDIR if path.is_dir() else stat.S_IFREG)) & 0xFFFF) << 16
-                  if path.is_dir():
-                      zf.writestr(zi, b'')
-                  else:
-                      zf.writestr(zi, path.read_bytes())
-          PY
+          rm -f release/macos/物业管理收费系统-v2.0-macos.zip
+          (cd release/macos && ditto -c -k --sequesterRsrc --keepParent 物业管理收费系统-v2.0-macos 物业管理收费系统-v2.0-macos.zip)
+          TMP_UNZIP=$(mktemp -d)
+          ditto -x -k release/macos/物业管理收费系统-v2.0-macos.zip "$TMP_UNZIP"
+          test -x "$TMP_UNZIP/物业管理收费系统-v2.0-macos/物业管理收费系统.app/Contents/MacOS/物业管理收费系统"
+          test -L "$TMP_UNZIP/物业管理收费系统-v2.0-macos/物业管理收费系统.app/Contents/Frameworks/Python3"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-release
