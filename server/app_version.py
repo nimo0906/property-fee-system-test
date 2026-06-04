@@ -5,7 +5,7 @@
 import os
 
 APP_VERSION = '2.0.2'
-APP_BUILD = '2026.06.01'
+APP_BUILD = '2026.06.04'
 DEFAULT_UPDATE_MANIFEST_URL = os.environ.get(
     'PM_UPDATE_MANIFEST_URL',
     'https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/update_manifest.json',
