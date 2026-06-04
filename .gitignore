@@ -40,4 +40,5 @@ docs/**/.DS_Store
 release/**/*.zip
 !release/macos/物业管理收费系统-v2.0-macos.zip
 !release/windows/物业管理收费系统-v2.0-windows-build-source.zip
+!release/windows/物业管理收费系统-v2.0-windows.zip
 release/**/*.app/
