@@ -82,7 +82,11 @@ class InvoiceMixin(BaseHandler):
             return self._redirect('/invoice_requests?flash=' + str(exc))
 
     def _invoices(self, q):
-        db=get_db();p=date_to_period(qs(q,'period',get_period()))
+        db=get_db()
+        raw_period = qs(q, 'period').strip()
+        p = date_to_period(raw_period) if raw_period else ''
+        period_label = p or '全部'
+        period_value = period_to_date(p) if p else ''
         kw=qs(q,'keyword').strip()
         sql='''SELECT i.*,b.bill_number,b.billing_period,b.amount bill_amount,
             r.building,r.unit,r.room_number,o.name oname FROM invoices i
@@ -90,20 +94,25 @@ class InvoiceMixin(BaseHandler):
             LEFT JOIN rooms r ON b.room_id=r.id
             LEFT JOIN owners o ON b.owner_id=o.id
             WHERE 1=1'''
-        sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
+        vals = []
+        if p:
+            sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if kw:
             sql += ''' AND (i.invoice_number LIKE ? OR i.buyer_name LIKE ? OR i.buyer_tax_id LIKE ?
                 OR o.name LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.room_number LIKE ?)'''
             vals.extend([f'%{kw}%'] * 7)
         rows=db.execute(sql + ' ORDER BY i.id DESC', vals).fetchall()
-        total_sql, total_vals = append_period_filter(
-            "SELECT COALESCE(SUM(i.amount),0) FROM invoices i JOIN bills b ON i.bill_id=b.id WHERE 1=1", [], p, 'b.billing_period'
-        )
+        total_sql = "SELECT COALESCE(SUM(i.amount),0) FROM invoices i JOIN bills b ON i.bill_id=b.id WHERE 1=1"
+        total_vals = []
+        if p:
+            total_sql, total_vals = append_period_filter(total_sql, total_vals, p, 'b.billing_period')
         total=db.execute(total_sql,total_vals).fetchone()[0]
         avail_sql='''SELECT b.id,b.bill_number,b.amount,b.billing_period,r.building,r.unit,r.room_number,o.name oname
             FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
             WHERE b.status='paid' AND b.id NOT IN (SELECT bill_id FROM invoices)'''
-        avail_sql, avail_vals = append_period_filter(avail_sql, [], p, 'b.billing_period')
+        avail_vals = []
+        if p:
+            avail_sql, avail_vals = append_period_filter(avail_sql, avail_vals, p, 'b.billing_period')
         avail=db.execute(avail_sql + ' ORDER BY r.building,r.room_number', avail_vals).fetchall()
         db.close()
         rh=''
@@ -129,13 +138,13 @@ class InvoiceMixin(BaseHandler):
     <div class="invoice-section-title"><i class="bi bi-funnel"></i> 筛选发票</div>
     <div class="row g-2 align-items-end">
     <form class="row g-2 align-items-end" method=GET>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_to_date(p)}" onchange="this.form.submit()"></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_value}" onchange="this.form.submit()"></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">发票列表筛选</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="发票号/抬头/税号/房号"></div>
     <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/invoices" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
     <div class="col-auto ms-auto"><div class="summary-tile py-2 px-3"><div class="label">本期已开票金额</div><strong class="money">¥{m(total)}</strong></div></div>
     </div></section>
     <div class="row g-4">
-    <div class="col-md-8"><section class="invoice-section" data-invoice-section="issued"><div class="invoice-section-title"><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({p})</small></div>
+    <div class="col-md-8"><section class="invoice-section" data-invoice-section="issued"><div class="invoice-section-title"><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({period_label})</small></div>
     <div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>发票号</th><th>房间</th><th>业主</th><th class="text-end">金额</th><th>开票日期</th><th>状态</th><th style="width:100px">操作</th></tr></thead>
     <tbody>{rh or '<tr><td colspan="7" class="text-center text-muted py-3">暂无发票</td></tr>'}</tbody></table></div></section></div>
     <div class="col-md-4"><section class="invoice-section" data-invoice-section="available"><div class="invoice-section-title"><i class="bi bi-receipt"></i> 待开票账单</div>

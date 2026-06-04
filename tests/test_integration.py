@@ -2273,6 +2273,50 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('href="/payments"', receipt_html)
         self.assertNotIn('href="/bills"', receipt_html)
 
+    def test_invoices_default_page_shows_all_available_paid_bills(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '全部待开票业主', '13900008888')
+        june_room = create_room(db, building='INVALLJUN', unit='A座', room_number='601', owner_id=owner_id)
+        nov_room = create_room(db, building='INVALLNOV', unit='A座', room_number='1101', owner_id=owner_id)
+        june_bill = create_bill(db, room_id=june_room, fee_type_id=1, period='2036-06', amount=66, status='paid', owner_id=owner_id)
+        nov_bill = create_bill(db, room_id=nov_room, fee_type_id=1, period='2036-11', amount=111, status='paid', owner_id=owner_id)
+        create_payment(db, bill_id=june_bill, amount=66, method='cash', operator='发票全部')
+        create_payment(db, bill_id=nov_bill, amount=111, method='cash', operator='发票全部')
+        db.close()
+
+        status, html = http_get('/invoices', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn(f'value="{june_bill}"', html)
+        self.assertIn(f'value="{nov_bill}"', html)
+        self.assertIn('INVALLJUN-601', html)
+        self.assertIn('INVALLNOV-1101', html)
+        self.assertIn('value="" onchange="this.form.submit()"', html)
+        self.assertIn('已开发票列表 <small class="text-muted">(全部)</small>', html)
+
+    def test_invoices_period_filter_keeps_selected_november_and_filters_available_bills(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '十一月待开票业主', '13900008889')
+        june_room = create_room(db, building='INVNOVJUN', unit='A座', room_number='602', owner_id=owner_id)
+        nov_room = create_room(db, building='INVNOVONLY', unit='A座', room_number='1102', owner_id=owner_id)
+        june_bill = create_bill(db, room_id=june_room, fee_type_id=1, period='2036-06', amount=66, status='paid', owner_id=owner_id)
+        nov_bill = create_bill(db, room_id=nov_room, fee_type_id=1, period='2036-11', amount=111, status='paid', owner_id=owner_id)
+        create_payment(db, bill_id=june_bill, amount=66, method='cash', operator='发票十一月')
+        create_payment(db, bill_id=nov_bill, amount=111, method='cash', operator='发票十一月')
+        db.close()
+
+        status, html = http_get('/invoices?period=2036-11-01', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('value="2036-11-01" onchange="this.form.submit()"', html)
+        self.assertIn(f'value="{nov_bill}"', html)
+        self.assertIn('INVNOVONLY-1102', html)
+        self.assertNotIn(f'value="{june_bill}"', html)
+        self.assertNotIn('INVNOVJUN-602', html)
+        self.assertIn('已开发票列表 <small class="text-muted">(2036-11)</small>', html)
+
     def test_paid_bills_available_for_invoice_even_without_existing_invoice(self):
         from server.db import get_db
         db = get_db()
