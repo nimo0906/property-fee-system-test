@@ -34,3 +34,7 @@ docs/**/.DS_Store
 真实数据/*.xls
 真实数据/*.xlsx
 真实数据/*.xlsm
+
+# Generated release binaries stay out of source control
+release/**/*.zip
+release/**/*.app/
