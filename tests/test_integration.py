@@ -2253,6 +2253,8 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('PAYACT-A座-501', print_html)
         self.assertIn('class="print-toolbar"', print_html)
         self.assertIn('保存为PDF', print_html)
+        self.assertIn('href="/payments"', print_html)
+        self.assertNotIn('href="/bills"', print_html)
 
     def test_payment_receipt_return_button_goes_back_to_payments_page(self):
         from server.db import get_db
