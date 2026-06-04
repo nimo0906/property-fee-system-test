@@ -21,7 +21,7 @@ class BillReceiptMixin(BaseHandler):
         def _receipt_by_ids(self, d):
             """根据勾选的 bill_ids 生成多模块收据"""
             back_url = qs(d or {}, 'back', '/bills')
-            if not back_url.startswith('/bills'):
+            if not (back_url.startswith('/bills') or back_url.startswith('/payments')):
                 back_url = '/bills'
             raw = d.get('bill_ids', [])
             if isinstance(raw, str):

@@ -2254,6 +2254,23 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('class="print-toolbar"', print_html)
         self.assertIn('保存为PDF', print_html)
 
+    def test_payment_receipt_return_button_goes_back_to_payments_page(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '缴费收据返回业主', '13900002223')
+        room_id = create_room(db, building='PAYBACK', unit='A座', room_number='502', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-03', amount=130, status='paid', owner_id=owner_id)
+        payment_id = create_payment(db, bill_id=bill_id, amount=130, method='cash', operator='收据返回员')
+        db.close()
+
+        status, receipt_html, _ = http_post('/payments/receipts', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('收款收据', receipt_html)
+        self.assertIn('PAYBACK', receipt_html)
+        self.assertIn('href="/payments"', receipt_html)
+        self.assertNotIn('href="/bills"', receipt_html)
+
     def test_paid_bills_available_for_invoice_even_without_existing_invoice(self):
         from server.db import get_db
         db = get_db()

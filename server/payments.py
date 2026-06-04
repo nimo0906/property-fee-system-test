@@ -435,7 +435,7 @@ function toggleAllPayments(checked){document.querySelectorAll('input[name="payme
         bill_ids = ','.join(str(r['bill_id']) for r in rows if r['bill_id'])
         if not bill_ids:
             return self._redirect('/payments?flash=未找到可打印收据的账单')
-        return self._receipt_by_ids({'bill_ids': bill_ids, 'back': '/bills'})
+        return self._receipt_by_ids({'bill_ids': bill_ids, 'back': '/payments'})
 
     def _selected_payment_rows(self, ids):
         placeholders = ','.join('?' * len(ids))
