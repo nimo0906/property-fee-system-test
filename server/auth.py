@@ -41,8 +41,8 @@ class AuthMixin(BaseHandler):
         flash = self._get_flash()
         self._html('''<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>登录 - 物业管理收费系统</title>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+	<link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
 	<style>body{background:linear-gradient(180deg,#fafbfb 0,#f5f7f7 260px),#f5f7f7;min-height:100vh;display:flex;align-items:center;font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;color:#17201f}
 	body:before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 20% 16%,rgba(201,170,98,.14),transparent 28%),radial-gradient(circle at 82% 8%,rgba(8,112,99,.10),transparent 26%);pointer-events:none}
 	.login-card{border:1px solid #e3e8e6;border-radius:18px;box-shadow:0 18px 48px rgba(15,23,42,.10);width:440px;margin:auto;overflow:hidden;background:#fff;position:relative}
@@ -66,8 +66,8 @@ class AuthMixin(BaseHandler):
         flash = self._get_flash()
         self._html("""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 	<title>申请账号 - 物业管理收费系统</title>
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+	<link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
+	<link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
 	<style>body{background:linear-gradient(180deg,#fafbfb 0,#f5f7f7 260px),#f5f7f7;min-height:100vh;display:flex;align-items:center;font-family:"PingFang SC","Microsoft YaHei",-apple-system,sans-serif;color:#17201f}
 	body:before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 20% 16%,rgba(201,170,98,.14),transparent 28%),radial-gradient(circle at 82% 8%,rgba(8,112,99,.10),transparent 26%);pointer-events:none}
 	.login-card{border:1px solid #e3e8e6;border-radius:18px;box-shadow:0 18px 48px rgba(15,23,42,.10);width:440px;margin:auto;overflow:hidden;background:#fff;position:relative}

@@ -234,7 +234,7 @@ class ReminderMixin(BaseHandler):
     <div class="footer">打印日期：{date.today().isoformat()} · 账期：{p}</div>
     </div>'''
         html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>催缴通知单</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <style>
     body{font-family:"SimSun","STSong","PingFang SC",serif;padding:30px;max-width:900px;margin:auto}
     @media print{@page{margin:1.5cm}.page{page-break-after:always}.no-print{display:none!important}}

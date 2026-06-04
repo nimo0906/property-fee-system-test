@@ -223,7 +223,7 @@ class InvoiceMixin(BaseHandler):
         tax_id = h(i['buyer_tax_id'] or '-')
         amount = m(i['amount'])
         html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>发票 #'''+h(i['invoice_number'])+'''</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <style>
     body{font-family:"SimSun","STSong",serif;background:#ecebea;color:#6b1f16;padding:20px}
     @media print{@page{size:A4 landscape;margin:8mm}body{background:#fff;padding:0}.no-print{display:none!important}.invoice-shell{box-shadow:none;margin:0 auto}}

@@ -302,6 +302,25 @@ class TestIntegration(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         self.assertIn('application/javascript', content_type)
 
+    def test_vendor_assets_are_served_locally(self):
+        assets = {
+            '/static/vendor/bootstrap/bootstrap.min.css': 'text/css',
+            '/static/vendor/bootstrap/bootstrap.bundle.min.js': 'application/javascript',
+            '/static/vendor/bootstrap-icons/bootstrap-icons.min.css': 'text/css',
+            '/static/vendor/bootstrap-icons/fonts/bootstrap-icons.woff2': 'application/octet-stream',
+            '/static/vendor/chart/chart.umd.min.js': 'application/javascript',
+        }
+        for path, expected_type in assets.items():
+            conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)
+            conn.request('GET', path)
+            resp = conn.getresponse()
+            data = resp.read()
+            content_type = resp.getheader('Content-Type', '')
+            conn.close()
+            self.assertEqual(resp.status, 200, path)
+            self.assertIn(expected_type, content_type, path)
+            self.assertGreater(len(data), 1000, path)
+
     def test_readonly_user_cannot_create_room(self):
         username = 'readonly_test'
         http_post('/users/create', {

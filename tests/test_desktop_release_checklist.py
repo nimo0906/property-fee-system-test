@@ -28,6 +28,30 @@ class TestDesktopReleaseChecklist(unittest.TestCase):
         self.assertIn('Windows build script', result.stdout)
         self.assertIn('PASS', result.stdout)
 
+    def test_runtime_pages_use_local_static_assets(self):
+        checked = [
+            'templates/base.html',
+            'server/auth.py',
+            'server/index.py',
+            'server/invoices.py',
+            'server/reminders.py',
+            'server/reports.py',
+        ]
+        for rel in checked:
+            text = open(os.path.join(ROOT, rel), encoding='utf-8').read()
+            self.assertNotIn('cdn.jsdelivr.net', text, rel)
+            self.assertNotIn('https://cdn', text, rel)
+
+        required_assets = [
+            'static/vendor/bootstrap/bootstrap.min.css',
+            'static/vendor/bootstrap/bootstrap.bundle.min.js',
+            'static/vendor/bootstrap-icons/bootstrap-icons.min.css',
+            'static/vendor/bootstrap-icons/fonts/bootstrap-icons.woff2',
+            'static/vendor/chart/chart.umd.min.js',
+        ]
+        for rel in required_assets:
+            self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), rel)
+
 
 if __name__ == '__main__':
     unittest.main()

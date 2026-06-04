@@ -569,7 +569,7 @@ class ReportMixin(BaseHandler):
     <div class="card-body"><canvas id="trendChart" height="100"></canvas></div>
     <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>月份</th><th class="text-end">应收</th><th class="text-end">实收</th><th class="text-end">率</th><th>进度条</th><th>柱状图</th></tr></thead>
     <tbody>{trd or '<tr><td colspan="6" class="text-center text-muted py-3">暂无</td></tr>'}</tbody></table></div></div></div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+    <script src="/static/vendor/chart/chart.umd.min.js"></script>
     <script>
     var _labels = [''' + '","'.join('"{t["label"]}"' for t in trends) + '''];
     var _totals = [''' + '","'.join('{m(t["total"])}' for t in trends) + '''];
