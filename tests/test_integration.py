@@ -2378,6 +2378,37 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('value="" onchange="this.form.submit()"', html)
         self.assertIn('已开发票列表 <small class="text-muted">(全部)</small>', html)
 
+    def test_invoice_available_paid_bills_are_grouped_by_tenant(self):
+        from server.db import get_db
+        db = get_db()
+        owner_a = create_owner(db, '开票分组业主甲', '13900008892')
+        owner_b = create_owner(db, '开票分组业主乙', '13900008893')
+        room_a = create_room(db, building='INVGROUP', unit='商场', room_number='1F-101', category='商户', owner_id=owner_a)
+        room_b = create_room(db, building='INVGROUP', unit='商场', room_number='1F-102', category='商户', owner_id=owner_b)
+        db.execute("UPDATE rooms SET tenant_name=?, shop_name=? WHERE id=?", ('开票商户甲', '甲店', room_a))
+        db.execute("UPDATE rooms SET tenant_name=?, shop_name=? WHERE id=?", ('开票商户乙', '乙店', room_b))
+        bill_a1 = create_bill(db, room_id=room_a, fee_type_id=1, period='2036-12', amount=310, status='paid', owner_id=owner_a)
+        bill_a2 = create_bill(db, room_id=room_a, fee_type_id=1, period='2037-01', amount=320, status='paid', owner_id=owner_a)
+        bill_b = create_bill(db, room_id=room_b, fee_type_id=1, period='2036-12', amount=410, status='paid', owner_id=owner_b)
+        create_payment(db, bill_id=bill_a1, amount=310, method='cash', operator='发票分组')
+        create_payment(db, bill_id=bill_a2, amount=320, method='cash', operator='发票分组')
+        create_payment(db, bill_id=bill_b, amount=410, method='cash', operator='发票分组')
+        db.close()
+
+        status, html = http_get('/invoices', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('<optgroup label="开票商户甲 / INVGROUP-商场-1F-101">', html)
+        self.assertIn('<optgroup label="开票商户乙 / INVGROUP-商场-1F-102">', html)
+        group_a_start = html.index('label="开票商户甲 / INVGROUP-商场-1F-101"')
+        group_a_end = html.index('</optgroup>', group_a_start)
+        group_b_start = html.index('label="开票商户乙 / INVGROUP-商场-1F-102"')
+        group_b_end = html.index('</optgroup>', group_b_start)
+        self.assertIn(f'value="{bill_a1}"', html[group_a_start:group_a_end])
+        self.assertIn(f'value="{bill_a2}"', html[group_a_start:group_a_end])
+        self.assertNotIn(f'value="{bill_b}"', html[group_a_start:group_a_end])
+        self.assertIn(f'value="{bill_b}"', html[group_b_start:group_b_end])
+
     def test_invoices_period_filter_keeps_selected_november_and_filters_available_bills(self):
         from server.db import get_db
         db = get_db()

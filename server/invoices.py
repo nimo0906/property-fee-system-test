@@ -108,13 +108,16 @@ class InvoiceMixin(BaseHandler):
         if p:
             total_sql, total_vals = append_period_filter(total_sql, total_vals, p, 'b.billing_period')
         total=db.execute(total_sql,total_vals).fetchone()[0]
-        avail_sql='''SELECT b.id,b.bill_number,b.amount,b.billing_period,r.building,r.unit,r.room_number,o.name oname
+        avail_sql='''SELECT b.id,b.bill_number,b.amount,b.billing_period,
+                r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,o.name oname
             FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
             WHERE b.status='paid' AND b.id NOT IN (SELECT bill_id FROM invoices)'''
         avail_vals = []
         if p:
             avail_sql, avail_vals = append_period_filter(avail_sql, avail_vals, p, 'b.billing_period')
-        avail=db.execute(avail_sql + ' ORDER BY r.building,r.room_number', avail_vals).fetchall()
+        avail=db.execute(avail_sql + ''' ORDER BY
+            COALESCE(NULLIF(r.tenant_name,''), NULLIF(r.shop_name,''), o.name, ''),
+            r.building, r.unit, r.room_number, b.billing_period, b.id''', avail_vals).fetchall()
         db.close()
         rh=''
         for r in rows:
@@ -130,8 +133,27 @@ class InvoiceMixin(BaseHandler):
             rh+='<td><a href="/invoices/'+str(r['id'])+'/print" class="btn btn-sm btn-outline-info"><i class="bi bi-printer"></i> 打印</a> '
             rh+='<form method=POST action="/invoices/'+str(r['id'])+'/delete" style=display:inline><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
         av_opts = '<option value="">--选择--</option>'
+        current_group = None
         for a in avail:
-            av_opts += f'<option value="{a["id"]}">{h(a["building"])}-{h(a["room_number"])} {h(a["oname"])} ¥{m(a["amount"])}</option>'
+            tenant = a['tenant_name'] or a['shop_name'] or a['oname'] or '未登记商户'
+            room_full = '-'.join([x for x in [a['building'], a['unit'], a['room_number']] if x])
+            room_short = '-'.join([x for x in [a['building'], a['room_number']] if x])
+            group_label = f'{tenant} / {room_full or room_short or "未登记房间"}'
+            if group_label != current_group:
+                if current_group is not None:
+                    av_opts += '</optgroup>'
+                av_opts += f'<optgroup label="{h(group_label)}">'
+                current_group = group_label
+            period_hint = f' {a["billing_period"]}' if a['billing_period'] else ''
+            bill_hint = f' {a["bill_number"]}' if a['bill_number'] else ''
+            owner_hint = f' 业主:{a["oname"]}' if a['oname'] and a['oname'] != tenant else ''
+            av_opts += (
+                f'<option value="{a["id"]}">'
+                f'{h(room_short or room_full)} {h(tenant)}{h(owner_hint)}{h(period_hint)}{h(bill_hint)} ¥{m(a["amount"])}'
+                f'</option>'
+            )
+        if current_group is not None:
+            av_opts += '</optgroup>'
         # Available bills for invoice
         self._html(self._page("发票管理", f'''
     <div class="invoice-dashboard">
