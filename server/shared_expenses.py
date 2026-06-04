@@ -79,7 +79,7 @@ class SharedExpenseMixin(BaseHandler):
         self._html(self._page('公摊分摊', f'''
         <div class="alert alert-info"><i class="bi bi-diagram-3"></i> 手动录入公摊总金额，系统按面积或户数分摊到选定房间，并生成独立账单。建议先预览再确认。</div>
         <form method="POST" action="/shared_expenses/allocate" class="row g-3">
-            <div class="col-md-3"><label>账期 *</label><input type="date" name="period" class="form-control" value="{period_to_date(get_period())}" required><small class="text-muted">按所选日期所在月份作为账期</small></div>
+            <div class="col-md-3"><label>账期 *</label><input type="date" name="period" class="form-control" value="" required><small class="text-muted">未选择时不限定月份；生成公摊账单前必须手动选择账期日期</small></div>
             <div class="col-md-3"><label>收费项目 *</label><select name="fee_type_id" class="form-select" required>{fee_opts}</select></div>
             <div class="col-md-3"><label>公摊总金额 *</label><div class="input-group"><span class="input-group-text">¥</span><input name="total_amount" type="number" step="0.01" min="0.01" class="form-control" required></div></div>
             <div class="col-md-3"><label>截止日</label><input name="due_day" type="number" min="1" max="28" value="28" class="form-control"></div>

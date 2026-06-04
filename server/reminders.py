@@ -11,11 +11,18 @@ from datetime import date, datetime, timedelta
 class ReminderMixin(BaseHandler):
 
     def _reminders(self, q):
-        """催缴管理：按紧急度分组（即将到期/已逾期），支持按费用类型分别设置提前天数"""
+        """催缴管理：默认全部账期；按紧急度、房间、租户等筛选。"""
         update_overdue_bills()
-        db=get_db();p=date_to_period(qs(q,'period',get_period()));bld=qs(q,'building');st=qs(q,'status')
-        today=date.today()
-        sql='''SELECT o.id oid,o.name oname,o.phone ophone,r.id rid,r.building,r.unit,r.room_number,
+        db = get_db()
+        raw_period = qs(q, 'period', '').strip()
+        p = date_to_period(raw_period) if raw_period else ''
+        bld = qs(q, 'building').strip()
+        unit = qs(q, 'unit').strip()
+        st = qs(q, 'status').strip()
+        kw = qs(q, 'keyword').strip()
+        fee_id = qs(q, 'fee_type_id').strip()
+        today = date.today()
+        sql = '''SELECT o.id oid,o.name oname,o.phone ophone,r.id rid,r.building,r.unit,r.room_number,
             r.area,r.category,r.tenant_name,r.shop_name,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
             b.source,b.service_start,b.service_end,
             f.name ft_name,f.reminder_advance_days,
@@ -24,98 +31,130 @@ class ReminderMixin(BaseHandler):
             LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id
             WHERE b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
-        sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
-        if bld:sql+=" AND r.building=?";vals.append(bld)
-        if st not in ('overdue','approaching') and st:
-            sql+=" AND b.status=?";vals.append(st)
-        sql+=" ORDER BY b.due_date ASC,o.id,r.building,r.room_number,f.sort_order"
-        rows=db.execute(sql,vals).fetchall()
-        blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
+        vals = []
+        if p:
+            sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
+        if bld:
+            sql += " AND r.building=?"; vals.append(bld)
+        if unit:
+            sql += " AND r.unit=?"; vals.append(unit)
+        if fee_id:
+            sql += " AND b.fee_type_id=?"; vals.append(int(fee_id))
+        if kw:
+            like = f'%{kw}%'
+            sql += ''' AND (o.name LIKE ? OR o.phone LIKE ? OR r.building LIKE ? OR r.unit LIKE ?
+                OR r.room_number LIKE ? OR r.tenant_name LIKE ? OR r.shop_name LIKE ? OR b.bill_number LIKE ? OR f.name LIKE ?)'''
+            vals.extend([like] * 9)
+        if st not in ('overdue', 'approaching') and st:
+            sql += " AND b.status=?"; vals.append(st)
+        sql += " ORDER BY b.due_date ASC,o.id,r.building,r.room_number,f.sort_order"
+        rows = db.execute(sql, vals).fetchall()
+        blds = db.execute("SELECT DISTINCT building FROM rooms WHERE building IS NOT NULL AND building<>'' ORDER BY building").fetchall()
+        units = db.execute("SELECT DISTINCT unit FROM rooms WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit").fetchall()
+        fts = db.execute("SELECT id,name FROM fee_types WHERE is_active=1 ORDER BY sort_order,name").fetchall()
         db.close()
-        overdue_list=[];approaching_list=[]
+        overdue_list = []
+        approaching_list = []
         for r in rows:
-            rem=r['amount']-r['paid']
-            if rem<=0: continue
-            due=None
+            rem = r['amount'] - r['paid']
+            if rem <= 0:
+                continue
+            due = None
             if r['due_date']:
-                try: due=datetime.strptime(r['due_date'],'%Y-%m-%d').date()
-                except: pass
-            advance=r['reminder_advance_days'] or 30
-            is_overdue=due and due<today and r['status'] in('unpaid','overdue')
-            is_approaching=due and due>=today and due<=today+timedelta(days=advance) and r['status'] in('unpaid','partial')
+                try:
+                    due = datetime.strptime(r['due_date'], '%Y-%m-%d').date()
+                except Exception:
+                    pass
+            advance = r['reminder_advance_days'] or 30
+            is_overdue = due and due < today and r['status'] in ('unpaid', 'overdue')
+            is_approaching = due and due >= today and due <= today + timedelta(days=advance) and r['status'] in ('unpaid', 'partial')
             if is_overdue:
                 overdue_list.append(r)
             elif is_approaching:
                 approaching_list.append(r)
-        groups=[]
+        groups = []
         if st == 'overdue':
             approaching_list = []
         elif st == 'approaching':
             overdue_list = []
         if overdue_list:
-            groups.append(('overdue','已逾期','danger','bi-exclamation-triangle',overdue_list))
+            groups.append(('overdue', '已逾期', 'danger', 'bi-exclamation-triangle', overdue_list))
         if approaching_list:
-            groups.append(('approaching','即将到期','warning text-dark','bi-clock',approaching_list))
-        all_bills=overdue_list+approaching_list
-        total_owners=len(set(r['oid'] for r in all_bills))
-        total_amt=sum(r['amount']-r['paid'] for r in all_bills)
-        total_late=sum(calc_bill_late_fee(r['bid']) for r in all_bills)
-        bld_opts='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
-        st_opts=f'<option value="">全部状态</option><option value="overdue"{" selected" if st=="overdue" else""}>已逾期</option><option value="approaching"{" selected" if st=="approaching" else""}>即将到期</option>'
-        oh=''
-        for gid,glabel,gcolor,gicon,bills in groups:
-            oh+=f'<tr style="background:#eee"><td colspan="7"><strong><i class="bi {gicon}"></i> {glabel}</strong> <span class="badge bg-{gcolor.split()[0]}">{len(bills)}笔</span></td></tr>'
-            gowners={}
+            groups.append(('approaching', '即将到期', 'warning text-dark', 'bi-clock', approaching_list))
+        all_bills = overdue_list + approaching_list
+        total_owners = len(set(r['oid'] for r in all_bills))
+        total_amt = sum(r['amount'] - r['paid'] for r in all_bills)
+        total_late = sum(calc_bill_late_fee(r['bid']) for r in all_bills)
+        bld_opts = '<option value="">全部楼栋</option>' + ''.join(f'<option value="{h(b["building"])}"{" selected" if bld == b["building"] else ""}>{h(b["building"])}</option>' for b in blds)
+        unit_opts = '<option value="">全部单元/区域</option>' + ''.join(f'<option value="{h(u["unit"])}"{" selected" if unit == u["unit"] else ""}>{h(u["unit"])}</option>' for u in units)
+        fee_opts = '<option value="">全部收费项目</option>' + ''.join(f'<option value="{f["id"]}"{" selected" if fee_id == str(f["id"]) else ""}>{h(f["name"])}</option>' for f in fts)
+        st_opts = f'<option value="">全部状态</option><option value="overdue"{" selected" if st=="overdue" else""}>已逾期</option><option value="approaching"{" selected" if st=="approaching" else""}>即将到期</option><option value="unpaid"{" selected" if st=="unpaid" else""}>未缴</option><option value="partial"{" selected" if st=="partial" else""}>部分缴</option>'
+        oh = ''
+        for gid, glabel, gcolor, gicon, bills in groups:
+            oh += f'<tr style="background:#eee"><td colspan="7"><strong><i class="bi {gicon}"></i> {glabel}</strong> <span class="badge bg-{gcolor.split()[0]}">{len(bills)}笔</span></td></tr>'
+            gowners = {}
             for r in bills:
-                oid=r['oid']
+                oid = r['oid']
                 if oid not in gowners:
-                    gowners[oid]={'name':r['oname']or'未知','phone':r['ophone']or'','rooms':{},'tenants':set(),'bills':[],'total':0,'late_fee':0}
-                rkey=f"{r['building']}-{r['unit']}-{r['room_number']}"
+                    gowners[oid] = {'name': r['oname'] or '未知', 'phone': r['ophone'] or '', 'rooms': {}, 'tenants': set(), 'bills': [], 'total': 0, 'late_fee': 0}
+                rkey = f"{r['building']}-{r['unit']}-{r['room_number']}"
                 if r['rid'] not in gowners[oid]['rooms']:
-                    gowners[oid]['rooms'][r['rid']]=rkey
+                    gowners[oid]['rooms'][r['rid']] = rkey
                 gowners[oid]['bills'].append(r)
                 if r['source'] == 'auto_contract' and (r['tenant_name'] or r['shop_name']):
                     gowners[oid]['tenants'].add(r['tenant_name'] or r['shop_name'])
-                gowners[oid]['total']+=r['amount']-r['paid']
-                gowners[oid]['late_fee']+=calc_bill_late_fee(r['bid'])
-            for oid,o in sorted(gowners.items()):
-                rooms_str='、'.join(o['rooms'].values())
-                tenant_hint = ('<br><small class="text-muted">租户：'+h('、'.join(sorted(o['tenants'])))+'</small>') if o['tenants'] else ''
-                due_hint='<span class="badge bg-danger">逾期</span>' if gid=='overdue' else '<span class="badge bg-warning text-dark">即将到期</span>'
-                oh+=f'<tr class="table-light" onclick="toggleRoom(\'remind'+str(gid)+''+str(oid)+'\')" style="cursor:pointer">'
-                oh+=f'<td><i class="bi bi-chevron-right" id="icon_remind{gid}{oid}"></i> <strong>{h(o["name"])}</strong>{tenant_hint}<br><small class="text-muted">{h(o["phone"])}</small></td>'
-                oh+=f'<td><small>{rooms_str}</small></td><td class="text-end">{len(o["bills"])}</td>'
-                oh+=f'<td class="text-end text-danger">¥{m(o["total"])}</td><td class="text-end text-warning">¥{m(o["late_fee"])}</td>'
-                oh+=f'<td class="text-end"><strong>¥{m(o["total"]+o["late_fee"])}</strong></td>'
-                oh+=f'<td>{due_hint} <a href="/reminders/print?owner_id={oid}&period={p}" class="btn btn-sm btn-outline-danger" target="_blank"><i class="bi bi-printer"></i></a></td></tr>'
+                gowners[oid]['total'] += r['amount'] - r['paid']
+                gowners[oid]['late_fee'] += calc_bill_late_fee(r['bid'])
+            for oid, o in sorted(gowners.items()):
+                rooms_str = '、'.join(o['rooms'].values())
+                tenant_hint = ('<br><small class="text-muted">租户：' + h('、'.join(sorted(o['tenants']))) + '</small>') if o['tenants'] else ''
+                due_hint = '<span class="badge bg-danger">逾期</span>' if gid == 'overdue' else '<span class="badge bg-warning text-dark">即将到期</span>'
+                print_period = f'&period={p}' if p else ''
+                oh += f"<tr class='table-light' onclick=\"toggleRoom('remind{gid}{oid}')\" style='cursor:pointer'>"
+                oh += f'<td><i class="bi bi-chevron-right" id="icon_remind{gid}{oid}"></i> <strong>{h(o["name"])}</strong>{tenant_hint}<br><small class="text-muted">{h(o["phone"])}</small></td>'
+                oh += f'<td><small>{rooms_str}</small></td><td class="text-end">{len(o["bills"])}</td>'
+                oh += f'<td class="text-end text-danger">¥{m(o["total"])}</td><td class="text-end text-warning">¥{m(o["late_fee"])}</td>'
+                oh += f'<td class="text-end"><strong>¥{m(o["total"]+o["late_fee"])}</strong></td>'
+                oh += f'<td>{due_hint} <a href="/reminders/print?owner_id={oid}{print_period}" class="btn btn-sm btn-outline-danger" target="_blank"><i class="bi bi-printer"></i></a></td></tr>'
                 for r in o['bills']:
-                    rem=r['amount']-r['paid']
-                    lf=calc_bill_late_fee(r['bid'])
-                    sn={'unpaid':'warning text-dark','overdue':'danger','partial':'info'}
-                    ln={'unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
+                    rem = r['amount'] - r['paid']
+                    lf = calc_bill_late_fee(r['bid'])
+                    sn = {'unpaid': 'warning text-dark', 'overdue': 'danger', 'partial': 'info'}
+                    ln = {'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
                     source_badge = '<span class="badge bg-primary">自动出账</span> ' if r['source'] == 'auto_contract' else ''
                     service_text = ''
                     if r['service_start'] and r['service_end']:
                         service_text = f'<br><small class="text-muted">服务期 {h(r["service_start"])} 至 {h(r["service_end"])} · 截止 {h(r["due_date"] or "-")}</small>'
-                    oh+=f'<tr class="room-detail-remind{gid}{oid}" style="display:none;font-size:0.9em">'
-                    oh+=f'<td></td><td style="padding-left:25px"><small>{h(r["building"])}-{h(r["unit"])}-{h(r["room_number"])}</small></td>'
-                    oh+=f'<td><span class="badge bg-info">{h(r["ft_name"])}</span></td><td class="text-end"><small>{h(r["billing_period"])}</small></td>'
-                    oh+=f'<td class="text-end text-danger">{m(rem)}</td><td class="text-end text-warning"><small>{m(lf)}</small></td>'
-                    oh+=f'<td class="text-end"><strong>{m(rem+lf)}</strong></td>'
-                    oh+=f'<td>{source_badge}<span class="badge bg-{sn.get(r["status"],"secondary")}">{ln.get(r["status"],r["status"])}</span>{service_text}</td></tr>'
+                    oh += f'<tr class="room-detail-remind{gid}{oid}" style="display:none;font-size:0.9em">'
+                    oh += f'<td></td><td style="padding-left:25px"><small>{h(r["building"])}-{h(r["unit"])}-{h(r["room_number"])}</small></td>'
+                    oh += f'<td><span class="badge bg-info">{h(r["ft_name"])}</span></td><td class="text-end"><small>{h(r["billing_period"])}</small></td>'
+                    oh += f'<td class="text-end text-danger">{m(rem)}</td><td class="text-end text-warning"><small>{m(lf)}</small></td>'
+                    oh += f'<td class="text-end"><strong>{m(rem+lf)}</strong></td>'
+                    oh += f'<td>{source_badge}<span class="badge bg-{sn.get(r["status"],"secondary")}">{ln.get(r["status"],r["status"])}</span>{service_text}</td></tr>'
         if not oh:
-            oh='<tr><td colspan="7" class="text-center text-muted py-4">本账期没有催缴记录</td></tr>'
-        self._html(self._page('催缴管理',f'''
-    <div class="alert alert-warning"><i class="bi bi-bell"></i> 按紧急度分组展示：<span class="badge bg-danger">已逾期</span> 和 <span class="badge bg-warning text-dark">即将到期</span>（各费用类型可单独设置催缴提前天数）。</div>
+            oh = '<tr><td colspan="7" class="text-center text-muted py-4">当前筛选条件下没有催缴记录</td></tr>'
+        period_value = period_to_date(p) if p else ''
+        print_params = []
+        if p: print_params.append('period=' + h(p))
+        if bld: print_params.append('building=' + h(bld))
+        if unit: print_params.append('unit=' + h(unit))
+        if st: print_params.append('status=' + h(st))
+        if kw: print_params.append('keyword=' + h(kw))
+        print_query = ('?' + '&'.join(print_params)) if print_params else ''
+        self._html(self._page('催缴管理', f'''
+    <div class="alert alert-warning"><i class="bi bi-bell"></i> 默认显示全部账期的催缴对象；手动选择账期日期后，仅显示该月份或覆盖该月份的账单。</div>
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
     <form class="row g-2" method=GET>
-    <div class="col-auto"><input type="date" name="period" class="form-control form-control-sm" value="{period_to_date(p)}" onchange="this.form.submit()"></div>
-    <div class="col-auto"><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{bld_opts}</select></div>
-    <div class="col-auto"><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{st_opts}</select></div>
-    <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_value}" onchange="this.form.submit()"><small class="text-muted">默认全部</small></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{bld_opts}</select></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">单元/区域</label><select name="unit" class="form-select form-select-sm" onchange="this.form.submit()">{unit_opts}</select></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">项目</label><select name="fee_type_id" class="form-select form-select-sm" onchange="this.form.submit()">{fee_opts}</select></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{st_opts}</select></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="房号/租户/业主/账单号"></div>
+    <div class="col-auto align-self-end"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button>
     <a href="/reminders" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
-    <div class="d-flex gap-1">
-    <a href="/reminders/print?period={p}&building={bld}" class="btn btn-sm btn-outline-danger" target="_blank"><i class="bi bi-printer"></i> 批量打印</a>
+    <div class="d-flex gap-1 align-self-end">
+    <a href="/reminders/print{print_query}" class="btn btn-sm btn-outline-danger" target="_blank"><i class="bi bi-printer"></i> 批量打印</a>
     <a href="/fee_types" class="btn btn-sm btn-outline-secondary"><i class="bi bi-gear"></i> 催缴天数设置</a>
     </div>
     </div>
@@ -129,7 +168,7 @@ class ReminderMixin(BaseHandler):
     </div>
     <div class="table-responsive"><table class="table table-hover align-middle">
     <thead><tr><th style="min-width:120px">业主</th><th>房间</th><th class="text-end">笔数</th><th class="text-end">欠费</th><th class="text-end">滞纳金</th><th class="text-end">合计</th><th style="width:80px">操作</th></tr></thead>
-    <tbody>{oh}</tbody></table></div>''','reminders'))
+    <tbody>{oh}</tbody></table></div>''', 'reminders'))
 
     def _reminder_print(self, q):
         update_overdue_bills()

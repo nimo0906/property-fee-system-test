@@ -729,6 +729,54 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('建议选择：水费(特行)', body)
         self.assertIn('id="waterFeeHint"', body)
 
+    def test_meter_list_defaults_to_all_periods_and_supports_keyword_unit_filters(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '抄表筛选业主', '13900000014')
+        room_june = create_room(db, building='METERALL', unit='A座', room_number='601', category='商户', owner_id=owner_id)
+        room_nov = create_room(db, building='METERALL', unit='商场', room_number='1101', category='商户', owner_id=owner_id)
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='水费(非居民)'").fetchone()[0]
+        db.execute("INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,previous_reading,consumption,status,reading_date) VALUES(?,?,?,?,?,?,?,?)", (room_june, fee_id, '203606', 66, 0, 66, 'confirmed', '2036-06-03'))
+        db.execute("INSERT INTO meter_readings(room_id,fee_type_id,period,current_reading,previous_reading,consumption,status,reading_date) VALUES(?,?,?,?,?,?,?,?)", (room_nov, fee_id, '203611', 111, 0, 111, 'draft', '2036-11-03'))
+        db.commit(); db.close()
+
+        status, body = http_get('/meter_readings', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="" onchange="this.form.submit()"', body)
+        self.assertIn('METERALL-A座-601', body)
+        self.assertIn('METERALL-商场-1101', body)
+
+        status, november = http_get('/meter_readings?period=2036-11-01', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="2036-11-01" onchange="this.form.submit()"', november)
+        self.assertIn('METERALL-商场-1101', november)
+        self.assertNotIn('METERALL-A座-601', november)
+
+        status, filtered = http_get('/meter_readings?keyword=1101&unit=%E5%95%86%E5%9C%BA&status=draft', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="1101"', filtered)
+        self.assertIn('METERALL-商场-1101', filtered)
+        self.assertNotIn('METERALL-A座-601', filtered)
+
+    def test_meter_create_page_uses_unit_first_room_selection(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '抄表二级业主', '13900000015')
+        room_a = create_room(db, building='METERUNIT', unit='A座', room_number='701', category='商户', owner_id=owner_id)
+        room_mall = create_room(db, building='METERUNIT', unit='商场', room_number='M101', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='A座租户', water_rate_type='非居民' WHERE id=?", (room_a,))
+        db.execute("UPDATE rooms SET shop_name='商场店铺', water_rate_type='特行' WHERE id=?", (room_mall,))
+        db.commit(); db.close()
+
+        status, body = http_get('/meter_readings/create', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('单元/区域 *', body)
+        self.assertIn('id="mUnit"', body)
+        self.assertIn('data-unit="商场"', body)
+        self.assertIn('data-label="METERUNIT-商场-M101', body)
+        self.assertIn('选择单元/区域后再选择房间', body)
+
     def test_meter_create_rejects_water_fee_standard_mismatch(self):
         from server.db import get_db
         db = get_db()
@@ -785,6 +833,12 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('单元/区域', body)
         self.assertIn('全部单元/区域', body)
         self.assertNotIn('单元/座', body)
+
+    def test_shared_expense_page_defaults_to_blank_period_until_user_selects_date(self):
+        status, body = http_get('/shared_expenses', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('name="period" class="form-control" value=""', body)
+        self.assertIn('未选择时不限定月份', body)
 
     def test_nonresident_and_special_water_fees_apply_to_commercial_rooms_not_as_room_types(self):
         from server.billing_engine import fee_applies_to_category
@@ -1139,6 +1193,35 @@ class TestIntegration(unittest.TestCase):
         self.assertIn('自动详情租户', bills_page)
         self.assertIn('AUTODETAIL-B座-2603', bills_page)
         self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', bills_page)
+
+    def test_reminders_default_to_all_periods_and_support_keyword_unit_filters(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '催缴筛选业主', '13900000016')
+        room_june = create_room(db, building='REMALL', unit='A座', room_number='601', category='居民', owner_id=owner_id)
+        room_nov = create_room(db, building='REMALL', unit='商场', room_number='1101', category='商户', owner_id=owner_id)
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)' LIMIT 1").fetchone()[0]
+        db.execute("INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number) VALUES(?,?,?,?,?,?,?,?)", (room_june, owner_id, fee_id, '2026-06', 66, '2026-06-28', 'unpaid', 'REM-JUN-001'))
+        db.execute("INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,source,service_start,service_end) VALUES(?,?,?,?,?,?,?,?,?,?,?)", (room_nov, owner_id, fee_id, '2026-07', 111, '2026-07-03', 'unpaid', 'REM-JUL-001', 'auto_contract', '2026-07-01', '2026-07-31'))
+        db.commit(); db.close()
+
+        status, body = http_get('/reminders', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="" onchange="this.form.submit()"', body)
+        self.assertIn('REMALL-A座-601', body)
+        self.assertIn('REMALL-商场-1101', body)
+
+        status, november = http_get('/reminders?period=2026-07-01', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="2026-07-01" onchange="this.form.submit()"', november)
+        self.assertIn('REMALL-商场-1101', november)
+        self.assertNotIn('REMALL-A座-601', november)
+
+        status, filtered = http_get('/reminders?keyword=1101&unit=%E5%95%86%E5%9C%BA', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="1101"', filtered)
+        self.assertIn('REMALL-商场-1101', filtered)
+        self.assertNotIn('REMALL-A座-601', filtered)
 
     def test_auto_billing_bill_shows_service_period_in_approaching_reminders(self):
         from server.db import get_db
