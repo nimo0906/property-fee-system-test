@@ -7,6 +7,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import desktop_app
 
@@ -90,6 +91,13 @@ class TestDesktopApp(unittest.TestCase):
             text = log_path.read_text(encoding='utf-8')
             self.assertIn('desktop startup failed for test', text)
             self.assertIn('Traceback', text)
+
+    def test_create_server_uses_configured_host_for_windows_server_mode(self):
+        with mock.patch.dict(os.environ, {'PM_HOST': '0.0.0.0'}, clear=False):
+            with mock.patch('desktop_app.http.server.ThreadingHTTPServer') as server_cls:
+                with mock.patch('server.db_init'), mock.patch('server.backups.ensure_startup_backups'):
+                    desktop_app.create_server(5001)
+        self.assertEqual(server_cls.call_args.args[0], ('0.0.0.0', 5001))
 
 
 if __name__ == '__main__':
@@ -191,8 +199,10 @@ class TestDesktopPackaging(unittest.TestCase):
     def test_windows_build_files_exist_and_include_required_assets(self):
         spec = Path('property_fee_system.spec')
         script = Path('build_windows_exe.bat')
+        server_script = Path('start_windows_server.bat')
         self.assertTrue(spec.exists())
         self.assertTrue(script.exists())
+        self.assertTrue(server_script.exists())
         spec_text = spec.read_text(encoding='utf-8')
         self.assertIn('desktop_app.py', spec_text)
         self.assertIn('server', spec_text)
@@ -211,6 +221,11 @@ class TestDesktopPackaging(unittest.TestCase):
         self.assertIn('pyinstaller', script_text.lower())
         self.assertIn('property_fee_system.spec', script_text)
         self.assertIn('package_windows_release.bat', script_text)
+        server_text = server_script.read_text(encoding='utf-8')
+        self.assertIn('PM_HOST=0.0.0.0', server_text)
+        self.assertIn('PM_PORT=5001', server_text)
+        self.assertIn('PM_DB_PATH', server_text)
+        self.assertIn('--serve-only', server_text)
 
 class TestDesktopDeliveryDocs(unittest.TestCase):
     def test_delivery_docs_exist_and_cover_first_run_checklist(self):

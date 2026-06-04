@@ -18,6 +18,10 @@ from desktop_runtime import (
 )
 
 
+def get_server_host():
+    return os.environ.get("PM_HOST", "127.0.0.1")
+
+
 def create_server(port):
     os.environ["PM_PORT"] = str(port)
     from server import Handler, db_init
@@ -25,14 +29,18 @@ def create_server(port):
 
     db_init()
     ensure_startup_backups()
-    return http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return http.server.ThreadingHTTPServer((get_server_host(), port), Handler)
 
 
 def run_server(port):
     prepare_runtime()
     server = create_server(port)
-    url = f"http://127.0.0.1:{port}"
+    host = get_server_host()
+    display_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    url = f"http://{display_host}:{port}"
     print(f"{APP_TITLE} 已启动: {url}")
+    if host == "0.0.0.0":
+        print(f"局域网模式已启用，请在其他电脑浏览器打开: http://服务器内网IP:{port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
