@@ -35,6 +35,9 @@ docs/**/.DS_Store
 真实数据/*.xlsx
 真实数据/*.xlsm
 
-# Generated release binaries stay out of source control
+# Generated release binaries stay out of source control by default.
+# Curated v2.0.2 delivery zips below are intentionally committed for GitHub sync.
 release/**/*.zip
+!release/macos/物业管理收费系统-v2.0-macos.zip
+!release/windows/物业管理收费系统-v2.0-windows-build-source.zip
 release/**/*.app/
