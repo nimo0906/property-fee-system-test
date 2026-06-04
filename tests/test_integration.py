@@ -2317,6 +2317,49 @@ class TestIntegration(unittest.TestCase):
         self.assertNotIn('INVNOVJUN-602', html)
         self.assertIn('已开发票列表 <small class="text-muted">(2036-11)</small>', html)
 
+    def test_invoice_create_keeps_selected_period_after_success(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '十一月开票后返回业主', '13900008890')
+        room_id = create_room(db, building='INVRETURNNOV', unit='A座', room_number='1103', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2036-11', amount=211, status='paid', owner_id=owner_id)
+        create_payment(db, bill_id=bill_id, amount=211, method='cash', operator='发票返回')
+        db.close()
+
+        status, body, location = http_post('/invoices/create', {
+            'bill_id': str(bill_id),
+            'issue_date': '2036-11-05',
+            'buyer_name': '十一月开票抬头',
+            'buyer_tax_id': 'NOVTAX001',
+            'period': '2036-11-01',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 302)
+        decoded_location = urllib.parse.unquote(location)
+        self.assertIn('period=2036-11-01', decoded_location)
+        self.assertIn('发票开具成功', decoded_location)
+
+    def test_invoice_create_defaults_back_to_all_available_bills_without_period(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '默认全部开票返回业主', '13900008891')
+        room_id = create_room(db, building='INVRETURNALL', unit='A座', room_number='605', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2036-06', amount=122, status='paid', owner_id=owner_id)
+        create_payment(db, bill_id=bill_id, amount=122, method='cash', operator='发票返回')
+        db.close()
+
+        status, body, location = http_post('/invoices/create', {
+            'bill_id': str(bill_id),
+            'issue_date': '2036-06-05',
+            'buyer_name': '默认全部开票抬头',
+            'buyer_tax_id': 'ALLTAX001',
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 302)
+        decoded_location = urllib.parse.unquote(location)
+        self.assertIn('/invoices?flash=', decoded_location)
+        self.assertNotIn('period=', decoded_location)
+
     def test_paid_bills_available_for_invoice_even_without_existing_invoice(self):
         from server.db import get_db
         db = get_db()

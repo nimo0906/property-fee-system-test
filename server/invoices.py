@@ -7,6 +7,7 @@ from server.billing_periods import append_period_filter
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
 from server.base import BaseHandler
 from datetime import date, datetime
+from urllib.parse import urlencode
 
 
 def _rmb_upper(amount):
@@ -149,6 +150,7 @@ class InvoiceMixin(BaseHandler):
     <tbody>{rh or '<tr><td colspan="7" class="text-center text-muted py-3">暂无发票</td></tr>'}</tbody></table></div></section></div>
     <div class="col-md-4"><section class="invoice-section" data-invoice-section="available"><div class="invoice-section-title"><i class="bi bi-receipt"></i> 待开票账单</div>
     <div class="card-body"><form method=POST action="/invoices/create" class="row g-3">
+    <input type="hidden" name="period" value="{period_value}">
     <div class="col-12"><label>选择已缴费账单</label><select name="bill_id" class="form-select" required>{av_opts}</select></div>
     <div class="col-12"><label>开票日期</label><input name="issue_date" type="date" class="form-control" value="{date.today().isoformat()}"></div>
     <div class="col-12"><label>购买方名称</label><input name="buyer_name" class="form-control" placeholder="单位名称或个人姓名"></div>
@@ -156,21 +158,35 @@ class InvoiceMixin(BaseHandler):
     <div class="col-12"><hr><button class="btn btn-success"><i class="bi bi-receipt"></i> 开具发票</button></div>
     </form></div></section></div></div></div>''', "invoices"))
 
+    def _invoice_redirect(self, flash, period=''):
+        params = {}
+        if period:
+            params['period'] = period
+        params['flash'] = flash
+        return self._redirect('/invoices?' + urlencode(params))
+
     def _invoice_create(self, d):
         db=get_db()
         bid=qs(d,'bill_id')
-        if not bid: db.close(); return self._redirect('/invoices?flash=请选择账单')
+        period_value = qs(d, 'period').strip()
+        if not bid:
+            db.close()
+            return self._invoice_redirect('请选择账单', period_value)
         bill=db.execute("SELECT * FROM bills WHERE id=? AND status='paid'",(int(bid),)).fetchone()
-        if not bill: db.close(); return self._redirect('/invoices?flash=账单未找到或未缴费')
+        if not bill:
+            db.close()
+            return self._invoice_redirect('账单未找到或未缴费', period_value)
         exist=db.execute("SELECT id FROM invoices WHERE bill_id=?",(int(bid),)).fetchone()
-        if exist: db.close(); return self._redirect('/invoices?flash=该账单已开过发票')
+        if exist:
+            db.close()
+            return self._invoice_redirect('该账单已开过发票', period_value)
         # Generate invoice number
         cnt=db.execute("SELECT COUNT(*) FROM invoices").fetchone()[0]+1
         inv_no=f"INV-{date.today().strftime('%Y%m%d')}-{cnt:04d}"
         db.execute("INSERT INTO invoices(bill_id,invoice_number,amount,issue_date,buyer_name,buyer_tax_id) VALUES(?,?,?,?,?,?)",
                    (int(bid),inv_no,bill['amount'],qs(d,'issue_date',date.today().isoformat()),qs(d,'buyer_name'),qs(d,'buyer_tax_id')))
         db.commit();db.close()
-        self._redirect('/invoices?flash=发票开具成功: '+inv_no)
+        self._invoice_redirect('发票开具成功: '+inv_no, period_value)
 
     def _invoice_print(self, iid):
         db=get_db()

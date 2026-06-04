@@ -214,7 +214,7 @@ def build_window_model(url, data_dir, db_path, backup_dir):
         "startup_log": str(startup_log),
         "runtime_log": str(runtime_log),
         "service_status": f"当前访问地址: {url}",
-        "hint": "数据保存在本机，关闭窗口会停止本地服务。启动失败时请查看诊断信息或错误日志。",
+        "hint": "本地桌面版仅在 127.0.0.1 运行；数据保存在本机，统一位于 PropertyFeeSystemData，关闭窗口会停止本地服务。启动失败时请查看诊断信息或错误日志。",
         "actions": [
             {"label": "打开系统", "kind": "open_url"},
             {"label": "重新启动服务", "kind": "restart_service"},

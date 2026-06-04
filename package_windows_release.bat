@@ -58,6 +58,7 @@ copy /Y "Windows打包操作步骤.md" "%RELEASE_DIR%\Windows打包操作步骤.
 copy /Y "Windows用户发送文案.md" "%RELEASE_DIR%\Windows用户发送文案.md" >nul
 copy /Y "使用说明.md" "%RELEASE_DIR%\使用说明.md" >nul
 copy /Y "交付验收清单.md" "%RELEASE_DIR%\交付验收清单.md" >nul
+copy /Y "正式交付清单.md" "%RELEASE_DIR%\正式交付清单.md" >nul
 copy /Y "数据备份说明.md" "%RELEASE_DIR%\数据备份说明.md" >nul
 copy /Y "真实数据试运行保护方案.md" "%RELEASE_DIR%\真实数据试运行保护方案.md" >nul
 copy /Y "真实数据导入前验收清单.md" "%RELEASE_DIR%\真实数据导入前验收清单.md" >nul

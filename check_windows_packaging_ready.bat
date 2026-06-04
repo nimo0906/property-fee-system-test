@@ -43,6 +43,7 @@ call :check_file "build_windows_exe.bat"
 call :check_file "diagnose_windows.bat"
 call :check_file "Windows客户试用说明.md"
 call :check_file "用户快速开始.md"
+call :check_file "正式交付清单.md"
 call :check_file "清空本机试用数据.bat"
 
 findstr /C:"('property.db', '.')" property_fee_system.spec >nul 2>nul

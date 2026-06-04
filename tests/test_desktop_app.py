@@ -234,6 +234,36 @@ class TestDesktopDeliveryDocs(unittest.TestCase):
         self.assertIn('交付验收清单.md', build_text)
         self.assertIn('Windows客户试用说明.md', build_text)
 
+    def test_final_delivery_assets_and_docs_are_ready_for_release_closeout(self):
+        final_checklist = Path('正式交付清单.md')
+        self.assertTrue(final_checklist.exists())
+        final_text = final_checklist.read_text(encoding='utf-8')
+        for phrase in ['UI 细节收口', '文档 / 使用说明', 'Windows 打包准备', '正式交付清单', 'P0/P1', 'PropertyFeeSystemData']:
+            self.assertIn(phrase, final_text)
+
+        ready = Path('check_windows_packaging_ready.bat').read_text(encoding='utf-8')
+        self.assertIn('正式交付清单.md', ready)
+
+        package = Path('package_windows_release.bat').read_text(encoding='utf-8')
+        self.assertIn('正式交付清单.md', package)
+
+        for guide_name in ['Windows客户试用说明.md', '用户快速开始.md', '交付验收清单.md']:
+            guide_text = Path(guide_name).read_text(encoding='utf-8')
+            self.assertNotIn('业主端', guide_text)
+            self.assertNotIn('支付订单', guide_text)
+
+    def test_desktop_window_model_has_release_ready_copy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = desktop_app.build_window_model(
+                url='http://127.0.0.1:5001',
+                data_dir=Path(tmp),
+                db_path=Path(tmp) / 'database' / 'property.db',
+                backup_dir=Path(tmp) / 'backups',
+            )
+            self.assertIn('本地桌面版', model['hint'])
+            self.assertIn('PropertyFeeSystemData', model['hint'])
+            self.assertIn('127.0.0.1', model['service_status'])
+
     def test_windows_release_helpers_are_safe_and_simple(self):
         for path in [Path('package_windows_release.bat'), Path('清空本机试用数据.bat'), Path('Windows客户试用说明.md'), Path('Windows打包操作步骤.md'), Path('check_windows_packaging_ready.bat'), Path('明天Windows打包从这里开始.md'), Path('Windows用户发送文案.md'), Path('真实数据试运行保护方案.md'), Path('真实数据导入前验收清单.md')]:
             self.assertTrue(path.exists(), str(path))
