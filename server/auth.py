@@ -174,7 +174,7 @@ class AuthMixin(BaseHandler):
         db = get_db()
         rows = db.execute("SELECT * FROM users ORDER BY id").fetchall()
         db.close()
-        role_names = {"admin":"管理员","manager":"业务管理员","operator":"财务收费","readonly":"客服只读"}
+        role_names = {"admin":"管理员","system_admin":"系统管理员","manager":"业务管理员","finance":"财务","cashier":"收费员","frontdesk":"客服/前台","executive":"管理层只读","operator":"财务收费","readonly":"客服只读"}
         rh = ""
         for r in rows:
             rl = role_names.get(r["role"], r["role"])
@@ -240,6 +240,10 @@ class AuthMixin(BaseHandler):
 <div class="col-md-6"><label>显示名</label><input name="display_name" class="form-control" value="{dn}"></div>
 <div class="col-md-3"><label>角色</label><select name="role" class="form-select">
 <option value="manager"{" selected" if role=="manager" else ""} {"disabled" if u["role"]!="admin" else ""}>业务管理员</option>
+<option value="finance"{" selected" if role=="finance" else ""}>财务</option>
+<option value="cashier"{" selected" if role=="cashier" else ""}>收费员</option>
+<option value="frontdesk"{" selected" if role=="frontdesk" else ""}>客服/前台</option>
+<option value="executive"{" selected" if role=="executive" else ""}>管理层只读</option>
 <option value="operator"{" selected" if role=="operator" else ""}>财务收费</option>
 {admin_option}
 <option value="readonly"{" selected" if role=="readonly" else ""}>客服只读</option></select></div>

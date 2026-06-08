@@ -12,7 +12,7 @@ def _is_secondary_path(path):
         return False
     primary_paths = {
         '/rooms', '/owners', '/fee_types', '/batch_ops', '/meter_readings',
-        '/billing', '/commercial_billing', '/auto_billing', '/shared_expenses', '/bills',
+        '/billing', '/commercial_billing', '/merchant_contracts', '/auto_billing', '/shared_expenses', '/bills',
         '/payments', '/collections', '/reminders',
         '/invoices', '/reports', '/closing', '/audit_logs', '/backups',
         '/system_health', '/system_update', '/trial_data_reset', '/users', '/import',
@@ -26,7 +26,8 @@ def render_page(handler, title, content, active='', top_actions=''):
         top_actions = (back_btn + top_actions) if top_actions else back_btn
     html = handler._load_template('base.html')
     cur_user = handler._get_current_user()
-    role = cur_user.get("role") if cur_user else ""
+    raw_role = cur_user.get("role") if cur_user else ""
+    role = {"system_admin": "admin", "finance": "operator", "cashier": "operator", "frontdesk": "readonly", "executive": "readonly"}.get(raw_role, raw_role)
     nav_groups = [
         ('工作台', [('index', '/', 'bi-speedometer2', '收费工作台')]),
         ('基础资料', [
@@ -40,6 +41,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         ('收费业务', [
             ('billing', '/billing', 'bi-cash-coin', '物业收费'),
             ('commercial_billing', '/commercial_billing', 'bi-building', '商业收费'),
+            ('merchant_contracts', '/merchant_contracts', 'bi-file-earmark-text', '商户合同'),
             ('auto_billing', '/auto_billing', 'bi-calendar-check', '自动出账'),
             ('shared_expenses', '/shared_expenses', 'bi-diagram-3', '公摊分摊'),
             ('bills', '/bills', 'bi-receipt', '账单管理'),
@@ -61,11 +63,11 @@ def render_page(handler, title, content, active='', top_actions=''):
         allowed = {'index', 'owners', 'rooms', 'bills', 'collections', 'reminders', 'reports'}
     else:
         allowed = {'index', 'owners', 'rooms', 'fee_types', 'batch_ops', 'meter', 'billing',
-                   'commercial_billing', 'auto_billing', 'bills', 'payments', 'invoices',
+                   'commercial_billing', 'merchant_contracts', 'auto_billing', 'bills', 'payments', 'invoices',
                    'reports', 'closing', 'import', 'reminders', 'shared_expenses'}
     user_html = ''
     if cur_user:
-        role_label = {"admin": "管理员", "manager": "业务管理员", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])
+        role_label = {"admin": "管理员", "system_admin": "系统管理员", "manager": "业务管理员", "finance": "财务", "cashier": "收费员", "frontdesk": "客服/前台", "executive": "管理层只读", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])
         user_html = f'''<div class="sidebar-user">
             <div class="d-flex align-items-center justify-content-between gap-2">
                 <div><div class="name"><i class="bi bi-person-circle"></i> {h(cur_user["display_name"] or cur_user["username"])}</div>
@@ -80,6 +82,8 @@ def render_page(handler, title, content, active='', top_actions=''):
         allowed.add('system_health')
         allowed.add('system_update')
         allowed.add('trial_data_reset')
+        allowed.add('cloud_schema')
+        nav_groups[-1][1].append(("cloud_schema", "/cloud_schema", "bi-cloud-check", "云端数据底座"))
     nav_parts = []
     for group_name, items in nav_groups:
         visible = [item for item in items if item[0] in allowed]
@@ -110,6 +114,8 @@ def render_page(handler, title, content, active='', top_actions=''):
              'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
              'system_update': 'bi-arrow-repeat', 'trial_data_reset': 'bi-trash3',
              'collections': 'bi-telephone-outbound', 'audit_logs': 'bi-journal-check'}
+    icons['merchant_contracts'] = 'bi-file-earmark-text'
+    icons['cloud_schema'] = 'bi-cloud-check'
     icon = icons.get(active, 'bi-speedometer2')
     html = html.replace('{TITLE}', h(title))
     html = html.replace('{CONTENT}', content)

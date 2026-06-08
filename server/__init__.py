@@ -35,6 +35,7 @@ from server.trial_data_reset import TrialDataResetMixin
 from server.shared_expenses import SharedExpenseMixin
 from server.batch_ops import BatchOpsMixin
 from server.api import ApiMixin
+from server.merchant_contracts import MerchantContractMixin
 
 
 class Handler(
@@ -45,7 +46,7 @@ class Handler(
     PaymentMixin, BillingUiMixin, AutoBillingMixin,
     RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
     ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin, SharedExpenseMixin, BatchOpsMixin,
-    ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
+    MerchantContractMixin, ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
 ):
     """HTTP handler with all feature mixins."""
     pass

@@ -132,6 +132,8 @@ def prepare_runtime(data_dir=None):
     bundled_db = get_resource_dir() / "property.db"
     if not db_path.exists() and bundled_db.exists():
         shutil.copy2(bundled_db, db_path)
+    if not db_path.exists():
+        db_path.touch()
 
     os.environ["PM_DB_PATH"] = str(db_path)
     os.environ["PM_BACKUP_DIR"] = str(backup_dir)

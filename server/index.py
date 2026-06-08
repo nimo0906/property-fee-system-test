@@ -4,6 +4,7 @@
 
 from server.db import get_db, get_period, add_months, h, m, qs, update_overdue_bills, period_to_date
 from server.base import BaseHandler
+from server.dashboard_v2 import get_enterprise_dashboard_metrics
 from datetime import date
 import json
 
@@ -20,6 +21,7 @@ class IndexMixin(BaseHandler):
         ta = db.execute("SELECT COALESCE(SUM(amount),0) FROM bills WHERE billing_period=?", (p,)).fetchone()[0]
         tp = db.execute("SELECT COALESCE(SUM(p.amount_paid),0) FROM payments p JOIN bills b ON p.bill_id=b.id WHERE b.billing_period=?", (p,)).fetchone()[0]
         rate = round(tp / ta * 100, 1) if ta > 0 else 0
+        enterprise = get_enterprise_dashboard_metrics(p)
 
         # 本月每日收款趋势：按实际 payment_date 实时汇总，收费登记后刷新即变动。
         y, mo = [int(x) for x in p.split('-')]
@@ -172,18 +174,40 @@ class IndexMixin(BaseHandler):
             </div>
         </div>'''
 
-        self._html(self._page('收费工作台', f'''
+        hero_actions = '''
+                <a href="/merchant_contracts" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-text"></i> 商户合同</a>
+                <a href="/billing" class="btn btn-sm btn-success"><i class="bi bi-search"></i> 快速收费</a>
+                <a href="/import" class="btn btn-sm btn-outline-secondary"><i class="bi bi-upload"></i> 导入审核</a>
+        ''' if can_write else '''
+                <a href="/collections" class="btn btn-sm btn-primary"><i class="bi bi-telephone-outbound"></i> 客服催费对象</a>
+                <a href="/bills" class="btn btn-sm btn-outline-primary"><i class="bi bi-receipt"></i> 查看账单</a>
+                <a href="/reports" class="btn btn-sm btn-outline-secondary"><i class="bi bi-graph-up"></i> 对账报表</a>
+        '''
+
+        segment_cards = ''.join(
+            f'''<div class="col-md-6"><div class="card enterprise-segment-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div><div class="text-muted small">{h(name)}经营概况</div><h5 class="mb-1">应收 ¥{m(data["due"])}</h5></div>
+                        <span class="badge status-info">{data["bill_count"]} 笔账单</span>
+                    </div>
+                    <div class="small text-muted">已收 ¥{m(data["paid"])} · 未收 ¥{m(float(data["due"])-float(data["paid"]))}</div>
+                </div>
+            </div></div>'''
+            for name, data in enterprise["segments"].items()
+            if name in ("B座", "商场")
+        ) or '<div class="col-12"><div class="alert alert-light border mb-0">暂无 B座/商场账单数据，生成账单后这里会自动显示对比。</div></div>'
+
+        self._html(self._page('企业经营驾驶舱', f'''
         {self._default_password_warning_html()}
         <div class="workbench-hero d-flex justify-content-between align-items-center flex-wrap gap-3">
             <div>
-                <div class="hero-kicker">今日收费工作台</div>
-                <h2>当前账期：{p}</h2>
-                <p>日常出账、收费、打印、对账、催缴和开票提醒统一集中在这里。</p>
+                <div class="hero-kicker">COMMERCIAL COMPLEX CLOUD V2</div>
+                <h2>企业经营驾驶舱 · 当前账期：{p}</h2>
+                <p>B座与商场收费、合同预警、欠费风险和一线快捷操作统一集中在这里。</p>
             </div>
             <div class="workbench-primary-actions">
-                <span class="badge status-info">先看待办</span>
-                <span class="badge status-warning">再处理异常</span>
-                <span class="badge status-neutral">最后核对报表</span>
+                {hero_actions}
             </div>
         </div>
         <div class="metric-grid">
@@ -192,6 +216,7 @@ class IndexMixin(BaseHandler):
             <div class="metric-card danger"><div class="metric-label"><i class="bi bi-exclamation-circle"></i> 本月欠费</div><div class="metric-value money money-due">¥{m(month_due)}</div></div>
             <div class="metric-card success"><div class="metric-label"><i class="bi bi-cash-stack"></i> 今日收款</div><div class="metric-value money money-paid">¥{m(today_paid)}</div></div>
         </div>
+        <div class="row g-3 mb-3">{segment_cards}</div>
         <div class="row g-3 mb-3">
             <div class="col-md-4"><div class="card border-warning"><div class="card-body"><div class="text-muted small">即将到期合同</div><strong>{len(expiring_contracts)}</strong><span class="text-muted ms-2">30天内</span></div></div></div>
             <div class="col-md-4"><div class="card border-danger"><div class="card-body"><div class="text-muted small">已过期合同</div><strong>{expired_contract_count}</strong><span class="text-muted ms-2">需核对</span></div></div></div>

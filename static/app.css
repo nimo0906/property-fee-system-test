@@ -1390,6 +1390,19 @@ footer {
 
 .workbench-hero p { margin: 0; color: var(--muted); }
 
+.enterprise-segment-card {
+    border-left: 4px solid var(--brand);
+}
+
+.cloud-schema-panel {
+    background: #0f172a;
+    color: #dbeafe;
+    border-radius: 12px;
+    padding: 18px;
+    overflow: auto;
+    box-shadow: var(--shadow-sm);
+}
+
 .workbench-primary-actions {
     display: flex;
     flex-wrap: wrap;

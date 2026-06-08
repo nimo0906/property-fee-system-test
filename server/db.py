@@ -80,6 +80,8 @@ def db_init():
         CREATE TABLE IF NOT EXISTS shared_expense_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, period TEXT NOT NULL, fee_type_id INTEGER NOT NULL REFERENCES fee_types(id), total_amount REAL NOT NULL DEFAULT 0, allocation_method TEXT NOT NULL DEFAULT 'area', building TEXT, category TEXT, room_count INTEGER DEFAULT 0, generated_bill_ids TEXT, operator TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
         CREATE TABLE IF NOT EXISTS notification_events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'in_app', target TEXT NOT NULL DEFAULT '', owner_id INTEGER REFERENCES owners(id), bill_id INTEGER REFERENCES bills(id), order_no TEXT, payload TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'pending', error_message TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), sent_at TEXT);
         CREATE TABLE IF NOT EXISTS auto_billing_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, batch_no TEXT NOT NULL UNIQUE, operator TEXT, advance_days INTEGER DEFAULT 30, fee_ids TEXT, generated_count INTEGER DEFAULT 0, rollback_count INTEGER DEFAULT 0, status TEXT DEFAULT 'generated', service_start_min TEXT, service_end_max TEXT, notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), rolled_back_at TEXT);
+        CREATE TABLE IF NOT EXISTS merchant_contracts (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL DEFAULT 1, room_id INTEGER NOT NULL REFERENCES rooms(id), owner_id INTEGER REFERENCES owners(id), contract_no TEXT NOT NULL UNIQUE, merchant_name TEXT NOT NULL, shop_name TEXT, rent_amount REAL NOT NULL DEFAULT 0, rent_cycle TEXT NOT NULL DEFAULT 'monthly', property_rate REAL NOT NULL DEFAULT 0, property_cycle TEXT NOT NULL DEFAULT 'monthly', deposit_amount REAL NOT NULL DEFAULT 0, start_date TEXT NOT NULL, end_date TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', notes TEXT, created_at TEXT DEFAULT (datetime('now','localtime')));
+        CREATE TABLE IF NOT EXISTS contract_bill_runs (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL DEFAULT 1, contract_id INTEGER NOT NULL REFERENCES merchant_contracts(id), billing_period TEXT NOT NULL, generated_count INTEGER NOT NULL DEFAULT 0, total_amount REAL NOT NULL DEFAULT 0, operator TEXT, created_at TEXT DEFAULT (datetime('now','localtime')), UNIQUE(contract_id,billing_period));
     """
     c.executescript(SQL)
     for col in ['contract_start','contract_end','id_card','id_card_front','id_card_back','business_type','water_rate_type','shop_name','tenant_name','tenant_phone','tenant_id_card','tenant_id_card_front','tenant_id_card_back','payment_cycle']:
@@ -184,6 +186,9 @@ def db_init():
                      "CREATE INDEX IF NOT EXISTS idx_notification_owner ON notification_events(owner_id,created_at,id)",
                      "CREATE INDEX IF NOT EXISTS idx_invoice_requests_status ON invoice_requests(status)",
                      "CREATE INDEX IF NOT EXISTS idx_invoice_requests_owner ON invoice_requests(owner_id,created_at,id)",
+                     "CREATE INDEX IF NOT EXISTS idx_contracts_room ON merchant_contracts(room_id,status)",
+                     "CREATE INDEX IF NOT EXISTS idx_contracts_end ON merchant_contracts(end_date,status)",
+                     "CREATE INDEX IF NOT EXISTS idx_contract_runs_contract_period ON contract_bill_runs(contract_id,billing_period)",
                      "CREATE INDEX IF NOT EXISTS idx_owners_project ON owners(project_id)",
                      "CREATE INDEX IF NOT EXISTS idx_rooms_project ON rooms(project_id)",
                      "CREATE INDEX IF NOT EXISTS idx_bills_project ON bills(project_id,status)",

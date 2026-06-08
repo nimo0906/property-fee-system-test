@@ -38,6 +38,7 @@ OPERATOR_GET_BLOCKED = (
     r'^/system_update(?:/.*)?$',
     r'^/trial_data_reset$',
     r'^/users(?:/.*)?$',
+    r'^/cloud_schema$',
 )
 
 
@@ -47,10 +48,12 @@ MANAGER_GET_BLOCKED = (
     r'^/system_health(?:/.*)?$',
     r'^/system_update(?:/.*)?$',
     r'^/trial_data_reset$',
+    r'^/cloud_schema$',
 )
 
 
 def _role_blocks_get(role, path):
+    role = {"system_admin": "admin", "finance": "operator", "cashier": "operator", "frontdesk": "readonly", "executive": "readonly"}.get(role, role)
     if role == 'readonly':
         return not any(re.match(pattern, path) for pattern in READONLY_GET_ALLOWED)
     if role == 'operator':
@@ -113,6 +116,9 @@ def handle_get(handler):
     elif p == '/billing': return handler._billing()
     elif p == '/billing/calc': return handler._redirect('/billing?flash=请从收费页面选择房间和费用后生成账单')
     elif p == '/commercial_billing': return handler._commercial_billing()
+    elif p == '/merchant_contracts': return handler._merchant_contracts(q)
+    elif p == '/merchant_contracts/create': return handler._merchant_contract_form()
+    elif p == '/cloud_schema': return handler._cloud_schema()
     elif p == '/auto_billing': return handler._auto_billing(q)
     elif (m := re.match(r'^/auto_billing/runs/([^/]+)$', p)): return handler._auto_billing_run_detail(m.group(1))
     elif p == '/shared_expenses': return handler._shared_expenses(q)
@@ -231,6 +237,8 @@ def handle_post(handler):
     elif (m := re.match(r'^/repairs/(\d+)/status$', p)): return handler._repair_status(int(m.group(1)), d)
     elif (m := re.match(r'^/repairs/(\d+)/delete$', p)): return handler._repair_delete(int(m.group(1)))
     elif p == '/billing/calc': return handler._billing_calc(d)
+    elif p == '/merchant_contracts/create': return handler._merchant_contract_create(d)
+    elif (m := re.match(r'^/merchant_contracts/(\d+)/generate$', p)): return handler._merchant_contract_generate(int(m.group(1)), d)
     elif p == '/auto_billing/confirm': return handler._auto_billing_confirm(d)
     elif (m := re.match(r'^/auto_billing/runs/([^/]+)/rollback$', p)): return handler._auto_billing_rollback(m.group(1))
     elif p == '/payments/print': return handler._payments_print(d)
