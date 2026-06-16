@@ -20,14 +20,19 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     submit_button = _submit_button(summary['can'])
     return f'''
     <div class="auto-billing-console">
+    <div class="d-flex flex-wrap gap-2 justify-content-end mb-3">
+      <a class="btn btn-outline-primary" href="/commercial_receivables">
+        <i class="bi bi-shop"></i> 商业合同应收
+      </a>
+    </div>
     <div class="alert alert-info">
-      <div><strong>自动出账规则：</strong>按租户合同开始日、结束日、缴费周期计算下一期账单。</div>
+      <div><strong>自动出账规则：</strong>按租户合同开始日、结束日、缴费周期计算下一期出账服务期。</div>
       <div>提前 {advance_days} 天只是筛选即将到期的下一期；已存在账单不会重复生成；生成后按缴费截止日进入催缴管理。</div>
     </div>
     <form method="GET" action="/auto_billing" class="row g-2 mb-3 auto-filter-panel">
       <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
       <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
-      <div class="col-auto"><label class="col-form-label">本次出账账期</label></div>
+      <div class="col-auto"><label class="col-form-label">本次服务期</label></div>
       <div class="col-auto"><select class="form-select" name="period_cycle">{cycle_opts}</select></div>
       <div class="col-auto"><label class="col-form-label">出账范围</label></div>
       <div class="col-auto"><select class="form-select" name="target_scope">{scope_opts}</select></div>
@@ -100,7 +105,7 @@ def _preview_summary(items):
     return {
         'can': len(can_items),
         'existing': len(items) - len(can_items),
-        'tenants': len({x['tenant_name'] for x in can_items}),
+        'tenants': len({x.get('customer_name_snapshot') or x['tenant_name'] for x in can_items}),
         'rooms': len({x['room_id'] for x in can_items}),
         'amount': sum(float(x['amount'] or 0) for x in can_items),
     }

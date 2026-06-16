@@ -1,0 +1,280 @@
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f2f5f4;
+    color: var(--muted);
+    font-size: 18px;
+}
+
+.import-rule-item strong {
+    display: block;
+    color: var(--ink-strong);
+    font-weight: 850;
+    margin-bottom: 2px;
+}
+
+.import-rule-item span {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.import-rule-item.success i { color: var(--paid); background: var(--paid-soft); }
+.import-rule-item.warning i { color: var(--warning); background: var(--warning-soft); }
+.import-rule-item.danger i { color: var(--danger); background: var(--danger-soft); }
+
+.import-flow-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.import-flow-card {
+    padding: 14px;
+    min-height: 118px;
+}
+
+.import-flow-card span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--brand-soft);
+    color: var(--brand);
+    font-weight: 900;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+
+.import-flow-card strong {
+    display: block;
+    font-weight: 850;
+    color: var(--ink-strong);
+    margin-bottom: 5px;
+}
+
+.import-flow-card small {
+    display: block;
+    color: var(--muted);
+    line-height: 1.55;
+}
+
+.import-summary-grid .metric-card {
+    min-height: 86px;
+}
+
+.import-file-card code {
+    color: var(--brand);
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.import-review-card .card-header,
+.import-impact-card .card-header,
+.import-mapping-card .card-header,
+.import-next-card .card-header {
+    background: #fff;
+}
+
+.summary-tile.success {
+    border-color: #b9dcc7;
+    background: var(--paid-soft);
+}
+
+.summary-tile.warning {
+    border-color: #efd9ae;
+    background: var(--warning-soft);
+}
+
+.import-review-card ul {
+    margin-bottom: 12px;
+}
+
+.import-review-card h6 {
+    font-size: 13px;
+    font-weight: 850;
+    color: var(--ink-strong);
+}
+
+.import-audit-card .card-body {
+    background: #fbfcfc;
+}
+
+.import-audit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.import-audit-section {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.import-audit-section.success { border-color: #b9dcc7; }
+.import-audit-section.warning { border-color: #efd9ae; }
+.import-audit-section.danger { border-color: #f2cfca; }
+
+.import-audit-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line);
+    background: #fff;
+}
+
+.import-audit-title span {
+    color: var(--ink-strong);
+    font-weight: 850;
+}
+
+.import-audit-title strong {
+    font-size: 18px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.import-audit-section.success .import-audit-title strong { color: var(--paid); }
+.import-audit-section.warning .import-audit-title strong { color: var(--warning); }
+.import-audit-section.danger .import-audit-title strong { color: var(--danger); }
+
+.import-audit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #edf1ef;
+}
+
+.import-audit-row:last-child {
+    border-bottom: 0;
+}
+
+.import-audit-row.problem {
+    grid-template-columns: 130px minmax(0, 1fr);
+}
+
+.import-audit-row strong,
+.import-audit-row span {
+    display: block;
+    color: var(--ink-strong);
+    font-weight: 820;
+    overflow-wrap: anywhere;
+}
+
+.import-audit-row small {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.import-audit-empty,
+.import-audit-more {
+    padding: 14px 12px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.import-audit-more {
+    background: #fbfcfc;
+    border-top: 1px solid var(--line);
+}
+
+.toolbar .form-control,
+.toolbar .form-select {
+    min-height: 34px;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.metric-card,
+.stat-card {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    background: #fff;
+    color: var(--ink);
+    overflow: hidden;
+    transition: transform .16s ease, box-shadow .16s ease;
+}
+
+.metric-card:hover,
+.stat-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.metric-label,
+.stat-card small {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.metric-value,
+.stat-card .number {
+    margin-top: 6px;
+    font-size: 23px;
+    font-weight: 850;
+    line-height: 1.1;
+    color: var(--ink-strong);
+    font-variant-numeric: tabular-nums;
+}
+
+.metric-card.success { border-color: #cce2dd; background: var(--paid-soft); }
+.metric-card.primary { border-color: #cce2dd; background: #fbfefd; }
+.metric-card.danger { border-color: #f2cfca; background: var(--danger-soft); }
+.metric-card.warning { border-color: #efd9ae; background: var(--warning-soft); }
+
+.text-primary,
+.text-success { color: var(--brand) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-warning { color: var(--warning) !important; }
+
+.table-responsive {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: var(--shadow-xs);
+}
+
+.card .table-responsive { border: 0; border-radius: 0; }
+
+.table {
+    --bs-table-hover-bg: #f8faf9;
+    margin-bottom: 0;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+}
+
+.table th {
+    color: #596662;
+    background: #f7f9f8;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.table td {
+    border-color: #edf1ef;
+    vertical-align: middle;
+}
+

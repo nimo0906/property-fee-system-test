@@ -2,44 +2,90 @@
 # -*- coding: utf-8 -*-
 """Bill list with filtering, grouping, and pagination."""
 
-from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date
-from server.billing_periods import append_period_filter
+from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date, add_months
+from server.billing_periods import append_period_filter, append_natural_date_range_filter
 from server.base import BaseHandler
-from datetime import datetime, date
+from server.data_health import cleanup_invalid_payments
+from server.pagination import business_area_order_sql, clamp_page, parse_page, parse_per_page, render_pagination
+from datetime import datetime, date, timedelta
 import urllib.parse
+
+
+def _bill_target_label(row):
+    if row['commercial_space_id']:
+        return f"商场-{row['space_no'] or ''}"
+    return f"{row['building'] or ''}-{row['unit'] or ''}-{row['room_number'] or ''}"
+
+
+def _bill_customer_name(row):
+    return row['customer_name_snapshot'] or row['space_merchant'] or row['space_shop'] or row['tenant_name'] or row['owner_name'] or '未知'
+
+
+def _bill_group_hint(bills):
+    counts = {'unpaid': 0, 'partial': 0, 'paid': 0, 'overdue': 0}
+    due = 0
+    for bill in bills:
+        status = bill['status'] or ''
+        if status in counts:
+            counts[status] += 1
+        due += float(bill['amount'] or 0) - float(bill['paid'] or 0)
+    parts = [f'核对：{len(bills)}项']
+    if counts['unpaid'] or counts['overdue']:
+        parts.append(f'未缴{counts["unpaid"] + counts["overdue"]}')
+    if counts['partial']:
+        parts.append(f'部分{counts["partial"]}')
+    if counts['paid']:
+        parts.append(f'已缴{counts["paid"]}')
+    parts.append(f'欠费¥{m(due)}')
+    return ' · '.join(parts)
 
 
 class BillListMixin(BaseHandler):
 
     def _bills_review(self, q):
         update_overdue_bills()
-        period = date_to_period(qs(q, 'period', get_period()))
+        cleanup_invalid_payments()
+        raw_period = qs(q, 'period', '').strip()
+        period = date_to_period(raw_period or get_period())
+        period_start = qs(q, 'period_start', '').strip()
+        period_end = qs(q, 'period_end', '').strip()
+        if not period_start and not period_end:
+            period_start = period_to_date(period)
+            try:
+                y, mo = [int(x) for x in period_start[:7].split('-')]
+                period_end = (add_months(date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
+            except Exception:
+                period_end = period_start
         scope = qs(q, 'scope', 'all')
         building = qs(q, 'building')
         db = get_db()
-        sql = '''SELECT b.*,r.building,r.unit,r.room_number,r.category,f.name ft,o.name owner_name,
+        sql = '''SELECT b.*,r.building,r.unit,r.room_number,r.category,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,o.name owner_name,
                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid,
                a.old_amount adj_old,a.new_amount adj_new,a.reason adj_reason,a.created_at adj_time
                FROM bills b
                LEFT JOIN rooms r ON b.room_id=r.id
+               LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
                LEFT JOIN fee_types f ON b.fee_type_id=f.id
                LEFT JOIN owners o ON b.owner_id=o.id
                LEFT JOIN bill_adjustments a ON a.id=(SELECT id FROM bill_adjustments WHERE bill_id=b.id ORDER BY created_at DESC,id DESC LIMIT 1)
                WHERE 1=1'''
         vals = []
-        if period:
+        if period_start or period_end:
+            sql, vals = append_natural_date_range_filter(sql, vals, period_start, period_end, 'b.billing_period', 'b.service_start', 'b.service_end')
+        elif period:
             sql, vals = append_period_filter(sql, vals, period, 'b.billing_period')
         if building:
-            sql += ' AND r.building=?'; vals.append(building)
+            sql += " AND (r.building=? OR (?='商场' AND b.commercial_space_id IS NOT NULL))"; vals.extend([building, building])
         if scope == 'adjusted':
             sql += ' AND a.id IS NOT NULL'
         elif scope == 'unpaid':
             sql += " AND b.status IN ('unpaid','overdue','partial')"
-        sql += ' ORDER BY CASE WHEN a.id IS NOT NULL THEN 0 ELSE 1 END,r.building,r.unit,r.room_number,b.fee_type_id LIMIT 200'
+        review_area_order = business_area_order_sql("COALESCE(r.building,'商场')", "COALESCE(r.unit,'商场')")
+        sql += f" ORDER BY CASE WHEN a.id IS NOT NULL THEN 0 ELSE 1 END,{review_area_order},COALESCE(r.building,'商场'),r.unit,COALESCE(r.room_number,s.space_no),b.fee_type_id LIMIT 200"
         rows = db.execute(sql, vals).fetchall()
         total_adj = sum(1 for r in rows if r['adj_new'] is not None)
         amount_total = sum(float(r['amount'] or 0) for r in rows)
-        blds = db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
+        blds = db.execute("SELECT building FROM (SELECT DISTINCT building FROM rooms UNION SELECT '商场' WHERE EXISTS (SELECT 1 FROM commercial_spaces)) ORDER BY building").fetchall()
         db.close()
         scope_opts = ''.join([
             f'<option value="all"{" selected" if scope=="all" else ""}>全部待核对</option>',
@@ -51,7 +97,7 @@ class BillListMixin(BaseHandler):
         )
         body = ''
         for r in rows:
-            room = f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}'
+            room = _bill_target_label(r)
             review_tag = '<span class="badge status-warning">人工修正</span>' if r['adj_new'] is not None else '<span class="badge status-info">待收费核对</span>'
             old_amt = f'<span class="money-muted">¥{m(r["adj_old"])}</span>' if r['adj_old'] is not None else '-'
             new_amt = f'<span class="money">¥{m(r["adj_new"])}</span>' if r['adj_new'] is not None else f'<span class="money">¥{m(r["amount"])}</span>'
@@ -66,10 +112,11 @@ class BillListMixin(BaseHandler):
         self._html(self._page('账单核对工作台', f'''
         <div class="alert alert-info"><strong>账单核对工作台</strong>：用于出账后、批量修正后集中核对金额、截止日和修正记录。</div>
         <form method="GET" action="/bills/review" class="filter-bar row g-2">
-        <div class="col-md-3"><label>账期</label><input type="date" name="period" value="{period_to_date(period)}" class="form-control"><small class="text-muted">按所选日期所在月份筛选</small></div>
-        <div class="col-md-3"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
-        <div class="col-md-3"><label>核对范围</label><select name="scope" class="form-select">{scope_opts}</select></div>
-        <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary me-2">筛选</button><a class="btn btn-outline-secondary" href="/bills">返回账单</a></div>
+        <div class="col-md-3"><label>起始日期</label><input type="date" name="period_start" value="{h(period_start)}" class="form-control"><small class="text-muted">按财务自然日期范围筛选</small></div>
+        <div class="col-md-3"><label>截止日期</label><input type="date" name="period_end" value="{h(period_end)}" class="form-control"></div>
+        <div class="col-md-2"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
+        <div class="col-md-2"><label>核对范围</label><select name="scope" class="form-select">{scope_opts}</select></div>
+        <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary me-2">筛选</button><a class="btn btn-outline-secondary" href="/bills">返回账单</a></div>
         </form>
         <div class="row text-center g-2 mb-3">
         <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">显示账单</div><strong>{len(rows)}</strong></div></div>
@@ -83,7 +130,19 @@ class BillListMixin(BaseHandler):
 
     def _bills(self, q):
         update_overdue_bills()
-        db=get_db();s=qs(q,'status');fid=qs(q,'fee_type_id');raw_period=qs(q,'period','').strip();p=raw_period if '~' in raw_period else (date_to_period(raw_period) if raw_period else '')
+        db=get_db()
+        cleanup_invalid_payments(db)
+        s=qs(q,'status');fid=qs(q,'fee_type_id');raw_period=qs(q,'period','').strip()
+        period_start=qs(q,'period_start','').strip();period_end=qs(q,'period_end','').strip()
+        p=raw_period if '~' in raw_period else (date_to_period(raw_period) if raw_period else '')
+        if p and not period_start and not period_end:
+            period_start = period_to_date(p.split('~', 1)[0])
+            period_end = period_to_date(p.split('~', 1)[-1])
+            try:
+                y, mo = [int(x) for x in period_end[:7].split('-')]
+                period_end = (add_months(date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
+            except Exception:
+                period_end = period_end[:7] + '-31'
         kw=qs(q,'keyword');bld=qs(q,'building');cat=qs(q,'category');auto_batch_no=qs(q,'auto_batch_no')
         current_query = urllib.parse.urlencode([
             (k, v)
@@ -93,34 +152,38 @@ class BillListMixin(BaseHandler):
         ])
         current_path = '/bills' + (f'?{current_query}' if current_query else '')
         detail_back = urllib.parse.urlencode({'back': current_path})
-        sql='''SELECT b.*,r.building,r.unit,r.room_number,r.floor,r.category,r.tenant_name,f.name ft,o.name owner_name,
+        sql='''SELECT b.*,r.building,r.unit,r.room_number,r.floor,r.category,r.tenant_name,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,o.name owner_name,
                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
-               FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN fee_types f ON b.fee_type_id=f.id LEFT JOIN owners o ON b.owner_id=o.id WHERE 1=1'''
+               FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN fee_types f ON b.fee_type_id=f.id LEFT JOIN owners o ON b.owner_id=o.id WHERE 1=1'''
         vals=[]
-        if p:
+        if period_start or period_end:
+            sql, vals = append_natural_date_range_filter(sql, vals, period_start, period_end, 'b.billing_period', 'b.service_start', 'b.service_end')
+        elif p:
             sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if s:sql+=" AND b.status=?";vals.append(s)
         if fid and fid!='0':sql+=" AND b.fee_type_id=?";vals.append(fid)
-        if bld:sql+=" AND r.building=?";vals.append(bld)
-        if cat:sql+=" AND r.category=?";vals.append(cat)
+        if bld:sql+=" AND (r.building=? OR (?='商场' AND b.commercial_space_id IS NOT NULL))";vals.extend([bld,bld])
+        if cat:sql+=" AND (r.category=? OR (? IN ('商户','商业') AND b.commercial_space_id IS NOT NULL))";vals.extend([cat,cat])
         if auto_batch_no:sql+=" AND b.auto_batch_no=?";vals.append(auto_batch_no)
-        if kw:sql+=" AND (r.building LIKE ? OR r.room_number LIKE ? OR r.unit LIKE ?)";vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%'])
-        sql+=" ORDER BY r.building,r.unit,r.room_number,b.fee_type_id"
-        pg=int(qs(q,'page','1'))
-        per_page=50
+        if kw:sql+=" AND (r.building LIKE ? OR r.room_number LIKE ? OR r.unit LIKE ? OR s.space_no LIKE ? OR s.shop_name LIKE ? OR s.merchant_name LIKE ?)";vals.extend([f'%{kw}%']*6)
+        area_order = business_area_order_sql("COALESCE(r.building,'商场')", "COALESCE(r.unit,'商场')")
+        sql += f" ORDER BY {area_order},COALESCE(r.building,'商场'),r.unit,COALESCE(r.room_number,s.space_no),b.fee_type_id"
+        pg=parse_page(qs(q,'page','1'))
+        per_page=parse_per_page(qs(q,'per_page','50'))
         total_rows=db.execute("SELECT COUNT(*) FROM ("+sql+")",vals).fetchone()[0]
         summary=db.execute(
-            "SELECT COUNT(DISTINCT room_id) rooms,COUNT(*) bills,COALESCE(SUM(amount),0) amount,"
+            "SELECT COUNT(DISTINCT COALESCE('r'||room_id,'s'||commercial_space_id)) rooms,COUNT(*) bills,COALESCE(SUM(amount),0) amount,"
             "COALESCE(SUM(paid),0) paid,SUM(CASE WHEN status IN ('unpaid','overdue') THEN 1 ELSE 0 END) unpaid,"
             "SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) paid_count FROM ("+sql+")",
             vals,
         ).fetchone()
+        total_pages=max(1,(total_rows+per_page-1)//per_page)
+        pg=clamp_page(pg,total_pages)
         sql+=" LIMIT ? OFFSET ?"
         vals.extend([per_page, (pg-1)*per_page])
         rows=db.execute(sql,vals).fetchall()
-        total_pages=max(1,(total_rows+per_page-1)//per_page)
         fts=db.execute("SELECT * FROM fee_types ORDER BY sort_order").fetchall()
-        blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
+        blds=db.execute("SELECT building FROM (SELECT DISTINCT building FROM rooms UNION SELECT '商场' WHERE EXISTS (SELECT 1 FROM commercial_spaces)) ORDER BY building").fetchall()
         ta=summary['amount'];tp=summary['paid']
         t_unpaid=summary['unpaid'] or 0
         t_paid=summary['paid_count'] or 0
@@ -130,10 +193,10 @@ class BillListMixin(BaseHandler):
         ln={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
         owner_groups={}
         for r in rows:
-            on=h(r['tenant_name'] or r['owner_name'] or '未知')
+            on=h(_bill_customer_name(r))
             if on not in owner_groups: owner_groups[on]={'rooms':{}}
-            rid=r['room_id']
-            rn=h(r['building']or'')+'-'+h(r['unit']or'')+'-'+h(r['room_number']or'')
+            rid=('space', r['commercial_space_id']) if r['commercial_space_id'] else ('room', r['room_id'])
+            rn=h(_bill_target_label(r))
             if rid not in owner_groups[on]['rooms']: owner_groups[on]['rooms'][rid]={'name':rn,'bills':[]}
             owner_groups[on]['rooms'][rid]['bills'].append(r)
         rh=''
@@ -148,9 +211,10 @@ class BillListMixin(BaseHandler):
             owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该租户下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
             rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'{owner_group}\')" style="cursor:pointer">'
             rh+=f'<td>{owner_chk}</td><td><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{oname}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span></td>'
-            rh+=f'<td></td><td></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
+            owner_bills = [b for rl in og['rooms'].values() for b in rl['bills']]
+            rh+=f'<td></td><td></td><td><small class="text-muted">{h(_bill_group_hint(owner_bills))}</small></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
             rh+=f'<td class="text-end">{o_rem_html}</td>'
-            rh+=f'<td></td><td></td><td></td></tr>'
+            rh+=f'<td></td><td></td></tr>'
             for ridx, (rid, rl) in enumerate(og['rooms'].items(), 1):
                 room_group = f'{owner_group}r{ridx}'
                 r_total=sum(b['amount'] for b in rl['bills'])
@@ -160,9 +224,9 @@ class BillListMixin(BaseHandler):
                 room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
                 rh+=f'<tr class="room-detail-{owner_group} bill-room-row" onclick="toggleBillRoom(\'{room_group}\')" style="display:none;background:#f8f9fa;cursor:pointer">'
                 rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><i class="bi bi-chevron-right" id="icon_{room_group}"></i> <strong>{rl["name"]}</strong></td>'
-                rh+=f'<td></td><td></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
+                rh+=f'<td></td><td></td><td><small class="text-muted">{h(_bill_group_hint(rl["bills"]))}</small></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
                 rh+=f'<td class="text-end">{r_rem_html}</td>'
-                rh+=f'<td></td><td></td><td></td></tr>'
+                rh+=f'<td></td><td></td></tr>'
                 for b in rl['bills']:
                     rem=b['amount']-b['paid']
                     rem_html = f'<strong class="money money-due">¥{m(rem)}</strong>' if rem>0 else '<span class="money money-paid">¥0.00</span>'
@@ -170,6 +234,7 @@ class BillListMixin(BaseHandler):
                     rh+=f'<tr class="bill-detail-{room_group}" style="display:none">'
                     rh+=f'<td>{chk}</td>'
                     rh+=f'<td><small>{h(b["bill_number"]or"-")}</small></td>'
+                    rh+=f'<td>{h(rl["name"])}</td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'
                     period_text = h(b["billing_period"])
                     if b['source'] == 'auto_contract' and b['service_start'] and b['service_end']:
@@ -177,7 +242,6 @@ class BillListMixin(BaseHandler):
                     rh+=f'<td>{period_text}</td>'
                     rh+=f'<td class="text-end"><span class="money">¥{m(b["amount"])}</span></td><td class="text-end"><span class="money money-paid">¥{m(b["paid"])}</span></td>'
                     rh+=f'<td class="text-end">{rem_html}</td>'
-                    rh+=f'<td class="text-end"><small class="money money-due">¥{m(calc_bill_late_fee(b["id"]))}</small></td>'
                     rh+=f'<td><span class="badge {sn.get(b["status"],"status-neutral")}">{ln.get(b["status"],b["status"])}</span></td>'
                     rh+=f'<td><a href="/bills/{b["id"]}?{detail_back}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>'
                     rh+=f'<a href="/bills/{b["id"]}/edit" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>'
@@ -193,7 +257,7 @@ class BillListMixin(BaseHandler):
             <div><a class="btn btn-sm btn-outline-primary" href="/auto_billing/runs/{h(auto_batch_no)}">返回批次详情</a>
             <a class="btn btn-sm btn-outline-secondary" href="/bills">清除批次筛选</a></div></div>'''
         tpl = batch_notice + tpl
-        tpl=tpl.replace('{PERIOD}',period_to_date(p) if p else '').replace('{FT_OPTS}',ft_opts).replace('{BLD_OPTS}',bld_opts)
+        tpl=tpl.replace('{PERIOD_START}',h(period_start)).replace('{PERIOD_END}',h(period_end)).replace('{FT_OPTS}',ft_opts).replace('{BLD_OPTS}',bld_opts)
         tpl=tpl.replace('{KW}',h(kw))
         tpl=tpl.replace('<form method=POST id="billActionForm"></form>',
                         f'<form method=POST id="billActionForm"><input type="hidden" name="back" value="{h(current_path)}"></form>')
@@ -204,30 +268,26 @@ class BillListMixin(BaseHandler):
         tpl=tpl.replace('{TOTAL_AMT}',m(ta)).replace('{TOTAL_PAID}',m(tp))
         tpl=tpl.replace('{UNPAID_CNT}',str(t_unpaid))
         has_unpaid=any(r['status']!='paid' for r in rows)
-        paid_btn='' if not has_unpaid else '<button class="btn btn-sm btn-primary" type=submit form="billActionForm" onclick="this.form.action=\'/bills/batch_pay\';this.form.target=\'_self\'"><i class="bi bi-credit-card"></i> 缴费</button>'
+        paid_btn='' if not has_unpaid else '<button class="btn btn-sm btn-primary" type="submit" form="billActionForm" formaction="/bills/batch_pay" formtarget="_self" formmethod="POST"><i class="bi bi-credit-card"></i> 缴费</button>'
         btn=f'''
         <div class="batch-bar">
-        <a class="btn btn-sm btn-outline-primary" href="/bills/review?period={h(p)}"><i class="bi bi-clipboard-check"></i> 核对工作台</a>
+        <a class="btn btn-sm btn-outline-primary" href="/bills/review?period_start={h(period_start)}&period_end={h(period_end)}"><i class="bi bi-clipboard-check"></i> 核对工作台</a>
         <small class="text-muted me-1"><i class="bi bi-info-circle"></i> 勾选后操作：</small>
         {paid_btn}
         <span class="export-actions">
-        <button class="btn btn-sm btn-outline-secondary" type=submit form="billActionForm" onclick="this.form.action=\'/bills/print_selected\';this.form.target=\'_blank\'"><i class="bi bi-printer"></i> 打印</button>
-        <button class="btn btn-sm btn-outline-secondary" type=submit form="billActionForm" onclick="this.form.action=\'/bills/receipt_by_ids\';this.form.target=\'_blank\'"><i class="bi bi-receipt"></i> 收据</button>
-        <button class="btn btn-sm btn-outline-secondary" type=submit form="billActionForm" onclick="this.form.action=\'/bills/export_selected\';this.form.target=\'_self\'"><i class="bi bi-download"></i> 导出</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="submitBillAction('/bills/print_selected','_blank')"><i class="bi bi-printer"></i> 打印</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="submitBillAction('/bills/receipt_by_ids','_blank')"><i class="bi bi-receipt"></i> 收据</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" onclick="submitBillAction('/bills/export_selected','_self')"><i class="bi bi-download"></i> 导出</button>
         </span>
-        <button class="btn btn-sm btn-outline-warning" type=submit form="billActionForm" onclick="this.form.action=\'/bills/batch_edit\';this.form.target=\'_self\'"><i class="bi bi-pencil-square"></i> 批量修正</button>
+        <button class="btn btn-sm btn-outline-warning" type="button" onclick="submitBillAction('/bills/batch_edit','_self')"><i class="bi bi-pencil-square"></i> 批量修正</button>
         </div>'''
         tpl=tpl.replace('{BTN_TOP}',btn).replace('{BTN_BOTTOM}',btn)
         tpl=tpl.replace('{SUN}',' selected' if s=='unpaid' else '').replace('{SPA}',' selected' if s=='paid' else '')
         tpl=tpl.replace('{SOV}',' selected' if s=='overdue' else '').replace('{SPT}',' selected' if s=='partial' else '')
-        page_links=''
-        if total_pages>1:
-            page_links='<nav class="mt-2"><ul class="pagination pagination-sm justify-content-center">'
-            for i in range(1,total_pages+1):
-                active=' active' if i==pg else ''
-                url='/bills?' + urllib.parse.urlencode([('page',i),('period',p),('status',s),('fee_type_id',fid),('building',bld),('category',cat),('keyword',kw)])
-                page_links+=f'<li class="page-item{active}"><a class="page-link" href="{url}">{i}</a></li>'
-            page_links+='</ul></nav>'
+        page_query=[('period_start',period_start),('period_end',period_end),('status',s),('fee_type_id',fid),('building',bld),('category',cat),('keyword',kw)]
+        if auto_batch_no:
+            page_query.append(('auto_batch_no', auto_batch_no))
+        page_links=render_pagination('/bills', page_query, pg, total_pages, per_page, total_rows, '账单分页')
         tpl=tpl.replace('{PAGE_LINKS}',page_links)
         tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="11" class="text-center text-muted py-4">暂无账单</td></tr>')
         self._html(self._page('账单管理',tpl,'bills'))

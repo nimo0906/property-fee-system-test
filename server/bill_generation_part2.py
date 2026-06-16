@@ -1,0 +1,5 @@
+from server.bill_generation_part2_group1 import BillGenerationMixinPart2Group1
+from server.bill_generation_part2_group2 import BillGenerationMixinPart2Group2
+
+class BillGenerationMixinPart2(BillGenerationMixinPart2Group1, BillGenerationMixinPart2Group2):
+    pass

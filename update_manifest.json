@@ -1,6 +1,6 @@
 {
-  "version": "2.0.2",
-  "notes": "内测版本：新增系统内置半自动更新中心，可检查 GitHub 最新版本、下载更新包、校验后生成 Mac/Windows 更新助手；继续包含导入字段、账单跳转、业主支付订单和系统健康修复。",
+  "version": "2.0.4",
+  "notes": "内部验收版本：完成桌面稳定版收口、权限重设计、账单分页与商场收费项修正、打包可用性验证和上线前全盘检查。",
   "assets": {
     "mac": {
       "url": "https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/property-fee-system-v2.0-macos.zip",

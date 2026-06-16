@@ -8,6 +8,7 @@ Tests are independent of the database — pure functions only.
 import unittest
 from datetime import date
 from server.db import h, m, qs, get_period, add_months
+from server.pagination import clamp_page, page_url, parse_page, parse_per_page, render_pagination
 
 
 class TestEscape(unittest.TestCase):
@@ -144,6 +145,36 @@ class TestAddMonths(unittest.TestCase):
 
     def test_handles_negative_resulting_in_previous_year(self):
         self.assertEqual(add_months(date(2026, 1, 10), -1), date(2025, 12, 10))
+
+
+class TestPaginationHelpers(unittest.TestCase):
+    """Reusable list pagination helpers."""
+
+    def test_parse_page_and_per_page_use_safe_defaults(self):
+        self.assertEqual(parse_page('abc'), 1)
+        self.assertEqual(parse_page('-2'), 1)
+        self.assertEqual(parse_per_page('999'), 50)
+        self.assertEqual(parse_per_page('100'), 100)
+
+    def test_clamp_page_keeps_page_inside_range(self):
+        self.assertEqual(clamp_page(9, 3), 3)
+        self.assertEqual(clamp_page(0, 3), 1)
+        self.assertEqual(clamp_page(1, 0), 1)
+
+    def test_page_url_preserves_filters_and_uses_base_path(self):
+        url = page_url('/payments', [('keyword', '商户A'), ('page', '2'), ('per_page', '50')], 3, 100)
+        self.assertTrue(url.startswith('/payments?'))
+        self.assertIn('keyword=%E5%95%86%E6%88%B7A', url)
+        self.assertIn('page=3', url)
+        self.assertIn('per_page=100', url)
+        self.assertNotIn('page=2', url)
+
+    def test_render_pagination_is_not_bill_specific(self):
+        html = render_pagination('/payments', [('method', 'cash')], 3, 9, 50, 430, '缴费分页')
+        self.assertIn('aria-label="缴费分页"', html)
+        self.assertIn('/payments?method=cash&amp;page=4&amp;per_page=50', html)
+        self.assertIn('page-ellipsis', html)
+        self.assertIn('当前筛选共 430 条 / 9 页 / 每页 50 条', html)
 
 
 if __name__ == '__main__':

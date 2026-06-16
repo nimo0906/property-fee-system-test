@@ -1,0 +1,170 @@
+}
+.focus-money {
+    font-size: 38px;
+    font-weight: 950;
+    letter-spacing: -.055em;
+    margin: 8px 0 14px;
+    color: #121a24;
+}
+.focus-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+.focus-stat {
+    border-radius: 16px;
+    padding: 11px 12px;
+    background: rgba(72,111,154,.10);
+    border: 1px solid rgba(72,111,154,.10);
+    color: #121a24;
+    text-decoration: none;
+}
+.focus-stat.red { background: rgba(173,85,79,.10); border-color: rgba(173,85,79,.12); }
+.focus-stat.gold { background: rgba(185,145,75,.12); border-color: rgba(185,145,75,.14); }
+.focus-stat span {
+    display: block;
+    font-size: 11px;
+    color: #66778a;
+    font-weight: 900;
+}
+.focus-stat b {
+    display: block;
+    font-size: 18px;
+    margin-top: 4px;
+}
+.focus-ring {
+    width: 138px;
+    height: 138px;
+    border-radius: 50%;
+    background: conic-gradient(#486f9a 0 var(--rate), rgba(72,111,154,.12) var(--rate) 100%);
+    display: grid;
+    place-items: center;
+}
+.focus-ring div {
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.86);
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-weight: 950;
+    color: #101820;
+}
+.focus-ring b { font-size: 28px; display: block; }
+.focus-ring span { display: block; font-size: 13px; }
+.focus-section-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.focus-section-title b { font-size: 16px; }
+.focus-section-title span { font-size: 12px; color: #66778a; font-weight: 900; }
+.focus-risk-list,
+.focus-bars,
+.focus-mini-list {
+    display: grid;
+    gap: 10px;
+}
+.focus-risk {
+    border-radius: 18px;
+    background: rgba(255,255,255,.54);
+    border: 1px solid rgba(255,255,255,.62);
+    padding: 15px 16px;
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    color: #121a24;
+    text-decoration: none;
+}
+.risk-line {
+    width: 8px;
+    height: 42px;
+    border-radius: 999px;
+    background: #486f9a;
+}
+.risk-line.red { background: #ad554f; }
+.risk-line.gold { background: #b9914b; }
+.risk-line.blue { background: #486f9a; }
+.focus-risk b { font-size: 15px; }
+.focus-risk strong { font-size: 25px; }
+.focus-bar-row {
+    display: grid;
+    grid-template-columns: 72px 1fr 54px;
+    gap: 10px;
+    align-items: center;
+    font-size: 13px;
+    color: #53687d;
+    font-weight: 900;
+}
+.focus-track {
+    height: 10px;
+    background: rgba(72,111,154,.12);
+    border-radius: 999px;
+    overflow: hidden;
+}
+.focus-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg,#486f9a,#89add1);
+}
+.focus-fill.gold { background: linear-gradient(90deg,#b9914b,#d8b66d); }
+.focus-fill.red { background: linear-gradient(90deg,#ad554f,#d08079); }
+.focus-mini {
+    border-radius: 16px;
+    background: rgba(255,255,255,.54);
+    padding: 13px 14px;
+    border: 1px solid rgba(255,255,255,.60);
+    color: #121a24;
+    text-decoration: none;
+}
+.focus-mini b {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+}
+.focus-mini em { font-style: normal; color: #486f9a; }
+.focus-actions {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+}
+.focus-action {
+    border-radius: 18px;
+    padding: 15px 16px;
+    background: rgba(255,255,255,.52);
+    border: 1px solid rgba(255,255,255,.62);
+    font-weight: 950;
+    text-decoration: none;
+    color: #172536;
+    text-align: center;
+}
+.focus-action.active {
+    background: linear-gradient(135deg,#101820,#486f9a);
+    color: #fff;
+}
+.focus-empty {
+    color: var(--muted);
+    font-weight: 850;
+    padding: 13px 14px;
+}
+@media (max-width: 991.98px) {
+    .dashboard-focus-head { align-items: flex-start; flex-direction: column; }
+    .dashboard-focus-hero,
+    .dashboard-focus-grid,
+    .focus-actions { grid-template-columns: 1fr; }
+    .focus-summary-grid { grid-template-columns: 1fr; }
+    .focus-ring { margin: auto; }
+}
+@media (max-width: 575.98px) {
+    .dashboard-focus-shell { padding: 16px; }
+    .focus-money { font-size: 34px; }
+    .focus-stat-grid { grid-template-columns: 1fr; }
+}
+
+/* 2026-06-13 contract archive grouping */
+.contract-group-stack {
+    display: grid;

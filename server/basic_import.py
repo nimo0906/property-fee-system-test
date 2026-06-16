@@ -130,7 +130,8 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                 updated_rooms += 1
                 changed_rooms.append(_changed_room(
                     '更新', room['id'], building, unit, room_number, floor, category,
-                    area or room['area'], owner_name, owner_phone, contract_start, contract_end, business_type, notes,
+                    area or room['area'], owner_name, owner_phone, contract_start, contract_end,
+                    business_type, shop_name, tenant_name, custom_rate, payment_cycle, notes,
                 ))
             else:
                 room_id = None
@@ -144,7 +145,8 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
                 imported_rooms += 1
                 changed_rooms.append(_changed_room(
                     '新增', room_id, building, unit, room_number, floor, category,
-                    area, owner_name, owner_phone, contract_start, contract_end, business_type, notes,
+                    area, owner_name, owner_phone, contract_start, contract_end,
+                    business_type, shop_name, tenant_name, custom_rate, payment_cycle, notes,
                 ))
         except Exception as exc:
             errors.append(f'第{row_no}行: {exc}')
@@ -160,7 +162,6 @@ def _process_basic_info(db, headers, data_rows, col_map, dry_run=False):
         'changed_rooms': changed_rooms,
         'problem_rows': problem_rows,
     }
-
 
 
 def _ensure_optional_room_columns(db):
@@ -179,7 +180,8 @@ def _ensure_optional_room_columns(db):
             pass
 
 def _changed_room(action, room_id, building, unit, room_number, floor, category, area,
-                  owner_name, owner_phone, contract_start, contract_end, business_type, notes):
+                  owner_name, owner_phone, contract_start, contract_end, business_type,
+                  shop_name, tenant_name, custom_rate, payment_cycle, notes):
     return {
         'action': action,
         'room_id': room_id,
@@ -194,6 +196,10 @@ def _changed_room(action, room_id, building, unit, room_number, floor, category,
         'contract_start': contract_start,
         'contract_end': contract_end,
         'business_type': business_type,
+        'shop_name': shop_name,
+        'tenant_name': tenant_name,
+        'custom_rate': custom_rate,
+        'payment_cycle': payment_cycle,
         'notes': notes,
     }
 
@@ -226,7 +232,6 @@ def _looks_like_room_record(room_number, area):
         or re.search(r'\d+F-\d+', text, re.I)
         or '大厅' in text
     )
-
 
 
 def _normalize_payment_cycle(value):

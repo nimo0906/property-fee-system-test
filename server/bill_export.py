@@ -5,12 +5,42 @@
 from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs
 from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
-from server.billing_periods import append_period_filter
+from server.billing_periods import append_period_filter, append_natural_date_range_filter
 from datetime import datetime, date
 import urllib.parse, csv, io
 from server.print_helper import print_page, print_header_row
 
 BILL_EXPORT_HEADERS = ['票据编号','楼栋','房号','业主','电话','类别','费用类型','账期','服务开始日','服务结束日','金额','已缴','欠费','状态','截止日']
+
+
+def _export_building(row):
+    return row['building'] or ('商场' if row['commercial_space_id'] else '')
+
+
+def _export_object(row):
+    if row['commercial_space_id']:
+        return row['space_no'] or ''
+    return row['room_number'] or ''
+
+
+def _export_customer(row):
+    return row['space_merchant'] or row['space_shop'] or row['owner_name'] or ''
+
+
+def _export_category(row):
+    return '商户' if row['commercial_space_id'] else (row['category'] or '')
+
+
+def _write_bill_export_rows(writer, rows):
+    sn={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
+    for r in rows:
+        rem=r['amount']-r['paid']
+        writer.writerow([
+            r['bill_number'] or '', _export_building(r), _export_object(r),
+            _export_customer(r), r['owner_phone'] or '', _export_category(r),
+            r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
+            round(rem, 2), sn.get(r['status'], r['status']), r['due_date'] or ''
+        ])
 
 
 class BillExportMixin(BaseHandler):
@@ -22,9 +52,10 @@ class BillExportMixin(BaseHandler):
             q=urllib.parse.parse_qs(urllib.parse.urlparse(p).query)
             period=qs(q,'period',get_period());s=qs(q,'status');fid=qs(q,'fee_type_id')
             bld=qs(q,'building');cat=qs(q,'category')
-            sql='''SELECT b.*,r.building,r.unit,r.room_number,r.category,f.name ft,o.name owner_name,o.phone owner_phone,
+            sql='''SELECT b.*,r.building,r.unit,r.room_number,r.category,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,o.name owner_name,o.phone owner_phone,
                    COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
                    FROM bills b LEFT JOIN rooms r ON b.room_id=r.id
+                   LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
                    LEFT JOIN fee_types f ON b.fee_type_id=f.id
                    LEFT JOIN owners o ON b.owner_id=o.id WHERE 1=1'''
             vals=[]
@@ -32,23 +63,15 @@ class BillExportMixin(BaseHandler):
                 sql, vals = append_period_filter(sql, vals, period, 'b.billing_period')
             if s:sql+=" AND b.status=?";vals.append(s)
             if fid:sql+=" AND b.fee_type_id=?";vals.append(fid)
-            if bld:sql+=" AND r.building=?";vals.append(bld)
-            if cat:sql+=" AND r.category=?";vals.append(cat)
-            sql+=" ORDER BY r.building,r.room_number,b.fee_type_id"
+            if bld:sql+=" AND (r.building=? OR (?='商场' AND b.commercial_space_id IS NOT NULL))";vals.extend([bld,bld])
+            if cat:sql+=" AND (r.category=? OR (? IN ('商户','商业') AND b.commercial_space_id IS NOT NULL))";vals.extend([cat,cat])
+            sql+=" ORDER BY COALESCE(r.building,'商场'),COALESCE(r.room_number,s.space_no),b.fee_type_id"
             rows=db.execute(sql,vals).fetchall()
             db.close()
             buf=io.StringIO()
             w=csv.writer(buf)
             w.writerow(BILL_EXPORT_HEADERS)
-            sn={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
-            for r in rows:
-                rem=r['amount']-r['paid']
-                w.writerow([
-                    r['bill_number'] or '', f"{r['building'] or ''}-{r['unit'] or ''}", r['room_number'] or '',
-                    r['owner_name'] or '', r['owner_phone'] or '', r['category'] or '',
-                    r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
-                    round(rem,2), sn.get(r['status'],r['status']), r['due_date'] or ''
-                ])
+            _write_bill_export_rows(w, rows)
             csv_data=buf.getvalue()
             self.send_response(200)
             self.send_header('Content-Type','text/csv; charset=utf-8-sig')
@@ -65,26 +88,19 @@ class BillExportMixin(BaseHandler):
                 return self._redirect('/bills?flash=缺少导出账单')
             placeholders = ','.join('?' * len(ids))
             db = get_db()
-            sql = f'''SELECT b.*,r.building,r.unit,r.room_number,r.category,f.name ft,o.name owner_name,o.phone owner_phone,
+            sql = f'''SELECT b.*,r.building,r.unit,r.room_number,r.category,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,o.name owner_name,o.phone owner_phone,
                 COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
                 FROM bills b LEFT JOIN rooms r ON b.room_id=r.id
+                LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
                 LEFT JOIN fee_types f ON b.fee_type_id=f.id
                 LEFT JOIN owners o ON b.owner_id=o.id
-                WHERE b.id IN ({placeholders}) ORDER BY r.building,r.room_number'''
+                WHERE b.id IN ({placeholders}) ORDER BY COALESCE(r.building,'商场'),COALESCE(r.room_number,s.space_no)'''
             rows = db.execute(sql, ids).fetchall()
             db.close()
             buf = io.StringIO()
             w = csv.writer(buf)
             w.writerow(BILL_EXPORT_HEADERS)
-            sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
-            for r in rows:
-                rem = r['amount'] - r['paid']
-                w.writerow([
-                    r['bill_number'] or '', f"{r['building'] or ''}-{r['unit'] or ''}", r['room_number'] or '',
-                    r['owner_name'] or '', r['owner_phone'] or '', r['category'] or '',
-                    r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
-                    round(rem, 2), sn.get(r['status'], r['status']), r['due_date'] or ''
-                ])
+            _write_bill_export_rows(w, rows)
             csv_data = buf.getvalue()
             ts = datetime.now().strftime('%Y%m%d_%H%M%S')
             self.send_response(200)
@@ -104,26 +120,19 @@ class BillExportMixin(BaseHandler):
                 return self._redirect('/bills?flash=请勾选要导出的账单')
             placeholders = ','.join('?' * len(ids))
             db = get_db()
-            sql = f'''SELECT b.*,r.building,r.unit,r.room_number,r.category,f.name ft,o.name owner_name,o.phone owner_phone,
+            sql = f'''SELECT b.*,r.building,r.unit,r.room_number,r.category,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,o.name owner_name,o.phone owner_phone,
                 COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
                 FROM bills b LEFT JOIN rooms r ON b.room_id=r.id
+                LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
                 LEFT JOIN fee_types f ON b.fee_type_id=f.id
                 LEFT JOIN owners o ON b.owner_id=o.id
-                WHERE b.id IN ({placeholders}) ORDER BY r.building,r.room_number'''
+                WHERE b.id IN ({placeholders}) ORDER BY COALESCE(r.building,'商场'),COALESCE(r.room_number,s.space_no)'''
             rows = db.execute(sql, ids).fetchall()
             db.close()
             buf = io.StringIO()
             w = csv.writer(buf)
             w.writerow(BILL_EXPORT_HEADERS)
-            sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
-            for r in rows:
-                rem = r['amount'] - r['paid']
-                w.writerow([
-                    r['bill_number'] or '', f"{r['building'] or ''}-{r['unit'] or ''}", r['room_number'] or '',
-                    r['owner_name'] or '', r['owner_phone'] or '', r['category'] or '',
-                    r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
-                    round(rem, 2), sn.get(r['status'], r['status']), r['due_date'] or ''
-                ])
+            _write_bill_export_rows(w, rows)
             csv_data = buf.getvalue()
             ts = datetime.now().strftime('%Y%m%d_%H%M%S')
             self.send_response(200)
@@ -138,6 +147,8 @@ class BillExportMixin(BaseHandler):
             room_id = qs(q, 'room_id', '')
             periods_raw = q.get('periods', [])
             all_periods = qs(q, 'all_periods', '')
+            period_start = qs(q, 'period_start', '').strip()
+            period_end = qs(q, 'period_end', '').strip()
             if isinstance(periods_raw, str):
                 periods_raw = [periods_raw]
             if not room_id:
@@ -147,18 +158,38 @@ class BillExportMixin(BaseHandler):
             if not rm:
                 db.close()
                 return self._error(404)
-            if all_periods or not periods_raw:
+            if not periods_raw and not all_periods and not (period_start or period_end):
+                db.close()
+                return self._redirect('/bills/receipt_setup?flash=请选择起始日期和截止日期')
+            if period_start or period_end:
+                sql = '''SELECT b.*,f.name ft,f.calc_method,f.unit_price,
+                    COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
+                    FROM bills b JOIN fee_types f ON b.fee_type_id=f.id
+                    WHERE b.room_id=?'''
+                params = [room_id]
+                sql, params = append_natural_date_range_filter(sql, params, period_start, period_end, 'b.billing_period', 'b.service_start', 'b.service_end')
+                sql += ' ORDER BY f.sort_order,b.billing_period'
+                bills = db.execute(sql, params).fetchall()
+                periods_raw = [r['billing_period'] for r in bills]
+            elif all_periods or not periods_raw:
                 rows = db.execute("SELECT DISTINCT billing_period FROM bills WHERE room_id=? ORDER BY billing_period", (room_id,)).fetchall()
                 periods_raw = [r['billing_period'] for r in rows]
-            if not periods_raw:
+                placeholders = ','.join('?' * len(periods_raw))
+                bills = db.execute(f'''SELECT b.*,f.name ft,f.calc_method,f.unit_price,
+                    COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
+                    FROM bills b JOIN fee_types f ON b.fee_type_id=f.id
+                    WHERE b.room_id=? AND b.billing_period IN ({placeholders})
+                    ORDER BY f.sort_order''', (room_id, *periods_raw)).fetchall()
+            else:
+                placeholders = ','.join('?' * len(periods_raw))
+                bills = db.execute(f'''SELECT b.*,f.name ft,f.calc_method,f.unit_price,
+                    COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
+                    FROM bills b JOIN fee_types f ON b.fee_type_id=f.id
+                    WHERE b.room_id=? AND b.billing_period IN ({placeholders})
+                    ORDER BY f.sort_order''', (room_id, *periods_raw)).fetchall()
+            if not bills:
                 db.close()
                 return self._redirect('/bills?flash=该房间无账单')
-            placeholders = ','.join('?' * len(periods_raw))
-            bills = db.execute(f'''SELECT b.*,f.name ft,f.calc_method,
-                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
-                FROM bills b JOIN fee_types f ON b.fee_type_id=f.id
-                WHERE b.room_id=? AND b.billing_period IN ({placeholders})
-                ORDER BY f.sort_order''', (room_id, *periods_raw)).fetchall()
             db.close()
     
             buf = io.StringIO()

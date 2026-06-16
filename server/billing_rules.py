@@ -12,6 +12,7 @@ COMMERCIAL_FEE_NAMES = {
 }
 OTHER_FEE_NAMES = {'垃圾清运费', '水费(非居民)', '水费(特行)', '停车费', '临时收费'}
 WATER_FEE_NAMES = {'水费(非居民)', '水费(特行)'}
+CONTRACT_ARCHIVE_FEE_NAMES = {'合同租金', '合同物业费', '合同押金'}
 
 
 def fee_name(fee):
@@ -29,6 +30,8 @@ def fee_sort_order(fee):
 def fee_in_scope(fee, scope):
     name = fee_name(fee)
     sort_order = fee_sort_order(fee)
+    if name in CONTRACT_ARCHIVE_FEE_NAMES:
+        return False
     if scope == 'property':
         return (
             name in PROPERTY_FEE_NAMES

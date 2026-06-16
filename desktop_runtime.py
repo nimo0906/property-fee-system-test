@@ -6,6 +6,7 @@ import importlib.util
 import os
 import shutil
 import socket
+import subprocess
 import sys
 import time
 import traceback
@@ -132,6 +133,8 @@ def prepare_runtime(data_dir=None):
     bundled_db = get_resource_dir() / "property.db"
     if not db_path.exists() and bundled_db.exists():
         shutil.copy2(bundled_db, db_path)
+    if not db_path.exists():
+        db_path.touch()
 
     os.environ["PM_DB_PATH"] = str(db_path)
     os.environ["PM_BACKUP_DIR"] = str(backup_dir)
@@ -270,8 +273,8 @@ def write_startup_error(exc, data_dir=None):
 def open_path(path):
     path = Path(path)
     if sys.platform.startswith("win"):
-        os.startfile(path)
+        os.startfile(str(path))
     elif sys.platform == "darwin":
-        os.system(f'open "{path}"')
+        subprocess.Popen(["open", str(path)])
     else:
-        os.system(f'xdg-open "{path}"')
+        subprocess.Popen(["xdg-open", str(path)])

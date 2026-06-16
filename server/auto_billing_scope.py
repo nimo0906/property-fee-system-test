@@ -5,6 +5,8 @@
 from server.billing_rules import fee_in_scope
 
 
+CONTRACT_ARCHIVE_FEE_NAMES = {'合同租金', '合同物业费', '合同押金'}
+
 SCOPE_OPTIONS = [
     ('all', '全部范围'),
     ('a', 'A座'),
@@ -37,13 +39,15 @@ def grouped_auto_fees(fees):
         ('other', '其他收费项目', []),
     ]
     seen = set()
+    daily_fees = [fee for fee in fees if (fee['name'] or '') not in CONTRACT_ARCHIVE_FEE_NAMES]
     for key, _label, bucket in groups:
-        for fee in fees:
+        for fee in daily_fees:
             fid = int(fee['id'])
             if fid in seen:
                 continue
-            if fee_in_scope(fee, key):
+            matched = fee_in_scope(fee, key) if key != 'other' else False
+            if matched:
                 bucket.append(fee)
                 seen.add(fid)
-    groups[-1][2].extend([fee for fee in fees if int(fee['id']) not in seen])
+    groups[-1][2].extend([fee for fee in daily_fees if int(fee['id']) not in seen])
     return groups

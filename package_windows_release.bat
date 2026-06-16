@@ -53,6 +53,7 @@ mkdir "%RELEASE_DIR%"
 
 xcopy "dist\PropertyFeeSystem" "%RELEASE_DIR%\PropertyFeeSystem\" /E /I /H /Y >nul
 copy /Y "用户快速开始.md" "%RELEASE_DIR%\用户快速开始.md" >nul
+copy /Y "新手交付说明.md" "%RELEASE_DIR%\新手交付说明.md" >nul
 copy /Y "Windows客户试用说明.md" "%RELEASE_DIR%\Windows客户试用说明.md" >nul
 copy /Y "Windows打包操作步骤.md" "%RELEASE_DIR%\Windows打包操作步骤.md" >nul
 copy /Y "Windows用户发送文案.md" "%RELEASE_DIR%\Windows用户发送文案.md" >nul

@@ -12,42 +12,67 @@ def _is_secondary_path(path):
         return False
     primary_paths = {
         '/rooms', '/owners', '/fee_types', '/batch_ops', '/meter_readings',
-        '/billing', '/commercial_billing', '/auto_billing', '/shared_expenses', '/bills',
-        '/payments', '/collections', '/reminders',
+        '/billing', '/commercial_spaces', '/commercial_billing', '/merchant_contracts', '/auto_billing', '/shared_expenses', '/bills',
+        '/payments', '/collections', '/reminders', '/alert_center',
         '/invoices', '/reports', '/closing', '/audit_logs', '/backups',
-        '/system_health', '/system_update', '/trial_data_reset', '/users', '/import',
+        '/system_health', '/system_update', '/trial_data_reset', '/users', '/delivery_center', '/import',
     }
     return path not in primary_paths
 
+
+def _secondary_back_url(path):
+    first_segment = '/' + path.strip('/').split('/', 1)[0]
+    mapping = {
+        '/fee_types': '/fee_types',
+        '/rooms': '/rooms',
+        '/owners': '/owners',
+        '/bills': '/bills',
+        '/payments': '/payments',
+        '/invoices': '/invoices',
+        '/reports': '/reports',
+        '/meter_readings': '/meter_readings',
+        '/merchant_contracts': '/merchant_contracts',
+        '/import': '/import',
+        '/backups': '/backups',
+        '/users': '/users',
+    }
+    return mapping.get(first_segment, '/')
+
+
 def render_page(handler, title, content, active='', top_actions=''):
     flash = handler._get_flash()
-    if _is_secondary_path(urllib.parse.urlparse(handler.path).path):
-        back_btn = '<button type="button" class="btn btn-outline-secondary btn-sm page-back-btn" data-back-button="1" onclick="if(history.length>1){history.back()}else{location.href=\'/\'}"><i class="bi bi-arrow-left"></i> 返回</button>'
+    current_path = urllib.parse.urlparse(handler.path).path
+    if _is_secondary_path(current_path):
+        back_url = _secondary_back_url(current_path)
+        back_btn = f'<a class="btn btn-outline-secondary btn-sm page-back-btn" data-back-button="1" href="{h(back_url)}"><i class="bi bi-arrow-left"></i> 返回</a>'
         top_actions = (back_btn + top_actions) if top_actions else back_btn
     html = handler._load_template('base.html')
     cur_user = handler._get_current_user()
-    role = cur_user.get("role") if cur_user else ""
+    raw_role = cur_user.get("role") if cur_user else ""
+    role = {"system_admin": "admin", "finance": "operator", "cashier": "operator", "executive": "readonly"}.get(raw_role, raw_role)
     nav_groups = [
-        ('工作台', [('index', '/', 'bi-speedometer2', '收费工作台')]),
-        ('基础资料', [
+        ('工作台', [
+            ('index', '/', 'bi-speedometer2', '收费工作台'),
+            ('billing', '/billing', 'bi-cash-coin', '物业收费'),
+            ('commercial_billing', '/commercial_billing', 'bi-building', '商业收费'),
+            ('alert_center', '/alert_center', 'bi-exclamation-triangle', '智能预警'),
+            ('reminders', '/reminders', 'bi-bell', '催缴管理'),
+            ('import', '/import', 'bi-upload', '数据导入'),
+            ('merchant_contracts', '/merchant_contracts', 'bi-file-earmark-text', '合同档案'),
+        ]),
+        ('公共功能', [
             ('owners', '/owners', 'bi-people', '业主管理'),
             ('rooms', '/rooms', 'bi-door-open', '房间管理'),
             ('fee_types', '/fee_types', 'bi-tags', '收费项目'),
-            ('batch_ops', '/batch_ops', 'bi-pencil-square', '批量更新'),
             ('meter', '/meter_readings', 'bi-clipboard-data', '抄表管理'),
-            ('import', '/import', 'bi-upload', '数据导入'),
-        ]),
-        ('收费业务', [
-            ('billing', '/billing', 'bi-cash-coin', '物业收费'),
-            ('commercial_billing', '/commercial_billing', 'bi-building', '商业收费'),
+            ('batch_ops', '/batch_ops', 'bi-pencil-square', '批量更新'),
             ('auto_billing', '/auto_billing', 'bi-calendar-check', '自动出账'),
             ('shared_expenses', '/shared_expenses', 'bi-diagram-3', '公摊分摊'),
+        ]),
+        ('财务核对', [
             ('bills', '/bills', 'bi-receipt', '账单管理'),
             ('payments', '/payments', 'bi-credit-card', '缴费记录'),
             ('collections', '/collections', 'bi-telephone-outbound', '客服催费对象'),
-            ('reminders', '/reminders', 'bi-bell', '催缴管理'),
-        ]),
-        ('财务核对', [
             ('invoices', '/invoices', 'bi-receipt-cutoff', '发票管理'),
             ('reports', '/reports', 'bi-graph-up', '对账报表'),
             ('closing', '/closing', 'bi-lock', '期末结账'),
@@ -59,13 +84,15 @@ def render_page(handler, title, content, active='', top_actions=''):
     ]
     if role == "readonly":
         allowed = {'index', 'owners', 'rooms', 'bills', 'collections', 'reminders', 'reports'}
+    elif role == "frontdesk":
+        allowed = {'index', 'owners', 'rooms', 'meter', 'merchant_contracts', 'import', 'bills', 'collections', 'reminders', 'reports'}
     else:
         allowed = {'index', 'owners', 'rooms', 'fee_types', 'batch_ops', 'meter', 'billing',
-                   'commercial_billing', 'auto_billing', 'bills', 'payments', 'invoices',
-                   'reports', 'closing', 'import', 'reminders', 'shared_expenses'}
+                   'commercial_spaces', 'commercial_billing', 'merchant_contracts', 'auto_billing', 'bills', 'payments', 'invoices',
+                   'reports', 'closing', 'import', 'reminders', 'alert_center', 'shared_expenses'}
     user_html = ''
     if cur_user:
-        role_label = {"admin": "管理员", "manager": "业务管理员", "operator": "财务收费", "readonly": "客服只读"}.get(cur_user["role"], cur_user["role"])
+        role_label = {"admin": "管理员", "system_admin": "系统管理员", "manager": "业务管理员", "finance": "财务", "cashier": "收费员", "frontdesk": "客服业务编辑", "executive": "管理层只读", "operator": "旧版财务收费", "readonly": "旧版只读"}.get(cur_user["role"], cur_user["role"])
         user_html = f'''<div class="sidebar-user">
             <div class="d-flex align-items-center justify-content-between gap-2">
                 <div><div class="name"><i class="bi bi-person-circle"></i> {h(cur_user["display_name"] or cur_user["username"])}</div>
@@ -80,6 +107,8 @@ def render_page(handler, title, content, active='', top_actions=''):
         allowed.add('system_health')
         allowed.add('system_update')
         allowed.add('trial_data_reset')
+        allowed.add('cloud_schema')
+        nav_groups[-1][1].append(("cloud_schema", "/cloud_schema", "bi-cloud-check", "云端技术备查"))
     nav_parts = []
     for group_name, items in nav_groups:
         visible = [item for item in items if item[0] in allowed]
@@ -103,13 +132,17 @@ def render_page(handler, title, content, active='', top_actions=''):
     icons = {'index': 'bi-speedometer2', 'rooms': 'bi-door-open', 'owners': 'bi-people',
              'fee_types': 'bi-tags', 'batch_ops': 'bi-pencil-square', 'meter': 'bi-clipboard-data', 'repairs': 'bi-tools',
              'parking': 'bi-car-front', 'invoices': 'bi-receipt-cutoff', 'deposits': 'bi-cash-stack',
-             'reminders': 'bi-bell', 'billing': 'bi-cash-coin', 'commercial_billing': 'bi-building',
+             'reminders': 'bi-bell', 'billing': 'bi-cash-coin', 'commercial_spaces': 'bi-shop',
+             'commercial_billing': 'bi-building',
              'auto_billing': 'bi-calendar-check',
              'shared_expenses': 'bi-diagram-3',
              'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'closing': 'bi-lock',
              'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
              'system_update': 'bi-arrow-repeat', 'trial_data_reset': 'bi-trash3',
-             'collections': 'bi-telephone-outbound', 'audit_logs': 'bi-journal-check'}
+             'collections': 'bi-telephone-outbound', 'alert_center': 'bi-exclamation-triangle', 'audit_logs': 'bi-journal-check',
+             'delivery_center': 'bi-clipboard-check'}
+    icons['merchant_contracts'] = 'bi-file-earmark-text'
+    icons['cloud_schema'] = 'bi-cloud-check'
     icon = icons.get(active, 'bi-speedometer2')
     html = html.replace('{TITLE}', h(title))
     html = html.replace('{CONTENT}', content)

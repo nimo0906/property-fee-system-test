@@ -9,6 +9,7 @@ import urllib.parse
 
 from server.backups import create_db_backup
 from server.invoice_requests import InvoiceRequestError, InvoiceRequestService
+from server.permissions import role_allows
 from server.projects import ProjectError, ProjectService
 from server.services import Actor, BillingService, OwnerService, PaymentService, RoomService, ServiceError
 
@@ -60,6 +61,12 @@ class ApiMixin:
         except (ServiceError, InvoiceRequestError, ProjectError) as exc:
             return self._api_error(404, 'not_found', str(exc))
 
+    def _api_require_role(self, required_role):
+        user = self._get_current_user() or {}
+        if not role_allows(user.get('role'), required_role):
+            self._api_error(403, 'forbidden', '无权限执行该操作')
+            return None, True
+        return user, False
 
     def _api_post(self, path, data):
         request = {key: values[0] if isinstance(values, list) and values else values for key, values in data.items()}
@@ -69,16 +76,19 @@ class ApiMixin:
             return self._api_error(401, 'unauthorized', '请先登录')
         try:
             if path == '/api/v1/payments/preview':
+                _, denied = self._api_require_role('finance')
+                if denied:
+                    return denied
                 return self._api_json(PaymentService().preview_payment(request))
             if path == '/api/v1/invoice-requests':
-                user = self._get_current_user() or {}
-                if user.get('role') == 'readonly':
-                    return self._api_error(403, 'forbidden', '无权限执行写操作')
+                _, denied = self._api_require_role('finance')
+                if denied:
+                    return denied
                 return self._api_json(InvoiceRequestService().create_request(request))
             if path == '/api/v1/payments':
-                user = self._get_current_user() or {}
-                if user.get('role') == 'readonly':
-                    return self._api_error(403, 'forbidden', '无权限执行写操作')
+                user, denied = self._api_require_role('finance')
+                if denied:
+                    return denied
                 backup_name = create_db_backup('auto_before_api_payment')
                 result = PaymentService().create_payment(
                     request,

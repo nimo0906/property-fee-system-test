@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """Payment reminder management."""
 
-from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date
-from server.billing_periods import append_period_filter
+from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date, add_months
+from server.billing_periods import append_period_filter, append_natural_date_range_filter
 from server.base import BaseHandler
+from server.pagination import pagination_state, query_items, render_pagination
 from datetime import date, datetime, timedelta
 
 
@@ -16,6 +17,15 @@ class ReminderMixin(BaseHandler):
         db = get_db()
         raw_period = qs(q, 'period', '').strip()
         p = date_to_period(raw_period) if raw_period else ''
+        period_start = qs(q, 'period_start', '').strip()
+        period_end = qs(q, 'period_end', '').strip()
+        if p and not period_start and not period_end:
+            period_start = period_to_date(p)
+            try:
+                y, mo = [int(x) for x in period_start[:7].split('-')]
+                period_end = (add_months(date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
+            except Exception:
+                period_end = period_start
         bld = qs(q, 'building').strip()
         unit = qs(q, 'unit').strip()
         st = qs(q, 'status').strip()
@@ -23,7 +33,7 @@ class ReminderMixin(BaseHandler):
         fee_id = qs(q, 'fee_type_id').strip()
         today = date.today()
         sql = '''SELECT o.id oid,o.name oname,o.phone ophone,r.id rid,r.building,r.unit,r.room_number,
-            r.area,r.category,r.tenant_name,r.shop_name,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
+            r.area,r.category,r.tenant_name,r.shop_name,b.customer_name_snapshot,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
             b.source,b.service_start,b.service_end,
             f.name ft_name,f.reminder_advance_days,
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
@@ -32,7 +42,9 @@ class ReminderMixin(BaseHandler):
             LEFT JOIN fee_types f ON b.fee_type_id=f.id
             WHERE b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
         vals = []
-        if p:
+        if period_start or period_end:
+            sql, vals = append_natural_date_range_filter(sql, vals, period_start, period_end, 'b.billing_period', 'b.service_start', 'b.service_end')
+        elif p:
             sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if bld:
             sql += " AND r.building=?"; vals.append(bld)
@@ -89,9 +101,9 @@ class ReminderMixin(BaseHandler):
         unit_opts = '<option value="">全部单元/区域</option>' + ''.join(f'<option value="{h(u["unit"])}"{" selected" if unit == u["unit"] else ""}>{h(u["unit"])}</option>' for u in units)
         fee_opts = '<option value="">全部收费项目</option>' + ''.join(f'<option value="{f["id"]}"{" selected" if fee_id == str(f["id"]) else ""}>{h(f["name"])}</option>' for f in fts)
         st_opts = f'<option value="">全部状态</option><option value="overdue"{" selected" if st=="overdue" else""}>已逾期</option><option value="approaching"{" selected" if st=="approaching" else""}>即将到期</option><option value="unpaid"{" selected" if st=="unpaid" else""}>未缴</option><option value="partial"{" selected" if st=="partial" else""}>部分缴</option>'
-        oh = ''
+        render_groups = []
+        owner_total_rows = 0
         for gid, glabel, gcolor, gicon, bills in groups:
-            oh += f'<tr style="background:#eee"><td colspan="7"><strong><i class="bi {gicon}"></i> {glabel}</strong> <span class="badge bg-{gcolor.split()[0]}">{len(bills)}笔</span></td></tr>'
             gowners = {}
             for r in bills:
                 oid = r['oid']
@@ -101,15 +113,32 @@ class ReminderMixin(BaseHandler):
                 if r['rid'] not in gowners[oid]['rooms']:
                     gowners[oid]['rooms'][r['rid']] = rkey
                 gowners[oid]['bills'].append(r)
-                if r['source'] == 'auto_contract' and (r['tenant_name'] or r['shop_name']):
-                    gowners[oid]['tenants'].add(r['tenant_name'] or r['shop_name'])
+                if r['source'] == 'auto_contract' and (r['customer_name_snapshot'] or r['tenant_name'] or r['shop_name']):
+                    gowners[oid]['tenants'].add(r['customer_name_snapshot'] or r['tenant_name'] or r['shop_name'])
                 gowners[oid]['total'] += r['amount'] - r['paid']
                 gowners[oid]['late_fee'] += calc_bill_late_fee(r['bid'])
-            for oid, o in sorted(gowners.items()):
+            owner_items = sorted(gowners.items())
+            owner_total_rows += len(owner_items)
+            render_groups.append((gid, glabel, gcolor, gicon, len(bills), owner_items))
+        pg, per_page, total_pages = pagination_state(q, owner_total_rows)
+        start_idx = (pg - 1) * per_page
+        end_idx = start_idx + per_page
+        seen_idx = 0
+        oh = ''
+        for gid, glabel, gcolor, gicon, bill_count, owner_items in render_groups:
+            selected_owners = []
+            for oid, o in owner_items:
+                if start_idx <= seen_idx < end_idx:
+                    selected_owners.append((oid, o))
+                seen_idx += 1
+            if not selected_owners:
+                continue
+            oh += f'<tr style="background:#eee"><td colspan="7"><strong><i class="bi {gicon}"></i> {glabel}</strong> <span class="badge bg-{gcolor.split()[0]}">{bill_count}笔</span></td></tr>'
+            for oid, o in selected_owners:
                 rooms_str = '、'.join(o['rooms'].values())
                 tenant_hint = ('<br><small class="text-muted">租户：' + h('、'.join(sorted(o['tenants']))) + '</small>') if o['tenants'] else ''
                 due_hint = '<span class="badge bg-danger">逾期</span>' if gid == 'overdue' else '<span class="badge bg-warning text-dark">即将到期</span>'
-                print_period = f'&period={p}' if p else ''
+                print_period = (f'&period_start={h(period_start)}&period_end={h(period_end)}' if (period_start or period_end) else (f'&period={p}' if p else ''))
                 oh += f"<tr class='table-light' onclick=\"toggleRoom('remind{gid}{oid}')\" style='cursor:pointer'>"
                 oh += f'<td><i class="bi bi-chevron-right" id="icon_remind{gid}{oid}"></i> <strong>{h(o["name"])}</strong>{tenant_hint}<br><small class="text-muted">{h(o["phone"])}</small></td>'
                 oh += f'<td><small>{rooms_str}</small></td><td class="text-end">{len(o["bills"])}</td>'
@@ -133,19 +162,21 @@ class ReminderMixin(BaseHandler):
                     oh += f'<td>{source_badge}<span class="badge bg-{sn.get(r["status"],"secondary")}">{ln.get(r["status"],r["status"])}</span>{service_text}</td></tr>'
         if not oh:
             oh = '<tr><td colspan="7" class="text-center text-muted py-4">当前筛选条件下没有催缴记录</td></tr>'
-        period_value = period_to_date(p) if p else ''
         print_params = []
-        if p: print_params.append('period=' + h(p))
+        if period_start: print_params.append('period_start=' + h(period_start))
+        if period_end: print_params.append('period_end=' + h(period_end))
+        if p and not (period_start or period_end): print_params.append('period=' + h(p))
         if bld: print_params.append('building=' + h(bld))
         if unit: print_params.append('unit=' + h(unit))
         if st: print_params.append('status=' + h(st))
         if kw: print_params.append('keyword=' + h(kw))
         print_query = ('?' + '&'.join(print_params)) if print_params else ''
         self._html(self._page('催缴管理', f'''
-    <div class="alert alert-warning"><i class="bi bi-bell"></i> 默认显示全部账期的催缴对象；手动选择账期日期后，仅显示该月份或覆盖该月份的账单。</div>
+    <div class="alert alert-warning"><i class="bi bi-bell"></i> 默认显示全部日期范围的催缴对象；手动选择起始和截止日期后，仅显示该自然日期范围内的账单。</div>
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
     <form class="row g-2" method=GET>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{period_value}" onchange="this.form.submit()"><small class="text-muted">默认全部</small></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{h(period_start)}" onchange="this.form.submit()"><small class="text-muted">默认全部</small></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{h(period_end)}" onchange="this.form.submit()"></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{bld_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">单元/区域</label><select name="unit" class="form-select form-select-sm" onchange="this.form.submit()">{unit_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">项目</label><select name="fee_type_id" class="form-select form-select-sm" onchange="this.form.submit()">{fee_opts}</select></div>
@@ -168,11 +199,21 @@ class ReminderMixin(BaseHandler):
     </div>
     <div class="table-responsive"><table class="table table-hover align-middle">
     <thead><tr><th style="min-width:120px">业主</th><th>房间</th><th class="text-end">笔数</th><th class="text-end">欠费</th><th class="text-end">滞纳金</th><th class="text-end">合计</th><th style="width:80px">操作</th></tr></thead>
-    <tbody>{oh}</tbody></table></div>''', 'reminders'))
+    <tbody>{oh}</tbody></table></div>
+    {render_pagination('/reminders', query_items(q, ['period_start', 'period_end', 'building', 'unit', 'fee_type_id', 'status', 'keyword']), pg, total_pages, per_page, owner_total_rows, '催缴分页')}''', 'reminders'))
 
     def _reminder_print(self, q):
         update_overdue_bills()
-        p=date_to_period(qs(q,'period',get_period()));oid=qs(q,'owner_id');bld=qs(q,'building');st=qs(q,'status')
+        raw_period=qs(q,'period','').strip();p=date_to_period(raw_period or get_period())
+        period_start=qs(q,'period_start','').strip();period_end=qs(q,'period_end','').strip()
+        if raw_period and not period_start and not period_end:
+            period_start=period_to_date(p)
+            try:
+                y, mo = [int(x) for x in period_start[:7].split('-')]
+                period_end=(add_months(date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
+            except Exception:
+                period_end=period_start
+        oid=qs(q,'owner_id');bld=qs(q,'building');st=qs(q,'status')
         db=get_db()
         sql='''SELECT o.id oid,o.name oname,o.phone ophone,o.id_card oid_card,o.move_in_date,
             r.id rid,r.building,r.unit,r.room_number,r.area,r.category,
@@ -184,7 +225,11 @@ class ReminderMixin(BaseHandler):
             LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id
             WHERE b.status IN('unpaid','overdue','partial') AND o.id IS NOT NULL'''
-        sql, vals = append_period_filter(sql, [], p, 'b.billing_period')
+        vals = []
+        if period_start or period_end:
+            sql, vals = append_natural_date_range_filter(sql, vals, period_start, period_end, 'b.billing_period', 'b.service_start', 'b.service_end')
+        else:
+            sql, vals = append_period_filter(sql, vals, p, 'b.billing_period')
         if oid:sql+=" AND o.id=?";vals.append(oid)
         if bld:sql+=" AND r.building=?";vals.append(bld)
         if st:sql+=" AND b.status=?";vals.append(st)
@@ -231,7 +276,7 @@ class ReminderMixin(BaseHandler):
     <td class="text-end"><strong>{m(total_amt+total_lf)}</strong></td></tr></tfoot></table>
     <p style="margin-top:20px"><strong>合计欠费：¥{m(total_amt+total_lf)}</strong></p>
     <div class="signature"><table style="width:100%"><tr><td style="text-align:center">业主签收</td><td style="text-align:center">催缴人</td><td style="text-align:center">物业盖章</td></tr></table></div>
-    <div class="footer">打印日期：{date.today().isoformat()} · 账期：{p}</div>
+    <div class="footer">打印日期：{date.today().isoformat()} · 日期范围：{h(period_start or period_to_date(p))} 至 {h(period_end or period_to_date(p))}</div>
     </div>'''
         html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>催缴通知单</title>
     <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
@@ -247,6 +292,6 @@ class ReminderMixin(BaseHandler):
     .footer{text-align:center;margin-top:20px;color:#666;font-size:12px}
     </style></head><body>'''+pages+'''
     <div class="no-print text-center mt-3"><button class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer"></i> 打印</button>
-    <a href="/reminders?period='''+p+'''" class="btn btn-outline-secondary">返回</a></div>
+    <a href="/reminders" class="btn btn-outline-secondary">返回</a></div>
     </body></html>'''
         self._html(html)

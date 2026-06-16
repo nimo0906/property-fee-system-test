@@ -7,18 +7,11 @@
 <div class="card-body">
 <div class="mb-3"><label class="form-label">房间</label>
 <input type="text" class="form-control form-control-sm mb-2" id="roomSearch" placeholder="输入楼栋/房号/业主搜索..." oninput="filterRooms()">
-<select class="form-select" id="billingRoom" name="room_id" size="8" onchange="calcFees();showOwnerRooms();document.getElementById('roomSearch').value=this.options[this.selectedIndex].text">{OPTS}</select>
+<select class="form-select searchable-select" id="billingRoom" name="room_id" size="8" data-search-input="roomSearch" onchange="calcFees();showOwnerRooms();document.getElementById('roomSearch').value=this.options[this.selectedIndex].text">{OPTS}</select>
 <small class="text-muted">支持楼栋、房号和业主名检索。{MODE_NOTE}</small>
 </div>
 <script>
-window.filterRooms=function(){
-    var q=document.getElementById('roomSearch').value.toLowerCase();
-    var sel=document.getElementById('billingRoom');
-    for(var i=0;i<sel.options.length;i++){
-        var t=sel.options[i].text.toLowerCase();
-        sel.options[i].style.display=t.indexOf(q)>-1?'':'none';
-    }
-};
+window.filterRooms=function(){ window.filterSearchableSelect && window.filterSearchableSelect('billingRoom','roomSearch'); };
 </script>
 <div class="mb-3"><label class="form-label">出账日期区间</label>
 <div class="row g-2">
@@ -34,8 +27,11 @@ window.filterRooms=function(){
 <small class="text-muted" id="monthCount">共 3 个月</small>
 </div>
 <div id="ownerRoomsSection" class="mb-3" style="display:none">
-<hr><label class="form-label text-primary"><i class="bi bi-building-add"></i> 同租户其他房间</label>
-<div id="ownerRoomList" class="d-flex flex-wrap gap-2"></div>
+<hr><div class="tenant-room-tools">
+<label class="form-label text-primary mb-0"><i class="bi bi-building-add"></i> 同租户其他房间 <span id="ownerRoomCount" class="text-muted small"></span></label>
+<div class="btn-group btn-group-sm"><button type="button" class="btn btn-outline-primary" id="ownerRoomsToggle">收起</button><button type="button" class="btn btn-outline-secondary" id="ownerRoomsSelectAll">全选</button><button type="button" class="btn btn-outline-secondary" id="ownerRoomsClear">取消全选</button></div>
+</div>
+<div id="ownerRoomList" class="tenant-room-list"></div>
 </div>
 <button type="submit" class="btn btn-primary btn-lg w-100"><i class="bi bi-file-earmark-plus"></i> 生成选中账单</button>
 </div></div>
@@ -53,4 +49,6 @@ window.filterRooms=function(){
 </div>
 </div>
 </form>
-<script src="/static/billing.js?v=20260603meter2"></script>
+<script src="/static/searchable_select.js?v=20260615"></script>
+<script src="/static/billing.js?v=20260614spacewater"></script>
+<script src="/static/billing_ui_extras.js?v=20260614billingui"></script>

@@ -18,6 +18,8 @@ CHECKS = [
     ('macOS desktop icon', ROOT / 'static' / 'desktop-app-icon.icns'),
     ('Windows desktop icon', ROOT / 'static' / 'desktop-app-icon.ico'),
     ('release checklist', ROOT / 'docs' / 'desktop-release-checklist.md'),
+    ('hidden module policy', ROOT / 'docs' / 'hidden-module-policy.md'),
+    ('source tree hygiene guard', ROOT / 'scripts' / 'source_tree_check.py'),
 ]
 
 

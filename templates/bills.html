@@ -1,7 +1,8 @@
 <div class="filter-bar ledger-toolbar">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
-<div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{PERIOD_START}" onchange="this.form.submit()"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{PERIOD_END}" onchange="this.form.submit()"></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部状态</option><option value="unpaid"{SUN}>未缴</option><option value="paid"{SPA}>已缴</option><option value="overdue"{SOV}>逾期</option></select></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{BLD_OPTS}</select></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" placeholder="房号/业主" value="{KW}" style="width:140px"></div>
@@ -51,4 +52,34 @@ function toggleBillRoom(roomGroup){
 document.getElementById('selAll')?.addEventListener('change', function(){
     document.querySelectorAll('.bill-chk,.owner-group-chk,.room-group-chk').forEach(function(c){ c.checked = this.checked; }, this);
 });
+function submitBillAction(action, target){
+    var ids = Array.from(document.querySelectorAll('.bill-chk:checked')).map(function(c){ return c.value; });
+    if(ids.length === 0){
+        alert('请先勾选账单');
+        return;
+    }
+    var source = document.getElementById('billActionForm');
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = action;
+    form.target = target || '_self';
+    ids.forEach(function(id){
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'bill_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+    var back = source ? source.querySelector('input[name="back"]') : null;
+    if(back){
+        var backInput = document.createElement('input');
+        backInput.type = 'hidden';
+        backInput.name = 'back';
+        backInput.value = back.value;
+        form.appendChild(backInput);
+    }
+    document.body.appendChild(form);
+    form.submit();
+    form.remove();
+}
 </script>

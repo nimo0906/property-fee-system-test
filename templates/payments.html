@@ -1,7 +1,8 @@
 <div class="filter-bar">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
-<div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()" placeholder="全部账期"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{PERIOD_START}" onchange="this.form.submit()"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{PERIOD_END}" onchange="this.form.submit()"></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" placeholder="房号/租户/业主" value="{KW}" style="width:150px"></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">方式</label><select name="method" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部方式</option><option value="cash"{SC}>现金</option><option value="transfer"{ST}>转账</option><option value="wechat"{SW}>微信</option><option value="alipay"{SA}>支付宝</option></select></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">经手人</label><input name="operator" class="form-control form-control-sm" placeholder="经手人" value="{OP}" style="width:110px"></div>
@@ -13,9 +14,9 @@
 <div class="card billing-ledger">
 <div class="card-header d-flex justify-content-between align-items-center">
 <span><i class="bi bi-credit-card"></i> 缴费流水</span>
-<form id="paymentActionForm" method="POST" class="export-actions">
-<button class="btn btn-sm btn-outline-secondary" type="submit" onclick="this.form.action='/payments/print';this.form.target='_blank'"><i class="bi bi-printer"></i> 打印</button>
-<button class="btn btn-sm btn-outline-secondary" type="submit" onclick="this.form.action='/payments/receipts';this.form.target='_blank'"><i class="bi bi-receipt"></i> 收据</button>
+<form id="paymentActionForm" method="POST" action="/payments/receipts" target="_blank" class="export-actions">
+<button class="btn btn-sm btn-outline-secondary" type="button" onclick="submitPaymentAction('/payments/print')"><i class="bi bi-printer"></i> 打印</button>
+<button class="btn btn-sm btn-outline-secondary" type="button" onclick="submitPaymentAction('/payments/receipts')"><i class="bi bi-receipt"></i> 收据</button>
 <button class="btn btn-sm btn-outline-success" type="button" onclick="exportPaymentsCsv(document.querySelector('.filter-bar form'))"><i class="bi bi-download"></i> 导出</button>
 </form>
 </div>
@@ -23,5 +24,6 @@
 <thead><tr><th><input type="checkbox" onclick="toggleAllPayments(this.checked)"></th><th>时间</th><th>票据</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th>方式</th><th>经手人</th></tr></thead>
 <tbody>{ROWS}</tbody></table></div>
 </div>
+{PAGE_LINKS}
 
 <script>function exportPaymentsCsv(form){var params=new URLSearchParams(new FormData(form));window.location='/payments/export.csv?'+params.toString();}</script>

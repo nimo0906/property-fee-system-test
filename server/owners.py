@@ -4,6 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
+from server.pagination import pagination_state, query_items, render_pagination
 
 
 class OwnerMixin(BaseHandler):
@@ -14,7 +15,9 @@ class OwnerMixin(BaseHandler):
         o_vals=[]
         if kw:o_sql+=" WHERE (o.name LIKE ? OR o.phone LIKE ?)";o_vals.extend([f'%{kw}%',f'%{kw}%'])
         o_sql+=" ORDER BY o.name"
-        owners=db.execute(o_sql,o_vals).fetchall()
+        total_rows = db.execute("SELECT COUNT(*) FROM (" + o_sql + ")", o_vals).fetchone()[0]
+        pg, per_page, total_pages = pagination_state(q, total_rows)
+        owners=db.execute(o_sql + " LIMIT ? OFFSET ?", o_vals + [per_page, (pg - 1) * per_page]).fetchall()
         rh=''
         for o in owners:
             r_sql="SELECT * FROM rooms WHERE owner_id=? ORDER BY building,unit,room_number"
@@ -37,6 +40,16 @@ class OwnerMixin(BaseHandler):
         tpl=self._load_template('owners.html')
         tpl=tpl.replace('{KEYWORD}',h(kw))
         tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="8" class="text-center text-muted py-4">暂无业主，请先 <a href=\"/owners/create\">添加业主</a></td></tr>')
+        page_links = render_pagination(
+            '/owners',
+            query_items(q, ['keyword']),
+            pg,
+            total_pages,
+            per_page,
+            total_rows,
+            '业主分页',
+        )
+        tpl = tpl.replace('{PAGE_LINKS}', page_links)
         self._html(self._page('业主管理',tpl,'owners'))
 
     def _owner_form(self, oid):

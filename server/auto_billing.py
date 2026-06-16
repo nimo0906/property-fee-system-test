@@ -4,6 +4,7 @@
 
 from datetime import date, datetime, timedelta
 
+from server.bill_snapshots import room_snapshot, apply_snapshot
 from server.backups import create_db_backup
 from server.base import BaseHandler
 from server.auto_billing_runs import (
@@ -16,11 +17,12 @@ from server.auto_billing_adjustments import (
 )
 from server.auto_billing_scope import room_in_auto_scope
 from server.billing_engine import calculate_bill_amount, fee_applies_to_room
+from server.data_health import cleanup_invalid_payments
 from server.db import add_months, get_db, h, m, qs
 
 
 CYCLE_MONTHS = {'monthly': 1, 'quarterly': 3, 'semiannual': 6, 'yearly': 12}
-EXCLUDED_AUTO_FEE_NAMES = {'装修管理费', '装修押金', '临时收费'}
+EXCLUDED_AUTO_FEE_NAMES = {'装修管理费', '装修押金', '临时收费', '合同租金', '合同物业费', '合同押金'}
 
 
 def _as_date(value):
@@ -152,6 +154,7 @@ def confirm_auto_billing(db, item_keys, today=None, advance_days=30, fee_ids=Non
 
 
 def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=None, operator='管理员', period_cycle=None, target_scope='all', adjustments=None):
+    cleanup_invalid_payments(db)
     selected = set(item_keys or [])
     adjustments = adjustments or {}
     preview = build_auto_billing_preview(db, today=today, advance_days=advance_days, fee_ids=fee_ids, period_cycle=period_cycle, target_scope=target_scope)
@@ -170,7 +173,7 @@ def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=
         room = db.execute("SELECT * FROM rooms WHERE id=?", (item['room_id'],)).fetchone()
         seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (item['billing_period'],)).fetchone()[0] + 1
         bill_number = f"AUTO_{room['building']}-{room['room_number']}_{item['billing_period'].replace('~','-')}_{seq:04d}"
-        db.execute(
+        cur = db.execute(
             """INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,
             bill_number,source,source_ref,service_start,service_end,auto_batch_no)
             VALUES(?,?,?,?,?,?,'unpaid',?,'auto_contract',?,?,?,?)""",
@@ -178,6 +181,7 @@ def create_auto_billing_run(db, item_keys, today=None, advance_days=30, fee_ids=
              amount, due_date, bill_number, item['item_key'],
              item['service_start'], item['service_end'], batch_no)
         )
+        apply_snapshot(db, cur.lastrowid, room_snapshot(db, item['room_id'], room['owner_id']))
         generated_items.append({**item, 'amount': amount, 'due_date': due_date})
         generated += 1
     if generated:

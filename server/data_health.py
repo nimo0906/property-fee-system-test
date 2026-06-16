@@ -107,11 +107,58 @@ def financial_integrity_issues(db=None, limit=50):
                ORDER BY b.id LIMIT ?""",
             (limit,),
         ).fetchall()
+        orphan_payments = db.execute(
+            """SELECT p.id payment_id,p.bill_id,p.amount_paid,p.payment_date,p.created_at
+               FROM payments p LEFT JOIN bills b ON b.id=p.bill_id
+               WHERE b.id IS NULL
+               ORDER BY p.id LIMIT ?""",
+            (limit,),
+        ).fetchall()
+        stale_linked_payments = db.execute(
+            """SELECT p.id payment_id,p.bill_id,p.amount_paid,p.payment_date,p.created_at,
+                      b.bill_number,b.billing_period,b.created_at bill_created_at
+               FROM payments p JOIN bills b ON b.id=p.bill_id
+               WHERE p.created_at IS NOT NULL AND b.created_at IS NOT NULL
+                 AND p.created_at < b.created_at
+               ORDER BY p.id LIMIT ?""",
+            (limit,),
+        ).fetchall()
         return {
             'paid_status_but_underpaid': [dict(r) for r in paid_under],
             'unpaid_status_but_paid': [dict(r) for r in unpaid_with_paid],
             'overpaid_bills': [dict(r) for r in overpaid],
+            'orphan_payments': [dict(r) for r in orphan_payments],
+            'stale_linked_payments': [dict(r) for r in stale_linked_payments],
         }
+    finally:
+        if own_conn:
+            db.close()
+
+
+def cleanup_invalid_payments(db=None):
+    """Remove payment rows that cannot safely belong to the current bill rows."""
+    own_conn = db is None
+    db = db or get_db()
+    try:
+        orphan_ids = [
+            str(r['id']) for r in db.execute(
+                "SELECT p.id FROM payments p LEFT JOIN bills b ON b.id=p.bill_id WHERE b.id IS NULL"
+            ).fetchall()
+        ]
+        stale_ids = [
+            str(r['id']) for r in db.execute(
+                """SELECT p.id FROM payments p JOIN bills b ON b.id=p.bill_id
+                   WHERE p.created_at IS NOT NULL AND b.created_at IS NOT NULL
+                     AND p.created_at < b.created_at"""
+            ).fetchall()
+        ]
+        ids = sorted(set(orphan_ids + stale_ids), key=int)
+        if ids:
+            db.execute(f"DELETE FROM payments WHERE id IN ({','.join('?' * len(ids))})", ids)
+            db.commit()
+        elif own_conn:
+            db.commit()
+        return {'deleted': len(ids), 'orphan': len(orphan_ids), 'stale_linked': len(stale_ids)}
     finally:
         if own_conn:
             db.close()
@@ -123,6 +170,7 @@ def repair_bill_payment_statuses(db=None):
     db = db or get_db()
     updated = 0
     try:
+        cleanup = cleanup_invalid_payments(db)
         rows = db.execute(
             """SELECT b.id,b.amount,b.status,COALESCE(SUM(p.amount_paid),0) paid
                FROM bills b LEFT JOIN payments p ON p.bill_id=b.id
@@ -149,7 +197,7 @@ def repair_bill_payment_statuses(db=None):
                 updated += 1
         if own_conn:
             db.commit()
-        return {'updated': updated}
+        return {'updated': updated, 'invalid_payments_deleted': cleanup['deleted']}
     finally:
         if own_conn:
             db.close()
@@ -168,6 +216,8 @@ class DataHealthMixin:
         finance_rows = self._health_bill_rows(finance['paid_status_but_underpaid'], '已缴状态但收款不足')
         finance_rows += self._health_bill_rows(finance['unpaid_status_but_paid'], '未缴状态但已有收款')
         finance_rows += self._health_bill_rows(finance['overpaid_bills'], '收款超过应收')
+        finance_rows += self._health_payment_rows(finance['orphan_payments'], '孤立收款记录')
+        finance_rows += self._health_payment_rows(finance['stale_linked_payments'], '疑似串账收款')
         if not finance_rows:
             finance_rows = '<tr><td colspan="8" class="text-center text-muted py-3">账单/收款状态一致</td></tr>'
         self._html(self._page('系统健康检查', f'''
@@ -189,6 +239,13 @@ class DataHealthMixin:
         for r in rows:
             room = f'{r.get("building") or ""}-{r.get("unit") or ""}-{r.get("room_number") or ""}'
             html += f'<tr><td>{h(label)}</td><td><a href="/bills/{r["bill_id"]}">{h(r.get("bill_number") or r["bill_id"])}</a></td><td>{h(room)}</td><td>{h(r.get("owner_name") or "-")}</td><td>{h(r.get("billing_period") or "-")}</td><td class="text-end">¥{m(r.get("amount") or 0)}</td><td class="text-end">¥{m(r.get("paid") or 0)}</td><td>{h(r.get("status") or "")}</td></tr>'
+        return html
+
+    def _health_payment_rows(self, rows, label):
+        html = ''
+        for r in rows:
+            target = h(r.get('bill_number') or r.get('bill_id') or '-')
+            html += f'<tr><td>{h(label)}</td><td>{target}</td><td>-</td><td>-</td><td>{h(r.get("billing_period") or "-")}</td><td class="text-end">-</td><td class="text-end">¥{m(r.get("amount_paid") or 0)}</td><td>{h(r.get("payment_date") or r.get("created_at") or "")}</td></tr>'
         return html
 
     def _system_health_repair(self, d):

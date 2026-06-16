@@ -6,7 +6,9 @@
 <title>{TITLE} - 物业管理收费系统</title>
 <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
-<link rel="stylesheet" href="/static/app.css?v=20260603ui1">
+<link rel="stylesheet" href="/static/app.css?v=20260614split">
+<link rel="stylesheet" href="/static/billing_ui_extras.css?v=20260614billingui">
+<link rel="stylesheet" href="/static/date_picker.css?v=20260614reports">
 </head>
 <body>
 <div class="app-shell">
@@ -23,6 +25,7 @@
 <nav class="sidebar-nav">{NAV}</nav>
 {USER_HTML}
 </aside>
+
 
 <div class="offcanvas offcanvas-start mobile-nav" tabindex="-1" id="mobileNav">
 <div class="offcanvas-header">
@@ -55,6 +58,8 @@
 </main>
 </div>
 <script src="/static/vendor/bootstrap/bootstrap.bundle.min.js"></script>
+<script src="/static/date_picker.js?v=20260614reports"></script>
+<script src="/static/form_hygiene.js?v=20260614forms"></script>
 <script>
 function toggleRoom(rid){
     var rows=document.querySelectorAll(".room-detail-"+rid);
@@ -63,5 +68,45 @@ function toggleRoom(rid){
     if(icon){icon.className=icon.className==="bi bi-chevron-right"?"bi bi-chevron-down":"bi bi-chevron-right";}
 }
 </script>
+<script>
+(function(){
+    var tip;
+    function ensureTip(){
+        if(!tip){
+            tip=document.createElement('div');
+            tip.className='sidebar-float-tip';
+            document.body.appendChild(tip);
+        }
+        return tip;
+    }
+    function labelFor(el){
+        var span=el.querySelector('span');
+        return span ? span.textContent.trim() : (el.getAttribute('title') || '').trim();
+    }
+    function showTip(el){
+        var text=labelFor(el);
+        if(!text){ return; }
+        var box=el.getBoundingClientRect();
+        var node=ensureTip();
+        node.textContent=text;
+        node.style.left=(box.right + 10) + 'px';
+        node.style.top=(box.top + box.height / 2) + 'px';
+        node.classList.add('show');
+    }
+    function hideTip(){
+        if(tip){ tip.classList.remove('show'); }
+    }
+    document.addEventListener('mouseover', function(e){
+        var el=e.target.closest && e.target.closest('.sidebar .nav-link, .sidebar .system-tool-btn');
+        if(el){ showTip(el); }
+    });
+    document.addEventListener('mouseout', function(e){
+        var el=e.target.closest && e.target.closest('.sidebar .nav-link, .sidebar .system-tool-btn');
+        if(el){ hideTip(); }
+    });
+    document.addEventListener('scroll', hideTip, true);
+})();
+</script>
+
 </body>
 </html>

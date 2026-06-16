@@ -4,6 +4,7 @@
 
 from server.db import get_db, get_fee_type_rate, h, m, qs
 from server.base import BaseHandler
+from server.pagination import business_area_order_sql, pagination_state, query_items, render_pagination
 
 
 class RoomMixin(BaseHandler):
@@ -17,22 +18,15 @@ class RoomMixin(BaseHandler):
         if cat:cond.append("r.category=?");vals.append(cat)
         if kw:cond.append("(r.room_number LIKE ? OR r.building LIKE ? OR r.unit LIKE ? OR r.category LIKE ? OR r.business_type LIKE ? OR r.tenant_name LIKE ? OR r.tenant_phone LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR CAST(r.area AS TEXT) LIKE ?)");vals.extend([f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%',f'%{kw}%'])
         if cond:sql+=" WHERE "+" AND ".join(cond)
-        sql+=" ORDER BY r.building,r.unit,r.room_number"
-        rows=db.execute(sql,vals).fetchall()
+        total_rows = db.execute("SELECT COUNT(*) FROM (" + sql + ")", vals).fetchone()[0]
+        pg, per_page, total_pages = pagination_state(q, total_rows)
+        sql += f""" ORDER BY {business_area_order_sql('r.building', 'r.unit')},
+            r.building,r.unit,r.room_number"""
+        rows=db.execute(sql + " LIMIT ? OFFSET ?", vals + [per_page, (pg - 1) * per_page]).fetchall()
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
         cats=db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
         db.close()
-        rh = ''.join(
-            f'<tr><td><input class="form-check-input room-select" form="roomBatchDeleteForm" type="checkbox" name="room_ids" value="{r["id"]}"></td>'
-            f'<td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td>'
-            f'<td>{h(r["shop_name"] or "-")}</td><td>{h(r["tenant_name"] or "-")}</td><td>{r["floor"] or "-"}F</td>'
-            f'<td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td>'
-            f'<td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td>'
-            f'<td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td>'
-            f'<td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>'
-            f'<form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
-            for r in rows
-        )
+        rh = self._render_room_rows_by_unit(rows)
         bo='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
         default_cats = ["居民", "商户", "商业"]
         cat_values = []
@@ -46,14 +40,63 @@ class RoomMixin(BaseHandler):
         <div><i class="bi bi-door-open" style="font-size:2rem;color:#adb5bd"></i></div>
         <h6 class="mt-2">还没有房间资料</h6>
         <p class="mb-3">推荐先按模板导入楼栋、房号、楼层、面积、业主和合同日期；少量资料也可以手动添加。</p>
-        <a class="btn btn-outline-primary btn-sm" href="/import/template/basic.csv" download="basic_info_template.csv">下载基础资料模板</a>
+        <a class="btn btn-outline-primary btn-sm" href="/import/template/basic.xlsx" download="basic_info_template.xlsx">下载基础资料模板</a>
         <a class="btn btn-primary btn-sm" href="/import">导入基础资料</a>
         <a class="btn btn-outline-secondary btn-sm" href="/rooms/create">手动添加房间</a>
         </td></tr>"""
         tpl=tpl.replace('{ROWS}',rh or empty)
+        page_links = render_pagination(
+            '/rooms',
+            query_items(q, ['building', 'category', 'keyword']),
+            pg,
+            total_pages,
+            per_page,
+            total_rows,
+            '房间分页',
+        )
+        tpl = tpl.replace('{PAGE_LINKS}', page_links)
         self._html(self._page('房间管理',tpl,'rooms'))
 
-    def _room_form(self, rid):
+    def _render_room_rows_by_unit(self, rows):
+        grouped = []
+        by_unit = {}
+        for r in rows:
+            unit = r["unit"] or "未分单元"
+            if unit not in by_unit:
+                by_unit[unit] = []
+                grouped.append(unit)
+            by_unit[unit].append(r)
+
+        parts = []
+        for idx, unit in enumerate(grouped):
+            unit_rows = by_unit[unit]
+            group_id = f"room_unit_{idx}"
+            parts.append(
+                f'<tr class="room-unit-group" data-unit="{h(unit)}" data-group="{group_id}" data-group-open="1">'
+                f'<td><input class="form-check-input room-unit-select" type="checkbox" '
+                f'onclick="selectRoomUnit(\'{group_id}\', this.checked)" title="选择本单元可见房间"></td>'
+                f'<td colspan="12"><div class="room-unit-header">'
+                f'<button type="button" class="btn btn-sm btn-link room-unit-toggle" '
+                f'onclick="toggleRoomUnit(\'{group_id}\')" aria-expanded="true">'
+                f'<i class="bi bi-chevron-down" id="icon_{group_id}"></i> {h(unit)} · {len(unit_rows)}间</button>'
+                f'<span class="text-muted small">当前筛选结果</span>'
+                f'</div></td></tr>'
+            )
+            for r in unit_rows:
+                parts.append(
+                    f'<tr class="room-detail-row {group_id}" data-group="{group_id}"><td><input class="form-check-input room-select" form="roomBatchDeleteForm" type="checkbox" name="room_ids" value="{r["id"]}"></td>'
+                    f'<td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td>'
+                    f'<td>{h(r["shop_name"] or "-")}</td><td>{h(r["tenant_name"] or "-")}</td><td>{r["floor"] or "-"}F</td>'
+                    f'<td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td>'
+                    f'<td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td>'
+                    f'<td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td>'
+                    f'<td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary" title="编辑"><i class="bi bi-pencil"></i></a>'
+                    f'<a href="/rooms/{r["id"]}/tenant_transfer" class="btn btn-sm btn-outline-info" title="转租登记"><i class="bi bi-arrow-left-right"></i> 转租</a>'
+                    f'<form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
+                )
+        return ''.join(parts)
+
+    def _room_form(self, rid, q=None):
         db=get_db();room=None
         if rid:room=db.execute("SELECT r.*,o.name oname,o.phone ophone FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id WHERE r.id=?",(rid,)).fetchone()
         owners=db.execute("SELECT * FROM owners ORDER BY name").fetchall()
@@ -62,6 +105,8 @@ class RoomMixin(BaseHandler):
             oo='<option value="">--选择--</option>'+''.join(f'<option value="{o["id"]}"{" selected" if room and room["owner_id"]==o["id"] else""}>{h(o["name"])}</option>' for o in owners)
         else:
             oo='<option value="">--暂无业主，请先添加--</option>'
+        source = qs(q or {}, 'source')
+        from_import = source == 'import'
         a=f'/rooms/{rid}/edit' if rid else '/rooms/create'
         t='编辑房间' if rid else '添加房间'
         b=h(room['building'] if room else '金莎国际');u=h(room['unit'] if room else '商场')
@@ -80,7 +125,12 @@ class RoomMixin(BaseHandler):
         pc=(room['payment_cycle'] if room and 'payment_cycle' in room.keys() and room['payment_cycle'] else 'monthly')
         wt=(room['water_rate_type'] if room and 'water_rate_type' in room.keys() and room['water_rate_type'] else '非居民')
         nt=h(room['notes'] or'') if room else ''
-        self._html(self._page(t,f'''<form method=POST action="{a}" class="row g-3">
+        stay_note = '<div class="alert alert-info"><strong>导入核对编辑</strong> 保存后会停留在本编辑页，方便继续核对本次导入数据。</div>' if from_import else ''
+        hidden_source = '<input type="hidden" name="source" value="import">' if from_import else ''
+        cancel_href = f'/rooms/{rid}/edit?source=import' if from_import and rid else '/rooms'
+        cancel_text = '留在编辑页' if from_import else ('返回' if rid else '取消')
+        self._html(self._page(t, stay_note + f'''<form method=POST action="{a}" class="row g-3">
+    {hidden_source}
     <div class="col-md-3"><label>楼栋 *</label><input name="building" class="form-control" value="{b}" required></div>
     <div class="col-md-3"><label>单元/区域</label><select name="unit" class="form-select"><option value="A座" {"selected" if u=="A座" else ""}>A座</option><option value="B座" {"selected" if u=="B座" else ""}>B座</option><option value="商场" {"selected" if u=="商场" else ""}>商场</option></select><small class="text-muted">用于商业收费下拉分组，如 A座、B座、商场。</small></div>
     <div class="col-md-3"><label>铺位号/房号 *</label><input name="room_number" class="form-control" value="{n}" required id="rmNum" oninput="autoFloor()"><small class="text-muted">商场建议填铺位号，如 1F-101。</small></div>
@@ -106,7 +156,7 @@ class RoomMixin(BaseHandler):
     <div class="col-md-3"><label>业态/商户类别</label><input name="business_type" class="form-control" value="{bt}" placeholder="如：餐饮、零售、美容、办公"><small class="text-muted">用于商户类别统计，如：餐饮、零售、美容、办公。</small></div>
     <div class="col-md-3"><label>备注</label><input name="notes" class="form-control" value="{nt}" placeholder="其他补充说明"></div>
     <input type="hidden" name="owner_id" value="{h(str(room["owner_id"]) if room and room["owner_id"] else "")}">
-    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/rooms" class="btn btn-outline-secondary">取消</a></div></form>
+    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> {f'<a href="/rooms/{rid}/tenant_transfer" class="btn btn-outline-info"><i class="bi bi-arrow-left-right"></i> 转租登记</a>' if rid else ''} <a href="{cancel_href}" class="btn btn-outline-secondary">{cancel_text}</a></div></form>
     <script src="/static/room_form.js"></script>''', 'rooms'))
 
     def _room_create(self, d):
@@ -159,6 +209,8 @@ class RoomMixin(BaseHandler):
                     float(cr) if cr else None,qs(d,'contract_start'),qs(d,'contract_end'),
                     int(oid) if oid else None,qs(d,'business_type'),qs(d,'shop_name'),qs(d,'tenant_name'),qs(d,'tenant_phone'),qs(d,'tenant_id_card'),qs(d,'tenant_id_card_front'),qs(d,'tenant_id_card_back'),qs(d,'payment_cycle','monthly'),qs(d,'water_rate_type','非居民'),qs(d,'notes'),rid))
         db.commit();db.close()
+        if qs(d, 'source') == 'import':
+            return self._redirect(f'/rooms/{rid}/edit?source=import&flash=保存成功，仍停留在编辑页')
         self._redirect('/rooms?flash=更新成功')
 
     def _room_batch_delete(self, d):

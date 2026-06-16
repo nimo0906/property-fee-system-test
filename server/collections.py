@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 """Customer-facing arrears collection views."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
-from server.db import get_db, h
+from server.db import get_db, h, add_months, date_to_period, period_to_date
+from server.billing_periods import append_natural_date_range_filter
+from server.pagination import pagination_state, query_items, render_pagination
 
 
 def _money(value):
@@ -14,6 +16,22 @@ def _money(value):
 def _parse_date(value):
     if not value:
         return None
+
+
+def _first_value(q, key, default=""):
+    value = q.get(key, [default])
+    return (value[0] if isinstance(value, list) else value) or default
+
+
+def _legacy_period_range(period):
+    p = date_to_period(period)
+    start = period_to_date(p)
+    try:
+        y, mo = [int(x) for x in start[:7].split('-')]
+        end = (add_months(date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
+    except Exception:
+        end = start
+    return start, end
     try:
         return datetime.strptime(str(value)[:10], "%Y-%m-%d").date()
     except ValueError:
@@ -22,9 +40,13 @@ def _parse_date(value):
 
 class CollectionMixin:
     def _collections(self, q):
-        building = (q.get("building", [""])[0] or "").strip()
-        period = (q.get("period", [""])[0] or "").strip()
-        priority_filter = (q.get("priority", [""])[0] or "").strip()
+        building = _first_value(q, "building").strip()
+        period = _first_value(q, "period").strip()
+        period_start = _first_value(q, "period_start").strip()
+        period_end = _first_value(q, "period_end").strip()
+        if period and not period_start and not period_end:
+            period_start, period_end = _legacy_period_range(period)
+        priority_filter = _first_value(q, "priority").strip()
         today = date.today()
         db = get_db()
         buildings = [r["building"] for r in db.execute(
@@ -34,8 +56,11 @@ class CollectionMixin:
         where = []
         if building:
             where.append("r.building=?"); params.append(building)
-        if period:
-            where.append("b.billing_period=?"); params.append(period)
+        if period_start or period_end:
+            base_sql = "SELECT 1 FROM bills b WHERE 1=1"
+            base_sql, period_params = append_natural_date_range_filter(base_sql, [], period_start, period_end, 'b.billing_period', 'b.service_start', 'b.service_end')
+            clause = base_sql.split("WHERE 1=1 AND ", 1)[1]
+            where.append(clause); params.extend(period_params)
         where_sql = (" AND " + " AND ".join(where)) if where else ""
         rows = db.execute(f"""
             SELECT b.id, b.billing_period, b.amount, b.due_date, b.status,
@@ -70,6 +95,9 @@ class CollectionMixin:
 
         total_due = sum(x[1] for x in items)
         high_count = sum(1 for x in items if x[4] == "高")
+        total_rows = len(items)
+        pg, per_page, total_pages = pagination_state(q, total_rows)
+        visible_items = items[(pg - 1) * per_page:pg * per_page]
         options = ''.join(
             f'<option value="{h(b)}"{" selected" if b == building else ""}>{h(b)}</option>'
             for b in buildings
@@ -91,14 +119,15 @@ class CollectionMixin:
         <form class="card card-body mb-3" method="GET" action="/collections">
           <div class="row g-2 align-items-end">
             <div class="col-md-3"><label class="form-label">楼栋</label><select name="building" class="form-select"><option value="">全部楼栋</option>{options}</select></div>
-            <div class="col-md-3"><label class="form-label">账期</label><input name="period" class="form-control" placeholder="2026-05" value="{h(period)}"></div>
+            <div class="col-md-3"><label class="form-label">起始日期</label><input type="date" name="period_start" class="form-control" value="{h(period_start)}"></div>
+            <div class="col-md-3"><label class="form-label">截止日期</label><input type="date" name="period_end" class="form-control" value="{h(period_end)}"></div>
             <div class="col-md-3"><label class="form-label">优先级</label><select name="priority" class="form-select">{pri_opts}</select></div>
             <div class="col-md-3"><button class="btn btn-primary"><i class="bi bi-search"></i> 筛选</button> <a href="/collections" class="btn btn-outline-secondary">重置</a></div>
           </div>
         </form>
         '''
         rows_html = ""
-        for _, due, overdue_days, r, priority, badge in items:
+        for _, due, overdue_days, r, priority, badge in visible_items:
             room = f'{r["building"]}-{r["unit"]}-{r["room_number"]}'
             rows_html += f'''
             <tr>
@@ -121,5 +150,6 @@ class CollectionMixin:
           <thead><tr><th>房间</th><th>业主</th><th>电话</th><th>欠费账期</th><th>欠费项目</th><th class="text-end">欠费金额</th><th>截止日</th><th>欠费天数</th><th>优先级</th><th>操作</th></tr></thead>
           <tbody>{rows_html}</tbody>
         </table></div></div>
+        {render_pagination('/collections', query_items(q, ['building', 'period_start', 'period_end', 'priority']), pg, total_pages, per_page, total_rows, '客服催收分页')}
         '''
         self._html(self._page("客服催费对象", body, "collections"))

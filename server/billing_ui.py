@@ -30,7 +30,7 @@ class BillingUiMixin(BaseHandler):
                                     title='物业收费', exclude_commercial=True)
 
     def _commercial_billing(self):
-        """商业收费：显示商业项目，并纳入所有商户需要的水费档位。"""
+        """商业收费：商场商户日常财务出账入口。"""
         return self._render_billing(mode='commercial', active_tab='commercial_billing',
                                     title='商业收费', exclude_commercial=False)
 
@@ -42,6 +42,8 @@ class BillingUiMixin(BaseHandler):
         room_sql = "SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id"
         if mode == 'commercial':
             room_sql += " WHERE r.unit='商场' AND r.category IN ('商户','商业')"
+        else:
+            room_sql += " WHERE NOT (r.unit='商场' AND r.category IN ('商户','商业'))"
         rooms = db.execute(room_sql + " ORDER BY r.building,r.unit,r.room_number").fetchall()
         all_fts = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         elevator_rows = db.execute("SELECT * FROM elevator_fee_tiers ORDER BY floor_from").fetchall()
@@ -57,6 +59,7 @@ class BillingUiMixin(BaseHandler):
             if mode != 'commercial' or (r['category'] or '') in ('商户','商业'):
                 tenant_rooms[tenant_key].append({
                     'id': r['id'],
+                    'meterTarget': f"room:{r['id']}",
                     'name': f"{r['building']}-{r['unit']}-{r['room_number']}",
                     'cat': r['category'] or '',
                     'area': r['area'],
@@ -80,14 +83,47 @@ class BillingUiMixin(BaseHandler):
                 room_ids,
             ).fetchall()
             for mr in meter_rows:
-                key = f"{mr['room_id']}:{mr['fee_type_id']}:{mr['period']}"
-                meter_map[key] = float(mr['consumption'] or 0)
-                detail_key = f"{mr['room_id']}:{mr['period']}"
-                meter_detail_map.setdefault(detail_key, []).append({
+                consumption = float(mr['consumption'] or 0)
+                for key in (f"{mr['room_id']}:{mr['fee_type_id']}:{mr['period']}", f"room:{mr['room_id']}:{mr['fee_type_id']}:{mr['period']}"):
+                    meter_map[key] = consumption
+                detail = {
                     'fee_id': mr['fee_type_id'],
                     'fee_name': mr['fee_name'] or '',
-                    'consumption': float(mr['consumption'] or 0),
-                })
+                    'consumption': consumption,
+                }
+                for detail_key in (f"{mr['room_id']}:{mr['period']}", f"room:{mr['room_id']}:{mr['period']}"):
+                    meter_detail_map.setdefault(detail_key, []).append(detail)
+        contracts = []
+        if mode == 'commercial':
+            contracts = db.execute(
+                """SELECT c.id,c.room_id,c.commercial_space_id,c.contract_no,c.merchant_name,c.shop_name,c.property_rate,c.property_cycle,
+                          COALESCE(s.space_no,r.room_number,'') object_no,COALESCE(s.area,r.area,0) area,
+                          COALESCE(s.floor,r.floor,1) floor,COALESCE(s.water_rate_type,r.water_rate_type,'非居民') water_rate_type
+                   FROM merchant_contracts c
+                   LEFT JOIN commercial_spaces s ON c.commercial_space_id=s.id
+                   LEFT JOIN rooms r ON c.room_id=r.id
+                   WHERE c.status='active' ORDER BY c.start_date DESC,c.id DESC"""
+            ).fetchall()
+            space_ids = [c['commercial_space_id'] for c in contracts if c['commercial_space_id']]
+            if space_ids:
+                placeholders = ','.join('?' for _ in space_ids)
+                space_meter_rows = db.execute(
+                    f"""SELECT m.commercial_space_id,m.fee_type_id,m.period,COALESCE(SUM(m.consumption),0) consumption,
+                               f.name fee_name
+                        FROM meter_readings m
+                        LEFT JOIN fee_types f ON m.fee_type_id=f.id
+                        WHERE m.status='confirmed' AND m.commercial_space_id IN ({placeholders})
+                        GROUP BY m.commercial_space_id,m.fee_type_id,m.period,f.name""",
+                    space_ids,
+                ).fetchall()
+                for mr in space_meter_rows:
+                    consumption = float(mr['consumption'] or 0)
+                    meter_map[f"space:{mr['commercial_space_id']}:{mr['fee_type_id']}:{mr['period']}"] = consumption
+                    meter_detail_map.setdefault(f"space:{mr['commercial_space_id']}:{mr['period']}", []).append({
+                        'fee_id': mr['fee_type_id'],
+                        'fee_name': mr['fee_name'] or '',
+                        'consumption': consumption,
+                    })
         db.close()
 
         elevator_json = json.dumps(elevator_list, ensure_ascii=False)
@@ -107,18 +143,31 @@ class BillingUiMixin(BaseHandler):
 
         opt_parts = []
         for unit_key in groups:
-            opt_parts.append(f'<optgroup label="{h(unit_key)}">')
+            group_label = f"兼容房间 · {unit_key}" if mode == 'commercial' else unit_key
+            opt_parts.append(f'<optgroup label="{h(group_label)}">')
             for r in by_unit[unit_key]:
                 opt_parts.append(
-                    '<option value="{}" data-cat="{}" data-water="{}" data-area="{}" data-floor="{}" data-owner="{}" data-tenant-key="{}" data-rate="{}" data-cycle="{}">'
+                    '<option value="{}" data-meter-target="room:{}" data-cat="{}" data-water="{}" data-area="{}" data-floor="{}" data-owner="{}" data-tenant-key="{}" data-rate="{}" data-cycle="{}">'
                     '{}-{}-{}{} ({})</option>'.format(
-                        r["id"], h(r["category"] or ""), h(r["water_rate_type"] or "非居民"), r["area"], r["floor"] or 1, r["owner_id"] or "",
+                        r["id"], r["id"], h(r["category"] or ""), h(r["water_rate_type"] or "非居民"), r["area"], r["floor"] or 1, r["owner_id"] or "",
                         h(_tenant_group_key(r)), r["custom_rate"] or "", h(r["payment_cycle"] or "monthly"),
                         h(r["building"]), h(r["unit"]), h(r["room_number"]), (" / " + h(r["shop_name"])) if r["shop_name"] else "", h(r["oname"] or "")
                     )
                 )
             opt_parts.append('</optgroup>')
         opts = ''.join(opt_parts)
+        if mode == 'commercial':
+            contract_opts = ['<optgroup label="商业合同">']
+            for c in contracts:
+                contract_opts.append(
+                    '<option value="contract:{}" data-contract-id="{}" data-room-id="{}" data-space-id="{}" data-meter-target="{}:{}" data-cat="商户" data-water="{}" data-area="{}" data-floor="{}" data-owner="" data-tenant-key="" data-rate="{}" data-cycle="{}">'
+                    '商业合同 {} / {} / {} ({})</option>'.format(
+                        c['id'], c['id'], c['room_id'] or '', c['commercial_space_id'] or '', 'space' if c['commercial_space_id'] else 'room', c['commercial_space_id'] or c['room_id'] or '', h(c['water_rate_type'] or '非居民'), c['area'] or 0, c['floor'] or 1, c['property_rate'] or 0, h(c['property_cycle'] or 'monthly'),
+                        h(c['contract_no']), h(c['object_no'] or ''), h(c['shop_name'] or c['merchant_name'] or ''), h(c['merchant_name'] or '')
+                    )
+                )
+            contract_opts.append('</optgroup>')
+            opts = ''.join(contract_opts) + opts
 
         # 过滤费用类型
         fts = [f for f in all_fts if fee_in_scope(f, mode)]
@@ -127,7 +176,7 @@ class BillingUiMixin(BaseHandler):
         if fts:
             rows = ''.join(
                 f'''<tr class="fee-row" data-ft="{f["id"]}" data-method="{f["calc_method"]}"
-                        data-price="{f["unit_price"]}" data-name="{h(f["name"])}">
+                        data-cycle="{h(f["billing_cycle"] or "monthly")}" data-price="{f["unit_price"]}" data-name="{h(f["name"])}">
                     <td style="width:40px"><input type="checkbox" class="fee-check" name="fee_types"
                         value="{f["id"]}" checked></td>
                     <td><span class="badge status-info">{h(f["name"])}</span></td>
@@ -160,7 +209,7 @@ class BillingUiMixin(BaseHandler):
         default_end = date(end_y, end_m, min(today.day, 28)).isoformat()
 
         tpl = self._load_template('billing.html')
-        mode_note = '仅显示单元/区域为商场且房间类型为商户/商业的收费对象；A座独立运行不纳入，B座住宅不纳入。非居民/特行只是水费档位。' if mode == 'commercial' else '物业收费用于居民及物业基础收费。'
+        mode_note = '商业收费只显示房间管理中单元/区域为商场且房间类型为商户/商业的收费对象；空间合同档案仅作行政档案/合同备查。' if mode == 'commercial' else '物业收费主口径为B座/物业基础收费；商场商户请到商业收费出账。'
         tpl = tpl.replace('{MODE_NOTE}', mode_note)
         tpl = tpl.replace('{OPTS}', opts)
         tpl = tpl.replace('{FEE_HTML}', fee_html or '<div class="text-center text-muted py-4">暂无费用类型</div>')

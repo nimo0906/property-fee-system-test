@@ -3,6 +3,7 @@
 """Shared billing calculation rules."""
 
 from server.db import get_fee_type_rate, calc_elevator_fee
+from server.billing_proration import prorated_month_factor, factor_label, is_one_time_fee
 
 
 def fee_applies_to_category(fee_name, room_category):
@@ -11,10 +12,6 @@ def fee_applies_to_category(fee_name, room_category):
         return False
     if '(商户)' in fee_name and rcat != '商户':
         return False
-    if '(非居民)' in fee_name and rcat == '居民':
-        return False
-    if '(特行)' in fee_name and rcat == '居民':
-        return False
     if '(商业)' in fee_name and rcat not in ('商户', '商业'):
         return False
     return True
@@ -22,6 +19,9 @@ def fee_applies_to_category(fee_name, room_category):
 
 def fee_applies_to_room(fee_name, room):
     rcat = room['category'] or '居民'
+    unit = (room['unit'] or '').strip() if 'unit' in room.keys() else ''
+    if '(商业)' in fee_name and unit != '商场':
+        return False
     water_rate = '非居民'
     try:
         if 'water_rate_type' in room.keys():
@@ -29,13 +29,13 @@ def fee_applies_to_room(fee_name, room):
     except Exception:
         water_rate = '非居民'
     if '(非居民)' in fee_name:
-        return rcat != '居民' and water_rate == '非居民'
+        return water_rate == '非居民'
     if '(特行)' in fee_name:
-        return rcat != '居民' and water_rate == '特行'
+        return water_rate == '特行'
     return fee_applies_to_category(fee_name, rcat)
 
 
-def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=None):
+def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=None, period_start=None, period_end=None):
     """Return amount details for one room and one active fee type."""
     if custom_amount not in (None, ''):
         custom = float(custom_amount)
@@ -60,11 +60,19 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
     elif method == 'meter':
         periods = _period_compact_months(period)
         placeholders = ','.join('?' for _ in periods)
-        mr = db.execute(
-            f"""SELECT COALESCE(SUM(consumption),0) FROM meter_readings
-                WHERE room_id=? AND fee_type_id=? AND period IN ({placeholders}) AND status='confirmed'""",
-            (room['id'], fid, *periods)
-        ).fetchone()
+        commercial_space_id = _room_value(room, 'commercial_space_id')
+        if commercial_space_id:
+            mr = db.execute(
+                f"""SELECT COALESCE(SUM(consumption),0) FROM meter_readings
+                    WHERE commercial_space_id=? AND fee_type_id=? AND period IN ({placeholders}) AND status='confirmed'""",
+                (commercial_space_id, fid, *periods)
+            ).fetchone()
+        else:
+            mr = db.execute(
+                f"""SELECT COALESCE(SUM(consumption),0) FROM meter_readings
+                    WHERE room_id=? AND fee_type_id=? AND period IN ({placeholders}) AND status='confirmed'""",
+                (room['id'], fid, *periods)
+            ).fetchone()
         rate = get_fee_type_rate(fid, rcat)
         consumption = mr[0] if mr else 0
         monthly = round(consumption * rate, 2)
@@ -77,10 +85,29 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
         formula = f"按户{fee_type['unit_price']}"
 
     month_count = 1 if method == 'meter' else max(1, int(months or 1))
-    amount = round(float(monthly or 0) * month_count, 2)
-    if month_count > 1 and formula != '自定义':
-        formula = f"{formula}×{month_count}个月"
+    factor = float(month_count)
+    if method == 'meter' or is_one_time_fee(fee_type):
+        factor = 1.0
+    elif period_start and period_end:
+        factor = prorated_month_factor(period_start, period_end)
+    amount = round(float(monthly or 0) * factor, 2)
+    if formula != '自定义' and method != 'meter':
+        if is_one_time_fee(fee_type):
+            pass
+        elif factor != 1:
+            formula = f"{formula}×{factor_label(factor)}"
+        elif period_start and period_end:
+            formula = f"{formula}×1个月"
     return {'amount': amount, 'monthly_amount': monthly, 'formula': formula}
+
+
+def _room_value(room, key, default=None):
+    try:
+        if hasattr(room, 'keys') and key not in room.keys():
+            return default
+        return room[key]
+    except Exception:
+        return default
 
 
 def _room_custom_rate(room):

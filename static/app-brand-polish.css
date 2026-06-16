@@ -1,0 +1,37 @@
+/* Sidebar brand mark: keep the emblem visually centered and readable. */
+.sidebar .sidebar-brand {
+    padding: 16px 10px 12px !important;
+}
+
+.sidebar .sidebar-brand .d-flex {
+    justify-content: center;
+    align-items: center;
+}
+
+.sidebar .brand-mark {
+    width: 52px !important;
+    height: 52px !important;
+    border-radius: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    line-height: 1 !important;
+    margin: 0 auto !important;
+}
+
+.sidebar .brand-mark img {
+    width: 36px !important;
+    height: 36px !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: 0 !important;
+    transform: translateY(0);
+}
+
+.mobile-brand-emblem {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    vertical-align: middle;
+}

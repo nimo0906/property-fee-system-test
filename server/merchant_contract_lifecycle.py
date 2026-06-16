@@ -1,0 +1,6 @@
+from server.merchant_contract_lifecycle_shared import *
+from server.merchant_contract_lifecycle_shared import _contract_row, _bill_count, _contract_bills, _audit_data, _audit_diff, _contract_target_options, _contract_form_html
+from server.merchant_contract_lifecycle_part1 import MerchantContractLifecycleMixinPart1
+
+class MerchantContractLifecycleMixin(MerchantContractLifecycleMixinPart1):
+    pass

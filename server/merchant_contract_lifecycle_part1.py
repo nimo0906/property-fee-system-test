@@ -1,0 +1,5 @@
+from server.merchant_contract_lifecycle_part1_group1 import MerchantContractLifecycleMixinPart1Group1
+from server.merchant_contract_lifecycle_part1_group2 import MerchantContractLifecycleMixinPart1Group2
+
+class MerchantContractLifecycleMixinPart1(MerchantContractLifecycleMixinPart1Group1, MerchantContractLifecycleMixinPart1Group2):
+    pass

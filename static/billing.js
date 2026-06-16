@@ -7,9 +7,7 @@ window.getElevatorRate = function(floor){
 
 window.cycleMonths = function(cycle){ return cycle === 'quarterly' ? 3 : (cycle === 'semiannual' ? 6 : 1); };
 
-window.shouldUseRoomCycle = function(){
-    return window.BILLING_MODE === "commercial";
-};
+window.shouldUseRoomCycle = function(){ return false; };
 
 window.calcMonths = function(){
     var s = document.getElementById("periodStart");
@@ -21,6 +19,28 @@ window.calcMonths = function(){
     return Math.max(1, Math.floor((days + 15) / 30));
 };
 
+window.daysInMonth = function(d){ return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); };
+
+window.prorateFactor = function(){
+    var s = document.getElementById("periodStart"), e = document.getElementById("periodEnd");
+    if(!s || !e || !s.value || !e.value) return 1;
+    var sd = new Date(s.value), ed = new Date(e.value);
+    if(isNaN(sd.getTime()) || isNaN(ed.getTime())) return 1;
+    if(ed < sd){ var tmp = sd; sd = ed; ed = tmp; }
+    var total = 0, cur = new Date(sd.getFullYear(), sd.getMonth(), 1);
+    while(cur <= ed){
+        var dim = window.daysInMonth(cur), ms = new Date(cur.getFullYear(), cur.getMonth(), 1), me = new Date(cur.getFullYear(), cur.getMonth(), dim);
+        var a = sd > ms ? sd : ms, b = ed < me ? ed : me;
+        if(a <= b) total += (a.getTime() === ms.getTime() && b.getTime() === me.getTime()) ? 1 : (Math.floor((b - a) / 86400000) + 1) / dim;
+        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    }
+    return total || 1;
+};
+
+window.factorLabel = function(v){
+    return Math.abs(v - Math.round(v)) < 0.000001 ? Math.round(v) + "个月" : (Math.round(v * 10000) / 10000) + "个月";
+};
+
 window.updateMonthDisplay = function(){
     var s = document.getElementById("periodStart");
     var e = document.getElementById("periodEnd");
@@ -29,11 +49,8 @@ window.updateMonthDisplay = function(){
     if(!s.value || !e.value) { mc.textContent = "请选择日期"; return; }
     var sd = new Date(s.value), ed = new Date(e.value);
     if(ed <= sd) { mc.textContent = "截止须大于起始"; return; }
-    var sel = document.getElementById('billingRoom');
-    var cycle = sel && sel.value ? (sel.options[sel.selectedIndex].dataset.cycle || '') : '';
-    var useCycle = window.shouldUseRoomCycle() && cycle;
-    var months = useCycle ? window.cycleMonths(cycle) : window.calcMonths();
-    mc.textContent = useCycle ? ("按商户缴费周期：共 " + months + " 个月") : ("共 " + months + " 个月");
+    var factor = window.prorateFactor();
+    mc.textContent = "服务期折算：" + window.factorLabel(factor);
 };
 
 window.showOwnerRooms = function(){
@@ -59,8 +76,8 @@ window.feeMatchesCategory = function(feeName, roomCat, waterRate){
     waterRate = waterRate || "非居民";
     if(feeName.indexOf("(居民)") >= 0 && roomCat != "居民") return false;
     if(feeName.indexOf("(商户)") >= 0 && roomCat != "商户") return false;
-    if(feeName.indexOf("(非居民)") >= 0) return roomCat != "居民" && waterRate == "非居民";
-    if(feeName.indexOf("(特行)") >= 0) return roomCat != "居民" && waterRate == "特行";
+    if(feeName.indexOf("(非居民)") >= 0) return waterRate == "非居民";
+    if(feeName.indexOf("(特行)") >= 0) return waterRate == "特行";
     if(feeName.indexOf("(商业)") >= 0 && (roomCat != "商户" && roomCat != "商业")) return false;
     return true;
 };
@@ -119,7 +136,8 @@ window.calcFees = function(){
         return;
     }
     var o = sel.options[sel.selectedIndex], cat = o.dataset.cat || "", water = o.dataset.water || "非居民", area = parseFloat(o.dataset.area) || 0, floor = parseInt(o.dataset.floor) || 1, roomRate = parseFloat(o.dataset.rate) || 0, roomCycle = o.dataset.cycle || '', total = 0;
-    if(window.shouldUseRoomCycle() && roomCycle) months = window.cycleMonths(roomCycle);
+    var targetId = o.dataset.meterTarget || o.dataset.spaceId || o.dataset.roomId || sel.value;
+    var factor = window.prorateFactor();
     document.querySelectorAll(".fee-row").forEach(function(row){
         var n = row.dataset.name || "";
         row.style.display = window.feeMatchesCategory(n, cat, water) ? "" : "none";
@@ -128,20 +146,21 @@ window.calcFees = function(){
         if(row.style.display === "none") return;
         if(!window.isFeeRowSelected(row)) return;
         var n = row.dataset.name || "";
-        var fid = parseInt(row.dataset.ft), mid = row.dataset.method, dp = parseFloat(row.dataset.price) || 0, amt = 0, f = "", monthly = 0;
+        var fid = parseInt(row.dataset.ft), mid = row.dataset.method, dp = parseFloat(row.dataset.price) || 0, amt = 0, f = "", monthly = 0, feeCycle = row.dataset.cycle || "monthly";
         if(mid == "area"){ var rate = (n.indexOf('物业费') >= 0 && roomRate > 0) ? roomRate : dp; monthly = area * rate; f = '面积' + area.toFixed(2) + '×单价' + rate.toFixed(2); }
         else if(mid == "floor"){ var er = window.getElevatorRate(floor); monthly = er * area; f = "楼层系数" + er.toFixed(2) + "×" + area.toFixed(2); }
-        else if(mid == "meter"){ var con = window.sumMeterConsumption(sel.value, fid); monthly = con * dp; f = con > 0 ? "用量合计 " + con + " × " + dp.toFixed(2) : (window.meterMismatchWarning(sel.value, fid, n, water) || "(无抄表) × " + dp.toFixed(2)); }
+        else if(mid == "meter"){ var con = window.sumMeterConsumption(targetId, fid); monthly = con * dp; f = con > 0 ? "用量合计 " + con + " × " + dp.toFixed(2) : (window.meterMismatchWarning(targetId, fid, n, water) || "(无抄表) × " + dp.toFixed(2)); }
         else if(mid == "fixed"){ monthly = dp; f = "固定 " + dp.toFixed(2); }
         else if(mid == "household"){ monthly = dp; f = "按户 " + dp.toFixed(2); }
-        amt = mid == "meter" ? monthly : monthly * months;
+        var useFactor = (mid == "meter" || feeCycle == "once") ? 1 : factor;
+        amt = monthly * useFactor;
         var ft = document.getElementById("feeAmt_" + fid);
         if(ft){
             if(!ft.dataset.edited) ft.value = amt.toFixed(2);
             else { amt = parseFloat(ft.value) || 0; f = "自定义"; }
         }
         var fm = document.getElementById("formula_" + fid);
-        if(fm) fm.textContent = (ft && ft.dataset.edited || mid == "meter") ? f + " = ¥" + amt.toFixed(2) : f + " × " + months + "个月 = ¥" + amt.toFixed(2);
+        if(fm) fm.textContent = (ft && ft.dataset.edited || mid == "meter" || feeCycle == "once") ? f + " = ¥" + amt.toFixed(2) : f + " × " + window.factorLabel(useFactor) + " = ¥" + amt.toFixed(2);
         total += amt;
     });
     // Extra rooms
@@ -152,7 +171,7 @@ window.calcFees = function(){
             var oldSub = tbody.querySelector(".er-subtotal"); if(oldSub) oldSub.remove();
             document.querySelectorAll("[name=extra_room_ids]:checked").forEach(function(cb){
                 var rd = allRm.find(function(r){ return r.id === parseInt(cb.value); }); if(!rd) return;
-                var ea = parseFloat(rd.area) || 0, ef = parseInt(rd.floor) || 1, rr = parseFloat(rd.rate) || 0, rmMonths = rd.cycle ? window.cycleMonths(rd.cycle) : months;
+                var ea = parseFloat(rd.area) || 0, ef = parseInt(rd.floor) || 1, rr = parseFloat(rd.rate) || 0, rmMonths = factor;
                 var hdrId = "er_hdr_" + rd.id;
                 var hdr = document.getElementById(hdrId);
                 if(!hdr){
@@ -167,7 +186,7 @@ window.calcFees = function(){
                     var fid = parseInt(row.dataset.ft), mid = row.dataset.method, dp = parseFloat(row.dataset.price) || 0, x = 0, formula = "";
                     if(mid == "area"){ var xr = (en.indexOf('物业费') >= 0 && rr > 0) ? rr : dp; x = ea * xr * rmMonths; formula = '面积' + ea.toFixed(2) + '×单价' + xr.toFixed(2) + '×' + rmMonths + '个月'; }
                     else if(mid == "floor"){ var er = window.getElevatorRate(ef); x = er * ea * rmMonths; formula = "楼层系数" + er.toFixed(2) + "×" + ea.toFixed(2) + "×" + rmMonths + "个月"; }
-                    else if(mid == "meter"){ var con = window.sumMeterConsumption(rd.id, fid); x = con * dp; formula = con > 0 ? "用量合计 " + con + " × " + dp.toFixed(2) : (window.meterMismatchWarning(rd.id, fid, en, rd.water || "非居民") || "(无抄表) × " + dp.toFixed(2)); }
+                    else if(mid == "meter"){ var con = window.sumMeterConsumption(rd.meterTarget || rd.id, fid); x = con * dp; formula = con > 0 ? "用量合计 " + con + " × " + dp.toFixed(2) : (window.meterMismatchWarning(rd.id, fid, en, rd.water || "非居民") || "(无抄表) × " + dp.toFixed(2)); }
                     else if(mid == "fixed"){ x = dp * rmMonths; formula = "固定 " + dp.toFixed(2) + " × " + rmMonths + "个月"; }
                     else if(mid == "household"){ x = dp * rmMonths; formula = "按户 " + dp.toFixed(2) + " × " + rmMonths + "个月"; }
                     if(x > 0){

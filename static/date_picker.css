@@ -1,0 +1,14 @@
+.date-field-wrap{position:relative;display:flex;align-items:center;gap:6px}
+.date-field-wrap>input.pm-date-input{padding-right:42px;background:#f8fbff;border-color:rgba(84,111,140,.22);border-radius:14px;color:#17202b;letter-spacing:.01em}
+.date-field-wrap>input.pm-date-input:focus{border-color:#6f96bf;box-shadow:0 0 0 4px rgba(91,126,164,.14)}
+.pm-date-trigger{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;border-radius:10px;background:linear-gradient(135deg,rgba(93,126,160,.14),rgba(255,255,255,.56));color:#45637f;display:grid;place-items:center;z-index:2}
+.pm-date-trigger:hover{background:#e7eef8;color:#244966}
+.pm-date-panel{position:fixed;z-index:3000;width:312px;border-radius:22px;padding:12px;background:rgba(248,251,255,.96);border:1px solid rgba(98,125,153,.18);box-shadow:0 26px 80px rgba(22,39,58,.22);backdrop-filter:blur(18px);color:#14202b}
+.pm-date-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.pm-date-title{font-weight:950;color:#1a344d;letter-spacing:-.02em}.pm-date-subtitle{font-size:12px;color:#718195;margin-top:1px}
+.pm-date-nav{width:34px;height:34px;border:0;border-radius:12px;background:#edf3fa;color:#426381;font-weight:900}.pm-date-nav:hover{background:#dce8f5}
+.pm-date-mode{border:0;background:transparent;text-align:left;padding:2px 6px;border-radius:10px}.pm-date-mode:hover{background:#eef4fb}
+.pm-date-week,.pm-date-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.pm-date-week span{text-align:center;font-size:12px;color:#7b8b9d;font-weight:800;padding:4px 0}
+.pm-date-day,.pm-date-month,.pm-date-year{border:0;border-radius:12px;background:transparent;min-height:36px;color:#21364c;font-weight:760}.pm-date-day:hover,.pm-date-month:hover,.pm-date-year:hover{background:#e8f0f9}.pm-date-day.muted{color:#aab4c0}.pm-date-day.today{box-shadow:inset 0 0 0 1px #7ca2c7}.pm-date-day.selected,.pm-date-month.selected,.pm-date-year.selected{background:linear-gradient(135deg,#4f77a3,#759ac0);color:white;box-shadow:0 12px 22px rgba(79,119,163,.24)}
+.pm-date-months,.pm-date-years{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.pm-date-month,.pm-date-year{min-height:42px;background:#f1f6fb}.pm-date-actions{display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid rgba(80,103,130,.13);padding-top:10px;margin-top:10px}.pm-date-actions button{border:0;border-radius:999px;background:#eef4fb;color:#425f7a;font-size:12px;font-weight:900;padding:7px 10px}.pm-date-actions button:hover{background:#dce8f5}.pm-date-actions .danger{color:#9b3d3d;background:#fff0f0}
+@media(max-width:575.98px){.pm-date-panel{width:min(312px,calc(100vw - 24px));left:12px!important;right:12px!important}.date-field-wrap{width:100%}}

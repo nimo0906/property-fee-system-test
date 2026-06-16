@@ -35,7 +35,13 @@ class TestV1InternalFeatures(unittest.TestCase):
                 os.remove(path)
 
     def setUp(self):
+        self.db.commit()
+        self.db.execute('PRAGMA foreign_keys=OFF')
         for table in [
+            'contract_attachments',
+            'contract_bill_runs',
+            'merchant_contracts',
+            'commercial_spaces',
             'audit_logs',
             'shared_expense_runs',
             'invoice_requests',
@@ -53,6 +59,7 @@ class TestV1InternalFeatures(unittest.TestCase):
         ]:
             self.db.execute(f'DELETE FROM {table}')
         self.db.commit()
+        self.db.execute('PRAGMA foreign_keys=ON')
 
     def _room(self, room_number, area, start='', end=''):
         return self.db.execute(
@@ -87,6 +94,18 @@ class TestV1InternalFeatures(unittest.TestCase):
         rooms = shared_expense_rooms(self.db, fee, '2026-06', building='金莎国际', unit='B座')
 
         self.assertEqual([r['room_number'] for r in rooms], ['201'])
+
+    def test_shared_expense_room_filter_supports_commercial_scope(self):
+        fee = self.db.execute("SELECT * FROM fee_types WHERE name='公摊能耗费' LIMIT 1").fetchone()
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('金莎国际','商场','1F-101',1,'商户',30)")
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('金莎国际','商场','1F-102',1,'商业',40)")
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('金莎国际','商场','1F-103',1,'居民',50)")
+        self.db.execute("INSERT INTO rooms(building,unit,room_number,floor,category,area) VALUES('金莎国际','B座','201',1,'商户',60)")
+        self.db.commit()
+
+        rooms = shared_expense_rooms(self.db, fee, '2026-06', unit='__commercial__')
+
+        self.assertEqual([r['room_number'] for r in rooms], ['1F-101', '1F-102'])
 
     def test_room_contract_overlap_filter(self):
         active_id = self._room('201', 50, '2026-01-01', '2026-12-31')

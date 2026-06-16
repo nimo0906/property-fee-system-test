@@ -7,25 +7,41 @@ from server.base import BaseHandler
 from server.backups import create_db_backup
 from server.bill_batch_edit import BillBatchEditMixin
 from server.bill_single_print import BillSinglePrintMixin
+from server.data_health import cleanup_invalid_payments
+
+
+def _bill_target_label(row):
+    if row['commercial_space_id']:
+        return f"商场-{row['space_no'] or ''}"
+    return f"{row['building'] or ''}-{row['unit'] or ''}-{row['room_number'] or ''}"
+
+
+def _row_value(row, key, default=''):
+    return row[key] if key in row.keys() else default
+
+
+def _bill_customer_label(row):
+    return _row_value(row, 'customer_name_snapshot') or row['space_merchant'] or row['space_shop'] or _row_value(row, 'tenant_name') or row['oname'] or '-'
 
 
 class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
 
     def _bill_detail(self, bid, q=None):
         update_overdue_bills()
+        cleanup_invalid_payments()
         back_url = qs(q or {}, 'back', '/bills')
         if not back_url.startswith('/bills'):
             back_url = '/bills'
         db=get_db()
-        b=db.execute('''SELECT b.*,r.building,r.unit,r.room_number,r.area,r.floor,r.category,o.name oname,f.name ft,f.calc_method,f.unit_price,
+        b=db.execute('''SELECT b.*,r.building,r.unit,r.room_number,r.area,r.floor,r.category,s.space_no,s.area space_area,s.shop_name space_shop,s.merchant_name space_merchant,o.name oname,f.name ft,f.calc_method,f.unit_price,
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
-            FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
+            FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE b.id=?''',(bid,)).fetchone()
         if not b: return self._error(404)
         formula_text = ''
         if b['calc_method'] == 'area':
             rate = b['unit_price']
-            area_val = float(b['area'] or 0)
+            area_val = float((b['space_area'] if b['commercial_space_id'] else b['area']) or 0)
             formula_text = f'面积 {area_val:.2f}m2 * 单价 {rate:.2f} = ¥{b["amount"]:.2f}'
         elif b['calc_method'] == 'floor':
             area_val = float(b['area'] or 0)
@@ -38,7 +54,10 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         elif b['calc_method'] == 'meter':
             period_compact = b['billing_period'].replace('-', '')
             db2 = get_db()
-            mr = db2.execute("SELECT consumption FROM meter_readings WHERE room_id=? AND fee_type_id=? AND period=? AND status='confirmed' LIMIT 1", (b['room_id'], b['fee_type_id'], period_compact)).fetchone()
+            if b['commercial_space_id']:
+                mr = db2.execute("SELECT consumption FROM meter_readings WHERE commercial_space_id=? AND fee_type_id=? AND period=? AND status='confirmed' LIMIT 1", (b['commercial_space_id'], b['fee_type_id'], period_compact)).fetchone()
+            else:
+                mr = db2.execute("SELECT consumption FROM meter_readings WHERE room_id=? AND fee_type_id=? AND period=? AND status='confirmed' LIMIT 1", (b['room_id'], b['fee_type_id'], period_compact)).fetchone()
             db2.close()
             cons = mr[0] if mr else 0
             formula_text = f'用量 {cons} * 单价 {b["unit_price"]:.2f} = ¥{b["amount"]:.2f}'
@@ -69,8 +88,10 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         <div class="row g-4"><div class="col-md-6"><div class="card"><div class="card-header">账单信息</div>
         <div class="card-body"><table class="table table-borderless mb-0">
         <tr><td class="text-muted" style="width:110px">编号</td><td><strong>{h(b["bill_number"]or"-")}</strong></td></tr>
-        <tr><td class="text-muted">房间</td><td>{h(b["building"])}-{h(b["unit"])}-{h(b["room_number"])}</td></tr>
-        <tr><td class="text-muted">业主</td><td>{h(b["oname"]or"-")}</td></tr>
+        <tr><td class="text-muted">对象</td><td>{h(_bill_target_label(b))}</td></tr>
+        <tr><td class="text-muted">客户</td><td>{h(_bill_customer_label(b))}</td></tr>
+        <tr><td class="text-muted">客户快照</td><td>{h(_row_value(b, 'customer_name_snapshot') or '-')}</td></tr>
+        <tr><td class="text-muted">对象快照</td><td>{h(_row_value(b, 'object_label_snapshot') or '-')}</td></tr>
 	        <tr><td class="text-muted">费用类型</td><td><span class="badge status-info fs-6">{h(b["ft"])}</span></td></tr>
         <tr><td class="text-muted">账期</td><td>{h(b["billing_period"])}</td></tr>
 	        <tr><td class="text-muted">状态</td><td><span class="badge {sn.get(b["status"],'status-neutral')} fs-6">{ln.get(b["status"],b["status"])}</span></td></tr>
@@ -90,7 +111,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         </table></div></div>
         <a href='/bills/{bid}/edit' class='btn btn-outline-warning mt-3'><i class='bi bi-pencil'></i> 修改金额</a>
 	        <a href="/bills/{bid}/print" class="btn btn-outline-secondary mt-3" target="_blank"><i class="bi bi-printer"></i> 打印</a>
-        <a href="{h(back_url)}" class="btn btn-outline-secondary mt-3"><i class="bi bi-arrow-left"></i> 返回</a>''','bills'))
+        <a class="btn btn-outline-secondary mt-3 bill-detail-back" href="{h(back_url)}" data-back-url="{h(back_url)}"><i class="bi bi-arrow-left"></i> 返回账单管理</a>''','bills'))
 
     def _bill_delete(self, bid, d=None):
         back_url = self._safe_bills_back_url(d)
@@ -111,15 +132,16 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
 
     def _bill_edit(self, bid):
         db=get_db()
-        b=db.execute('''SELECT b.*,r.building,r.unit,r.room_number,f.name ft,
+        cleanup_invalid_payments(db)
+        b=db.execute('''SELECT b.*,r.building,r.unit,r.room_number,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
-            FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE b.id=?''',(bid,)).fetchone()
+            FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE b.id=?''',(bid,)).fetchone()
         if not b:return self._error(404)
         db.close()
         self._html(self._page('修改金额',f'''
         <div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">账单信息</div>
         <div class="card-body"><table class="table table-borderless mb-0">
-        <tr><td class="text-muted">房间</td><td>{h(b["building"])}-{h(b["unit"])}-{h(b["room_number"])}</td></tr>
+        <tr><td class="text-muted">对象</td><td>{h(_bill_target_label(b))}</td></tr>
         <tr><td class="text-muted">费用</td><td><span class="badge bg-info">{h(b["ft"])}</span></td></tr>
         <tr><td class="text-muted">账期</td><td>{h(b["billing_period"])}</td></tr>
         <tr><td class="text-muted">当前金额</td><td><strong>¥{m(b["amount"])}</strong></td></tr>
@@ -138,10 +160,11 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         <div class="col-md-6"><label>审批人</label><input name="approved_by" class="form-control" value="管理员" placeholder="经办人/审批人"></div>
         <div class="col-12"><hr>
         <button class="btn btn-primary"><i class="bi bi-check-lg"></i> 确认修改</button>
-        <a href="/bills/{bid}" class="btn btn-outline-secondary">取消</a></div></form></div></div></div></div>''','bills'))
+        <a href="/bills" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回账单管理</a></div></form></div></div></div></div>''','bills'))
 
     def _bill_edit_post(self, bid, d):
         db=get_db()
+        cleanup_invalid_payments(db)
         new_amt=float(qs(d,'new_amount',0))
         if new_amt<=0:db.close();return self._redirect(f'/bills/{bid}/edit?flash=金额必须大于0')
         reason=qs(d,'notes','')
