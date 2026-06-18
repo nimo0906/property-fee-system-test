@@ -7,6 +7,7 @@ REQUIRED_DEPLOY_FILES = (
     ".env.example",
     "deploy/nginx/property-saas.conf",
     "deploy/systemd/property-saas.service",
+    "deploy/logrotate/property-saas",
     "scripts/saas_backup.sh",
     "scripts/saas_restore.sh",
     "scripts/saas_acceptance_check.py",

@@ -159,6 +159,17 @@ class TestSaasDeployIsolation(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('unsafe archive member', result.stdout)
 
+
+    def test_logrotate_config_keeps_saas_logs_bounded(self):
+        logrotate = self.root / 'deploy/logrotate/property-saas'
+        self.assertTrue(logrotate.exists(), 'missing SaaS logrotate config')
+        text = logrotate.read_text(encoding='utf-8')
+        self.assertIn('/var/log/property-saas/*.log', text)
+        self.assertIn('rotate 14', text)
+        self.assertIn('compress', text)
+        self.assertIn('missingok', text)
+        self.assertIn('copytruncate', text)
+
     def test_validator_checks_deployment_isolation_contract(self):
         result = validate_deployment_assets(self.root)
         self.assertTrue(result['ok'], result)
