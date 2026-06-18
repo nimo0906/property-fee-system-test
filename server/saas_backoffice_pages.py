@@ -52,10 +52,12 @@ def _backoffice_home(user):
     return _page('SaaS 员工后台', body)
 
 
-def register_backoffice_pages(app, current_user):
+def register_backoffice_pages(app, current_user, session_user=None):
     from fastapi import Depends
-    from fastapi.responses import HTMLResponse
+    from fastapi.responses import HTMLResponse, RedirectResponse
 
     @app.get('/backoffice', response_class=HTMLResponse)
-    def backoffice_home(user=Depends(current_user)):
+    def backoffice_home(user=Depends(session_user or current_user)):
+        if user.get('must_change_password'):
+            return RedirectResponse('/backoffice/change-password', status_code=303)
         return HTMLResponse(_backoffice_home(user))

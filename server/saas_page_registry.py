@@ -21,7 +21,7 @@ from server.saas_user_pages import register_user_pages
 
 
 def register_saas_pages(app, service, repository, current_user, sessions, session_user=None):
-    register_backoffice_pages(app, current_user)
+    register_backoffice_pages(app, current_user, session_user or current_user)
     register_tenant_admin_pages(app, service, repository, current_user)
     register_tenant_project_pages(app, service, repository, current_user)
     register_tenant_onboarding_pages(app, service, repository, current_user)

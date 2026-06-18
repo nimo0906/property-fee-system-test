@@ -52,6 +52,34 @@ class TestSaasChangePasswordPages(unittest.TestCase):
             self.assertEqual(me.status_code, 200)
             self.assertFalse(me.json()['must_change_password'])
 
+
+    def test_required_password_change_redirects_backoffice_to_change_password_page(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            admin = TestClient(create_app(database_url=db_url))
+            self.assertEqual(admin.post('/api/auth/login', json={
+                'tenant_name': '改密物业3',
+                'project_name': '改密项目3',
+                'username': 'admin',
+                'role_code': 'system_admin',
+            }).status_code, 200)
+            created = admin.post('/api/users', json={'username': 'cashier_redirect', 'role_code': 'cashier'})
+            user_id = created.json()['item']['id']
+            admin.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'Temp-pass-2026'})
+
+            staff = TestClient(create_app(database_url=db_url))
+            self.assertEqual(staff.post('/api/auth/login', json={
+                'tenant_name': '改密物业3',
+                'project_name': '改密项目3',
+                'username': 'cashier_redirect',
+                'role_code': 'cashier',
+                'password': 'Temp-pass-2026',
+            }).status_code, 200)
+
+            blocked = staff.get('/backoffice', follow_redirects=False)
+            self.assertEqual(blocked.status_code, 303)
+            self.assertEqual(blocked.headers['location'], '/backoffice/change-password')
+
     def test_wrong_old_password_stays_on_change_password_page(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
