@@ -71,6 +71,8 @@ def create_app(database_url=None):
     def set_user_active(user_id: int, data: UserActiveIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "manage_users")
+            if int(user_id) == int(user.get("id")) and not data.is_active:
+                raise PermissionDenied("cannot disable own account")
             if repository:
                 item = repository.set_user_active_for_actor(user, user_id, data.is_active)
             else:

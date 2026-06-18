@@ -195,6 +195,8 @@ def register_user_pages(app, service, repository, current_user, sessions):
         try:
             service._require(user, 'manage_users')
             enabled = bool(int(is_active))
+            if int(user_id) == int(user.get('id')) and not enabled:
+                raise PermissionDenied('cannot disable own account')
             item = repository.set_user_active_for_actor(user, user_id, enabled) if repository else service.set_user_active(user, user['project_id'], user_id, enabled)
             if not enabled:
                 for sid, session_user in list(sessions.items()):
