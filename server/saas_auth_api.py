@@ -30,7 +30,7 @@ def build_auth_dependencies(sessions):
 def register_auth_routes(app, service, repository, sessions, session_user):
     from fastapi import Depends, HTTPException, Response
 
-    from server.saas_api_models import LoginIn, PasswordChangeIn
+    from server.saas_api_models import LoginIn, PasswordChangeIn, ProjectSwitchIn
 
     @app.post("/api/auth/login")
     def login(data: LoginIn, response: Response):
@@ -56,7 +56,26 @@ def register_auth_routes(app, service, repository, sessions, session_user):
 
     @app.get("/api/auth/me")
     def me(user=Depends(session_user)):
-        return {"tenant_name": user["tenant_name"], "project_name": user["project_name"], "role_code": user["role_code"], "must_change_password": bool(user.get("must_change_password"))}
+        return {"tenant_name": user["tenant_name"], "project_name": user["project_name"], "project_id": user.get("project_id"), "role_code": user["role_code"], "must_change_password": bool(user.get("must_change_password"))}
+
+
+    @app.post("/api/auth/switch-project")
+    def switch_project(data: ProjectSwitchIn, user=Depends(session_user)):
+        try:
+            if user.get("must_change_password"):
+                raise HTTPException(status_code=403, detail="password change required")
+            if repository:
+                project = repository.get_project(data.project_id)
+                if not project or int(project["tenant_id"]) != int(user["tenant_id"]):
+                    raise HTTPException(status_code=403, detail="forbidden")
+            else:
+                project = service.projects.get(data.project_id)
+                if not project or project["tenant_id"] != user["tenant_id"]:
+                    raise HTTPException(status_code=403, detail="forbidden")
+            user.update({"project_id": project["id"], "project_name": project["name"]})
+            return {"ok": True, "project_id": project["id"], "project_name": project["name"]}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/auth/change-password")
     def change_password(data: PasswordChangeIn, user=Depends(session_user)):

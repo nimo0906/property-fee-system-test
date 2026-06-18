@@ -18,6 +18,10 @@ class PasswordChangeIn(BaseModel):
     new_password: str
 
 
+class ProjectSwitchIn(BaseModel):
+    project_id: int
+
+
 class FeeIn(BaseModel):
     name: str
     unit_price: float

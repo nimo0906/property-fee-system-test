@@ -11,14 +11,29 @@ def _tenant_name_map(tenants):
     return {int(t['id']): t.get('name') for t in tenants}
 
 
+def _project_row(user, platform, names, row):
+    action = ''
+    if not platform:
+        if int(row.get('id')) == int(user.get('project_id')):
+            action = '<span class="status on">当前项目</span>'
+        else:
+            action = (
+                f'<form method="post" action="/backoffice/tenant-projects/switch">'
+                f'<input type="hidden" name="project_id" value="{_h(row.get("id"))}">'
+                f'<button class="ghost">切换项目</button></form>'
+            )
+    return (
+        f'<tr><td>{_h(row.get("id"))}</td><td>{_h(names.get(int(row.get("tenant_id"))))}</td>'
+        f'<td><strong>{_h(row.get("name"))}</strong></td><td>{_h(row.get("code"))}</td>'
+        f'<td>{"启用" if row.get("is_active", 1) else "停用"}</td><td>{action}</td></tr>'
+    )
+
+
 def _render_page(user, tenants, projects, message=''):
     platform = user.get('role_code') == 'platform_admin'
     title_badge = '平台租户视图' if platform else '本租户项目视图'
     names = _tenant_name_map(tenants)
-    rows = ''.join(
-        f'''<tr><td>{_h(row.get('id'))}</td><td>{_h(names.get(int(row.get('tenant_id'))))}</td><td><strong>{_h(row.get('name'))}</strong></td><td>{_h(row.get('code'))}</td><td>{'启用' if row.get('is_active', 1) else '停用'}</td></tr>'''
-        for row in projects
-    ) or '<tr><td colspan="5">暂无项目</td></tr>'
+    rows = ''.join(_project_row(user, platform, names, row) for row in projects) or '<tr><td colspan="6">暂无项目</td></tr>'
     tenant_rows = ''.join(
         f'''<tr><td>{_h(row.get('id'))}</td><td><strong>{_h(row.get('name'))}</strong></td><td>{_h(row.get('status'))}</td></tr>'''
         for row in tenants
@@ -28,7 +43,7 @@ def _render_page(user, tenants, projects, message=''):
     tenant_card = f'''<section class="card" style="margin-top:18px"><div class="card-h">租户列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>状态</th></tr></thead><tbody>{tenant_rows}</tbody></table></div></section>''' if platform else ''
     body = f'''
 <section class="hero"><div><h1>租户项目管理</h1><div class="sub">正式商业版用于确认公司租户和项目边界。租户管理员只能维护本公司项目，平台管理员只读查看租户全局。</div></div><div class="badge tenant-scope">{_h(title_badge)}</div></section>{notice}
-<section class="grid"><div class="card"><div class="card-h">项目列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>项目</th><th>编码</th><th>状态</th></tr></thead><tbody>{rows}</tbody></table></div></div>{create_form}</section>{tenant_card}'''
+<section class="grid"><div class="card"><div class="card-h">项目列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>项目</th><th>编码</th><th>状态</th><th>操作</th></tr></thead><tbody>{rows}</tbody></table></div></div>{create_form}</section>{tenant_card}'''
     return _page('租户项目管理', body)
 
 
@@ -53,6 +68,22 @@ def register_tenant_project_pages(app, service, repository, current_user):
         try:
             tenants, projects = _items(user, repository, service)
             return HTMLResponse(_render_page(user, tenants, projects, message))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/tenant-projects/switch')
+    def switch_project_page(project_id: int = Form(...), user=Depends(current_user)):
+        try:
+            if repository:
+                project = repository.get_project(project_id)
+                if not project or int(project['tenant_id']) != int(user['tenant_id']):
+                    raise PermissionDenied('cross tenant project')
+            else:
+                project = service.projects.get(project_id)
+                if not project or project['tenant_id'] != user['tenant_id']:
+                    raise PermissionDenied('cross tenant project')
+            user.update({'project_id': project['id'], 'project_name': project['name']})
+            return RedirectResponse('/backoffice/tenant-projects?message=项目已切换', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 

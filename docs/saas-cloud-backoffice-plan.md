@@ -29,6 +29,7 @@
 - 云端上线清单页面：`/backoffice/deploy-checklist` 展示 VPS 部署资产、预检脚本、验收脚本、Docker Compose、Nginx、systemd、备份恢复脚本、目录隔离和 HTTPS 上线提醒；页面只读，不展示生产密钥或环境变量值。
 - 租户管理员控制台：`/backoffice/tenant-admin` 提供本公司账号列表、停用/启用、重置密码入口，并强调客户上传数据与系统自身数据隔离。
 - 租户项目管理页面：`/backoffice/tenant-projects` 提供项目列表与创建入口；租户管理员只能维护本公司项目，平台管理员可只读查看全局租户与项目，但不在此页创建项目。
+- 项目切换：员工可通过 `POST /api/auth/switch-project` 或租户项目页面在本租户项目间切换；切换后收费对象、收费项目、账单、收款、报表都按当前项目读取，跨租户项目切换返回 403。
 - 后台首页入口：`/backoffice` 展示当前租户、项目、角色和可见模块，账号管理、租户管理员控制台、租户项目管理、云端上线清单从首页可发现，非管理员只看到权限说明。
 - 收费对象页面：`/backoffice/charge-targets` 支持查看和新增楼栋/区域、单元/分区、房号/铺位号，写入仍按 tenant/project scope 隔离。
 - 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
