@@ -86,6 +86,43 @@ class TestSaasTenantStatusPages(unittest.TestCase):
             self.assertIn('tenant.activate', [row['action'] for row in logs])
             repo.close()
 
+
+    def test_suspending_tenant_blocks_existing_sessions(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            platform = self._client(db_url)
+            self._onboard_customer(platform)
+            repo = create_saas_repository(db_url)
+            tenant = next(row for row in repo.list_tenants() if row['name'] == '停用客户物业')
+            repo.close()
+
+            tenant_client = TestClient(create_app(database_url=db_url))
+            login = tenant_client.post('/api/auth/login', json={
+                'tenant_name': '停用客户物业',
+                'project_name': '停用客户项目',
+                'username': 'tenant_admin_suspend',
+                'role_code': 'system_admin',
+                'password': 'Init-pass-2026',
+            })
+            self.assertEqual(login.status_code, 200)
+            changed = tenant_client.post('/api/auth/change-password', json={
+                'old_password': 'Init-pass-2026',
+                'new_password': 'Changed-pass-2026',
+            })
+            self.assertEqual(changed.status_code, 200)
+            before_suspend = tenant_client.get('/api/charge-targets')
+            self.assertEqual(before_suspend.status_code, 200)
+
+            suspended = platform.post('/backoffice/tenant-projects/tenant-status', data={
+                'tenant_id': str(tenant['id']),
+                'status': 'suspended',
+            }, follow_redirects=False)
+            self.assertEqual(suspended.status_code, 303)
+
+            blocked = tenant_client.get('/api/charge-targets')
+            self.assertEqual(blocked.status_code, 403)
+            self.assertIn('tenant inactive', blocked.text)
+
     def test_tenant_admin_cannot_change_tenant_status(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

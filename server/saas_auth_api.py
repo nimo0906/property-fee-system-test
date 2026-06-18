@@ -7,7 +7,7 @@ from server.saas_login_helpers import repository_login_context, user_must_change
 from server.saas_service import PermissionDenied
 
 
-def build_auth_dependencies(sessions):
+def build_auth_dependencies(sessions, repository=None):
     from fastapi import Cookie, HTTPException
 
     def session_user(session_id: str = Cookie(default="")):
@@ -16,6 +16,10 @@ def build_auth_dependencies(sessions):
             raise HTTPException(status_code=401, detail="unauthenticated")
         if not user.get("is_active", 1):
             raise HTTPException(status_code=401, detail="inactive user")
+        if repository:
+            tenant = repository.get_tenant(user.get("tenant_id"))
+            if tenant and tenant.get("status") != "active":
+                raise HTTPException(status_code=403, detail="tenant inactive")
         return user
 
     def current_user(session_id: str = Cookie(default="")):

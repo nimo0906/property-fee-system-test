@@ -29,7 +29,7 @@ def create_app(database_url=None):
     sessions = {}
     storage = SaasStorage(root_dir="/var/lib/property-saas")
 
-    current_user, session_user = build_auth_dependencies(sessions)
+    current_user, session_user = build_auth_dependencies(sessions, repository)
     app.state.current_user = current_user
     register_saas_pages(app, service, repository, current_user, sessions)
     register_billing_routes(app, service)
