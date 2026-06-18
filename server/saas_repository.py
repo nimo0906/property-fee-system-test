@@ -132,6 +132,13 @@ class SaasRepository:
         return self._row("""SELECT id,tenant_id,project_id,name,unit_price FROM fee_types
             WHERE tenant_id=:tenant_id AND project_id=:project_id AND id=:id""", {"tenant_id": tenant_id, "project_id": project_id, "id": fee_type_id})
 
+    def list_fee_types(self, tenant_id, project_id):
+        self._require_project_scope(tenant_id, project_id)
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("""SELECT id,tenant_id,project_id,name,unit_price FROM fee_types
+                WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+            return [dict(r) for r in rows]
+
     def create_bill(self, tenant_id, project_id, target_id, fee_type_id, period, service_start, service_end, amount, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
         validate_bill_scope(self, tenant_id, project_id, target_id, fee_type_id)

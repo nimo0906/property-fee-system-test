@@ -286,4 +286,6 @@ class SaasBackofficeService:
 
 
 from server.saas_billing_service import attach_billing_methods
+from server.saas_fee_type_service import attach_fee_type_methods
 attach_billing_methods(SaasBackofficeService)
+attach_fee_type_methods(SaasBackofficeService)

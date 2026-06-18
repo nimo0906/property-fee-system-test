@@ -21,7 +21,7 @@ def _backoffice_home(user):
     cards = ''.join([
         user_card,
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
-        _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', None, '后续接入'),
+        _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
         _module_card('出账收款', '生成账单、审核账单、登记收款、查看欠费。', None, '后续接入'),
     ])
     body = f'''
