@@ -65,12 +65,30 @@ class SimpleSaasHttpApp:
         user = self._session_user(headers.get('Cookie', ''))
         if not user:
             return self._json_response(401, {'detail': 'unauthenticated'})
-        if path == '/charge-targets':
-            try:
+        try:
+            if path == '/charge-targets':
                 target = self.service.create_charge_target(user, user['project_id'], json_body['building'], json_body.get('unit', ''), json_body['room_number'], json_body.get('category', '居民'), json_body.get('area', 0))
                 return self._json_response(200, {'item': target})
-            except PermissionDenied:
-                return self._json_response(403, {'detail': 'forbidden'})
+            if path == '/fee-types':
+                fee = self.service.create_fee_type(user, user['project_id'], json_body['name'], json_body['unit_price'])
+                return self._json_response(200, {'item': fee})
+            if path == '/imports/charge-targets/preview':
+                preview = self.service.preview_charge_target_import(user, user['project_id'], json_body.get('rows', []))
+                return self._json_response(200, preview)
+            if path == '/imports/charge-targets/confirm':
+                result = self.service.confirm_charge_target_import(user, user['project_id'], json_body['import_id'])
+                return self._json_response(200, result)
+            if path == '/bills/generate':
+                self.service._require(user, 'billing')
+                target = self.service.targets[json_body['target_id']]
+                fee = self.service.fees[json_body['fee_type_id']]
+                bill = self.service.generate_bill(user, user['project_id'], target, fee, json_body['billing_period'], json_body['service_start'], json_body['service_end'])
+                return self._json_response(200, {'item': bill})
+            if path == '/payments':
+                payment = self.service.record_payment(user, json_body['bill_id'], json_body['amount'], json_body.get('method', ''), json_body.get('idempotency_key'))
+                return self._json_response(200, {'item': payment})
+        except PermissionDenied:
+            return self._json_response(403, {'detail': 'forbidden'})
         return self._json_response(404, {'detail': 'not found'})
 
     def get(self, path, headers=None):
@@ -88,6 +106,14 @@ class SimpleSaasHttpApp:
                 return self._json_response(200, {'items': items})
             except PermissionDenied:
                 return self._json_response(403, {'detail': 'forbidden'})
+        if path.startswith('/reports/summary'):
+            period = ''
+            if '?' in path:
+                for part in path.split('?', 1)[1].split('&'):
+                    if part.startswith('period='):
+                        period = part.split('=', 1)[1]
+            report = self.service.report(user, user['project_id'], period)
+            return self._json_response(200, report)
         return self._json_response(404, {'detail': 'not found'})
 
 
