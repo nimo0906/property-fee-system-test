@@ -37,6 +37,22 @@ def create_app():
     class ImportPreviewIn(BaseModel):
         rows: list
 
+    class ImportConfirmIn(BaseModel):
+        import_id: int
+
+    class BillGenerateIn(BaseModel):
+        target_id: int
+        fee_type_id: int
+        billing_period: str
+        service_start: str
+        service_end: str
+
+    class PaymentIn(BaseModel):
+        bill_id: int
+        amount: float
+        method: str = ""
+        idempotency_key: str = ""
+
     def current_user(session_id: str = Cookie(default="")):
         user = sessions.get(session_id)
         if not user:
@@ -81,6 +97,55 @@ def create_app():
     def preview_import(data: ImportPreviewIn, user=__import__('fastapi').Depends(current_user)):
         try:
             return service.preview_charge_target_import(user, user["project_id"], data.rows)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.get("/api/charge-targets")
+    def list_targets(user=__import__('fastapi').Depends(current_user)):
+        try:
+            return {"items": service.list_charge_targets(user, user["project_id"])}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.post("/api/imports/charge-targets/confirm")
+    def confirm_import(data: ImportConfirmIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            return service.confirm_charge_target_import(user, user["project_id"], data.import_id)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.post("/api/bills/generate")
+    def generate_bill(data: BillGenerateIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            service._require(user, "billing")
+            target = service.targets[data.target_id]
+            fee = service.fees[data.fee_type_id]
+            return {"item": service.generate_bill(user, user["project_id"], target, fee, data.billing_period, data.service_start, data.service_end)}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.post("/api/payments")
+    def record_payment(data: PaymentIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            return {"item": service.record_payment(user, data.bill_id, data.amount, data.method, data.idempotency_key or None)}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.get("/api/reports/summary")
+    def report_summary(period: str, user=__import__('fastapi').Depends(current_user)):
+        return service.report(user, user["project_id"], period)
+
+    @app.get("/api/audit-logs")
+    def audit_logs(user=__import__('fastapi').Depends(current_user)):
+        try:
+            return {"items": service.list_audit_logs(user, user["project_id"])}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.post("/api/backups/create")
+    def create_backup(user=__import__('fastapi').Depends(current_user)):
+        try:
+            return {"item": service.create_backup_marker(user, user["project_id"])}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
