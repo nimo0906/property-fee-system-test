@@ -95,6 +95,8 @@ def register_auth_routes(app, service, repository, sessions, session_user):
     @app.post("/api/auth/change-password")
     def change_password(data: PasswordChangeIn, user=Depends(session_user)):
         try:
+            if len(data.new_password or "") < 8:
+                raise HTTPException(status_code=400, detail="new password too short")
             if repository:
                 stored = repository.get_user(user["id"])
                 if not stored or not verify_password(data.old_password, stored.get("password_hash")):
