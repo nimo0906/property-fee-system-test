@@ -31,31 +31,58 @@ def _tenant_row(user, row):
     return f'''<tr><td>{_h(row.get('id'))}</td><td><strong>{_h(row.get('name'))}</strong></td><td>{_h(row.get('status'))}</td><td>{action}</td></tr>'''
 
 
-def _render_page(user, tenants, projects, message=''):
+def _filter_platform_items(tenants, projects, tenant_q='', tenant_status=''):
+    q = str(tenant_q or '').strip().lower()
+    status = str(tenant_status or '').strip()
+    if status not in {'', 'active', 'suspended'}:
+        status = ''
+    rows = []
+    for tenant in tenants:
+        if q and q not in str(tenant.get('name') or '').lower():
+            continue
+        if status and tenant.get('status') != status:
+            continue
+        rows.append(tenant)
+    ids = {int(row['id']) for row in rows}
+    return rows, [p for p in projects if int(p.get('tenant_id')) in ids], {'tenant_q': tenant_q or '', 'tenant_status': status}
+
+
+def _filter_form(filters):
+    q = _h(filters.get('tenant_q', ''))
+    status = filters.get('tenant_status', '')
+    options = ''.join(
+        f'<option value="{value}"{" selected" if status == value else ""}>{label}</option>'
+        for value, label in [('', '全部状态'), ('active', '启用'), ('suspended', '停用')]
+    )
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-b"><form method="get" action="/backoffice/tenant-projects" class="filters"><div><label>客户关键词</label><input name="tenant_q" value="{q}" placeholder="公司名称"></div><div><label>租户状态</label><select name="tenant_status">{options}</select></div><div><button class="primary">筛选租户</button></div></form></div></section>'''
+
+
+def _render_page(user, tenants, projects, message='', filters=None):
     platform = user.get('role_code') == 'platform_admin'
     title_badge = '平台租户视图' if platform else '本租户项目视图'
     names = _tenant_name_map(tenants)
     rows = ''.join(_project_row(user, platform, names, row) for row in projects) or '<tr><td colspan="6">暂无项目</td></tr>'
     tenant_rows = ''.join(_tenant_row(user, row) for row in tenants)
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
+    filter_bar = _filter_form(filters or {}) if platform else ''
     create_form = '' if platform else '''<aside class="card"><div class="card-h">新增本公司项目</div><div class="card-b"><form method="post" action="/backoffice/tenant-projects/create"><label>项目名称</label><input name="name" required placeholder="例如 一期 / 二期 / 商业街"><label>项目编码</label><input name="code" placeholder="例如 A-001"><button class="primary">创建项目</button><div class="hint">新项目只归属当前公司，后续收费对象、账单、收款都会按项目隔离。</div></form></div></aside>'''
     tenant_card = f'''<section class="card" style="margin-top:18px"><div class="card-h">租户列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>状态</th><th>操作</th></tr></thead><tbody>{tenant_rows}</tbody></table></div></section>''' if platform else ''
     body = f'''
-<section class="hero"><div><h1>租户项目管理</h1><div class="sub">正式商业版用于确认公司租户和项目边界。租户管理员只能维护本公司项目，平台管理员只读查看租户全局。</div></div><div class="badge tenant-scope">{_h(title_badge)}</div></section>{notice}
+<section class="hero"><div><h1>租户项目管理</h1><div class="sub">正式商业版用于确认公司租户和项目边界。租户管理员只能维护本公司项目，平台管理员只读查看租户全局。</div></div><div class="badge tenant-scope">{_h(title_badge)}</div></section>{notice}{filter_bar}
 <section class="grid"><div class="card"><div class="card-h">项目列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>项目</th><th>编码</th><th>状态</th><th>操作</th></tr></thead><tbody>{rows}</tbody></table></div></div>{create_form}</section>{tenant_card}'''
     return _page('租户项目管理', body)
 
 
-def _items(user, repository, service):
+def _items(user, repository, service, tenant_q='', tenant_status=''):
     if user.get('role_code') not in {'system_admin', 'platform_admin'}:
         raise PermissionDenied('admin only')
     if repository:
-        tenants = repository.list_tenants() if user.get('role_code') == 'platform_admin' else [repository.get_tenant(user['tenant_id'])]
-        projects = repository.list_projects() if user.get('role_code') == 'platform_admin' else repository.list_projects(user['tenant_id'])
-        return tenants, projects
+        if user.get('role_code') == 'platform_admin':
+            return _filter_platform_items(repository.list_tenants(), repository.list_projects(), tenant_q, tenant_status)
+        return [repository.get_tenant(user['tenant_id'])], repository.list_projects(user['tenant_id']), {}
     tenant = service.tenants[user['tenant_id']]
     projects = [p for p in service.projects.values() if p['tenant_id'] == user['tenant_id']]
-    return [tenant], projects
+    return [tenant], projects, {}
 
 
 def register_tenant_project_pages(app, service, repository, current_user):
@@ -63,10 +90,10 @@ def register_tenant_project_pages(app, service, repository, current_user):
     from fastapi.responses import HTMLResponse, RedirectResponse
 
     @app.get('/backoffice/tenant-projects', response_class=HTMLResponse)
-    def tenant_project_page(user=Depends(current_user), message: str = ''):
+    def tenant_project_page(user=Depends(current_user), message: str = '', tenant_q: str = '', tenant_status: str = ''):
         try:
-            tenants, projects = _items(user, repository, service)
-            return HTMLResponse(_render_page(user, tenants, projects, message))
+            tenants, projects, filters = _items(user, repository, service, tenant_q, tenant_status)
+            return HTMLResponse(_render_page(user, tenants, projects, message, filters))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 

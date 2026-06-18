@@ -123,6 +123,45 @@ class TestSaasTenantStatusPages(unittest.TestCase):
             self.assertEqual(blocked.status_code, 403)
             self.assertIn('tenant inactive', blocked.text)
 
+
+    def test_platform_admin_can_filter_tenants_by_keyword_and_status(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            platform = self._client(db_url)
+            platform.post('/backoffice/tenant-onboarding/create', data={
+                'tenant_name': '东区物业',
+                'project_name': '东区一期',
+                'admin_username': 'east_admin',
+                'admin_password': 'Init-pass-2026',
+            }, follow_redirects=False)
+            platform.post('/backoffice/tenant-onboarding/create', data={
+                'tenant_name': '西区物业',
+                'project_name': '西区一期',
+                'admin_username': 'west_admin',
+                'admin_password': 'Init-pass-2026',
+            }, follow_redirects=False)
+            repo = create_saas_repository(db_url)
+            west = next(row for row in repo.list_tenants() if row['name'] == '西区物业')
+            repo.close()
+            platform.post('/backoffice/tenant-projects/tenant-status', data={
+                'tenant_id': str(west['id']),
+                'status': 'suspended',
+            }, follow_redirects=False)
+
+            keyword = platform.get('/backoffice/tenant-projects?tenant_q=东区')
+            self.assertEqual(keyword.status_code, 200)
+            self.assertIn('东区物业', keyword.text)
+            self.assertIn('东区一期', keyword.text)
+            self.assertNotIn('西区物业', keyword.text)
+            self.assertIn('tenant_q', keyword.text)
+
+            suspended = platform.get('/backoffice/tenant-projects?tenant_status=suspended')
+            self.assertEqual(suspended.status_code, 200)
+            self.assertIn('西区物业', suspended.text)
+            self.assertIn('西区一期', suspended.text)
+            self.assertNotIn('东区物业', suspended.text)
+            self.assertIn('tenant_status', suspended.text)
+
     def test_tenant_admin_cannot_change_tenant_status(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
