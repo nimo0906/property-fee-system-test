@@ -46,6 +46,10 @@ verify_metadata() {
     echo "missing backup metadata or manifest" >&2
     exit 2
   fi
+  if ! grep -q '"kind":"property-saas-backup"' "$metadata" || ! grep -q '"checksums":"checksums.sha256"' "$metadata"; then
+    echo "invalid backup metadata" >&2
+    exit 2
+  fi
   (cd "$backup_dir" && sha256sum -c "checksums.sha256")
 }
 

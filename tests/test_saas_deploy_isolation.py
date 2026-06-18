@@ -71,6 +71,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertIn('checksums', backup)
         self.assertIn('--verify-metadata', restore)
         self.assertIn('sha256sum -c', restore)
+        self.assertIn('invalid backup metadata', restore)
 
     def test_restore_verify_metadata_detects_tampered_backup_file(self):
         import subprocess
@@ -84,7 +85,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
             manifest = backup_dir / 'checksums.sha256'
             metadata = backup_dir / 'metadata.json'
             subprocess.run(['sha256sum', 'db/property_saas.sql'], cwd=backup_dir, text=True, stdout=manifest.open('w'), check=True)
-            metadata.write_text('{"checksums":"checksums.sha256"}', encoding='utf-8')
+            metadata.write_text('{"kind":"property-saas-backup","checksums":"checksums.sha256"}', encoding='utf-8')
             ok = subprocess.run(['bash', 'scripts/saas_restore.sh', '--verify-metadata', str(backup_dir)], cwd=self.root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
             self.assertEqual(ok.returncode, 0, ok.stdout)
             db.write_text('select 2;', encoding='utf-8')
@@ -92,6 +93,22 @@ class TestSaasDeployIsolation(unittest.TestCase):
             self.assertNotEqual(bad.returncode, 0)
             self.assertIn('FAILED', bad.stdout)
 
+
+    def test_restore_verify_metadata_rejects_invalid_metadata_kind(self):
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            backup_dir = Path(td) / 'backup'
+            (backup_dir / 'db').mkdir(parents=True)
+            db = backup_dir / 'db/property_saas.sql'
+            db.write_text('select 1;', encoding='utf-8')
+            manifest = backup_dir / 'checksums.sha256'
+            subprocess.run(['sha256sum', 'db/property_saas.sql'], cwd=backup_dir, text=True, stdout=manifest.open('w'), check=True)
+            (backup_dir / 'metadata.json').write_text('{"kind":"not-property-backup","checksums":"checksums.sha256"}', encoding='utf-8')
+            result = subprocess.run(['bash', 'scripts/saas_restore.sh', '--verify-metadata', str(backup_dir)], cwd=self.root, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('invalid backup metadata', result.stdout)
     def test_restore_script_requires_explicit_scope(self):
         script = (self.root / 'scripts/saas_restore.sh').read_text(encoding='utf-8')
         self.assertIn('--database', script)
