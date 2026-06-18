@@ -71,6 +71,13 @@ def inspect_compose_restart_policy(compose_text):
     }
 
 
+def inspect_compose_healthcheck(compose_text):
+    text = str(compose_text or "")
+    has = "healthcheck:" in text and "pg_isready" in text
+    test = "pg_isready" if "pg_isready" in text else ""
+    return {"postgres_has_healthcheck": has, "postgres_test": test}
+
+
 def validate_deployment_assets(root):
     files = []
     missing = []
@@ -90,8 +97,9 @@ def validate_deployment_assets(root):
     compose_text = compose_path.read_text(encoding="utf-8") if compose_path.exists() else ""
     port_binding = inspect_compose_port_binding(compose_text) if compose_path.exists() else {"localhost_only": False, "ports": []}
     restart_policy = inspect_compose_restart_policy(compose_text)
+    healthcheck = inspect_compose_healthcheck(compose_text)
     return {
-        "ok": not missing and env_secure and port_binding["localhost_only"] and all(restart_policy.values()),
+        "ok": not missing and env_secure and port_binding["localhost_only"] and all(restart_policy.values()) and healthcheck["postgres_has_healthcheck"],
         "files": files,
         "missing": missing,
         "isolation": ISOLATION_CONTRACT,
@@ -99,4 +107,5 @@ def validate_deployment_assets(root):
         "nginx_tls": nginx_tls,
         "port_binding": port_binding,
         "restart_policy": restart_policy,
+        "healthcheck": healthcheck,
     }
