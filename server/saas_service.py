@@ -32,6 +32,7 @@ class SaasBackofficeService:
         self.payments = {}
         self.payment_keys = {}
         self.imports = {}
+        self.audit_logs = []
 
     def _id(self):
         value = self._seq
@@ -45,6 +46,22 @@ class SaasBackofficeService:
     def _same_tenant_project(self, user, project_id):
         project = self.projects.get(project_id)
         return bool(project and project["tenant_id"] == user["tenant_id"])
+
+    def _log(self, user, project_id, action, entity_type=None, entity_id=None, detail=None):
+        row = {
+            "id": self._id(),
+            "tenant_id": user["tenant_id"],
+            "project_id": project_id,
+            "user_id": user["id"],
+            "username": user["username"],
+            "role_code": user["role_code"],
+            "action": action,
+            "entity_type": entity_type,
+            "entity_id": entity_id,
+            "detail": detail or {},
+        }
+        self.audit_logs.append(row)
+        return row
 
     def create_tenant(self, name):
         tid = self._id()
@@ -71,6 +88,7 @@ class SaasBackofficeService:
                   "building": building, "unit": unit, "room_number": room_number,
                   "category": category, "area": float(area)}
         self.targets[tid] = target
+        self._log(user, project_id, 'charge_target.create', 'charge_target', tid, {'building': building, 'room_number': room_number})
         return target
 
     def list_charge_targets(self, user, project_id):
@@ -87,6 +105,7 @@ class SaasBackofficeService:
         fee = {"id": fid, "tenant_id": user["tenant_id"], "project_id": project_id,
                "name": name, "unit_price": float(unit_price)}
         self.fees[fid] = fee
+        self._log(user, project_id, 'fee_type.create', 'fee_type', fid, {'name': name, 'unit_price': float(unit_price)})
         return fee
 
     def generate_bill(self, user, project_id, target, fee, period, service_start, service_end):
@@ -100,6 +119,7 @@ class SaasBackofficeService:
                 "billing_period": period, "service_start": service_start, "service_end": service_end,
                 "bill_number": f"BILL-{bid:06d}", "amount": amount, "status": "unpaid"}
         self.bills[bid] = bill
+        self._log(user, project_id, 'bill.generate', 'bill', bid, {'bill_number': bill['bill_number'], 'amount': amount, 'billing_period': period})
         return bill
 
     def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
@@ -119,6 +139,7 @@ class SaasBackofficeService:
             self.payment_keys[key] = pid
         paid = sum(p["amount_paid"] for p in self.payments.values() if p["bill_id"] == bill_id)
         bill["status"] = "paid" if paid >= bill["amount"] else "partial"
+        self._log(user, bill['project_id'], 'payment.record', 'payment', pid, {'bill_id': bill_id, 'amount_paid': float(amount), 'method': method, 'idempotency_key': idempotency_key})
         return payment
 
     def report(self, user, project_id, period):
@@ -145,6 +166,7 @@ class SaasBackofficeService:
         iid = self._id()
         self.imports[iid] = {"id": iid, "tenant_id": user["tenant_id"], "project_id": project_id,
                              "valid_rows": valid, "errors": errors, "confirmed": False}
+        self._log(user, project_id, 'import.preview', 'import', iid, {'valid_count': len(valid), 'error_count': len(errors)})
         return {"import_id": iid, "valid_count": len(valid), "error_count": len(errors), "errors": errors}
 
     def confirm_charge_target_import(self, user, project_id, import_id):
@@ -158,4 +180,26 @@ class SaasBackofficeService:
                                       row["room_number"], row.get("category", "居民"), row["area"])
             created += 1
         imp["confirmed"] = True
+        self._log(user, project_id, 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': len(imp['errors'])})
         return {"created_count": created, "skipped_count": len(imp["errors"])}
+
+    def list_audit_logs(self, user, project_id):
+        self._require(user, 'read')
+        if not self._same_tenant_project(user, project_id):
+            return []
+        return [row for row in self.audit_logs if row['tenant_id'] == user['tenant_id'] and row['project_id'] == project_id]
+
+    def create_backup_marker(self, user, project_id):
+        if user['role_code'] != 'system_admin':
+            raise PermissionDenied('backup requires admin')
+        self._log(user, project_id, 'backup.create', 'backup', None, {'kind': 'manual'})
+        return {'backup_id': f"backup-{self._id():06d}"}
+
+    def reset_user_password(self, user, target_user_id, new_password):
+        if user['role_code'] != 'system_admin':
+            raise PermissionDenied('password reset requires admin')
+        target = self.users[target_user_id]
+        target['password_hash'] = f"hash:{new_password}"
+        project_id = next((p['id'] for p in self.projects.values() if p['tenant_id'] == target['tenant_id']), target['tenant_id'])
+        self._log(user, project_id, 'user.password_reset', 'user', target_user_id, {'target_user_id': target_user_id})
+        return {'user_id': target_user_id}

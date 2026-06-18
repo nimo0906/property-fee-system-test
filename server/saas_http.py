@@ -87,6 +87,10 @@ class SimpleSaasHttpApp:
             if path == '/payments':
                 payment = self.service.record_payment(user, json_body['bill_id'], json_body['amount'], json_body.get('method', ''), json_body.get('idempotency_key'))
                 return self._json_response(200, {'item': payment})
+            if path == '/audit-logs':
+                return self._json_response(200, {'items': self.service.list_audit_logs(user, user['project_id'])})
+            if path == '/backups/create':
+                return self._json_response(200, {'item': self.service.create_backup_marker(user, user['project_id'])})
         except PermissionDenied:
             return self._json_response(403, {'detail': 'forbidden'})
         return self._json_response(404, {'detail': 'not found'})
@@ -104,6 +108,11 @@ class SimpleSaasHttpApp:
             try:
                 items = self.service.list_charge_targets(user, user['project_id'])
                 return self._json_response(200, {'items': items})
+            except PermissionDenied:
+                return self._json_response(403, {'detail': 'forbidden'})
+        if path == '/audit-logs':
+            try:
+                return self._json_response(200, {'items': self.service.list_audit_logs(user, user['project_id'])})
             except PermissionDenied:
                 return self._json_response(403, {'detail': 'forbidden'})
         if path.startswith('/reports/summary'):
