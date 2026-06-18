@@ -196,8 +196,8 @@ class SaasBackofficeService:
 
     def get_import_review(self, user, project_id, import_id):
         self._require(user, "import")
-        imp = self.imports[import_id]
-        if imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
+        imp = self.imports.get(import_id)
+        if not imp or imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
             raise PermissionDenied("cross tenant import")
         return {
             "import_id": import_id,
@@ -212,8 +212,8 @@ class SaasBackofficeService:
 
     def confirm_charge_target_import(self, user, project_id, import_id):
         self._require(user, "import")
-        imp = self.imports[import_id]
-        if imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
+        imp = self.imports.get(import_id)
+        if not imp or imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
             raise PermissionDenied("cross tenant import")
         if imp["confirmed"]:
             return {"created_count": 0, "skipped_count": len(imp["errors"])}

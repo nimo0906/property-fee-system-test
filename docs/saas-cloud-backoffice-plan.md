@@ -21,6 +21,7 @@
 - 账单生成与审核页面：`/backoffice/bills` 支持按收费对象和收费项目生成账单、按账期/状态查询列表、待审核账单页面审核通过；财务和管理员可出账/审核，收费员只读，所有账单按 tenant/project scope 隔离。
 - 收款登记页面：`/backoffice/payments` 支持登记已审核账单收款和查看收款列表；财务、收费员、管理员可收款，管理层只读，收款和账单状态按 tenant/project scope 隔离。
 - 对账报表页面：`/backoffice/reports` 支持按账期查看账单数量、应收、实收和欠费；管理层只读可看，所有报表按 tenant/project scope 隔离。
+- 数据导入页面：`/backoffice/imports` 支持收费对象 CSV 文本预览、确认导入；预览不写库，确认只写有效行，错误行不污染正式数据，导入记录按 tenant/project scope 校验。
 - 后台首页入口：`/backoffice` 展示当前租户、项目、角色和可见模块，账号管理从首页可发现，非管理员只看到权限说明。
 - 收费对象页面：`/backoffice/charge-targets` 支持查看和新增楼栋/区域、单元/分区、房号/铺位号，写入仍按 tenant/project scope 隔离。
 - 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
