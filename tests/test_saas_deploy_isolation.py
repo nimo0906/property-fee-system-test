@@ -30,6 +30,31 @@ class TestSaasDeployIsolation(unittest.TestCase):
             self.assertIn(key, env)
         self.assertNotIn('sk-', env)
 
+    def test_env_security_validator_rejects_weak_secret_placeholders(self):
+        from server.saas_deploy import validate_env_security
+
+        weak = validate_env_security({
+            'POSTGRES_PASSWORD': 'replace-with-random-password',
+            'APP_SECRET_KEY': 'replace-with-32-byte-random-secret',
+        })
+        self.assertFalse(weak['ok'])
+        self.assertIn('POSTGRES_PASSWORD', weak['weak'])
+        self.assertIn('APP_SECRET_KEY', weak['weak'])
+
+        strong = validate_env_security({
+            'POSTGRES_PASSWORD': 'P@ssw0rd-2026-tenant-safe-9c5f1e7b',
+            'APP_SECRET_KEY': '0123456789abcdef0123456789abcdef',
+        })
+        self.assertTrue(strong['ok'], strong)
+        self.assertEqual(strong['weak'], [])
+
+    def test_env_example_uses_safe_instructional_secret_format(self):
+        env = (self.root / '.env.example').read_text(encoding='utf-8')
+        self.assertNotIn('replace-with-random-password', env)
+        self.assertNotIn('replace-with-32-byte-random-secret', env)
+        self.assertIn('generate-postgres-password-with-openssl-rand-hex-32', env)
+        self.assertIn('generate-app-secret-with-openssl-rand-hex-32', env)
+
     def test_backup_script_keeps_database_and_files_in_separate_subdirectories(self):
         script = (self.root / 'scripts/saas_backup.sh').read_text(encoding='utf-8')
         self.assertIn('db/', script)
@@ -53,6 +78,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertEqual(result['isolation']['system_files'], '/var/lib/property-saas/system')
         self.assertEqual(result['isolation']['backups'], '/var/backups/property-saas')
         self.assertEqual(result['isolation']['logs'], '/var/log/property-saas')
+        self.assertTrue(result['env_example_secure'], result)
 
 
 if __name__ == '__main__':
