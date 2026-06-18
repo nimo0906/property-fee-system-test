@@ -9,6 +9,7 @@ REQUIRED_DEPLOY_FILES = (
     "deploy/systemd/property-saas.service",
     "scripts/saas_backup.sh",
     "scripts/saas_restore.sh",
+    "scripts/saas_acceptance_check.py",
 )
 
 

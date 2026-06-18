@@ -2,26 +2,53 @@
 
 ## 当前阶段
 
-第一批切片只建立云端后台并行骨架，不改桌面 SQLite 主流程。
+当前主线是正式商业版 SaaS 云端后台，保持与桌面 SQLite 交付并行，不破坏现有桌面版。
 
-已包含：
+已落地能力：
 
-- 多租户 PostgreSQL schema 合同。
-- SQLite 到 SaaS PostgreSQL 的迁移校验摘要。
-- 内存版 SaaS 领域服务，用于锁定租户隔离、角色权限、出账、收款、报表和导入确认行为。
-- 通用 Linux/VPS 部署文件清单：Docker Compose、Nginx、systemd、备份和恢复脚本。
+- FastAPI 后台 API：登录、租户、角色权限、用户管理和 session cookie。
+- SQLAlchemy 持久化 repository，并通过 Alembic 管理正式 PostgreSQL schema。
+- 登录、租户、角色权限：系统管理员、财务、收费员、前台、管理层只读角色分工。
+- 收费对象、收费项目、出账、审核、收款：新账单默认 pending_review，审核后才能收款。
+- 导入预览、审核、确认：预览不落库，错误行不污染正确行，确认后只写有效行。
+- 收据、导出、对账报表：收款生成 receipt_number，支持账单/收款 CSV 导出和账期汇总。
+- 列表筛选、搜索、分页：账单和收款按账期、状态、房号、账单号、收据号查询。
+- 备份记录、恢复演练、审计日志：高风险运维操作可追踪。
+- 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
+- 客户上传数据和系统自身数据隔离：tenants 与 system 目录分离，备份、日志、系统文件分层。
+- 通用 Linux/VPS 部署资产：Docker Compose、Nginx、systemd、备份和恢复脚本。
 
-## 当前不包含
+## 验收脚本
 
-- 真实 PostgreSQL 运行时 ORM。
-- 真实 FastAPI 页面和登录 session。
-- 业主端 H5、在线支付、电子票据。
+- `scripts/saas_acceptance_check.py` 用于从空内存租户执行完整后台闭环：
+  登录 → 创建员工 → 配置收费项目 → 导入收费对象 → 生成账单 → 审核账单 → 登记收款 → 查询报表 → 导出 → 备份记录 → 恢复演练 → 审计检查。
+- 建议每次云端后台关键改动后运行：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_acceptance_check.py
+```
+
+## 当前仍后置
+
+- 业主端 H5 云端重做。
+- 微信/支付宝真实支付。
+- 电子票据平台对接。
 - 授权云服务后台。
 
-## 后续阶段顺序
+## 发布门禁
 
-1. 接入 SQLAlchemy/Alembic，并把当前 schema 变成可迁移数据库版本。
-2. 做 FastAPI 登录、session、租户上下文和角色权限中间件。
-3. 逐步替换内存领域服务为 PostgreSQL repository。
-4. 补后台页面/API：收费对象、收费项目、出账、收款、报表、导入、审计。
-5. 用 Docker Compose 在 Linux/VPS 完成一次空库验收和迁移演练。
+云端后台改动必须至少运行：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 -m pytest tests/test_saas_*.py tests/test_cloud_migration.py -q
+PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_acceptance_check.py
+```
+
+涉及共用逻辑或桌面交付边界时继续运行桌面门禁：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 -m py_compile server/*.py server.py desktop_app.py desktop_runtime.py scripts/*.py
+PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 -m pytest -q
+python3 scripts/desktop_release_check.py
+python3 scripts/source_tree_check.py
+```
