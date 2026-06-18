@@ -82,10 +82,21 @@ class SaasRepository:
             rows = conn.execute(text("SELECT permission_code FROM role_permissions WHERE role_code=:role_code ORDER BY permission_code"), {"role_code": role_code}).fetchall()
             return [row[0] for row in rows]
 
+    def _validate_role(self, role_code):
+        if role_code not in {"system_admin", "finance", "cashier", "frontdesk", "executive"}:
+            raise ValueError("unknown role")
+
     def create_user(self, tenant_id, username, role_code, password_hash=None):
+        self._validate_role(role_code)
         with self.engine.begin() as conn:
             result = conn.execute(text("INSERT INTO users(tenant_id,username,role_code,password_hash) VALUES(:tenant_id,:username,:role_code,:password_hash)"), {"tenant_id": tenant_id, "username": username, "role_code": role_code, "password_hash": password_hash})
             return {"id": result.lastrowid, "tenant_id": tenant_id, "username": username, "role_code": role_code}
+
+    def create_staff_user(self, tenant_id, project_id, username, role_code):
+        self._require_project_scope(tenant_id, project_id)
+        user = self.create_user(tenant_id, username, role_code)
+        user["project_id"] = project_id
+        return user
 
     def get_user(self, user_id):
         return self._row("SELECT id,tenant_id,username,role_code,password_hash,is_active FROM users WHERE id=:id", {"id": user_id})
@@ -186,6 +197,14 @@ class SaasRepository:
         with self.engine.begin() as conn:
             rows = conn.execute(text("SELECT id,tenant_id,username,role_code,is_active FROM users ORDER BY id")).mappings().all()
             return [dict(r) for r in rows]
+
+    def reset_user_password(self, tenant_id, user_id, new_password):
+        target = self.get_user(user_id)
+        if not target or int(target["tenant_id"]) != int(tenant_id):
+            raise TenantScopeError("user does not belong to tenant")
+        with self.engine.begin() as conn:
+            conn.execute(text("UPDATE users SET password_hash=:password_hash WHERE id=:id AND tenant_id=:tenant_id"), {"id": user_id, "tenant_id": tenant_id, "password_hash": f"hash:{new_password}"})
+        return {"user_id": user_id}
 
 
 def create_saas_repository(url):

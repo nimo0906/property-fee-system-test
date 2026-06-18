@@ -76,7 +76,12 @@ class SaasBackofficeService:
     def _default_project_id(self, tenant_id):
         return next((p["id"] for p in self.projects.values() if p["tenant_id"] == tenant_id), None)
 
+    def _validate_role(self, role_code):
+        if role_code not in ROLE_PERMISSIONS:
+            raise ValueError("unknown role")
+
     def create_user(self, tenant_id, username, role_code):
+        self._validate_role(role_code)
         uid = self._id()
         user = {
             "id": uid,
@@ -87,6 +92,16 @@ class SaasBackofficeService:
         }
         self.users[uid] = user
         return user
+
+    def create_staff_user(self, user, project_id, username, role_code):
+        self._require(user, "manage_users")
+        self._validate_role(role_code)
+        if not self._same_tenant_project(user, project_id):
+            raise PermissionDenied("cross tenant project")
+        new_user = self.create_user(user["tenant_id"], username, role_code)
+        new_user["project_id"] = project_id
+        self._log(user, project_id, 'user.create', 'user', new_user['id'], {'username': username, 'role_code': role_code})
+        return new_user
 
     def create_charge_target(self, user, project_id, building, unit, room_number, category, area):
         self._require(user, "write")
@@ -209,10 +224,11 @@ class SaasBackofficeService:
         return {'backup_id': f"backup-{self._id():06d}"}
 
     def reset_user_password(self, user, target_user_id, new_password):
-        if user['role_code'] != 'system_admin':
-            raise PermissionDenied('password reset requires admin')
+        self._require(user, "manage_users")
         target = self.users[target_user_id]
+        if target["tenant_id"] != user["tenant_id"]:
+            raise PermissionDenied("cross tenant user")
         target['password_hash'] = f"hash:{new_password}"
-        project_id = next((p['id'] for p in self.projects.values() if p['tenant_id'] == target['tenant_id']), target['tenant_id'])
+        project_id = target.get('project_id') or self._default_project_id(target['tenant_id']) or target['tenant_id']
         self._log(user, project_id, 'user.password_reset', 'user', target_user_id, {'target_user_id': target_user_id})
         return {'user_id': target_user_id}

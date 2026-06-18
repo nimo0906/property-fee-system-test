@@ -63,6 +63,13 @@ def create_app(database_url=None):
         file_size: int
         content_type: str = ""
 
+    class UserCreateIn(BaseModel):
+        username: str
+        role_code: str
+
+    class PasswordResetIn(BaseModel):
+        new_password: str
+
     def current_user(session_id: str = Cookie(default="")):
         user = sessions.get(session_id)
         if not user:
@@ -96,6 +103,29 @@ def create_app(database_url=None):
     @app.get("/api/auth/me")
     def me(user=__import__('fastapi').Depends(current_user)):
         return {"tenant_name": user["tenant_name"], "project_name": user["project_name"], "role_code": user["role_code"]}
+
+    @app.post("/api/users")
+    def create_user(data: UserCreateIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            service._require(user, "manage_users")
+            if repository:
+                item = repository.create_staff_user(user["tenant_id"], user["project_id"], data.username, data.role_code)
+            else:
+                item = service.create_staff_user(user, user["project_id"], data.username, data.role_code)
+            return {"item": item}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.post("/api/users/{user_id}/reset-password")
+    def reset_password(user_id: int, data: PasswordResetIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            service._require(user, "manage_users")
+            item = repository.reset_user_password(user["tenant_id"], user_id, data.new_password) if repository else service.reset_user_password(user, user_id, data.new_password)
+            return {"item": item}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/fee-types")
     def create_fee(data: FeeIn, user=__import__('fastapi').Depends(current_user)):
