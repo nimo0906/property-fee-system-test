@@ -262,14 +262,14 @@ macOS：
 
 ```text
 ./build_macos_app.command
-open dist/物业管理收费系统.app
+open dist/物业收费管理系统.app
 ```
 
 Windows：
 
 ```text
 build_windows_exe.bat
-dist\PropertyFeeSystem\PropertyFeeSystem.exe
+dist\PropertyBillingSystem\PropertyBillingSystem.exe
 ```
 
 验收 API 时注意：

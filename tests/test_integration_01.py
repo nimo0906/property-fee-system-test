@@ -146,7 +146,7 @@ class TestIntegration01(IntegrationTestBase):
     def test_login_page_accessible_without_auth(self):
         status, body = http_get('/login', '', TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('物业管理收费系统', body)
+        self.assertIn('物业收费管理系统', body)
 
 
     def test_public_account_request_creates_inactive_operator_pending_admin_review(self):

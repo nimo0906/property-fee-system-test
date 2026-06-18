@@ -1,4 +1,5 @@
 from server.bill_receipt_shared import *
+from server.brand_config import RECEIPT_COMPANY_NAME, RECEIPT_SERIAL_PREFIX
 
 class BillReceiptMixinPart2(BaseHandler):
         def _bill_receipt(self, q):
@@ -117,12 +118,12 @@ class BillReceiptMixinPart2(BaseHandler):
             today_str = datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')
     
             content = f'''
-            <h1>陕西金莎国际物业管理有限公司</h1>
+            <h1>{h(RECEIPT_COMPANY_NAME)}</h1>
             <h2 style="margin-top:0">收款收据</h2>
             <table class="header-info">
                 <tr><td style="width:50%"><strong>套户编号：</strong>{room_str}</td>
                     <td><strong>客户名称：</strong>{h(owner_name)}</td></tr>
-                <tr><td><strong>流水号：</strong>JS{datetime.now().strftime('%Y%m%d%H%M%S')}</td>
+                <tr><td><strong>流水号：</strong>{h(RECEIPT_SERIAL_PREFIX)}{datetime.now().strftime('%Y%m%d%H%M%S')}</td>
                     <td><strong>建筑面积：</strong>{area_str}</td></tr>
             </table>
             <table class="detail">

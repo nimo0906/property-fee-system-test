@@ -34,7 +34,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='物业管理收费系统',
+    name='物业收费管理系统',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -53,18 +53,18 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='物业管理收费系统',
+    name='物业收费管理系统',
 )
 app = BUNDLE(
     coll,
-    name='物业管理收费系统.app',
+    name='物业收费管理系统.app',
     icon='static/desktop-app-icon.icns',
     bundle_identifier='local.propertyfeesystem.desktop',
     info_plist={
-        'CFBundleName': '物业管理收费系统',
-        'CFBundleDisplayName': '物业管理收费系统',
-        'CFBundleShortVersionString': '2.0.2',
-        'CFBundleVersion': '2.0.2',
+        'CFBundleName': '物业收费管理系统',
+        'CFBundleDisplayName': '物业收费管理系统',
+        'CFBundleShortVersionString': '2.0.4',
+        'CFBundleVersion': '2.0.4',
         'NSHighResolutionCapable': 'True',
     },
 )

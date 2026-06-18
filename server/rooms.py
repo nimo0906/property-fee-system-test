@@ -109,7 +109,7 @@ class RoomMixin(BaseHandler):
         from_import = source == 'import'
         a=f'/rooms/{rid}/edit' if rid else '/rooms/create'
         t='编辑房间' if rid else '添加房间'
-        b=h(room['building'] if room else '金莎国际');u=h(room['unit'] if room else '商场')
+        b=h(room['building'] if room else '示例项目');u=h(room['unit'] if room else '商场')
         n=h(room['room_number'] if room else '');fl=room['floor'] if room else 7
         cat=room['category'] if room else '商户';ar=room['area'] if room else 100
         cr=h(str(room['custom_rate']) if room and room['custom_rate'] else '')

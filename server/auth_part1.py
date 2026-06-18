@@ -1,4 +1,5 @@
 from server.auth_shared import *
+from server.brand_config import PRODUCT_KICKER, PRODUCT_NAME, PRODUCT_SHORT_NAME, PRODUCT_SUBTITLE
 
 class AuthMixinPart1(BaseHandler):
     def _is_default_admin_password_active(self):
@@ -29,15 +30,15 @@ class AuthMixinPart1(BaseHandler):
     def _login(self):
         """登录页面"""
         flash = self._get_flash()
-        self._html('''<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>登录 - 物业管理收费系统</title>
+        self._html(f'''<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 - ''' + h(PRODUCT_NAME) + '''</title>
 <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/static/auth.css"></head><body class="auth-page">
 <div class="auth-shell">
-  <section class="auth-copy"><div class="auth-kicker">PROPERTY FINANCE</div><h1>物业收费系统</h1><p>本地桌面财务控制台。登录后进行账单生成、收费登记、合同预警和报表核对。</p></section>
+  <section class="auth-copy"><div class="auth-kicker">{h(PRODUCT_KICKER)}</div><h1>{h(PRODUCT_NAME)}</h1><p>本地桌面财务控制台。登录后进行账单生成、收费登记、合同预警和报表核对。</p></section>
   <section class="auth-card"><div class="auth-inner">
-    <div class="auth-brand-row"><img src="/static/brand-emblem.png" alt="金沙国际"><div><b>登录系统</b><span>财务控制台 v2.0</span></div></div>
+    <div class="auth-brand-row"><img src="/static/brand-emblem.png" alt="{h(PRODUCT_SHORT_NAME)}"><div><b>登录系统</b><span>{h(PRODUCT_SUBTITLE)} v2.0</span></div></div>
 ''' + flash + '''
 <form method=POST action="/login">
 <div class="mb-3"><label class="form-label">用户名</label><div class="input-group auth-input-group"><span class="input-group-text"><i class="bi bi-person"></i></span><input name="username" class="form-control" required autofocus></div></div>
@@ -51,15 +52,15 @@ class AuthMixinPart1(BaseHandler):
     def _register(self):
         """账号申请页面：提交后默认停用，等待管理员审核启用。"""
         flash = self._get_flash()
-        self._html("""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>申请账号 - 物业管理收费系统</title>
+        self._html(f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>申请账号 - {h(PRODUCT_NAME)}</title>
 <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="/static/vendor/bootstrap-icons/bootstrap-icons.min.css">
 <link rel="stylesheet" href="/static/auth.css"></head><body class="auth-page">
 <div class="auth-shell">
-  <section class="auth-copy"><div class="auth-kicker">ACCOUNT REQUEST</div><h1>申请账号</h1><p>提交后由管理员审核启用。账号只用于本机物业收费系统，不会创建互联网账户。</p></section>
+  <section class="auth-copy"><div class="auth-kicker">ACCOUNT REQUEST</div><h1>申请账号</h1><p>提交后由管理员审核启用。账号只用于本机{h(PRODUCT_SHORT_NAME)}，不会创建互联网账户。</p></section>
   <section class="auth-card"><div class="auth-inner">
-    <div class="auth-brand-row"><img src="/static/brand-emblem.png" alt="金沙国际"><div><b>申请账号</b><span>等待管理员审核启用</span></div></div>
+    <div class="auth-brand-row"><img src="/static/brand-emblem.png" alt="{h(PRODUCT_SHORT_NAME)}"><div><b>申请账号</b><span>等待管理员审核启用</span></div></div>
 """ + flash + """
 <form method=POST action="/register">
 <div class="mb-3"><label class="form-label">用户名</label><div class="input-group auth-input-group"><span class="input-group-text"><i class="bi bi-person"></i></span><input name="username" class="form-control" required autofocus></div></div>

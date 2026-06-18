@@ -290,7 +290,6 @@ def _build_notes(tenant='', shop='', rent_period=''):
         parts.append(f'催缴租期:{rent_period}')
     return '；'.join(parts)
 
-
 def _merge_notes(old, new):
     old = old or ''
     new = new or ''

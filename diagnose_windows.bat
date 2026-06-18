@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 
-echo Property Fee System diagnostics
+echo Property Billing System diagnostics
 echo.
 
 where py >nul 2>nul

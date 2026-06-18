@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 
-echo Installing dependencies for Property Fee System...
+echo Installing dependencies for Property Billing System...
 
 where py >nul 2>nul
 if %errorlevel%==0 (

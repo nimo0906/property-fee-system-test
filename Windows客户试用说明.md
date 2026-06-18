@@ -1,15 +1,15 @@
-# 物业管理收费系统 Windows 试用说明
+# 物业收费管理系统 Windows 试用说明
 
 ## 一、普通用户怎么打开
 
 收到 Windows 试用包后，只需要按下面步骤操作：
 
-1. 解压 `物业管理收费系统-v2.0-windows.zip`。
+1. 解压 `物业收费管理系统-v2.0-windows.zip`。
 2. 打开解压后的文件夹。
 3. 双击：
 
 ```text
-PropertyFeeSystem.exe
+PropertyBillingSystem.exe
 ```
 
 4. 如果 Windows 安全中心或 Defender 提示风险，请选择「更多信息」→「仍要运行」。
@@ -36,7 +36,7 @@ PropertyFeeSystem.exe
 
 需要空白试用时：
 
-1. 先关闭 `PropertyFeeSystem.exe`。
+1. 先关闭 `PropertyBillingSystem.exe`。
 2. 双击交付包里的：
 
 ```text
@@ -49,7 +49,7 @@ PropertyFeeSystem.exe
 Desktop\PropertyFeeSystemDataBackups
 ```
 
-然后清空本机试用数据。重新打开 `PropertyFeeSystem.exe` 后，会生成新的空白数据库。
+然后清空本机试用数据。重新打开 `PropertyBillingSystem.exe` 后，会生成新的空白数据库。
 
 ## 三、建议试用流程
 
@@ -115,3 +115,8 @@ install_windows_dependencies.bat
 ## 真实数据提醒
 
 从录入真实房间、业主、账单、收款开始，请先阅读 `真实数据试运行保护方案.md` 和 `真实数据导入前验收清单.md`。清空本机试用数据脚本只适合演示/试用环境，不适合已经录入真实业务数据的电脑。
+
+
+## 商业版说明
+
+本试用包为本地桌面版，数据默认保存在本机，不上传云端。管理员可在系统维护中查看「授权状态」「商业授权」「云端方案」。当前试用阶段不接真实授权服务器，正式商业授权会另行签发 license 文件。

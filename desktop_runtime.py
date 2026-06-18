@@ -15,7 +15,7 @@ from pathlib import Path
 
 APP_DIR_NAME = "PropertyFeeSystemData"
 LEGACY_APP_DIR_NAME = "PropertyFeeSystem"
-APP_TITLE = "物业管理收费系统"
+APP_TITLE = "物业收费管理系统"
 
 
 def get_resource_dir():

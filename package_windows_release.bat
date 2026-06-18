@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 set "RELEASE_ROOT=release\windows"
-set "RELEASE_NAME=物业管理收费系统-v2.0-windows"
+set "RELEASE_NAME=物业收费管理系统-v2.0-windows"
 set "RELEASE_DIR=%RELEASE_ROOT%\%RELEASE_NAME%"
 set "ZIP_PATH=%RELEASE_ROOT%\%RELEASE_NAME%.zip"
 
@@ -41,8 +41,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "dist\PropertyFeeSystem\PropertyFeeSystem.exe" (
-    echo Build output not found: dist\PropertyFeeSystem\PropertyFeeSystem.exe
+if not exist "dist\PropertyBillingSystem\PropertyBillingSystem.exe" (
+    echo Build output not found: dist\PropertyBillingSystem\PropertyBillingSystem.exe
     if not defined CI pause
     exit /b 1
 )
@@ -51,7 +51,7 @@ if exist "%RELEASE_DIR%" rmdir /S /Q "%RELEASE_DIR%"
 if exist "%ZIP_PATH%" del /Q "%ZIP_PATH%"
 mkdir "%RELEASE_DIR%"
 
-xcopy "dist\PropertyFeeSystem" "%RELEASE_DIR%\PropertyFeeSystem\" /E /I /H /Y >nul
+xcopy "dist\PropertyBillingSystem" "%RELEASE_DIR%\PropertyBillingSystem\" /E /I /H /Y >nul
 copy /Y "用户快速开始.md" "%RELEASE_DIR%\用户快速开始.md" >nul
 copy /Y "新手交付说明.md" "%RELEASE_DIR%\新手交付说明.md" >nul
 copy /Y "Windows客户试用说明.md" "%RELEASE_DIR%\Windows客户试用说明.md" >nul
@@ -73,13 +73,13 @@ for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set "COMMIT=%%i
 if not defined COMMIT set "COMMIT=unknown"
 for /f "delims=" %%i in ('%PYTHON_CMD% --version 2^>^&1') do set "PY_VERSION=%%i"
 
-> "%RELEASE_DIR%\本次交付记录.md" echo # 物业管理收费系统 v2.0 Windows 试用交付记录
+> "%RELEASE_DIR%\本次交付记录.md" echo # 物业收费管理系统 v2.0 Windows 试用交付记录
 >> "%RELEASE_DIR%\本次交付记录.md" echo.
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 交付包名称：%RELEASE_NAME%
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 当前 commit：%COMMIT%
 >> "%RELEASE_DIR%\本次交付记录.md" echo - Python 版本：%PY_VERSION%
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 交付类型：Windows 内部/客户试用包
->> "%RELEASE_DIR%\本次交付记录.md" echo - 启动入口：PropertyFeeSystem\PropertyFeeSystem.exe
+>> "%RELEASE_DIR%\本次交付记录.md" echo - 启动入口：PropertyBillingSystem\PropertyBillingSystem.exe
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 数据目录：%%APPDATA%%\PropertyFeeSystemData
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 说明：本交付包不包含本机 property.db、.env、backups 或缓存文件。
 
@@ -101,5 +101,5 @@ echo.
 echo Windows release package is ready:
 echo %ZIP_PATH%
 echo.
-echo Ordinary users only need to unzip it and double-click PropertyFeeSystem.exe.
+echo Ordinary users only need to unzip it and double-click PropertyBillingSystem.exe.
 if not defined CI pause

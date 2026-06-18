@@ -151,7 +151,7 @@ def export_postgres_seed_sql(tables=None):
     export_tables = tuple(tables or CORE_EXPORT_TABLES)
     conn = get_db()
     parts = [
-        "-- PostgreSQL seed data exported from 物业管理收费系统 2.0 SQLite runtime",
+        "-- PostgreSQL seed data exported from 物业收费管理系统 2.0 SQLite runtime",
         "-- Review before importing into production cloud database.",
         "BEGIN;",
     ]

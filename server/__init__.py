@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""物业管理收费系统 — 模块化包"""
+"""物业收费管理系统 — 模块化包"""
 
 from server.db import db_init
 from server.base import BaseHandler
@@ -53,6 +53,8 @@ from server.cloud_pages import CloudPageMixin
 from server.cloud_security_pages import CloudSecurityPageMixin
 from server.commercial_receivables import CommercialReceivableMixin
 from server.contract_amendment_pages import ContractAmendmentMixin
+from server.commercial_plan import CommercialPlanMixin
+from server.commercial_setup import CommercialSetupMixin
 
 
 class Handler(
@@ -63,7 +65,7 @@ class Handler(
     PaymentMixin, BillingUiMixin, AutoBillingMixin,
     RepairMixin, ParkingMixin, InvoiceMixin, DepositMixin,
     ReminderMixin, CollectionMixin, ClosingMixin, ReportMixin, SharedExpenseMixin, BatchOpsMixin,
-    MerchantContractMixin, MerchantContractLifecycleMixin, MerchantContractTransferMixin, MerchantContractImportMixin, MerchantContractAttachmentMixin, MerchantContractAttachmentWorkflowMixin, TenantTransferMixin, AlertCenterMixin, DeliveryCenterMixin, DeliveryStaffGuideMixin, DeliveryPhaseReviewMixin, CloudPageMixin, CloudSecurityPageMixin, CommercialReceivableMixin, ContractAmendmentMixin, ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
+    MerchantContractMixin, MerchantContractLifecycleMixin, MerchantContractTransferMixin, MerchantContractImportMixin, MerchantContractAttachmentMixin, MerchantContractAttachmentWorkflowMixin, TenantTransferMixin, AlertCenterMixin, DeliveryCenterMixin, DeliveryStaffGuideMixin, DeliveryPhaseReviewMixin, CloudPageMixin, CloudSecurityPageMixin, CommercialReceivableMixin, ContractAmendmentMixin, CommercialPlanMixin, CommercialSetupMixin, ImportMixin, BackupMixin, DataHealthMixin, SystemUpdateMixin, TrialDataResetMixin, ApiMixin, BaseHandler,
 ):
     """HTTP handler with all feature mixins."""
     pass

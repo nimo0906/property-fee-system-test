@@ -125,7 +125,7 @@ def print_page(title, content, show_back=True, back_url='/', body_class=''):
 {back_btn}
 {receipt_marker}
 {content}
-<div class="footer">物业管理收费系统 · 打印时间：{__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
+<div class="footer">物业收费管理系统 · 打印时间：{__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}</div>
 {receipt_script}
 </body></html>'''
 

@@ -5,13 +5,13 @@
 明天在 Windows 电脑上，从 GitHub 下载最新版代码，然后生成这个文件发给用户：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 普通用户收到后只需要：
 
 ```text
-解压 zip → 双击 PropertyFeeSystem.exe → admin / admin123 登录
+解压 zip → 双击 PropertyBillingSystem.exe → admin / admin123 登录
 ```
 
 ## 1. 先确认下载的是最新版
@@ -75,7 +75,7 @@ package_windows_release.bat
 成功后会生成：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 ## 5. 发给用户哪个文件
@@ -83,7 +83,7 @@ release\windows\物业管理收费系统-v2.0-windows.zip
 只发这个 zip：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 不要发源码目录，不要发 `property.db`，不要发 `.env`。
@@ -97,7 +97,7 @@ release\windows\物业管理收费系统-v2.0-windows.zip
 3. 双击：
 
 ```text
-PropertyFeeSystem\PropertyFeeSystem.exe
+PropertyBillingSystem\PropertyBillingSystem.exe
 ```
 
 4. 登录：

@@ -3,7 +3,7 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 
-echo Starting Property Fee System in Windows server mode...
+echo Starting Property Billing System in Windows server mode...
 echo.
 
 if "%PM_PORT%"=="" set "PM_PORT=5001"
@@ -26,8 +26,8 @@ echo.
 echo Keep this window open while the system is in use.
 echo.
 
-if exist "PropertyFeeSystem\PropertyFeeSystem.exe" (
-    "PropertyFeeSystem\PropertyFeeSystem.exe" --serve-only --port %PM_PORT%
+if exist "PropertyBillingSystem\PropertyBillingSystem.exe" (
+    "PropertyBillingSystem\PropertyBillingSystem.exe" --serve-only --port %PM_PORT%
 ) else (
     where py >nul 2>nul
     if %errorlevel%==0 (

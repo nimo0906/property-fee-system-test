@@ -5,7 +5,7 @@ ARCHIVE_ROOT="$HOME/Desktop/PropertyFeeSystemDataBackups"
 TIMESTAMP="$(date '+%Y%m%d_%H%M%S')"
 ARCHIVE_DIR="$ARCHIVE_ROOT/PropertyFeeSystem_before_reset_$TIMESTAMP"
 
-echo "Property Fee System trial data reset"
+echo "Property Billing System trial data reset"
 echo "WARNING: This script is only for trial/demo data."
 echo "WARNING: If this Mac contains real business data, close this window now."
 echo ""

@@ -1,13 +1,13 @@
 {
   "version": "2.0.4",
-  "notes": "内部验收版本：完成桌面稳定版收口、权限重设计、账单分页与商场收费项修正、打包可用性验证和上线前全盘检查。",
+  "notes": "商业版收口版本：完成通用品牌、授权状态、首次使用引导、云端方案入口和打包命名统一。",
   "assets": {
     "mac": {
-      "url": "https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/property-fee-system-v2.0-macos.zip",
-      "sha256": ""
+      "url": "https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/property-billing-system-v2.0-macos.zip",
+      "sha256": "52e76d14c9380ac55b62e2283854379c48ca243a0b7b3b2e764de964b3c36678"
     },
     "windows": {
-      "url": "https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/property-fee-system-v2.0-windows.zip",
+      "url": "https://github.com/nimo0906/property-fee-system-test/releases/download/internal-latest/property-billing-system-v2.0-windows.zip",
       "sha256": ""
     }
   }

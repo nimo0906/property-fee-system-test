@@ -105,29 +105,29 @@ class FeeMixinPart1(BaseHandler):
 
         # 费用类型预设模板
         templates = [
-            # 金莎物业公司
-            {"group":"金莎物业","name":"物业费(居民)","calc":"area","price":1.9,"unit":"元/m2.月","cycle":"monthly","sort":1,"notes":"按建筑面积x1.9","rad":30,"tiers":{"居民":1.9}},
-            {"group":"金莎物业","name":"物业费(商户)","calc":"area","price":5.0,"unit":"元/m2.月","cycle":"monthly","sort":2,"notes":"按建筑面积x5.0","rad":30,"tiers":{"商户":5.0}},
-            {"group":"金莎物业","name":"电梯费","calc":"floor","price":1.0,"unit":"元/m2.月","cycle":"monthly","sort":3,"notes":"按楼层阶梯x面积","rad":30,"tiers":{}},
-            {"group":"金莎物业","name":"二次供水运行费","calc":"area","price":0.5,"unit":"元/m2.月","cycle":"monthly","sort":4,"notes":"面积x0.5","rad":30,"tiers":{}},
-            {"group":"金莎物业","name":"生活垃圾费","calc":"household","price":10,"unit":"元/户.月","cycle":"monthly","sort":5,"notes":"按户收取10元","rad":30,"tiers":{}},
-            {"group":"金莎物业","name":"公摊能耗费","calc":"household","price":10,"unit":"元/户.月","cycle":"monthly","sort":6,"notes":"按户收取10元","rad":30,"tiers":{}},
-            {"group":"金莎物业","name":"水费(非居民)","calc":"meter","price":5.8,"unit":"元/m3","cycle":"monthly","sort":7,"notes":"用量x5.8","rad":15,"tiers":{}},
-            {"group":"金莎物业","name":"水费(特行)","calc":"meter","price":20.11,"unit":"元/m3","cycle":"monthly","sort":8,"notes":"用量x20.11","rad":15,"tiers":{}},
-            # 金莎商业公司
-            {"group":"金莎商业","name":"物业费(商业)","calc":"area","price":5.0,"unit":"元/m2.月","cycle":"monthly","sort":11,"notes":"按建筑面积x单价","rad":30,"tiers":{"商户":5.0}},
-            {"group":"金莎商业","name":"电费(商业)","calc":"meter","price":0.85,"unit":"元/度","cycle":"monthly","sort":12,"notes":"按用电量x0.85","rad":15,"tiers":{}},
-            {"group":"金莎商业","name":"水费(商业)","calc":"meter","price":5.8,"unit":"元/m3","cycle":"monthly","sort":13,"notes":"按用水量x5.8","rad":15,"tiers":{}},
-            {"group":"金莎商业","name":"垃圾清运费","calc":"household","price":30,"unit":"元/户","cycle":"once","sort":14,"notes":"一次性固定收取","rad":15,"tiers":{}},
-            {"group":"金莎商业","name":"装修管理费","calc":"area","price":3.0,"unit":"元/m2","cycle":"once","sort":15,"notes":"装修期间一次性按面积收","rad":7,"tiers":{"商户":3.0,"居民":2.0}},
-            {"group":"金莎商业","name":"装修押金","calc":"fixed","price":2000,"unit":"元","cycle":"once","sort":16,"notes":"验收合格后退还","rad":7,"tiers":{}},
-            {"group":"金莎商业","name":"泄水费","calc":"area","price":1.5,"unit":"元/m2","cycle":"once","sort":17,"notes":"一次性排水设施维护费","rad":30,"tiers":{"商户":1.5,"居民":0.8}},
+            # 物业服务公司
+            {"group":"物业服务","name":"物业费(居民)","calc":"area","price":1.9,"unit":"元/m2.月","cycle":"monthly","sort":1,"notes":"按建筑面积x1.9","rad":30,"tiers":{"居民":1.9}},
+            {"group":"物业服务","name":"物业费(商户)","calc":"area","price":5.0,"unit":"元/m2.月","cycle":"monthly","sort":2,"notes":"按建筑面积x5.0","rad":30,"tiers":{"商户":5.0}},
+            {"group":"物业服务","name":"电梯费","calc":"floor","price":1.0,"unit":"元/m2.月","cycle":"monthly","sort":3,"notes":"按楼层阶梯x面积","rad":30,"tiers":{}},
+            {"group":"物业服务","name":"二次供水运行费","calc":"area","price":0.5,"unit":"元/m2.月","cycle":"monthly","sort":4,"notes":"面积x0.5","rad":30,"tiers":{}},
+            {"group":"物业服务","name":"生活垃圾费","calc":"household","price":10,"unit":"元/户.月","cycle":"monthly","sort":5,"notes":"按户收取10元","rad":30,"tiers":{}},
+            {"group":"物业服务","name":"公摊能耗费","calc":"household","price":10,"unit":"元/户.月","cycle":"monthly","sort":6,"notes":"按户收取10元","rad":30,"tiers":{}},
+            {"group":"物业服务","name":"水费(非居民)","calc":"meter","price":5.8,"unit":"元/m3","cycle":"monthly","sort":7,"notes":"用量x5.8","rad":15,"tiers":{}},
+            {"group":"物业服务","name":"水费(特行)","calc":"meter","price":20.11,"unit":"元/m3","cycle":"monthly","sort":8,"notes":"用量x20.11","rad":15,"tiers":{}},
+            # 商业运营公司
+            {"group":"商业运营","name":"物业费(商业)","calc":"area","price":5.0,"unit":"元/m2.月","cycle":"monthly","sort":11,"notes":"按建筑面积x单价","rad":30,"tiers":{"商户":5.0}},
+            {"group":"商业运营","name":"电费(商业)","calc":"meter","price":0.85,"unit":"元/度","cycle":"monthly","sort":12,"notes":"按用电量x0.85","rad":15,"tiers":{}},
+            {"group":"商业运营","name":"水费(商业)","calc":"meter","price":5.8,"unit":"元/m3","cycle":"monthly","sort":13,"notes":"按用水量x5.8","rad":15,"tiers":{}},
+            {"group":"商业运营","name":"垃圾清运费","calc":"household","price":30,"unit":"元/户","cycle":"once","sort":14,"notes":"一次性固定收取","rad":15,"tiers":{}},
+            {"group":"商业运营","name":"装修管理费","calc":"area","price":3.0,"unit":"元/m2","cycle":"once","sort":15,"notes":"装修期间一次性按面积收","rad":7,"tiers":{"商户":3.0,"居民":2.0}},
+            {"group":"商业运营","name":"装修押金","calc":"fixed","price":2000,"unit":"元","cycle":"once","sort":16,"notes":"验收合格后退还","rad":7,"tiers":{}},
+            {"group":"商业运营","name":"泄水费","calc":"area","price":1.5,"unit":"元/m2","cycle":"once","sort":17,"notes":"一次性排水设施维护费","rad":30,"tiers":{"商户":1.5,"居民":0.8}},
         ]
 
         # 模板卡片（按公司分组）
         template_section = ""
         if not fid:
-            groups = {"金莎物业": "金莎物业公司", "金莎商业": "金莎商业公司"}
+            groups = {"物业服务": "物业服务公司", "商业运营": "商业运营公司"}
             tc = ""
             for gkey, glabel in groups.items():
                 tc += '<div class="w-100 mb-1 mt-2"><strong><i class="bi bi-building"></i> ' + glabel + '</strong></div>'

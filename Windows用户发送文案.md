@@ -2,7 +2,7 @@
 
 ## 微信短文案
 
-您好，这是「物业管理收费系统」Windows 试用包。
+您好，这是「物业收费管理系统」Windows 试用包。
 
 打开方式很简单：
 
@@ -11,7 +11,7 @@
 3. 双击：
 
 ```text
-PropertyFeeSystem\PropertyFeeSystem.exe
+PropertyBillingSystem\PropertyBillingSystem.exe
 ```
 
 4. 浏览器自动打开后登录：
@@ -41,15 +41,15 @@ PropertyFeeSystem\PropertyFeeSystem.exe
 
 ## 邮件文案
 
-主题：物业管理收费系统 Windows 试用包
+主题：物业收费管理系统 Windows 试用包
 
 您好：
 
-附件是「物业管理收费系统」Windows 试用包，请按以下步骤打开：
+附件是「物业收费管理系统」Windows 试用包，请按以下步骤打开：
 
 1. 解压附件中的 zip 文件。
 2. 打开解压后的文件夹。
-3. 双击 `PropertyFeeSystem\PropertyFeeSystem.exe`。
+3. 双击 `PropertyBillingSystem\PropertyBillingSystem.exe`。
 4. 浏览器自动打开后，使用以下账号登录：
 
 ```text
@@ -85,7 +85,7 @@ PropertyFeeSystem\PropertyFeeSystem.exe
 发送给用户前，请确认发送的是：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 不要单独发送源码目录、`property.db`、`.env` 或 `backups`。

@@ -106,7 +106,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
         rooms = db.execute(
             """SELECT r.id,r.building,r.unit,r.room_number,r.area,r.floor,r.owner_id,r.tenant_name,r.shop_name,o.name owner_name
                FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id
-               WHERE (r.unit='B座' OR r.building='B座' OR r.building='金莎国际')
+               WHERE (r.unit='B座' OR r.building='B座')
                  AND r.category IN('商户','商业','居民')
                ORDER BY r.unit,r.room_number,r.id"""
         ).fetchall()

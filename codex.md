@@ -44,8 +44,8 @@
 #桌面 App 优先
 - 后续优化和升级默认以桌面端 App 交付为目标，而不是只满足网页预览。
 - 改动用户可见功能后，除普通 HTTP 页面验证外，还要考虑桌面启动器、打包资源、用户数据目录、备份目录和本地端口是否正常。
-- macOS 交付入口：`build_macos_app.command` -> `dist/物业管理收费系统.app`。
-- Windows 交付入口：`build_windows_exe.bat` -> `dist\PropertyFeeSystem\PropertyFeeSystem.exe`。
+- macOS 交付入口：`build_macos_app.command` -> `dist/物业收费管理系统.app`。
+- Windows 交付入口：`build_windows_exe.bat` -> `dist\PropertyBillingSystem\PropertyBillingSystem.exe`。
 - 新增静态资源、模板、文档或依赖时，要同步检查 PyInstaller spec 是否纳入打包。
 - 声称桌面端完成前，至少运行桌面相关测试；涉及打包资源时优先验证打包后的可执行入口能打开登录页。
 

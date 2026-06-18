@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Property Finance">
+  <defs>
+    <linearGradient id="g" x1="35" y1="26" x2="221" y2="230" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1f7a6b"/>
+      <stop offset="1" stop-color="#0f3d38"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#g)"/>
+  <path d="M62 114 128 62l66 52v82a10 10 0 0 1-10 10H72a10 10 0 0 1-10-10v-82Z" fill="#fff" opacity=".96"/>
+  <path d="M88 118h80v18H88zm0 34h80v18H88z" fill="#0f3d38" opacity=".88"/>
+  <path d="M72 112 128 68l56 44" fill="none" stroke="#d8b25c" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="190" cy="72" r="25" fill="#d8b25c"/>
+  <path d="M180 72h20M190 62v20" stroke="#fff" stroke-width="8" stroke-linecap="round"/>
+</svg>

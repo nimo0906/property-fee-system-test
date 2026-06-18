@@ -42,3 +42,6 @@ release/**/*.zip
 !release/windows/物业管理收费系统-v2.0-windows-build-source.zip
 !release/windows/物业管理收费系统-v2.0-windows.zip
 release/**/*.app/
+# Current generated commercial macOS release package contents stay local.
+release/**/*.zip.sha256
+release/macos/物业收费管理系统-v2.0-macos/

@@ -7,20 +7,20 @@
 每次用户可见功能、安全修复、数据结构或打包逻辑变更后，必须同步处理：
 
 1. macOS 版本
-   - 构建 `dist/物业管理收费系统.app`。
-   - 更新 `release/macos/物业管理收费系统-v2.0-macos/物业管理收费系统.app`。
-   - 重新生成 `release/macos/物业管理收费系统-v2.0-macos.zip`。
+   - 构建 `dist/物业收费管理系统.app`。
+   - 更新 `release/macos/物业收费管理系统-v2.0-macos/物业收费管理系统.app`。
+   - 重新生成 `release/macos/物业收费管理系统-v2.0-macos.zip`。
 2. Windows 版本
    - 确认 Windows 打包脚本和 spec 与源码变更同步。
-   - 在 Windows 环境或 GitHub Actions 中构建 `property-fee-system-v2.0-windows.zip`。
+   - 在 Windows 环境或 GitHub Actions 中构建 `property-billing-system-v2.0-windows.zip`。
    - 不允许只更新 macOS 而遗漏 Windows 发布资产。
 3. GitHub 发布
    - commit 后立即 push。
    - GitHub Actions 必须生成并更新 `internal-latest` Release。
    - Release assets 至少包括：
      - `update_manifest.json`
-     - `property-fee-system-v2.0-macos.zip`
-     - `property-fee-system-v2.0-windows.zip`
+     - `property-billing-system-v2.0-macos.zip`
+     - `property-billing-system-v2.0-windows.zip`
    - `update_manifest.json` 中 Mac / Windows 下载地址和 SHA256 必须可验证。
 
 ## 发布前验证

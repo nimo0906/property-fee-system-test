@@ -21,13 +21,13 @@ package_windows_release.bat
 7. 等窗口提示完成后，把这个文件发给用户：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 用户收到后只需要：
 
 ```text
-解压 zip → 双击 PropertyFeeSystem.exe → admin / admin123 登录
+解压 zip → 双击 PropertyBillingSystem.exe → admin / admin123 登录
 ```
 
 ## 二、安装 Python
@@ -91,7 +91,7 @@ package_windows_release.bat
 这个脚本会自动完成：
 
 - 安装 Python 依赖。
-- 打包 `PropertyFeeSystem.exe`。
+- 打包 `PropertyBillingSystem.exe`。
 - 整理 Windows 试用交付目录。
 - 生成 zip 压缩包。
 - 检查 zip 里没有 `.env`、`property.db`、`*.db`、`backups/`、缓存和日志。
@@ -99,7 +99,7 @@ package_windows_release.bat
 完成后会看到：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 ## 六、发给用户哪个文件
@@ -107,7 +107,7 @@ release\windows\物业管理收费系统-v2.0-windows.zip
 只发这个 zip：
 
 ```text
-release\windows\物业管理收费系统-v2.0-windows.zip
+release\windows\物业收费管理系统-v2.0-windows.zip
 ```
 
 不要发项目源码文件夹，也不要单独发 `dist`。
@@ -121,7 +121,7 @@ release\windows\物业管理收费系统-v2.0-windows.zip
 3. 双击：
 
 ```text
-PropertyFeeSystem\PropertyFeeSystem.exe
+PropertyBillingSystem\PropertyBillingSystem.exe
 ```
 
 4. 浏览器自动打开后登录：
@@ -168,8 +168,8 @@ PropertyFeeSystem\PropertyFeeSystem.exe
 Windows 电脑上至少确认：
 
 - `package_windows_release.bat` 能跑完。
-- 生成 `release\windows\物业管理收费系统-v2.0-windows.zip`。
-- 解压 zip 后能双击打开 `PropertyFeeSystem.exe`。
+- 生成 `release\windows\物业收费管理系统-v2.0-windows.zip`。
+- 解压 zip 后能双击打开 `PropertyBillingSystem.exe`。
 - 能登录后台首页。
 - 能打开：
   - 账单管理

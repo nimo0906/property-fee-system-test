@@ -3,10 +3,10 @@ chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 
-echo Starting Property Fee System...
+echo Starting Property Billing System...
 
-if exist "PropertyFeeSystem\PropertyFeeSystem.exe" (
-    "PropertyFeeSystem\PropertyFeeSystem.exe"
+if exist "PropertyBillingSystem\PropertyBillingSystem.exe" (
+    "PropertyBillingSystem\PropertyBillingSystem.exe"
     if errorlevel 1 (
         echo.
         echo Startup failed.

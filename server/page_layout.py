@@ -4,6 +4,7 @@
 
 import urllib.parse
 from server.db import h
+from server.brand_config import PRODUCT_KICKER, PRODUCT_NAME, PRODUCT_SHORT_NAME, PRODUCT_SUBTITLE
 
 def _is_secondary_path(path):
     if path in ('/', '/login', '/logout', '/register'):
@@ -15,7 +16,7 @@ def _is_secondary_path(path):
         '/billing', '/commercial_spaces', '/commercial_billing', '/merchant_contracts', '/auto_billing', '/shared_expenses', '/bills',
         '/payments', '/collections', '/reminders', '/alert_center',
         '/invoices', '/reports', '/closing', '/audit_logs', '/backups',
-        '/system_health', '/system_update', '/trial_data_reset', '/users', '/delivery_center', '/import',
+        '/system_health', '/system_update', '/trial_data_reset', '/users', '/delivery_center', '/commercial_license', '/license_status', '/first_run_guide', '/cloud_deployment_plan', '/import',
     }
     return path not in primary_paths
 
@@ -109,6 +110,14 @@ def render_page(handler, title, content, active='', top_actions=''):
         allowed.add('trial_data_reset')
         allowed.add('cloud_schema')
         nav_groups[-1][1].append(("cloud_schema", "/cloud_schema", "bi-cloud-check", "云端技术备查"))
+        nav_groups[-1][1].append(("first_run_guide", "/first_run_guide", "bi-flag", "首次引导"))
+        nav_groups[-1][1].append(("license_status", "/license_status", "bi-patch-check", "授权状态"))
+        nav_groups[-1][1].append(("commercial_license", "/commercial_license", "bi-key", "商业授权"))
+        nav_groups[-1][1].append(("cloud_deployment_plan", "/cloud_deployment_plan", "bi-cloud-upload", "云端方案"))
+        allowed.add('commercial_license')
+        allowed.add('cloud_deployment_plan')
+        allowed.add('license_status')
+        allowed.add('first_run_guide')
     nav_parts = []
     for group_name, items in nav_groups:
         visible = [item for item in items if item[0] in allowed]
@@ -143,8 +152,16 @@ def render_page(handler, title, content, active='', top_actions=''):
              'delivery_center': 'bi-clipboard-check'}
     icons['merchant_contracts'] = 'bi-file-earmark-text'
     icons['cloud_schema'] = 'bi-cloud-check'
+    icons['commercial_license'] = 'bi-key'
+    icons['license_status'] = 'bi-patch-check'
+    icons['first_run_guide'] = 'bi-flag'
+    icons['cloud_deployment_plan'] = 'bi-cloud-upload'
     icon = icons.get(active, 'bi-speedometer2')
     html = html.replace('{TITLE}', h(title))
+    html = html.replace('{PRODUCT_NAME}', h(PRODUCT_NAME))
+    html = html.replace('{PRODUCT_SHORT_NAME}', h(PRODUCT_SHORT_NAME))
+    html = html.replace('{PRODUCT_SUBTITLE}', h(PRODUCT_SUBTITLE))
+    html = html.replace('{PRODUCT_KICKER}', h(PRODUCT_KICKER))
     html = html.replace('{CONTENT}', content)
     html = html.replace('{NAV}', nav_html)
     html = html.replace('{USER_HTML}', user_html)

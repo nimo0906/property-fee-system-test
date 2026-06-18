@@ -24,13 +24,13 @@
 - `PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 -m pytest -q`
 - `PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/desktop_release_check.py`
 - `PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/source_tree_check.py`
-- `codesign --verify --deep --strict --verbose=1 dist/物业管理收费系统.app`
+- `codesign --verify --deep --strict --verbose=1 dist/物业收费管理系统.app`
 - 解压后的内部验收包可启动，`/login`、静态资源、首页、房间、账单、缴费、报表可用。
 
 ## 交付物
 
-- macOS App：`dist/物业管理收费系统.app`
-- 内部验收包：`release_packages/物业管理收费系统-macOS-内部验收包-20260615-234338.zip`
+- macOS App：`dist/物业收费管理系统.app`
+- 内部验收包：`release_packages/物业收费管理系统-macOS-内部验收包-20260615-234338.zip`
 
 ## 冻结后规则
 

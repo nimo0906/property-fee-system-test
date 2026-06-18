@@ -75,7 +75,10 @@ class SystemUpdateService:
             return True
         if self.platform_key == 'mac' and self.app_root.suffix == '.app':
             return True
-        if self.platform_key == 'windows' and self.app_root.joinpath('PropertyFeeSystem.exe').exists():
+        if self.platform_key == 'windows' and (
+            self.app_root.joinpath('PropertyBillingSystem.exe').exists()
+            or self.app_root.joinpath('PropertyFeeSystem.exe').exists()
+        ):
             return True
         return os.environ.get('PM_ALLOW_SOURCE_UPDATE') == '1'
 
@@ -181,10 +184,12 @@ class SystemUpdateService:
                 return apps[0]
             raise UpdateError('更新包中没有找到 macOS .app')
         if self.platform_key == 'windows':
-            exes = [p for p in extract_dir.rglob('PropertyFeeSystem.exe') if p.is_file()]
+            exes = [p for p in extract_dir.rglob('PropertyBillingSystem.exe') if p.is_file()]
+            if not exes:
+                exes = [p for p in extract_dir.rglob('PropertyFeeSystem.exe') if p.is_file()]
             if exes:
                 return exes[0].parent
-            raise UpdateError('更新包中没有找到 PropertyFeeSystem.exe')
+            raise UpdateError('更新包中没有找到 PropertyBillingSystem.exe')
         raise UpdateError('暂不支持当前平台自动更新')
 
     def _write_helper(self, helper_dir, payload, version, stamp):
@@ -204,7 +209,7 @@ class SystemUpdateService:
         backup = shlex.quote(str(self.data_dir / 'updates' / 'previous_versions' / f'{self.app_root.name}.{stamp}.backup'))
         return f'''#!/bin/zsh
 set -e
-echo "物业管理收费系统更新助手"
+echo "物业收费管理系统更新助手"
 echo "请先退出当前系统窗口。"
 while kill -0 {int(self.process_id)} 2>/dev/null; do
   sleep 1
@@ -223,10 +228,11 @@ read "?按回车关闭窗口..."
     def _windows_helper(self, payload, stamp):
         app_root = str(self.app_root)
         backup = str(self.data_dir / 'updates' / 'previous_versions' / f'{self.app_root.name}.{stamp}.backup')
-        exe = str(Path(app_root) / 'PropertyFeeSystem.exe')
+        exe_new = str(Path(app_root) / 'PropertyBillingSystem.exe')
+        exe_legacy = str(Path(app_root) / 'PropertyFeeSystem.exe')
         return f'''@echo off
 chcp 65001 >nul
-echo 物业管理收费系统更新助手
+echo 物业收费管理系统更新助手
 echo 请先退出当前系统窗口。
 :wait_loop
 tasklist /FI "PID eq {int(self.process_id)}" | find "{int(self.process_id)}" >nul
@@ -238,7 +244,9 @@ if not exist "{str(Path(backup).parent)}" mkdir "{str(Path(backup).parent)}"
 if exist "{backup}" rmdir /S /Q "{backup}"
 if exist "{app_root}" move "{app_root}" "{backup}" >nul
 xcopy "{str(payload)}" "{app_root}\\" /E /I /H /Y >nul
-start "" "{exe}"
+set "EXE_PATH={exe_new}"
+if not exist "%EXE_PATH%" set "EXE_PATH={exe_legacy}"
+start "" "%EXE_PATH%"
 echo 更新完成。旧版本备份在: {backup}
 pause
 '''

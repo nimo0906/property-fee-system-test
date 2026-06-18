@@ -1,0 +1,10 @@
+{
+  "status": "active",
+  "edition": "标准版",
+  "customer_name": "示例物业服务有限公司",
+  "projects": 1,
+  "seats": 5,
+  "expires_at": "2027-12-31",
+  "license_key": "PBMS-DEMO-2027-0001",
+  "notes": "示例授权文件。正式交付时由授权方签发，请勿把真实授权码提交到代码仓库。"
+}

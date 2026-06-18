@@ -61,7 +61,7 @@ class InvoiceMixinPart2(BaseHandler):
       <div class="invoice-body"><div class="invoice-watermark">内部留存</div><div class="invoice-copy-label">发票联</div>
       <div class="parties">
         <div class="party"><div class="party-title">购买方信息</div><div class="party-body"><div>名称：</div><div>'''+buyer+'''</div><div>纳税人识别号：</div><div>'''+tax_id+'''</div><div>地址、电话：</div><div>'''+h(i['ophone'] or '-')+'''</div><div>开户行及账号：</div><div>-</div></div></div>
-        <div class="party"><div class="party-title">销售方信息</div><div class="party-body"><div>名称：</div><div>物业管理收费系统</div><div>纳税人识别号：</div><div>-</div><div>地址、电话：</div><div>-</div><div>开户行及账号：</div><div>-</div></div></div>
+        <div class="party"><div class="party-title">销售方信息</div><div class="party-body"><div>名称：</div><div>物业收费管理系统</div><div>纳税人识别号：</div><div>-</div><div>地址、电话：</div><div>-</div><div>开户行及账号：</div><div>-</div></div></div>
       </div>
       <table class="invoice-table"><thead><tr><th style="width:28%">项目名称</th><th>规格型号</th><th>单位</th><th>数量</th><th>单价</th><th>金额</th><th>税率/征收率</th><th>税额</th></tr></thead>
       <tbody><tr><td class="left">*物业服务*物业管理费<br><small>房号：'''+room_label+'''；账期：'''+h(i['billing_period'])+'''</small></td><td>-</td><td>项</td><td>1</td><td>'''+amount+'''</td><td>'''+amount+'''</td><td>免税</td><td>0.00</td></tr>

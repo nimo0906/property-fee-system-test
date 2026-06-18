@@ -25,7 +25,7 @@ def _tenant_group_key(room):
 class BillingUiMixin(BaseHandler):
 
     def _billing(self):
-        """物业收费：只显示金莎物业收费项目 (sort_order < 30)"""
+        """物业收费：显示住宅/非商业对象的物业服务收费项目。"""
         return self._render_billing(mode='property', active_tab='billing',
                                     title='物业收费', exclude_commercial=True)
 
