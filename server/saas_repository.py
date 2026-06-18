@@ -25,6 +25,7 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,name))",
             "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'unpaid',UNIQUE(tenant_id,project_id,bill_number))",
             "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,UNIQUE(tenant_id,idempotency_key))",
+            "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT '{}')",
             "CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,user_id INTEGER,action TEXT NOT NULL,entity_type TEXT,entity_id INTEGER,detail_json TEXT NOT NULL DEFAULT '{}')",
         ]
         with self.engine.begin() as conn:
@@ -141,6 +142,19 @@ class SaasRepository:
             rows = conn.execute(text("""SELECT id,tenant_id,project_id,user_id,action,entity_type,entity_id,detail_json FROM audit_logs
                 WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
             return [{**dict(r), "detail": json.loads(r["detail_json"] or "{}")} for r in rows]
+
+    def create_import_file(self, tenant_id, project_id, import_type, original_name, storage_key, file_size, content_type):
+        with self.engine.begin() as conn:
+            result = conn.execute(text("""INSERT INTO imports(tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type)
+                VALUES(:tenant_id,:project_id,:import_type,'uploaded',:original_name,:storage_key,:file_size,:content_type)"""),
+                {"tenant_id": tenant_id, "project_id": project_id, "import_type": import_type, "original_name": original_name, "storage_key": storage_key, "file_size": int(file_size), "content_type": content_type})
+            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "import_type": import_type, "status": "uploaded", "original_name": original_name, "storage_key": storage_key, "file_size": int(file_size), "content_type": content_type}
+
+    def list_import_files(self, tenant_id, project_id):
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("""SELECT id,tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type FROM imports
+                WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+            return [dict(r) for r in rows]
 
 
     def list_tenants(self):

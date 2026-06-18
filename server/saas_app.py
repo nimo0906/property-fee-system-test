@@ -5,6 +5,7 @@
 from server.saas_backoffice import build_saas_migration_plan, build_saas_postgres_schema
 from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
+from server.saas_storage import SaasStorage
 
 
 def create_app(database_url=None):
@@ -18,6 +19,7 @@ def create_app(database_url=None):
     service = SaasBackofficeService.in_memory()
     repository = create_saas_repository(database_url) if database_url else None
     sessions = {}
+    storage = SaasStorage(root_dir="/var/lib/property-saas")
 
     class LoginIn(BaseModel):
         tenant_name: str
@@ -54,6 +56,12 @@ def create_app(database_url=None):
         amount: float
         method: str = ""
         idempotency_key: str = ""
+
+    class ImportFileRegisterIn(BaseModel):
+        import_type: str
+        original_name: str
+        file_size: int
+        content_type: str = ""
 
     def current_user(session_id: str = Cookie(default="")):
         user = sessions.get(session_id)
@@ -121,6 +129,48 @@ def create_app(database_url=None):
     def confirm_import(data: ImportConfirmIn, user=__import__('fastapi').Depends(current_user)):
         try:
             return service.confirm_charge_target_import(user, user["project_id"], data.import_id)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.post("/api/imports/files/register")
+    def register_import_file(data: ImportFileRegisterIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            service._require(user, "import")
+            if data.import_type not in {"charge_targets", "attachments", "reports"}:
+                raise HTTPException(status_code=400, detail="invalid import type")
+            import secrets
+            upload_id = secrets.randbelow(900_000_000) + 100_000_000
+            storage_key = storage.upload_path(
+                tenant_id=user["tenant_id"],
+                project_id=user["project_id"],
+                upload_id=upload_id,
+                category="imports",
+                filename=data.original_name,
+            )
+            if repository:
+                item = repository.create_import_file(
+                    tenant_id=user["tenant_id"],
+                    project_id=user["project_id"],
+                    import_type=data.import_type,
+                    original_name=data.original_name,
+                    storage_key=storage_key,
+                    file_size=data.file_size,
+                    content_type=data.content_type,
+                )
+            else:
+                item = {
+                    "id": upload_id,
+                    "tenant_id": user["tenant_id"],
+                    "project_id": user["project_id"],
+                    "import_type": data.import_type,
+                    "status": "uploaded",
+                    "original_name": data.original_name,
+                    "storage_key": storage_key,
+                    "file_size": data.file_size,
+                    "content_type": data.content_type,
+                }
+                service.imports[upload_id] = item
+            return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 

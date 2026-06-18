@@ -119,6 +119,10 @@ CREATE TABLE IF NOT EXISTS imports (
     project_id BIGINT NOT NULL REFERENCES projects(id),
     import_type TEXT NOT NULL,
     status TEXT NOT NULL,
+    original_name TEXT,
+    storage_key TEXT,
+    file_size BIGINT,
+    content_type TEXT,
     summary JSONB NOT NULL DEFAULT '{}'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
