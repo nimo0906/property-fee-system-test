@@ -32,7 +32,7 @@ def build_auth_dependencies(sessions, repository=None):
 
 
 def register_auth_routes(app, service, repository, sessions, session_user):
-    from fastapi import Depends, HTTPException, Response
+    from fastapi import Cookie, Depends, HTTPException, Response
 
     from server.saas_api_models import LoginIn, PasswordChangeIn, ProjectSwitchIn
 
@@ -59,6 +59,15 @@ def register_auth_routes(app, service, repository, sessions, session_user):
         sessions[sid] = user
         response.set_cookie("session_id", sid, httponly=True, samesite="lax")
         return {"ok": True, "must_change_password": bool(user.get("must_change_password"))}
+
+
+    @app.post("/api/auth/logout")
+    def logout(response: Response, session_id: str = Cookie(default="")):
+        if not session_id or session_id not in sessions:
+            raise HTTPException(status_code=401, detail="unauthenticated")
+        sessions.pop(session_id, None)
+        response.delete_cookie("session_id")
+        return {"ok": True}
 
     @app.get("/api/auth/me")
     def me(user=Depends(session_user)):

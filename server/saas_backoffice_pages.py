@@ -54,7 +54,7 @@ def _backoffice_home(user):
     ])
     body = f'''
 <section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card" style="margin-bottom:18px"><div class="card-b"><strong>当前账号：</strong>{_h(user.get('username'))}<span class="hint"> · {_h(_role_name(user.get('role_code')))}</span></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-b" style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><strong>当前账号：</strong>{_h(user.get('username'))}<span class="hint"> · {_h(_role_name(user.get('role_code')))}</span></div><form method="post" action="/api/auth/logout"><button class="danger">退出登录</button></form></div></section>
 <section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">{cards}</section>'''
     return _page('SaaS 员工后台', body)
 
