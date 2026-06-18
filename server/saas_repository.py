@@ -4,12 +4,9 @@
 
 from sqlalchemy import create_engine, text
 
+from server.saas_repository_errors import TenantScopeError
+from server.saas_repository_guards import validate_bill_scope, validate_import_storage_key
 from server.saas_service import PermissionDenied
-
-
-class TenantScopeError(Exception):
-    pass
-
 
 class SaasRepository:
     def __init__(self, url):
@@ -136,6 +133,7 @@ class SaasRepository:
 
     def create_bill(self, tenant_id, project_id, target_id, fee_type_id, period, service_start, service_end, amount, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
+        validate_bill_scope(self, tenant_id, project_id, target_id, fee_type_id)
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
             result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
@@ -226,6 +224,7 @@ class SaasRepository:
 
     def create_import_file(self, tenant_id, project_id, import_type, original_name, storage_key, file_size, content_type):
         self._require_project_scope(tenant_id, project_id)
+        validate_import_storage_key(tenant_id, project_id, storage_key)
         with self.engine.begin() as conn:
             result = conn.execute(text("""INSERT INTO imports(tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type)
                 VALUES(:tenant_id,:project_id,:import_type,'uploaded',:original_name,:storage_key,:file_size,:content_type)"""),
@@ -291,10 +290,8 @@ class SaasRepository:
         self.create_audit_log(tenant_id, project_id, user_id, 'restore.drill', 'restore_drill', result.lastrowid, {'backup_id': backup_id, 'scope': scope})
         return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "scope": scope, "status": "recorded"}
 
-
 def create_saas_repository(url):
     return SaasRepository(url)
-
 
 from server.saas_repository_search import attach_repository_search
 attach_repository_search(SaasRepository)

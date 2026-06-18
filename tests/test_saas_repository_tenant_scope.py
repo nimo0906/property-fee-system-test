@@ -33,6 +33,28 @@ class TestSaasRepositoryTenantScope(unittest.TestCase):
                 'tenants/1/projects/2/imports/3/original/x.xlsx', 1, 'x'
             )
 
+    def test_rejects_bill_when_target_or_fee_belongs_to_other_tenant(self):
+        target_a = self.repo.create_charge_target(self.tenant_a['id'], self.project_a['id'], '1栋', '1单元', '101', '居民', 80)
+        fee_a = self.repo.create_fee_type(self.tenant_a['id'], self.project_a['id'], '物业费', 2.5)
+        target_b = self.repo.create_charge_target(self.tenant_b['id'], self.project_b['id'], '2栋', '1单元', '201', '居民', 90)
+        fee_b = self.repo.create_fee_type(self.tenant_b['id'], self.project_b['id'], '物业费', 3)
+        with self.assertRaises(TenantScopeError):
+            self.repo.create_bill(self.tenant_a['id'], self.project_a['id'], target_b['id'], fee_a['id'], '2026-06', '2026-06-01', '2026-06-30', 225)
+        with self.assertRaises(TenantScopeError):
+            self.repo.create_bill(self.tenant_a['id'], self.project_a['id'], target_a['id'], fee_b['id'], '2026-06', '2026-06-01', '2026-06-30', 240)
+
+    def test_rejects_customer_upload_key_outside_its_tenant_project_prefix(self):
+        with self.assertRaises(TenantScopeError):
+            self.repo.create_import_file(
+                self.tenant_a['id'], self.project_a['id'], 'charge_targets', 'system.xlsx',
+                'system/templates/system.xlsx', 1, 'xlsx'
+            )
+        with self.assertRaises(TenantScopeError):
+            self.repo.create_import_file(
+                self.tenant_a['id'], self.project_a['id'], 'charge_targets', 'other.xlsx',
+                f"tenants/{self.tenant_b['id']}/projects/{self.project_b['id']}/imports/3/original/other.xlsx", 1, 'xlsx'
+            )
+
     def test_allows_business_data_when_project_belongs_to_tenant(self):
         target = self.repo.create_charge_target(self.tenant_a['id'], self.project_a['id'], '1栋', '1单元', '101', '居民', 80)
         fee = self.repo.create_fee_type(self.tenant_a['id'], self.project_a['id'], '物业费', 2.5)

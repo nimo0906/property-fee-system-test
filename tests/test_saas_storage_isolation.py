@@ -83,13 +83,13 @@ class TestSaasImportStorageMetadata(unittest.TestCase):
                 project_id=project['id'],
                 import_type='charge_targets',
                 original_name='房间.xlsx',
-                storage_key='tenants/1/projects/2/imports/3/original/房间.xlsx',
+                storage_key=f"tenants/{tenant['id']}/projects/{project['id']}/imports/3/original/房间.xlsx",
                 file_size=1024,
                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             )
             self.assertEqual(row['tenant_id'], tenant['id'])
             self.assertEqual(row['project_id'], project['id'])
-            self.assertEqual(row['storage_key'], 'tenants/1/projects/2/imports/3/original/房间.xlsx')
+            self.assertEqual(row['storage_key'], f"tenants/{tenant['id']}/projects/{project['id']}/imports/3/original/房间.xlsx")
             self.assertEqual(row['original_name'], '房间.xlsx')
             imports = repo.list_import_files(tenant['id'], project['id'])
             self.assertEqual([item['id'] for item in imports], [row['id']])
