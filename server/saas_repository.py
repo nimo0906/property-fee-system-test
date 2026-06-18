@@ -113,6 +113,10 @@ class SaasRepository:
                 {"tenant_id": tenant_id, "project_id": project_id, "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area)})
             return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area)}
 
+    def get_charge_target(self, tenant_id, project_id, target_id):
+        return self._row("""SELECT id,tenant_id,project_id,building,unit,room_number,category,area FROM charge_targets
+            WHERE tenant_id=:tenant_id AND project_id=:project_id AND id=:id""", {"tenant_id": tenant_id, "project_id": project_id, "id": target_id})
+
     def list_charge_targets(self, tenant_id, project_id):
         with self.engine.begin() as conn:
             rows = conn.execute(text("""SELECT id,tenant_id,project_id,building,unit,room_number,category,area FROM charge_targets
@@ -126,16 +130,23 @@ class SaasRepository:
                 {"tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price)})
             return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price)}
 
-    def create_bill(self, tenant_id, project_id, target_id, fee_type_id, period, service_start, service_end, amount):
+    def get_fee_type(self, tenant_id, project_id, fee_type_id):
+        return self._row("""SELECT id,tenant_id,project_id,name,unit_price FROM fee_types
+            WHERE tenant_id=:tenant_id AND project_id=:project_id AND id=:id""", {"tenant_id": tenant_id, "project_id": project_id, "id": fee_type_id})
+
+    def create_bill(self, tenant_id, project_id, target_id, fee_type_id, period, service_start, service_end, amount, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
             result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
                 VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:period,:service_start,:service_end,:amount,'pending_review')"""),
                 {"tenant_id": tenant_id, "project_id": project_id, "target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "period": period, "service_start": service_start, "service_end": service_end, "amount": float(amount)})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "pending_review"}
+            item = {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "pending_review"}
+        if actor_user_id:
+            self.create_audit_log(tenant_id, project_id, actor_user_id, 'bill.generate', 'bill', item['id'], {'bill_number': bill_number, 'amount': float(amount), 'billing_period': period})
+        return item
 
-    def approve_bill(self, tenant_id, project_id, bill_id):
+    def approve_bill(self, tenant_id, project_id, bill_id, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
         bill = self._row("SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status FROM bills WHERE id=:id", {"id": bill_id})
         if not bill or int(bill["tenant_id"]) != int(tenant_id) or int(bill["project_id"]) != int(project_id):
@@ -143,6 +154,8 @@ class SaasRepository:
         with self.engine.begin() as conn:
             conn.execute(text("UPDATE bills SET status='unpaid' WHERE id=:id AND tenant_id=:tenant_id AND project_id=:project_id"), {"id": bill_id, "tenant_id": tenant_id, "project_id": project_id})
         bill["status"] = "unpaid"
+        if actor_user_id:
+            self.create_audit_log(tenant_id, project_id, actor_user_id, 'bill.approve', 'bill', bill_id, {'bill_number': bill['bill_number']})
         return bill
 
     def list_bills(self, tenant_id, project_id, period=None, status=None):
@@ -160,7 +173,7 @@ class SaasRepository:
             rows = conn.execute(text(sql), params).mappings().all()
             return [dict(r) for r in rows]
 
-    def create_payment(self, tenant_id, project_id, bill_id, amount, method, idempotency_key):
+    def create_payment(self, tenant_id, project_id, bill_id, amount, method, idempotency_key, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
         bill = self._row("SELECT id,tenant_id,project_id,status FROM bills WHERE id=:id", {"id": bill_id})
         if not bill or int(bill["tenant_id"]) != int(tenant_id) or int(bill["project_id"]) != int(project_id):
@@ -176,7 +189,14 @@ class SaasRepository:
             result = conn.execute(text("""INSERT INTO payments(tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number)
                 VALUES(:tenant_id,:project_id,:bill_id,:amount,:method,:key,:receipt_number)"""),
                 {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount": float(amount), "method": method, "key": idempotency_key, "receipt_number": receipt_number})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount_paid": float(amount), "method": method, "idempotency_key": idempotency_key, "receipt_number": receipt_number}
+            item = {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount_paid": float(amount), "method": method, "idempotency_key": idempotency_key, "receipt_number": receipt_number}
+            paid = conn.execute(text("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE tenant_id=:tenant_id AND project_id=:project_id AND bill_id=:bill_id"), {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id}).scalar_one()
+            bill_amount = conn.execute(text("SELECT amount FROM bills WHERE id=:bill_id AND tenant_id=:tenant_id AND project_id=:project_id"), {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id}).scalar_one()
+            status = "paid" if float(paid or 0) >= float(bill_amount or 0) else "partial"
+            conn.execute(text("UPDATE bills SET status=:status WHERE id=:bill_id AND tenant_id=:tenant_id AND project_id=:project_id"), {"status": status, "bill_id": bill_id, "tenant_id": tenant_id, "project_id": project_id})
+        if actor_user_id:
+            self.create_audit_log(tenant_id, project_id, actor_user_id, 'payment.record', 'payment', item['id'], {'bill_id': bill_id, 'amount_paid': float(amount), 'method': method, 'idempotency_key': idempotency_key, 'receipt_number': receipt_number})
+        return item
 
     def report_summary(self, tenant_id, project_id, period):
         with self.engine.begin() as conn:
@@ -217,7 +237,6 @@ class SaasRepository:
             rows = conn.execute(text("""SELECT id,tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type FROM imports
                 WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
             return [dict(r) for r in rows]
-
 
     def list_tenants(self):
         with self.engine.begin() as conn:

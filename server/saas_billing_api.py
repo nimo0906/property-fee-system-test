@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """FastAPI billing routes for SaaS backoffice."""
 
+from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 
 
@@ -23,67 +24,111 @@ def register_billing_routes(app, service):
         idempotency_key: str = ""
 
     current_user = app.state.current_user
+    repository = getattr(app.state, "repository", None)
 
     @app.post("/api/bills/generate")
     def generate_bill(data: BillGenerateIn, user=Depends(current_user)):
         try:
             service._require(user, "billing")
-            target = service.targets[data.target_id]
-            fee = service.fees[data.fee_type_id]
-            item = service.generate_bill(user, user["project_id"], target, fee, data.billing_period, data.service_start, data.service_end)
+            if repository:
+                target = repository.get_charge_target(user["tenant_id"], user["project_id"], data.target_id)
+                fee = repository.get_fee_type(user["tenant_id"], user["project_id"], data.fee_type_id)
+                if not target or not fee:
+                    raise HTTPException(status_code=404, detail="target or fee type not found")
+                item = repository.create_bill(
+                    user["tenant_id"], user["project_id"], target["id"], fee["id"],
+                    data.billing_period, data.service_start, data.service_end,
+                    round(float(target["area"]) * float(fee["unit_price"]), 2),
+                    actor_user_id=user["id"],
+                )
+            else:
+                target = service.targets[data.target_id]
+                fee = service.fees[data.fee_type_id]
+                item = service.generate_bill(user, user["project_id"], target, fee, data.billing_period, data.service_start, data.service_end)
             return {"item": item}
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/bills/search")
     def search_bills(keyword: str = "", period: str = "", status: str = "", page: int = 1, page_size: int = 20, user=Depends(current_user)):
         try:
+            if repository:
+                return repository.search_bills(user["tenant_id"], user["project_id"], keyword, period or None, status or None, page, page_size)
             return service.search_bills(user, user["project_id"], keyword, period or None, status or None, page, page_size)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/bills")
     def list_bills(period: str = "", status: str = "", user=Depends(current_user)):
         try:
+            if repository:
+                return {"items": repository.list_bills(user["tenant_id"], user["project_id"], period or None, status or None)}
             return {"items": service.list_bills(user, user["project_id"], period or None, status or None)}
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/bills/{bill_id}/approve")
     def approve_bill(bill_id: int, user=Depends(current_user)):
         try:
-            return {"item": service.approve_bill(user, user["project_id"], bill_id)}
-        except PermissionDenied:
+            if repository:
+                item = repository.approve_bill(user["tenant_id"], user["project_id"], bill_id, actor_user_id=user["id"])
+            else:
+                item = service.approve_bill(user, user["project_id"], bill_id)
+            return {"item": item}
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
 
     @app.get("/api/payments")
     def search_payments(keyword: str = "", period: str = "", page: int = 1, page_size: int = 20, user=Depends(current_user)):
         try:
+            if repository:
+                return repository.search_payments(user["tenant_id"], user["project_id"], keyword, period or None, page, page_size)
             return service.search_payments(user, user["project_id"], keyword, period or None, page, page_size)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/payments")
     def record_payment(data: PaymentIn, user=Depends(current_user)):
         try:
-            return {"item": service.record_payment(user, data.bill_id, data.amount, data.method, data.idempotency_key or None)}
-        except PermissionDenied:
+            if repository:
+                item = repository.create_payment(user["tenant_id"], user["project_id"], data.bill_id, data.amount, data.method, data.idempotency_key or None, actor_user_id=user["id"])
+            else:
+                item = service.record_payment(user, data.bill_id, data.amount, data.method, data.idempotency_key or None)
+            return {"item": item}
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/exports/bills")
     def export_bills(period: str = "", status: str = "", user=Depends(current_user)):
         try:
+            if repository:
+                result = repository.search_bills(user["tenant_id"], user["project_id"], "", period or None, status or None, 1, 10000)
+                rows = [["bill_number", "billing_period", "amount", "status"]] + [
+                    [b["bill_number"], b["billing_period"], b["amount"], b["status"]]
+                    for b in result["items"]
+                ]
+                content = "\n".join(",".join(str(v) for v in row) for row in rows) + "\n"
+                return {"filename": f"bills-{period or 'all'}.csv", "content": content}
             return service.export_bills(user, user["project_id"], period or None, status or None)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/exports/payments")
     def export_payments(period: str = "", user=Depends(current_user)):
         try:
+            if repository:
+                result = repository.search_payments(user["tenant_id"], user["project_id"], "", period or None, 1, 10000)
+                rows = [["receipt_number", "bill_number", "amount_paid", "method"]] + [[p["receipt_number"], p["bill_number"], p["amount_paid"], p["method"]] for p in result["items"]]
+                content = "\n".join(",".join(str(v) for v in row) for row in rows) + "\n"
+                return {"filename": f"payments-{period or 'all'}.csv", "content": content}
             return service.export_payments(user, user["project_id"], period or None)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/reports/summary")
     def report_summary(period: str, user=Depends(current_user)):
+        if repository:
+            return repository.report_summary(user["tenant_id"], user["project_id"], period)
         return service.report(user, user["project_id"], period)

@@ -20,8 +20,9 @@
 
 ## 验收脚本
 
-- `scripts/saas_acceptance_check.py` 用于从空内存租户执行完整后台闭环：
+- `scripts/saas_acceptance_check.py` 用于分别从空内存租户和临时 SQLite 持久化库执行完整后台闭环：
   登录 → 创建员工 → 配置收费项目 → 导入收费对象 → 生成账单 → 审核账单 → 登记收款 → 查询报表 → 导出 → 备份记录 → 恢复演练 → 审计检查。
+- 持久化验收会确认收费对象、收费项目、账单、收款、报表和审计日志均按 tenant/project scope 读写；客户上传数据继续使用 `tenants/{tenant_id}/projects/{project_id}/...`，系统自身数据使用 `system/...`，两类数据不混放。
 - 建议每次云端后台关键改动后运行：
 
 ```bash

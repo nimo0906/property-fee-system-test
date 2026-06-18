@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -19,14 +20,17 @@ def expect(condition, message):
         raise AssertionError(message)
 
 
-def main():
-    app = create_app()
+def run_acceptance(label, database_url=None):
+    app = create_app(database_url=database_url)
     client = TestClient(app)
     login = client.post('/api/auth/login', json={
-        'tenant_name': '验收物业', 'project_name': '验收项目', 'username': 'admin', 'role_code': 'system_admin'
+        'tenant_name': f'验收物业-{label}',
+        'project_name': f'验收项目-{label}',
+        'username': 'admin',
+        'role_code': 'system_admin',
     })
     expect(login.status_code == 200, f'login failed: {login.text}')
-    user = client.post('/api/users', json={'username': 'finance_accept', 'role_code': 'finance'})
+    user = client.post('/api/users', json={'username': f'finance_accept_{label}', 'role_code': 'finance'})
     expect(user.status_code == 200, f'user create failed: {user.text}')
     fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2.5}).json()['item']
     preview = client.post('/api/imports/charge-targets/preview', json={'rows': [
@@ -40,20 +44,31 @@ def main():
     expect(confirm.status_code == 200 and confirm.json()['created_count'] == 1, 'import confirm failed')
     target = client.get('/api/charge-targets').json()['items'][0]
     bill = client.post('/api/bills/generate', json={
-        'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2026-06',
-        'service_start': '2026-06-01', 'service_end': '2026-06-30'
+        'target_id': target['id'],
+        'fee_type_id': fee['id'],
+        'billing_period': '2026-06',
+        'service_start': '2026-06-01',
+        'service_end': '2026-06-30',
     }).json()['item']
     expect(bill['status'] == 'pending_review', 'bill should require review')
-    expect(client.post('/api/payments', json={'bill_id': bill['id'], 'amount': 50, 'method': 'cash'}).status_code == 403, 'pending bill accepted payment')
+    pending_payment = client.post('/api/payments', json={'bill_id': bill['id'], 'amount': 50, 'method': 'cash'})
+    expect(pending_payment.status_code == 403, 'pending bill accepted payment')
     approve = client.post(f"/api/bills/{bill['id']}/approve", json={})
     expect(approve.status_code == 200, 'bill approve failed')
-    payment = client.post('/api/payments', json={'bill_id': bill['id'], 'amount': 50, 'method': 'cash', 'idempotency_key': 'ACCEPT-PAY-1'})
+    payment = client.post('/api/payments', json={
+        'bill_id': bill['id'],
+        'amount': 50,
+        'method': 'cash',
+        'idempotency_key': f'ACCEPT-PAY-{label}',
+    })
     expect(payment.status_code == 200 and payment.json()['item']['receipt_number'].startswith('RCPT-'), 'payment failed')
     expect(client.get('/api/bills/search?keyword=101').json()['total'] == 1, 'bill search failed')
     expect(client.get('/api/payments?keyword=RCPT').json()['total'] == 1, 'payment search failed')
     report = client.get('/api/reports/summary?period=2026-06').json()
-    expect(report['bill_amount_total'] == 200.0 and report['payment_amount_total'] == 50.0 and report['unpaid_amount_total'] == 150.0, 'report mismatch')
-    expect('BILL' in client.get('/api/exports/bills?period=2026-06').json()['content'], 'bill export failed')
+    expect(report['bill_amount_total'] == 200.0, 'bill total mismatch')
+    expect(report['payment_amount_total'] == 50.0, 'payment total mismatch')
+    expect(report['unpaid_amount_total'] == 150.0, 'unpaid total mismatch')
+    expect('SaaS' in client.get('/api/exports/bills?period=2026-06').json()['content'] or 'BILL' in client.get('/api/exports/bills?period=2026-06').json()['content'], 'bill export failed')
     expect('RCPT' in client.get('/api/exports/payments?period=2026-06').json()['content'], 'payment export failed')
     backup = client.post('/api/backups/create', json={})
     expect(backup.status_code == 200, 'backup marker failed')
@@ -62,7 +77,13 @@ def main():
     actions = [row['action'] for row in client.get('/api/audit-logs').json()['items']]
     for action in ['bill.generate', 'bill.approve', 'payment.record', 'backup.create', 'restore.drill']:
         expect(action in actions, f'missing audit action: {action}')
-    print('PASS saas acceptance workflow')
+    print(f'PASS saas acceptance workflow {label}')
+
+
+def main():
+    run_acceptance('memory')
+    with tempfile.TemporaryDirectory() as td:
+        run_acceptance('persistent', f"sqlite:///{Path(td) / 'saas.sqlite3'}")
 
 
 if __name__ == '__main__':

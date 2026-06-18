@@ -7,60 +7,24 @@ from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
 from server.saas_storage import SaasStorage
 from server.saas_billing_api import register_billing_routes
+from server.saas_api_models import (
+    FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
+    LoginIn, PasswordResetIn, RestoreDrillIn, TargetIn, UserCreateIn,
+)
 
 
 def create_app(database_url=None):
     try:
         from fastapi import Cookie, FastAPI, HTTPException, Response
-        from pydantic import BaseModel
     except ImportError as exc:
         raise RuntimeError("FastAPI is required for SaaS deployment; install requirements-saas.txt") from exc
 
     app = FastAPI(title="物业收费管理系统 SaaS 后台")
     service = SaasBackofficeService.in_memory()
     repository = create_saas_repository(database_url) if database_url else None
+    app.state.repository = repository
     sessions = {}
     storage = SaasStorage(root_dir="/var/lib/property-saas")
-
-    class LoginIn(BaseModel):
-        tenant_name: str
-        project_name: str
-        username: str
-        role_code: str
-
-    class FeeIn(BaseModel):
-        name: str
-        unit_price: float
-
-    class TargetIn(BaseModel):
-        building: str
-        unit: str = ""
-        room_number: str
-        category: str = "居民"
-        area: float
-
-    class ImportPreviewIn(BaseModel):
-        rows: list
-
-    class ImportConfirmIn(BaseModel):
-        import_id: int
-
-    class ImportFileRegisterIn(BaseModel):
-        import_type: str
-        original_name: str
-        file_size: int
-        content_type: str = ""
-
-    class UserCreateIn(BaseModel):
-        username: str
-        role_code: str
-
-    class PasswordResetIn(BaseModel):
-        new_password: str
-
-    class RestoreDrillIn(BaseModel):
-        backup_id: str
-        scope: str
 
     def current_user(session_id: str = Cookie(default="")):
         user = sessions.get(session_id)
@@ -84,6 +48,9 @@ def create_app(database_url=None):
             user_row = repository.create_user(tenant_row["id"], data.username, data.role_code)
             tenant_id = tenant_row["id"]
             project_id = project_row["id"]
+            service.tenants[tenant_id] = tenant_row
+            service.projects[project_id] = project_row
+            service.users[user_row["id"]] = {"id": user_row["id"], "tenant_id": tenant_id, "project_id": project_id, "username": data.username, "role_code": data.role_code}
             user = {"id": user_row["id"], "tenant_id": tenant_id, "username": data.username, "role_code": data.role_code}
         else:
             tenant_id = service.create_tenant(data.tenant_name)
@@ -105,6 +72,7 @@ def create_app(database_url=None):
             service._require(user, "manage_users")
             if repository:
                 item = repository.create_staff_user(user["tenant_id"], user["project_id"], data.username, data.role_code)
+                service.users[item["id"]] = {**item, "username": data.username, "role_code": data.role_code}
             else:
                 item = service.create_staff_user(user, user["project_id"], data.username, data.role_code)
             return {"item": item}
@@ -117,7 +85,10 @@ def create_app(database_url=None):
     def reset_password(user_id: int, data: PasswordResetIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "manage_users")
-            item = repository.reset_user_password(user["tenant_id"], user_id, data.new_password) if repository else service.reset_user_password(user, user_id, data.new_password)
+            if repository:
+                item = repository.reset_user_password(user["tenant_id"], user_id, data.new_password, actor_user_id=user["id"], project_id=user["project_id"])
+            else:
+                item = service.reset_user_password(user, user_id, data.new_password)
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
@@ -125,14 +96,26 @@ def create_app(database_url=None):
     @app.post("/api/fee-types")
     def create_fee(data: FeeIn, user=__import__('fastapi').Depends(current_user)):
         try:
-            return {"item": service.create_fee_type(user, user["project_id"], data.name, data.unit_price)}
+            service._require(user, "write")
+            if repository:
+                item = repository.create_fee_type(user["tenant_id"], user["project_id"], data.name, data.unit_price)
+                service._log(user, user["project_id"], 'fee_type.create', 'fee_type', item['id'], {'name': data.name, 'unit_price': float(data.unit_price)})
+            else:
+                item = service.create_fee_type(user, user["project_id"], data.name, data.unit_price)
+            return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/charge-targets")
     def create_target(data: TargetIn, user=__import__('fastapi').Depends(current_user)):
         try:
-            return {"item": service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area)}
+            service._require(user, "write")
+            if repository:
+                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area)
+                service._log(user, user["project_id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
+            else:
+                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area)
+            return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
@@ -153,6 +136,9 @@ def create_app(database_url=None):
     @app.get("/api/charge-targets")
     def list_targets(user=__import__('fastapi').Depends(current_user)):
         try:
+            service._require(user, "read")
+            if repository:
+                return {"items": repository.list_charge_targets(user["tenant_id"], user["project_id"])}
             return {"items": service.list_charge_targets(user, user["project_id"])}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
@@ -160,6 +146,22 @@ def create_app(database_url=None):
     @app.post("/api/imports/charge-targets/confirm")
     def confirm_import(data: ImportConfirmIn, user=__import__('fastapi').Depends(current_user)):
         try:
+            if repository:
+                service._require(user, "import")
+                review = service.get_import_review(user, user["project_id"], data.import_id)
+                if review["confirmed"]:
+                    return {"created_count": 0, "skipped_count": review["error_count"]}
+                created = 0
+                for row in review["valid_rows"]:
+                    item = repository.create_charge_target(
+                        user["tenant_id"], user["project_id"], row["building"], row.get("unit", ""),
+                        row["room_number"], row.get("category", "居民"), row["area"]
+                    )
+                    service.targets[item["id"]] = item
+                    created += 1
+                service.imports[data.import_id]["confirmed"] = True
+                service._log(user, user["project_id"], 'import.confirm', 'import', data.import_id, {'created_count': created, 'skipped_count': review['error_count']})
+                return {"created_count": created, "skipped_count": review["error_count"]}
             return service.confirm_charge_target_import(user, user["project_id"], data.import_id)
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
@@ -209,6 +211,9 @@ def create_app(database_url=None):
     @app.get("/api/audit-logs")
     def audit_logs(user=__import__('fastapi').Depends(current_user)):
         try:
+            service._require(user, "read")
+            if repository:
+                return {"items": repository.list_audit_logs(user["tenant_id"], user["project_id"])}
             return {"items": service.list_audit_logs(user, user["project_id"])}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
