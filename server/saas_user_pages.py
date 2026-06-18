@@ -180,6 +180,8 @@ def register_user_pages(app, service, repository, current_user, sessions):
     def create_user_page(username: str = Form(...), role_code: str = Form(...), user=Depends(current_user)):
         try:
             service._require(user, 'manage_users')
+            if user.get('role_code') == 'platform_admin':
+                raise PermissionDenied('use tenant onboarding for customer staff')
             if repository:
                 repository.create_staff_user(user['tenant_id'], user['project_id'], username, role_code)
             else:

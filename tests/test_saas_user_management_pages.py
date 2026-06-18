@@ -223,6 +223,40 @@ class TestSaasPlatformUserManagementPages(unittest.TestCase):
             self.assertIn('/backoffice/tenant-onboarding', page.text)
             self.assertIn('避免把客户员工建到平台租户', page.text)
 
+
+    def test_platform_admin_cannot_directly_create_staff_user_from_api_or_page(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            platform = TestClient(create_app(database_url=db_url))
+            login = platform.post('/api/auth/login', json={
+                'tenant_name': '平台物业',
+                'project_name': '平台项目',
+                'username': 'platform_admin',
+                'role_code': 'platform_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+
+            api_created = platform.post('/api/users', json={
+                'username': 'wrong_platform_staff',
+                'role_code': 'cashier',
+            })
+            self.assertEqual(api_created.status_code, 403)
+
+            page_created = platform.post('/backoffice/users/create', data={
+                'username': 'wrong_platform_staff_page',
+                'role_code': 'cashier',
+            }, follow_redirects=False)
+            self.assertEqual(page_created.status_code, 403)
+
+            repo = create_saas_repository(db_url)
+            usernames = [row['username'] for row in repo.list_users()]
+            self.assertNotIn('wrong_platform_staff', usernames)
+            self.assertNotIn('wrong_platform_staff_page', usernames)
+            repo.close()
+
     def test_tenant_admin_cannot_disable_other_tenant_user_from_page(self):
         import tempfile
         from pathlib import Path

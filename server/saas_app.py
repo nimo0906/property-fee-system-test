@@ -44,6 +44,8 @@ def create_app(database_url=None):
     def create_user(data: UserCreateIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "manage_users")
+            if user.get("role_code") == "platform_admin":
+                raise PermissionDenied("use tenant onboarding for customer staff")
             if repository:
                 item = repository.create_staff_user(user["tenant_id"], user["project_id"], data.username, data.role_code)
                 service.users[item["id"]] = {**item, "username": data.username, "role_code": data.role_code}
