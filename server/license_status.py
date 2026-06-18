@@ -15,9 +15,12 @@ DEFAULT_LICENSE = {
     "customer_name": "未绑定客户",
     "projects": 1,
     "seats": 3,
+    "license_model": "annual",
+    "device_limit": 3,
+    "offline_grace_days": 7,
     "expires_at": "",
     "license_key": "",
-    "notes": "当前为本地试用状态；不会联网校验，也不会影响已有本地数据。",
+    "notes": "当前为本地试用状态；正式商业版按年授权，默认3台设备，离线宽限期7天。",
 }
 
 
@@ -39,8 +42,12 @@ def read_license_status(data_dir=None):
             data["notes"] = f"授权文件读取失败：{exc}"
     data.update(_env_overrides())
     data["license_file"] = str(path)
+    data["device_limit"] = _as_int(data.get("device_limit"), 3)
+    data["offline_grace_days"] = _as_int(data.get("offline_grace_days"), 7)
     data["is_expired"] = _is_expired(data.get("expires_at"))
     data["status_label"] = _status_label(data)
+    data["license_model_label"] = _license_model_label(data.get("license_model"))
+    data["access_blocked"] = data["status_label"] in ("已过期", "授权异常")
     data["masked_key"] = _mask_key(data.get("license_key", ""))
     return data
 
@@ -52,6 +59,9 @@ def _env_overrides():
         "PM_LICENSE_CUSTOMER": "customer_name",
         "PM_LICENSE_PROJECTS": "projects",
         "PM_LICENSE_SEATS": "seats",
+        "PM_LICENSE_MODEL": "license_model",
+        "PM_LICENSE_DEVICE_LIMIT": "device_limit",
+        "PM_LICENSE_OFFLINE_GRACE_DAYS": "offline_grace_days",
         "PM_LICENSE_EXPIRES_AT": "expires_at",
         "PM_LICENSE_KEY": "license_key",
     }
@@ -84,3 +94,14 @@ def _mask_key(value):
     if len(text) <= 8:
         return "未配置" if not text else "****"
     return text[:4] + "****" + text[-4:]
+
+
+def _license_model_label(value):
+    return {"annual": "按年授权", "trial": "试用授权", "subscription": "订阅授权"}.get(str(value or "annual"), str(value or "按年授权"))
+
+
+def _as_int(value, default):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default

@@ -6,6 +6,8 @@ import re
 import urllib.parse
 
 from server.db import qs
+from server.commercial_config import license_block_message, should_block_for_license, should_force_first_run
+from server.license_status import read_license_status
 from server.permissions import canonical_role, is_readonly_role, required_get_role, required_post_role, role_allows
 
 DISABLED_MODULE_PATTERNS = (
@@ -95,6 +97,11 @@ def handle_post(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        license_status = read_license_status()
+        if should_block_for_license(p, u, license_status):
+            return handler._redirect('/license_status?flash=' + license_block_message(license_status))
+        if should_force_first_run(p, u):
+            return handler._redirect('/first_run_guide?flash=请先完成首次初始化配置')
         if is_readonly_role(u.get('role')):
             return handler._redirect('/?flash=无权限执行写操作')
         required_role = required_post_role(p)
@@ -105,6 +112,11 @@ def handle_post(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        license_status = read_license_status()
+        if should_block_for_license(p, u, license_status):
+            return handler._redirect('/license_status?flash=' + license_block_message(license_status))
+        if should_force_first_run(p, u):
+            return handler._redirect('/first_run_guide?flash=请先完成首次初始化配置')
         if is_readonly_role(u.get('role')):
             return handler._redirect('/?flash=无权限执行写操作')
         required_role = required_post_role(p)
@@ -115,6 +127,11 @@ def handle_post(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        license_status = read_license_status()
+        if should_block_for_license(p, u, license_status):
+            return handler._redirect('/license_status?flash=' + license_block_message(license_status))
+        if should_force_first_run(p, u):
+            return handler._redirect('/first_run_guide?flash=请先完成首次初始化配置')
         if is_readonly_role(u.get('role')):
             return handler._redirect('/?flash=无权限执行写操作')
         required_role = required_post_role(p)
@@ -125,6 +142,11 @@ def handle_post(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        license_status = read_license_status()
+        if should_block_for_license(p, u, license_status):
+            return handler._redirect('/license_status?flash=' + license_block_message(license_status))
+        if should_force_first_run(p, u):
+            return handler._redirect('/first_run_guide?flash=请先完成首次初始化配置')
         if is_readonly_role(u.get('role')):
             return handler._redirect('/?flash=无权限执行写操作')
         required_role = required_post_role(p)
@@ -139,6 +161,11 @@ def handle_post(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        license_status = read_license_status()
+        if should_block_for_license(p, u, license_status):
+            return handler._redirect('/license_status?flash=' + license_block_message(license_status))
+        if should_force_first_run(p, u):
+            return handler._redirect('/first_run_guide?flash=请先完成首次初始化配置')
         if is_readonly_role(u.get('role')):
             return handler._redirect('/?flash=无权限执行写操作')
         required_role = required_post_role(p)
@@ -146,6 +173,7 @@ def handle_post(handler):
             return handler._redirect('/?flash=无权限执行该操作')
     if p == '/login': return handler._login_post(d)
     elif p == '/register': return handler._register_post(d)
+    elif p == '/first_run_setup': return handler._first_run_setup_post(d)
     elif p == '/rooms/create': return handler._room_create(d)
     elif (m := re.match(r'^/rooms/(\d+)/edit$', p)): return handler._room_edit(int(m.group(1)), d)
     elif (m := re.match(r'^/rooms/(\d+)/tenant_transfer$', p)): return handler._room_tenant_transfer_post(int(m.group(1)), d)

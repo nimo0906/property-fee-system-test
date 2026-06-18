@@ -6,6 +6,8 @@ import re
 import urllib.parse
 
 from server.db import qs
+from server.commercial_config import license_block_message, should_block_for_license, should_force_first_run
+from server.license_status import read_license_status
 from server.permissions import canonical_role, is_readonly_role, required_get_role, required_post_role, role_allows
 
 DISABLED_MODULE_PATTERNS = (
@@ -95,6 +97,11 @@ def handle_get(handler):
         u = handler._get_current_user()
         if not u:
             return handler._redirect('/login')
+        license_status = read_license_status()
+        if should_block_for_license(p, u, license_status):
+            return handler._redirect('/license_status?flash=' + license_block_message(license_status))
+        if should_force_first_run(p, u):
+            return handler._redirect('/first_run_guide?flash=请先完成首次初始化配置')
         required_role = required_get_role(p)
         if required_role and not role_allows(u.get('role'), required_role):
             return handler._redirect('/?flash=无权限访问该页面')
