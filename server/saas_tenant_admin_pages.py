@@ -42,7 +42,7 @@ def register_tenant_admin_pages(app, service, repository, current_user):
             service._require(user, 'manage_users')
             if user.get('role_code') != 'system_admin':
                 raise PermissionDenied('tenant admin only')
-            q, role_code, is_active, _page_num, page_size = _normalize_filters(q, role_code, is_active, 1, 50)
+            q, role_code, is_active, _page_num, page_size, _tenant_name = _normalize_filters(q, role_code, is_active, 1, 50)
             items = repository.list_users_for_actor(user) if repository else service.list_staff_users(user, user['project_id'])
             items = _filter_users(items, q=q, role_code=role_code, is_active=is_active)[:page_size]
             filters = {'q': q, 'role_code': role_code, 'is_active': is_active}

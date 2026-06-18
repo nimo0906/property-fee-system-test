@@ -33,12 +33,13 @@ def change_user_password_record(repo, tenant_id, user_id, new_password):
     return target
 
 def list_user_records(repo, tenant_id=None):
-    sql = "SELECT id,tenant_id,username,role_code,is_active FROM users"
+    sql = """SELECT u.id,u.tenant_id,t.name AS tenant_name,u.username,u.role_code,u.is_active
+        FROM users u JOIN tenants t ON t.id=u.tenant_id"""
     params = {}
     if tenant_id is not None:
-        sql += " WHERE tenant_id=:tenant_id"
+        sql += " WHERE u.tenant_id=:tenant_id"
         params['tenant_id'] = tenant_id
-    sql += " ORDER BY id"
+    sql += " ORDER BY u.id"
     with repo.engine.begin() as conn:
         rows = conn.execute(text(sql), params).mappings().all()
         return [dict(r) for r in rows]

@@ -148,6 +148,57 @@ class TestSaasPlatformUserManagementPages(unittest.TestCase):
             self.assertEqual(disable_log['detail']['actor_username'], 'platform_admin')
             repo.close()
 
+
+    def test_platform_admin_user_management_page_shows_tenant_names_and_filters_by_tenant(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            platform = TestClient(create_app(database_url=db_url))
+            login = platform.post('/api/auth/login', json={
+                'tenant_name': '平台物业',
+                'project_name': '平台项目',
+                'username': 'platform_admin',
+                'role_code': 'platform_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+
+            tenant_a = TestClient(create_app(database_url=db_url))
+            login = tenant_a.post('/api/auth/login', json={
+                'tenant_name': 'A客户物业',
+                'project_name': 'A客户项目',
+                'username': 'admin_a',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            tenant_a.post('/api/users', json={'username': 'a_cashier', 'role_code': 'cashier'})
+
+            tenant_b = TestClient(create_app(database_url=db_url))
+            login = tenant_b.post('/api/auth/login', json={
+                'tenant_name': 'B客户物业',
+                'project_name': 'B客户项目',
+                'username': 'admin_b',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            tenant_b.post('/api/users', json={'username': 'b_cashier', 'role_code': 'cashier'})
+
+            page = platform.get('/backoffice/users')
+            self.assertEqual(page.status_code, 200)
+            html = page.text
+            self.assertIn('A客户物业', html)
+            self.assertIn('B客户物业', html)
+            self.assertIn('平台全局视图', html)
+            self.assertIn('客户公司筛选', html)
+
+            filtered = platform.get('/backoffice/users?tenant_name=A客户物业')
+            self.assertEqual(filtered.status_code, 200)
+            self.assertIn('A客户物业', filtered.text)
+            self.assertNotIn('B客户物业', filtered.text)
+            self.assertIn('a_cashier', filtered.text)
+            self.assertNotIn('b_cashier', filtered.text)
+
     def test_tenant_admin_cannot_disable_other_tenant_user_from_page(self):
         import tempfile
         from pathlib import Path

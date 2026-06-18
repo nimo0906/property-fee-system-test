@@ -47,6 +47,7 @@ def _render_users(user, items, message='', filters=None, total=0, page=1, page_s
     scope_label = '平台全局视图' if user.get('role_code') == 'platform_admin' else '本租户视图'
     rows = ''.join(_render_user_row(row) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
+    tenant_filter = _render_tenant_filter(user, filters)
     role_options = ''.join(
         f'<option value="{_h(code)}"{" selected" if filters.get("role_code") == code else ""}>{_h(name)}</option>'
         for code, name in [('', '全部角色'), ('platform_admin', '平台管理员'), ('system_admin', '租户管理员'), ('finance', '财务'), ('cashier', '收费员'), ('frontdesk', '客服业务编辑'), ('executive', '管理层只读')]
@@ -65,10 +66,25 @@ def _render_users(user, items, message='', filters=None, total=0, page=1, page_s
     body = f'''
 <section class="hero"><div><h1>账号管理</h1><div class="sub">正式商业后台账号控制台。租户管理员只能管理本公司员工；平台管理员可跨租户处理账号，但操作会写入目标租户审计。</div></div><div class="badge tenant-scope">{_h(scope_label)}</div></section>
 {notice}
-<section class="grid"><div class="card"><div class="card-h">员工账号列表</div><div class="card-b"><form method="get" action="/backoffice/users" class="filters"><input type="hidden" name="page" value="1"><div><label>关键字</label><input name="q" value="{_h(filters.get('q', ''))}" placeholder="账号关键词"></div><div><label>角色</label><select name="role_code">{role_options}</select></div><div><label>状态</label><select name="is_active">{active_options}</select></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">筛选</button></div></form>{pager}<table><thead><tr><th>ID</th><th>租户</th><th>账号</th><th>角色</th><th>状态</th><th>重置密码</th><th>账号状态</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
+<section class="grid"><div class="card"><div class="card-h">员工账号列表</div><div class="card-b"><form method="get" action="/backoffice/users" class="filters"><input type="hidden" name="page" value="1"><div><label>关键字</label><input name="q" value="{_h(filters.get('q', ''))}" placeholder="账号关键词"></div>{tenant_filter}<div><label>角色</label><select name="role_code">{role_options}</select></div><div><label>状态</label><select name="is_active">{active_options}</select></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">筛选</button></div></form>{pager}<table><thead><tr><th>ID</th><th>租户</th><th>账号</th><th>角色</th><th>状态</th><th>重置密码</th><th>账号状态</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
 <aside class="card"><div class="card-h">新建员工账号</div><div class="card-b"><form method="post" action="/backoffice/users/create"><label>登录账号</label><input name="username" required placeholder="例如 cashier_01"><label>角色</label><select name="role_code"><option value="cashier">收费员</option><option value="finance">财务</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="system_admin">租户管理员</option></select><button class="primary">创建账号</button><div class="hint">创建后请立即通过左侧“重置密码”设置临时密码，并要求员工首次登录后修改。</div></form></div></aside></section>'''
     return _page('账号管理', body)
 
+
+
+def _render_tenant_filter(user, filters):
+    if user.get('role_code') != 'platform_admin':
+        return ''
+    value = _h(filters.get('tenant_name', ''))
+    return f'<div><label>客户公司筛选</label><input name="tenant_name" value="{value}" placeholder="输入客户公司名"></div>'
+
+
+def _tenant_display(row):
+    name = row.get('tenant_name')
+    tenant_id = row.get('tenant_id')
+    if name:
+        return f'{name}（ID {tenant_id}）'
+    return tenant_id
 
 def _render_user_row(row):
     active = int(row.get('is_active', 1) or 0) == 1
@@ -76,14 +92,14 @@ def _render_user_row(row):
     next_active = '0' if active else '1'
     action_label = '停用账号' if active else '启用账号'
     btn_class = 'danger' if active else 'ghost'
-    return f'''<tr><td>{_h(row.get('id'))}</td><td>{_h(row.get('tenant_id'))}</td><td><strong>{_h(row.get('username'))}</strong></td><td>{_h(_role_name(row.get('role_code')))}</td><td>{status}</td>
+    return f'''<tr><td>{_h(row.get('id'))}</td><td>{_h(_tenant_display(row))}</td><td><strong>{_h(row.get('username'))}</strong></td><td>{_h(_role_name(row.get('role_code')))}</td><td>{status}</td>
 <td><form method="post" action="/backoffice/users/{_h(row.get('id'))}/reset-password" class="inline"><input type="password" name="new_password" required minlength="8" placeholder="临时密码"><button class="primary">重置密码</button></form></td>
 <td><form method="post" action="/backoffice/users/{_h(row.get('id'))}/active"><input type="hidden" name="is_active" value="{next_active}"><button class="{btn_class}">{action_label}</button></form></td></tr>'''
 
 
 def _build_query(filters, page=None, page_size=None):
     params = {}
-    for key in ('q', 'role_code', 'is_active'):
+    for key in ('q', 'role_code', 'is_active', 'tenant_name'):
         value = (filters or {}).get(key, '')
         if value:
             params[key] = str(value)
@@ -101,23 +117,26 @@ def _parse_int(value, default):
         return default
 
 
-def _normalize_filters(q, role_code, is_active, page, page_size):
+def _normalize_filters(q, role_code, is_active, page, page_size, tenant_name=''):
     page = max(_parse_int(page, 1), 1)
     page_size = min(max(_parse_int(page_size, 10), 1), 50)
     q = (q or '').strip()
     role_code = (role_code or '').strip()
     is_active = (is_active or '').strip()
+    tenant_name = (tenant_name or '').strip()
     if is_active not in {'', '1', '0'}:
         is_active = ''
-    return q, role_code, is_active, page, page_size
+    return q, role_code, is_active, page, page_size, tenant_name
 
 
-def _filter_users(items, q='', role_code='', is_active=''):
+def _filter_users(items, q='', role_code='', is_active='', tenant_name=''):
     rows = []
     for row in items:
         if q and q.lower() not in str(row.get('username', '')).lower():
             continue
         if role_code and row.get('role_code') != role_code:
+            continue
+        if tenant_name and tenant_name.lower() not in str(row.get('tenant_name', '')).lower():
             continue
         if is_active in {'0', '1'} and int(row.get('is_active', 1) or 0) != int(is_active):
             continue
@@ -141,12 +160,12 @@ def register_user_pages(app, service, repository, current_user, sessions):
         return repository.list_users_for_actor(user) if repository else service.list_staff_users(user, user['project_id'])
 
     @app.get('/backoffice/users', response_class=HTMLResponse)
-    def user_page(user=Depends(current_user), q: str = '', role_code: str = '', is_active: str = '', page: int = 1, page_size: int = 10, message: str = ''):
+    def user_page(user=Depends(current_user), q: str = '', role_code: str = '', is_active: str = '', tenant_name: str = '', page: int = 1, page_size: int = 10, message: str = ''):
         try:
-            q, role_code, is_active, page, page_size = _normalize_filters(q, role_code, is_active, page, page_size)
-            all_items = _filter_users(_items_for(user), q=q, role_code=role_code, is_active=is_active)
+            q, role_code, is_active, page, page_size, tenant_name = _normalize_filters(q, role_code, is_active, page, page_size, tenant_name)
+            all_items = _filter_users(_items_for(user), q=q, role_code=role_code, is_active=is_active, tenant_name=tenant_name)
             visible, total = _paginate(all_items, page, page_size)
-            filters = {'q': q, 'role_code': role_code, 'is_active': is_active, 'page_size': page_size}
+            filters = {'q': q, 'role_code': role_code, 'is_active': is_active, 'page_size': page_size, 'tenant_name': tenant_name}
             return HTMLResponse(_render_users(user, visible, message, filters=filters, total=total, page=page, page_size=page_size))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
