@@ -61,9 +61,12 @@ class TestSaasTenantOnboardingPages(unittest.TestCase):
             self.assertIn('tenant.create', [row['action'] for row in logs])
             self.assertIn('project.create', [row['action'] for row in logs])
             self.assertIn('user.create', [row['action'] for row in logs])
+            self.assertIn('user.password_reset', [row['action'] for row in logs])
+            self.assertNotIn('Init-pass-2026', str(logs))
             repo.close()
 
-            login = TestClient(create_app(database_url=db_url)).post('/api/auth/login', json={
+            tenant_client = TestClient(create_app(database_url=db_url))
+            login = tenant_client.post('/api/auth/login', json={
                 'tenant_name': '金桥物业',
                 'project_name': '金桥一期',
                 'username': 'tenant_admin_jq',
@@ -71,7 +74,21 @@ class TestSaasTenantOnboardingPages(unittest.TestCase):
                 'password': 'Init-pass-2026',
             })
             self.assertEqual(login.status_code, 200)
-            self.assertFalse(login.json()['must_change_password'])
+            self.assertTrue(login.json()['must_change_password'])
+            blocked = tenant_client.get('/api/charge-targets')
+            self.assertEqual(blocked.status_code, 403)
+            changed = tenant_client.post('/api/auth/change-password', json={
+                'old_password': 'Init-pass-2026',
+                'new_password': 'Changed-pass-2026',
+            })
+            self.assertEqual(changed.status_code, 200)
+            allowed = tenant_client.get('/api/charge-targets')
+            self.assertEqual(allowed.status_code, 200)
+            repo = create_saas_repository(db_url)
+            logs = repo.list_audit_logs(tenant['id'], projects[0]['id'])
+            self.assertIn('user.password_change', [row['action'] for row in logs])
+            self.assertNotIn('Changed-pass-2026', str(logs))
+            repo.close()
 
     def test_non_platform_admin_cannot_open_tenant_onboarding_page(self):
         with tempfile.TemporaryDirectory() as td:

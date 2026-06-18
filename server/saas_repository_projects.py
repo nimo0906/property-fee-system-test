@@ -47,4 +47,5 @@ def _repo_onboard_tenant_for_platform(self, actor, tenant_name, project_name, ad
     self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "tenant.create", "tenant", tenant["id"], {"tenant_name": tenant_name, "actor_username": actor.get("username"), "scope": "platform"})
     self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "project.create", "project", project["id"], {"name": project_name, "code": project_code, "scope": "platform"})
     self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "user.create", "user", admin["id"], {"username": admin_username, "role_code": "system_admin", "scope": "platform"})
+    self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "user.password_reset", "user", admin["id"], {"target_username": admin_username, "target_role_code": "system_admin", "password_changed": True, "force_change": True, "scope": "platform"})
     return {"tenant": tenant, "project": project, "admin": admin}
