@@ -92,5 +92,35 @@ class TestSaasUserSelfProtection(unittest.TestCase):
             self.assertIn('请使用个人改密入口', page.text)
 
 
+    def test_admin_reset_password_rejects_short_temporary_password(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = TestClient(create_app(database_url=db_url))
+            login = client.post('/api/auth/login', json={
+                'tenant_name': '重置短密物业',
+                'project_name': '重置短密项目',
+                'username': 'admin',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            created = client.post('/api/users', json={'username': 'cashier_short_reset', 'role_code': 'cashier'})
+            user_id = created.json()['item']['id']
+
+            api_reset = client.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'short'})
+            self.assertEqual(api_reset.status_code, 400)
+
+            page_reset = client.post(
+                f'/backoffice/users/{user_id}/reset-password',
+                data={'new_password': 'short'},
+                follow_redirects=False,
+            )
+            self.assertEqual(page_reset.status_code, 400)
+            self.assertIn('临时密码至少 8 位', page_reset.text)
+
+            repo = create_saas_repository(db_url)
+            self.assertIsNone(repo.get_user(user_id)['password_hash'])
+            repo.close()
+
+
 if __name__ == '__main__':
     unittest.main()

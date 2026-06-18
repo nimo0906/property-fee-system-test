@@ -167,7 +167,7 @@ def _paginate(items, page, page_size):
 
 def register_user_pages(app, service, repository, current_user, sessions):
     from fastapi import Depends, Form, HTTPException
-    from fastapi.responses import HTMLResponse, RedirectResponse
+    from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
     def _items_for(user):
         service._require(user, 'manage_users')
@@ -220,6 +220,8 @@ def register_user_pages(app, service, repository, current_user, sessions):
             service._require(user, 'manage_users')
             if int(user_id) == int(user.get('id')):
                 raise PermissionDenied('use change-password for own account')
+            if len(new_password or '') < 8:
+                return PlainTextResponse('临时密码至少 8 位', status_code=400)
             if repository:
                 repository.reset_user_password_for_actor(user, user_id, new_password)
             else:

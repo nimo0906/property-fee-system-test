@@ -91,6 +91,8 @@ def create_app(database_url=None):
             service._require(user, "manage_users")
             if int(user_id) == int(user.get("id")):
                 raise PermissionDenied("use change-password for own account")
+            if len(data.new_password or "") < 8:
+                raise HTTPException(status_code=400, detail="temporary password too short")
             if repository:
                 item = repository.reset_user_password_for_actor(user, user_id, data.new_password)
             else:
