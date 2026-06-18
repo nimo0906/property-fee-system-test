@@ -22,7 +22,7 @@ def _backoffice_home(user):
         user_card,
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
-        _module_card('出账收款', '生成账单、审核账单、登记收款、查看欠费。', None, '后续接入'),
+        _module_card('出账收款', '生成账单、审核账单、登记收款、查看欠费。', '/backoffice/bills'),
     ])
     body = f'''
 <section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
