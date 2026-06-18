@@ -37,6 +37,8 @@ def register_auth_routes(app, service, repository, sessions, session_user):
         import secrets
         if repository:
             tenant_row, project_row, user_row = repository_login_context(repository, data)
+            if tenant_row.get("status") != "active":
+                raise HTTPException(status_code=403, detail="tenant inactive")
             if not verify_repository_login(repository, user_row, data.password):
                 raise HTTPException(status_code=401, detail="invalid credentials")
             tenant_id, project_id = tenant_row["id"], project_row["id"]

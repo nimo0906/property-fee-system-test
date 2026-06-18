@@ -17,16 +17,18 @@ def _project_row(user, platform, names, row):
         if int(row.get('id')) == int(user.get('project_id')):
             action = '<span class="status on">当前项目</span>'
         else:
-            action = (
-                f'<form method="post" action="/backoffice/tenant-projects/switch">'
-                f'<input type="hidden" name="project_id" value="{_h(row.get("id"))}">'
-                f'<button class="ghost">切换项目</button></form>'
-            )
-    return (
-        f'<tr><td>{_h(row.get("id"))}</td><td>{_h(names.get(int(row.get("tenant_id"))))}</td>'
-        f'<td><strong>{_h(row.get("name"))}</strong></td><td>{_h(row.get("code"))}</td>'
-        f'<td>{"启用" if row.get("is_active", 1) else "停用"}</td><td>{action}</td></tr>'
-    )
+            action = f'''<form method="post" action="/backoffice/tenant-projects/switch"><input type="hidden" name="project_id" value="{_h(row.get('id'))}"><button class="ghost">切换项目</button></form>'''
+    return f'''<tr><td>{_h(row.get('id'))}</td><td>{_h(names.get(int(row.get('tenant_id'))))}</td><td><strong>{_h(row.get('name'))}</strong></td><td>{_h(row.get('code'))}</td><td>{'启用' if row.get('is_active', 1) else '停用'}</td><td>{action}</td></tr>'''
+
+
+def _tenant_row(user, row):
+    action = ''
+    if user.get('role_code') == 'platform_admin' and int(row.get('id')) != int(user.get('tenant_id')):
+        next_status = 'active' if row.get('status') == 'suspended' else 'suspended'
+        label = '启用租户' if next_status == 'active' else '停用租户'
+        cls = 'ghost' if next_status == 'active' else 'danger'
+        action = f'''<form method="post" action="/backoffice/tenant-projects/tenant-status"><input type="hidden" name="tenant_id" value="{_h(row.get('id'))}"><input type="hidden" name="status" value="{_h(next_status)}"><button class="{cls}">{label}</button></form>'''
+    return f'''<tr><td>{_h(row.get('id'))}</td><td><strong>{_h(row.get('name'))}</strong></td><td>{_h(row.get('status'))}</td><td>{action}</td></tr>'''
 
 
 def _render_page(user, tenants, projects, message=''):
@@ -34,13 +36,10 @@ def _render_page(user, tenants, projects, message=''):
     title_badge = '平台租户视图' if platform else '本租户项目视图'
     names = _tenant_name_map(tenants)
     rows = ''.join(_project_row(user, platform, names, row) for row in projects) or '<tr><td colspan="6">暂无项目</td></tr>'
-    tenant_rows = ''.join(
-        f'''<tr><td>{_h(row.get('id'))}</td><td><strong>{_h(row.get('name'))}</strong></td><td>{_h(row.get('status'))}</td></tr>'''
-        for row in tenants
-    )
+    tenant_rows = ''.join(_tenant_row(user, row) for row in tenants)
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     create_form = '' if platform else '''<aside class="card"><div class="card-h">新增本公司项目</div><div class="card-b"><form method="post" action="/backoffice/tenant-projects/create"><label>项目名称</label><input name="name" required placeholder="例如 一期 / 二期 / 商业街"><label>项目编码</label><input name="code" placeholder="例如 A-001"><button class="primary">创建项目</button><div class="hint">新项目只归属当前公司，后续收费对象、账单、收款都会按项目隔离。</div></form></div></aside>'''
-    tenant_card = f'''<section class="card" style="margin-top:18px"><div class="card-h">租户列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>状态</th></tr></thead><tbody>{tenant_rows}</tbody></table></div></section>''' if platform else ''
+    tenant_card = f'''<section class="card" style="margin-top:18px"><div class="card-h">租户列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>状态</th><th>操作</th></tr></thead><tbody>{tenant_rows}</tbody></table></div></section>''' if platform else ''
     body = f'''
 <section class="hero"><div><h1>租户项目管理</h1><div class="sub">正式商业版用于确认公司租户和项目边界。租户管理员只能维护本公司项目，平台管理员只读查看租户全局。</div></div><div class="badge tenant-scope">{_h(title_badge)}</div></section>{notice}
 <section class="grid"><div class="card"><div class="card-h">项目列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>公司/租户</th><th>项目</th><th>编码</th><th>状态</th><th>操作</th></tr></thead><tbody>{rows}</tbody></table></div></div>{create_form}</section>{tenant_card}'''
@@ -69,6 +68,16 @@ def register_tenant_project_pages(app, service, repository, current_user):
             tenants, projects = _items(user, repository, service)
             return HTMLResponse(_render_page(user, tenants, projects, message))
         except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/tenant-projects/tenant-status')
+    def tenant_status_page(tenant_id: int = Form(...), status: str = Form(...), user=Depends(current_user)):
+        try:
+            if not repository:
+                raise PermissionDenied('persistent mode required')
+            repository.set_tenant_status_for_platform(user, tenant_id, status)
+            return RedirectResponse('/backoffice/tenant-projects?message=租户状态已更新', status_code=303)
+        except (PermissionDenied, TenantScopeError, ValueError):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/tenant-projects/switch')
