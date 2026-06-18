@@ -18,6 +18,7 @@
 - 员工账号生命周期：管理员只能查看、停用、启用本租户员工账号；离职停用会写入 `user.disable` 审计并清理该账号当前会话。
 - 账号管理页面：正式商业后台提供账号列表、搜索、角色筛选、状态筛选、分页、停用/启用、重置密码界面；租户管理员只看本租户账号，平台管理员可看全部账号，但页面与动作都保留租户隔离和审计。
 - 后台首页入口：`/backoffice` 展示当前租户、项目、角色和可见模块，账号管理从首页可发现，非管理员只看到权限说明。
+- 收费对象页面：`/backoffice/charge-targets` 支持查看和新增楼栋/区域、单元/分区、房号/铺位号，写入仍按 tenant/project scope 隔离。
 - 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
 - 客户上传数据和系统自身数据隔离：tenants 与 system 目录分离，备份、日志、系统文件分层。
 - 通用 Linux/VPS 部署资产：Docker Compose、Nginx、systemd、logrotate、备份和恢复脚本；Compose 服务包含重启策略、PostgreSQL 健康检查和 SaaS app `/health` 健康检查。
