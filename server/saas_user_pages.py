@@ -45,7 +45,8 @@ input,select{{width:100%;border:1px solid var(--line);border-radius:12px;padding
 def _render_users(user, items, message='', filters=None, total=0, page=1, page_size=10):
     filters = filters or {}
     scope_label = '平台全局视图' if user.get('role_code') == 'platform_admin' else '本租户视图'
-    rows = ''.join(_render_user_row(row) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
+    current_user_id = user.get('id')
+    rows = ''.join(_render_user_row(row, current_user_id) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     tenant_filter = _render_tenant_filter(user, filters)
     side_panel = _render_side_panel(user)
@@ -92,15 +93,22 @@ def _tenant_display(row):
         return f'{name}（ID {tenant_id}）'
     return tenant_id
 
-def _render_user_row(row):
+def _render_user_row(row, current_user_id=None):
     active = int(row.get('is_active', 1) or 0) == 1
     status = '<span class="status on">启用</span>' if active else '<span class="status off">停用</span>'
     next_active = '0' if active else '1'
     action_label = '停用账号' if active else '启用账号'
     btn_class = 'danger' if active else 'ghost'
+    if current_user_id is not None and int(row.get('id')) == int(current_user_id):
+        reset_cell = '<span class="hint">当前账号：请使用个人改密入口</span>'
+        active_cell = '<span class="hint">当前账号不可停用</span>'
+    else:
+        row_id = _h(row.get('id'))
+        reset_cell = f'<form method="post" action="/backoffice/users/{row_id}/reset-password" class="inline"><input type="password" name="new_password" required minlength="8" placeholder="临时密码"><button class="primary">重置密码</button></form>'
+        active_cell = f'<form method="post" action="/backoffice/users/{row_id}/active"><input type="hidden" name="is_active" value="{next_active}"><button class="{btn_class}">{action_label}</button></form>'
     return f'''<tr><td>{_h(row.get('id'))}</td><td>{_h(_tenant_display(row))}</td><td><strong>{_h(row.get('username'))}</strong></td><td>{_h(_role_name(row.get('role_code')))}</td><td>{status}</td>
-<td><form method="post" action="/backoffice/users/{_h(row.get('id'))}/reset-password" class="inline"><input type="password" name="new_password" required minlength="8" placeholder="临时密码"><button class="primary">重置密码</button></form></td>
-<td><form method="post" action="/backoffice/users/{_h(row.get('id'))}/active"><input type="hidden" name="is_active" value="{next_active}"><button class="{btn_class}">{action_label}</button></form></td></tr>'''
+<td>{reset_cell}</td>
+<td>{active_cell}</td></tr>'''
 
 
 def _build_query(filters, page=None, page_size=None):

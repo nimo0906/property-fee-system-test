@@ -71,5 +71,26 @@ class TestSaasUserSelfProtection(unittest.TestCase):
             repo.close()
 
 
+    def test_current_account_row_hides_admin_reset_and_disable_forms(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = TestClient(create_app(database_url=db_url))
+            login = client.post('/api/auth/login', json={
+                'tenant_name': '自保护物业',
+                'project_name': '自保护项目',
+                'username': 'system_admin',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            current = client.get('/api/users').json()['items'][0]
+
+            page = client.get('/backoffice/users')
+            self.assertEqual(page.status_code, 200)
+            self.assertNotIn(f'/backoffice/users/{current["id"]}/reset-password', page.text)
+            self.assertNotIn(f'/backoffice/users/{current["id"]}/active', page.text)
+            self.assertIn('当前账号', page.text)
+            self.assertIn('请使用个人改密入口', page.text)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -23,7 +23,8 @@ def _render_filter_form(filters):
 
 def _render_tenant_admin(user, items, filters=None):
     filters = filters or {}
-    rows = ''.join(_render_user_row(row) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
+    current_user_id = user.get('id')
+    rows = ''.join(_render_user_row(row, current_user_id) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
     filter_form = _render_filter_form(filters)
     body = f'''
 <section class="hero"><div><h1>租户管理员控制台</h1><div class="sub">正式商业后台的本公司管理入口。这里仅展示当前公司员工账号，客户上传数据、系统运维数据和其他公司数据保持隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · 本租户视图</div></section>
