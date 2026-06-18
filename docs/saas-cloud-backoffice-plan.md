@@ -24,6 +24,7 @@
 - 数据导入页面：`/backoffice/imports` 支持收费对象 CSV 文本预览、确认导入；预览不写库，确认只写有效行，错误行不污染正式数据，导入记录按 tenant/project scope 校验。
 - 审计日志页面：`/backoffice/audit-logs` 支持只读查看账号、导入、出账、审核、收款等关键操作；不展示密码明文，日志按 tenant/project scope 隔离。
 - 备份恢复页面：`/backoffice/backups` 支持管理员创建备份记录、提交恢复演练，非管理员只读查看；备份和演练审计按 tenant/project scope 隔离。
+- 商业验收页面：`/backoffice/acceptance` 汇总站内验收入口和自动验收脚本，覆盖创建项目、导入/录入收费对象、收费项目、出账、审核、收款、报表、审计、备份恢复和租户隔离。
 - 后台首页入口：`/backoffice` 展示当前租户、项目、角色和可见模块，账号管理从首页可发现，非管理员只看到权限说明。
 - 收费对象页面：`/backoffice/charge-targets` 支持查看和新增楼栋/区域、单元/分区、房号/铺位号，写入仍按 tenant/project scope 隔离。
 - 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
