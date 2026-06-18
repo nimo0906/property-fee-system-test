@@ -43,6 +43,13 @@ def validate_env_security(env):
     return {"ok": not weak, "weak": weak}
 
 
+def inspect_nginx_tls(config_text):
+    has_https = "listen 443" in config_text and "ssl_certificate" in config_text
+    has_http = "listen 80" in config_text
+    status = "https" if has_https else "http_only" if has_http else "unknown"
+    return {"status": status, "has_https": has_https, "has_http": has_http}
+
+
 def validate_deployment_assets(root):
     files = []
     missing = []
@@ -56,10 +63,13 @@ def validate_deployment_assets(root):
     if (root / ".env.example").exists():
         env_text = (root / ".env.example").read_text(encoding="utf-8")
         env_secure = "replace-with-random-password" not in env_text and "replace-with-32-byte-random-secret" not in env_text
+    nginx_path = root / "deploy/nginx/property-saas.conf"
+    nginx_tls = inspect_nginx_tls(nginx_path.read_text(encoding="utf-8")) if nginx_path.exists() else {"status": "missing", "has_https": False, "has_http": False}
     return {
         "ok": not missing and env_secure,
         "files": files,
         "missing": missing,
         "isolation": ISOLATION_CONTRACT,
         "env_example_secure": env_secure,
+        "nginx_tls": nginx_tls,
     }
