@@ -30,6 +30,8 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'unpaid',UNIQUE(tenant_id,project_id,bill_number))",
             "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,UNIQUE(tenant_id,idempotency_key))",
             "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT '{}')",
+            "CREATE TABLE IF NOT EXISTS backup_records(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,backup_id))",
+            "CREATE TABLE IF NOT EXISTS restore_drills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,scope TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
             "CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,user_id INTEGER,action TEXT NOT NULL,entity_type TEXT,entity_id INTEGER,detail_json TEXT NOT NULL DEFAULT '{}')",
         ]
         with self.engine.begin() as conn:
@@ -198,13 +200,43 @@ class SaasRepository:
             rows = conn.execute(text("SELECT id,tenant_id,username,role_code,is_active FROM users ORDER BY id")).mappings().all()
             return [dict(r) for r in rows]
 
-    def reset_user_password(self, tenant_id, user_id, new_password):
+    def reset_user_password(self, tenant_id, user_id, new_password, actor_user_id=None, project_id=None):
         target = self.get_user(user_id)
         if not target or int(target["tenant_id"]) != int(tenant_id):
             raise TenantScopeError("user does not belong to tenant")
         with self.engine.begin() as conn:
             conn.execute(text("UPDATE users SET password_hash=:password_hash WHERE id=:id AND tenant_id=:tenant_id"), {"id": user_id, "tenant_id": tenant_id, "password_hash": f"hash:{new_password}"})
+        if actor_user_id and project_id:
+            self.create_audit_log(tenant_id, project_id, actor_user_id, 'user.password_reset', 'user', user_id, {'target_user_id': user_id})
         return {"user_id": user_id}
+
+    def create_backup_record(self, tenant_id, project_id, user_id):
+        self._require_project_scope(tenant_id, project_id)
+        with self.engine.begin() as conn:
+            seq = conn.execute(text("SELECT COALESCE(MAX(id),0)+1 FROM backup_records")).scalar_one()
+            backup_id = f"backup-{int(seq):06d}"
+            result = conn.execute(text("""INSERT INTO backup_records(tenant_id,project_id,backup_id,status,created_by)
+                VALUES(:tenant_id,:project_id,:backup_id,'created',:user_id)"""),
+                {"tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "user_id": user_id})
+        self.create_audit_log(tenant_id, project_id, user_id, 'backup.create', 'backup', result.lastrowid, {'backup_id': backup_id, 'kind': 'manual'})
+        return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "status": "created"}
+
+    def list_backup_records(self, tenant_id, project_id):
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("""SELECT id,tenant_id,project_id,backup_id,status,created_by,created_at FROM backup_records
+                WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+            return [dict(r) for r in rows]
+
+    def create_restore_drill(self, tenant_id, project_id, user_id, backup_id, scope):
+        self._require_project_scope(tenant_id, project_id)
+        if scope not in {'database', 'tenant-files', 'system-files'}:
+            raise ValueError('invalid restore drill scope')
+        with self.engine.begin() as conn:
+            result = conn.execute(text("""INSERT INTO restore_drills(tenant_id,project_id,backup_id,scope,status,created_by)
+                VALUES(:tenant_id,:project_id,:backup_id,:scope,'recorded',:user_id)"""),
+                {"tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "scope": scope, "user_id": user_id})
+        self.create_audit_log(tenant_id, project_id, user_id, 'restore.drill', 'restore_drill', result.lastrowid, {'backup_id': backup_id, 'scope': scope})
+        return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "scope": scope, "status": "recorded"}
 
 
 def create_saas_repository(url):

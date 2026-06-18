@@ -134,6 +134,30 @@ CREATE TABLE IF NOT EXISTS imports (
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
+CREATE TABLE IF NOT EXISTS backup_records (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    project_id BIGINT NOT NULL REFERENCES projects(id),
+    backup_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_by BIGINT REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(tenant_id, backup_id),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
+);
+
+CREATE TABLE IF NOT EXISTS restore_drills (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    project_id BIGINT NOT NULL REFERENCES projects(id),
+    backup_id TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_by BIGINT REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
     id BIGSERIAL PRIMARY KEY,
     tenant_id BIGINT NOT NULL REFERENCES tenants(id),

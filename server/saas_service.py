@@ -32,6 +32,8 @@ class SaasBackofficeService:
         self.payments = {}
         self.payment_keys = {}
         self.imports = {}
+        self.backup_records = {}
+        self.restore_drills = {}
         self.audit_logs = []
 
     def _id(self):
@@ -246,8 +248,35 @@ class SaasBackofficeService:
     def create_backup_marker(self, user, project_id):
         if user['role_code'] != 'system_admin':
             raise PermissionDenied('backup requires admin')
-        self._log(user, project_id, 'backup.create', 'backup', None, {'kind': 'manual'})
-        return {'backup_id': f"backup-{self._id():06d}"}
+        backup_id = f"backup-{self._id():06d}"
+        record = {
+            'backup_id': backup_id,
+            'tenant_id': user['tenant_id'],
+            'project_id': project_id,
+            'status': 'created',
+            'created_at': backup_id.replace('backup-', ''),
+        }
+        self.backup_records[backup_id] = record
+        self._log(user, project_id, 'backup.create', 'backup', None, {'kind': 'manual', 'backup_id': backup_id})
+        return {'backup_id': backup_id}
+
+    def list_backup_records(self, user, project_id):
+        if user['role_code'] != 'system_admin':
+            raise PermissionDenied('backup requires admin')
+        if not self._same_tenant_project(user, project_id):
+            return []
+        return [r for r in self.backup_records.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == project_id]
+
+    def record_restore_drill(self, user, project_id, backup_id, scope):
+        if user['role_code'] != 'system_admin':
+            raise PermissionDenied('restore drill requires admin')
+        if scope not in {'database', 'tenant-files', 'system-files'}:
+            raise ValueError('invalid restore drill scope')
+        drill_id = f"restore-drill-{self._id():06d}"
+        drill = {'id': drill_id, 'tenant_id': user['tenant_id'], 'project_id': project_id, 'backup_id': backup_id, 'scope': scope, 'status': 'recorded'}
+        self.restore_drills[drill_id] = drill
+        self._log(user, project_id, 'restore.drill', 'restore_drill', None, {'backup_id': backup_id, 'scope': scope})
+        return drill
 
     def reset_user_password(self, user, target_user_id, new_password):
         self._require(user, "manage_users")
