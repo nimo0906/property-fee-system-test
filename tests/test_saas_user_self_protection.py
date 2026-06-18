@@ -40,5 +40,36 @@ class TestSaasUserSelfProtection(unittest.TestCase):
             repo.close()
 
 
+    def test_admin_cannot_reset_own_password_from_admin_api_or_page(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = TestClient(create_app(database_url=db_url))
+            login = client.post('/api/auth/login', json={
+                'tenant_name': '自保护物业',
+                'project_name': '自保护项目',
+                'username': 'system_admin',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            current = client.get('/api/users').json()['items'][0]
+
+            api_reset = client.post(
+                f"/api/users/{current['id']}/reset-password",
+                json={'new_password': 'self-reset-temp-pass'},
+            )
+            self.assertEqual(api_reset.status_code, 403)
+
+            page_reset = client.post(
+                f"/backoffice/users/{current['id']}/reset-password",
+                data={'new_password': 'self-reset-page-pass'},
+                follow_redirects=False,
+            )
+            self.assertEqual(page_reset.status_code, 403)
+
+            repo = create_saas_repository(db_url)
+            self.assertIsNone(repo.get_user(current['id'])['password_hash'])
+            repo.close()
+
+
 if __name__ == '__main__':
     unittest.main()

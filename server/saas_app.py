@@ -89,6 +89,8 @@ def create_app(database_url=None):
     def reset_password(user_id: int, data: PasswordResetIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "manage_users")
+            if int(user_id) == int(user.get("id")):
+                raise PermissionDenied("use change-password for own account")
             if repository:
                 item = repository.reset_user_password_for_actor(user, user_id, data.new_password)
             else:

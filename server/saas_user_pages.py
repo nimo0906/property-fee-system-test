@@ -210,6 +210,8 @@ def register_user_pages(app, service, repository, current_user, sessions):
     def reset_page(user_id: int, new_password: str = Form(...), user=Depends(current_user)):
         try:
             service._require(user, 'manage_users')
+            if int(user_id) == int(user.get('id')):
+                raise PermissionDenied('use change-password for own account')
             if repository:
                 repository.reset_user_password_for_actor(user, user_id, new_password)
             else:
