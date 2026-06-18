@@ -7,6 +7,7 @@ from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
 from server.saas_repository_errors import TenantScopeError
 from server.saas_storage import SaasStorage
+from server.saas_login_helpers import repository_login_context
 from server.saas_page_registry import register_saas_pages
 from server.saas_billing_api import register_billing_routes
 from server.saas_api_models import (
@@ -48,11 +49,8 @@ def create_app(database_url=None):
     def login(data: LoginIn, response: Response):
         import secrets
         if repository:
-            tenant_row = repository.create_tenant(data.tenant_name)
-            project_row = repository.create_project(tenant_row["id"], data.project_name)
-            user_row = repository.create_user(tenant_row["id"], data.username, data.role_code)
-            tenant_id = tenant_row["id"]
-            project_id = project_row["id"]
+            tenant_row, project_row, user_row = repository_login_context(repository, data)
+            tenant_id, project_id = tenant_row["id"], project_row["id"]
             service.tenants[tenant_id] = tenant_row
             service.projects[project_id] = project_row
             service.users[user_row["id"]] = {"id": user_row["id"], "tenant_id": tenant_id, "project_id": project_id, "username": data.username, "role_code": data.role_code}
