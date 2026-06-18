@@ -55,16 +55,36 @@ def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
         if key and key in self.payment_keys:
             return self.payments[self.payment_keys[key]]
         pid = self._id()
+        receipt_number = f"RCPT-{user['tenant_id']}-{bill['project_id']}-{pid:06d}"
         payment = {"id": pid, "tenant_id": user["tenant_id"], "project_id": bill["project_id"],
                    "bill_id": bill_id, "amount_paid": float(amount), "method": method,
-                   "idempotency_key": idempotency_key}
+                   "idempotency_key": idempotency_key, "receipt_number": receipt_number}
         self.payments[pid] = payment
         if key:
             self.payment_keys[key] = pid
         paid = sum(p["amount_paid"] for p in self.payments.values() if p["bill_id"] == bill_id)
         bill["status"] = "paid" if paid >= bill["amount"] else "partial"
-        self._log(user, bill['project_id'], 'payment.record', 'payment', pid, {'bill_id': bill_id, 'amount_paid': float(amount), 'method': method, 'idempotency_key': idempotency_key})
+        self._log(user, bill['project_id'], 'payment.record', 'payment', pid, {'bill_id': bill_id, 'amount_paid': float(amount), 'method': method, 'idempotency_key': idempotency_key, 'receipt_number': receipt_number})
         return payment
+
+def _csv(lines):
+        return "\n".join(",".join(str(v) for v in row) for row in lines) + "\n"
+
+def export_bills(self, user, project_id, period=None, status=None):
+        rows = [["bill_number", "billing_period", "amount", "status"]]
+        for bill in self.list_bills(user, project_id, period, status):
+            rows.append([bill["bill_number"], bill["billing_period"], bill["amount"], bill["status"]])
+        return {"filename": f"bills-{period or 'all'}.csv", "content": _csv(rows)}
+
+def export_payments(self, user, project_id, period=None):
+        self._require(user, "read")
+        bills = {b["id"]: b for b in self.list_bills(user, project_id, period, None)}
+        rows = [["receipt_number", "bill_number", "amount_paid", "method"]]
+        for payment in sorted(self.payments.values(), key=lambda p: p["id"]):
+            bill = bills.get(payment["bill_id"])
+            if bill and payment["tenant_id"] == user["tenant_id"] and payment["project_id"] == project_id:
+                rows.append([payment.get("receipt_number", ""), bill["bill_number"], payment["amount_paid"], payment.get("method", "")])
+        return {"filename": f"payments-{period or 'all'}.csv", "content": _csv(rows)}
 
 def report(self, user, project_id, period):
         self._require(user, "read")
@@ -83,5 +103,7 @@ def attach_billing_methods(cls):
     cls.list_bills = list_bills
     cls.approve_bill = approve_bill
     cls.record_payment = record_payment
+    cls.export_bills = export_bills
+    cls.export_payments = export_payments
     cls.report = report
     return cls

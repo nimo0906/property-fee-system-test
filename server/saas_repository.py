@@ -30,7 +30,7 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,building,unit,room_number))",
             "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,name))",
             "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending_review',UNIQUE(tenant_id,project_id,bill_number))",
-            "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,UNIQUE(tenant_id,idempotency_key))",
+            "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key))",
             "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT '{}')",
             "CREATE TABLE IF NOT EXISTS backup_records(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,backup_id))",
             "CREATE TABLE IF NOT EXISTS restore_drills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,scope TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
@@ -167,14 +167,16 @@ class SaasRepository:
             raise TenantScopeError("bill does not belong to tenant")
         if bill["status"] == "pending_review":
             raise PermissionDenied("bill pending review")
-        existing = self._row("SELECT id,tenant_id,project_id,bill_id,amount_paid,method,idempotency_key FROM payments WHERE tenant_id=:tenant_id AND idempotency_key=:key", {"tenant_id": tenant_id, "key": idempotency_key}) if idempotency_key else None
+        existing = self._row("SELECT id,tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number FROM payments WHERE tenant_id=:tenant_id AND idempotency_key=:key", {"tenant_id": tenant_id, "key": idempotency_key}) if idempotency_key else None
         if existing:
             return existing
         with self.engine.begin() as conn:
-            result = conn.execute(text("""INSERT INTO payments(tenant_id,project_id,bill_id,amount_paid,method,idempotency_key)
-                VALUES(:tenant_id,:project_id,:bill_id,:amount,:method,:key)"""),
-                {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount": float(amount), "method": method, "key": idempotency_key})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount_paid": float(amount), "method": method, "idempotency_key": idempotency_key}
+            seq = conn.execute(text("SELECT COALESCE(MAX(id),0)+1 FROM payments")).scalar_one()
+            receipt_number = f"RCPT-{tenant_id}-{project_id}-{int(seq):06d}"
+            result = conn.execute(text("""INSERT INTO payments(tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number)
+                VALUES(:tenant_id,:project_id,:bill_id,:amount,:method,:key,:receipt_number)"""),
+                {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount": float(amount), "method": method, "key": idempotency_key, "receipt_number": receipt_number})
+            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount_paid": float(amount), "method": method, "idempotency_key": idempotency_key, "receipt_number": receipt_number}
 
     def report_summary(self, tenant_id, project_id, period):
         with self.engine.begin() as conn:

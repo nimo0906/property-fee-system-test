@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS payments (
     amount_paid NUMERIC(12,2) NOT NULL,
     method TEXT,
     idempotency_key TEXT,
+    receipt_number TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(tenant_id, idempotency_key),
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)

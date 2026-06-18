@@ -56,6 +56,20 @@ def register_billing_routes(app, service):
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
+    @app.get("/api/exports/bills")
+    def export_bills(period: str = "", status: str = "", user=Depends(current_user)):
+        try:
+            return service.export_bills(user, user["project_id"], period or None, status or None)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.get("/api/exports/payments")
+    def export_payments(period: str = "", user=Depends(current_user)):
+        try:
+            return service.export_payments(user, user["project_id"], period or None)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
     @app.get("/api/reports/summary")
     def report_summary(period: str, user=Depends(current_user)):
         return service.report(user, user["project_id"], period)
