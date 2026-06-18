@@ -3,6 +3,7 @@
 """FastAPI entrypoint for SaaS cloud backoffice deployment."""
 
 from server.saas_backoffice import build_saas_migration_plan, build_saas_postgres_schema
+from server.saas_backoffice_pages import register_backoffice_pages
 from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
 from server.saas_storage import SaasStorage
@@ -36,6 +37,7 @@ def create_app(database_url=None):
         return user
 
     app.state.current_user = current_user
+    register_backoffice_pages(app, current_user)
     register_user_pages(app, service, repository, current_user, sessions)
     register_billing_routes(app, service)
 
