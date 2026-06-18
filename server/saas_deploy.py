@@ -12,6 +12,14 @@ REQUIRED_DEPLOY_FILES = (
 )
 
 
+ISOLATION_CONTRACT = {
+    "customer_files": "/var/lib/property-saas/tenants",
+    "system_files": "/var/lib/property-saas/system",
+    "backups": "/var/backups/property-saas",
+    "logs": "/var/log/property-saas",
+}
+
+
 def validate_deployment_assets(root):
     files = []
     missing = []
@@ -21,4 +29,4 @@ def validate_deployment_assets(root):
             files.append(name)
         else:
             missing.append(name)
-    return {"ok": not missing, "files": files, "missing": missing}
+    return {"ok": not missing, "files": files, "missing": missing, "isolation": ISOLATION_CONTRACT}

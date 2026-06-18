@@ -17,5 +17,14 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
+    volumes:
+      - property_saas_customer_files:/var/lib/property-saas/tenants
+      - property_saas_system_files:/var/lib/property-saas/system
+      - property_saas_backups:/var/backups/property-saas
+      - property_saas_logs:/var/log/property-saas
 volumes:
   property_saas_postgres:
+  property_saas_customer_files:
+  property_saas_system_files:
+  property_saas_backups:
+  property_saas_logs:
