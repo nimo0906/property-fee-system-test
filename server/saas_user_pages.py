@@ -3,6 +3,7 @@
 """HTML user management pages for SaaS backoffice."""
 
 import html
+import urllib.parse
 
 from server.saas_service import PermissionDenied
 
@@ -35,19 +36,35 @@ h1{{font-size:30px;margin:0 0 8px;letter-spacing:-.02em}}.sub{{color:var(--muted
 table{{width:100%;border-collapse:collapse}}th,td{{padding:12px 10px;border-bottom:1px solid #edf1f5;text-align:left;vertical-align:middle}}th{{font-size:12px;color:#667085;text-transform:uppercase;letter-spacing:.04em}}tr:last-child td{{border-bottom:0}}
 .status{{border-radius:999px;padding:4px 9px;font-weight:700;font-size:12px}}.on{{background:#ecfdf3;color:var(--ok)}}.off{{background:#f2f4f7;color:#667085}}.tenant-scope{{background:#eff6ff;color:#1849a9;border:1px solid #b2ccff}}
 .actions{{display:flex;gap:8px;flex-wrap:wrap}}button{{border:0;border-radius:10px;padding:8px 11px;font-weight:800;cursor:pointer}}.primary{{background:var(--brand);color:white}}.ghost{{background:#eef4ff;color:#1849a9}}.danger{{background:#fff1f3;color:var(--danger);border:1px solid #fecdd6}}
-input,select{{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fff;margin:6px 0 12px}}label{{font-weight:800;color:#344054}}.hint{{font-size:12px;color:#667085;margin-top:8px}}.inline{{display:flex;gap:8px;align-items:center}}.inline input{{margin:0;min-width:160px}}
+input,select{{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fff;margin:6px 0 12px}}label{{font-weight:800;color:#344054}}.hint{{font-size:12px;color:#667085;margin-top:8px}}.inline{{display:flex;gap:8px;align-items:center}}.inline input{{margin:0;min-width:160px}}.filters{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end;margin-bottom:12px}}.pager{{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0;font-size:12px;color:var(--muted)}}.ghost-link{{display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:#1849a9;text-decoration:none;background:#fff}}.ghost-link.disabled{{opacity:.45;pointer-events:none}}
 @media(max-width:900px){{.grid{{grid-template-columns:1fr}}.hero{{display:block}}}}
 </style></head><body><main class="shell">{body}</main></body></html>'''
 
 
-def _render_users(user, items, message=''):
+def _render_users(user, items, message='', filters=None, total=0, page=1, page_size=10):
+    filters = filters or {}
     scope_label = '平台全局视图' if user.get('role_code') == 'platform_admin' else '本租户视图'
     rows = ''.join(_render_user_row(row) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
+    role_options = ''.join(
+        f'<option value="{_h(code)}"{" selected" if filters.get("role_code") == code else ""}>{_h(name)}</option>'
+        for code, name in [('', '全部角色'), ('platform_admin', '平台管理员'), ('system_admin', '租户管理员'), ('finance', '财务'), ('cashier', '收费员'), ('frontdesk', '客服业务编辑'), ('executive', '管理层只读')]
+    )
+    active_options = ''.join(
+        f'<option value="{val}"{" selected" if filters.get("is_active") == val else ""}>{label}</option>'
+        for val, label in [('', '全部状态'), ('1', '仅启用'), ('0', '仅停用')]
+    )
+    page_size_options = ''.join(
+        f'<option value="{n}"{" selected" if int(filters.get("page_size", 10)) == n else ""}>{n}</option>'
+        for n in [5, 10, 20, 50]
+    )
+    prev_link = f'<a class="ghost-link" href="/backoffice/users?{_build_query(filters, page - 1, page_size)}">上一页</a>' if page > 1 else '<span class="ghost-link disabled">上一页</span>'
+    next_link = f'<a class="ghost-link" href="/backoffice/users?{_build_query(filters, page + 1, page_size)}">下一页</a>' if page * page_size < total else '<span class="ghost-link disabled">下一页</span>'
+    pager = f'<div class="pager"><span>共 {total} 个账号 · 第 {page} 页</span><span>{prev_link} {next_link}</span></div>'
     body = f'''
 <section class="hero"><div><h1>账号管理</h1><div class="sub">正式商业后台账号控制台。租户管理员只能管理本公司员工；平台管理员可跨租户处理账号，但操作会写入目标租户审计。</div></div><div class="badge tenant-scope">{_h(scope_label)}</div></section>
 {notice}
-<section class="grid"><div class="card"><div class="card-h">员工账号列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>租户</th><th>账号</th><th>角色</th><th>状态</th><th>重置密码</th><th>账号状态</th></tr></thead><tbody>{rows}</tbody></table></div></div>
+<section class="grid"><div class="card"><div class="card-h">员工账号列表</div><div class="card-b"><form method="get" action="/backoffice/users" class="filters"><input type="hidden" name="page" value="1"><div><label>关键字</label><input name="q" value="{_h(filters.get('q', ''))}" placeholder="账号关键词"></div><div><label>角色</label><select name="role_code">{role_options}</select></div><div><label>状态</label><select name="is_active">{active_options}</select></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">筛选</button></div></form>{pager}<table><thead><tr><th>ID</th><th>租户</th><th>账号</th><th>角色</th><th>状态</th><th>重置密码</th><th>账号状态</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
 <aside class="card"><div class="card-h">新建员工账号</div><div class="card-b"><form method="post" action="/backoffice/users/create"><label>登录账号</label><input name="username" required placeholder="例如 cashier_01"><label>角色</label><select name="role_code"><option value="cashier">收费员</option><option value="finance">财务</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="system_admin">租户管理员</option></select><button class="primary">创建账号</button><div class="hint">创建后请立即通过左侧“重置密码”设置临时密码，并要求员工首次登录后修改。</div></form></div></aside></section>'''
     return _page('账号管理', body)
 
@@ -63,6 +80,57 @@ def _render_user_row(row):
 <td><form method="post" action="/backoffice/users/{_h(row.get('id'))}/active"><input type="hidden" name="is_active" value="{next_active}"><button class="{btn_class}">{action_label}</button></form></td></tr>'''
 
 
+def _build_query(filters, page=None, page_size=None):
+    params = {}
+    for key in ('q', 'role_code', 'is_active'):
+        value = (filters or {}).get(key, '')
+        if value:
+            params[key] = str(value)
+    if page is not None:
+        params['page'] = str(page)
+    if page_size is not None:
+        params['page_size'] = str(page_size)
+    return urllib.parse.urlencode(params)
+
+
+def _parse_int(value, default):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _normalize_filters(q, role_code, is_active, page, page_size):
+    page = max(_parse_int(page, 1), 1)
+    page_size = min(max(_parse_int(page_size, 10), 1), 50)
+    q = (q or '').strip()
+    role_code = (role_code or '').strip()
+    is_active = (is_active or '').strip()
+    if is_active not in {'', '1', '0'}:
+        is_active = ''
+    return q, role_code, is_active, page, page_size
+
+
+def _filter_users(items, q='', role_code='', is_active=''):
+    rows = []
+    for row in items:
+        if q and q.lower() not in str(row.get('username', '')).lower():
+            continue
+        if role_code and row.get('role_code') != role_code:
+            continue
+        if is_active in {'0', '1'} and int(row.get('is_active', 1) or 0) != int(is_active):
+            continue
+        rows.append(row)
+    return rows
+
+
+def _paginate(items, page, page_size):
+    total = len(items)
+    start = (page - 1) * page_size
+    end = start + page_size
+    return items[start:end], total
+
+
 def register_user_pages(app, service, repository, current_user, sessions):
     from fastapi import Depends, Form, HTTPException
     from fastapi.responses import HTMLResponse, RedirectResponse
@@ -72,9 +140,13 @@ def register_user_pages(app, service, repository, current_user, sessions):
         return repository.list_users_for_actor(user) if repository else service.list_staff_users(user, user['project_id'])
 
     @app.get('/backoffice/users', response_class=HTMLResponse)
-    def user_page(user=Depends(current_user), message: str = ''):
+    def user_page(user=Depends(current_user), q: str = '', role_code: str = '', is_active: str = '', page: int = 1, page_size: int = 10, message: str = ''):
         try:
-            return HTMLResponse(_render_users(user, _items_for(user), message))
+            q, role_code, is_active, page, page_size = _normalize_filters(q, role_code, is_active, page, page_size)
+            all_items = _filter_users(_items_for(user), q=q, role_code=role_code, is_active=is_active)
+            visible, total = _paginate(all_items, page, page_size)
+            filters = {'q': q, 'role_code': role_code, 'is_active': is_active, 'page_size': page_size}
+            return HTMLResponse(_render_users(user, visible, message, filters=filters, total=total, page=page, page_size=page_size))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 

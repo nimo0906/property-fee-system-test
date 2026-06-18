@@ -37,6 +37,38 @@ class TestSaasUserManagementPages(unittest.TestCase):
         page = client.get('/backoffice/users')
         self.assertEqual(page.status_code, 403)
 
+    def test_user_management_page_filters_and_paginates_accounts(self):
+        client = self._admin_client()
+        for username, role_code in [
+            ('cashier_alpha', 'cashier'),
+            ('cashier_beta', 'cashier'),
+            ('finance_alpha', 'finance'),
+        ]:
+            created = client.post('/api/users', json={'username': username, 'role_code': role_code})
+            self.assertEqual(created.status_code, 200)
+        beta_id = next(item['id'] for item in client.get('/api/users').json()['items'] if item['username'] == 'cashier_beta')
+        client.post(f'/api/users/{beta_id}/active', json={'is_active': False})
+
+        keyword = client.get('/backoffice/users?q=finance')
+        self.assertEqual(keyword.status_code, 200)
+        self.assertIn('finance_alpha', keyword.text)
+        self.assertNotIn('cashier_alpha', keyword.text)
+
+        role_filtered = client.get('/backoffice/users?role_code=cashier')
+        self.assertIn('cashier_alpha', role_filtered.text)
+        self.assertIn('cashier_beta', role_filtered.text)
+        self.assertNotIn('finance_alpha', role_filtered.text)
+
+        inactive = client.get('/backoffice/users?is_active=0')
+        self.assertIn('cashier_beta', inactive.text)
+        self.assertNotIn('cashier_alpha', inactive.text)
+
+        page_one = client.get('/backoffice/users?page_size=1&page=1')
+        page_two = client.get('/backoffice/users?page_size=1&page=2')
+        self.assertIn('下一页', page_one.text)
+        self.assertIn('上一页', page_two.text)
+        self.assertNotEqual(page_one.text, page_two.text)
+
     def test_user_page_can_disable_enable_and_reset_password_without_plaintext_audit(self):
         import tempfile
         from pathlib import Path
