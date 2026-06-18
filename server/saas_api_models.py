@@ -10,6 +10,12 @@ class LoginIn(BaseModel):
     project_name: str
     username: str
     role_code: str
+    password: str = ""
+
+
+class PasswordChangeIn(BaseModel):
+    old_password: str
+    new_password: str
 
 
 class FeeIn(BaseModel):

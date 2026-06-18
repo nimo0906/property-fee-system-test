@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Login bootstrap helpers for SaaS test/demo authentication."""
+"""Login bootstrap helpers for SaaS authentication."""
+
+from sqlalchemy import text
+
+from server.passwords import verify_password
 
 
 def _find_by_name(rows, name, tenant_id=None):
@@ -26,7 +30,27 @@ def repository_login_context(repository, data):
 
 
 def _find_user(repository, tenant_id, username):
-    for row in repository.list_users(tenant_id):
-        if row.get('username') == username:
-            return row
-    return None
+    sql = """SELECT id,tenant_id,username,role_code,password_hash,is_active
+        FROM users WHERE tenant_id=:tenant_id AND username=:username"""
+    with repository.engine.begin() as conn:
+        row = conn.execute(text(sql), {'tenant_id': tenant_id, 'username': username}).mappings().first()
+    return dict(row) if row else None
+
+
+def user_must_change_password(repository, user_id):
+    sql = """SELECT action FROM audit_logs
+        WHERE entity_type='user' AND entity_id=:user_id
+          AND action IN ('user.password_reset','user.password_change')
+        ORDER BY id DESC LIMIT 1"""
+    with repository.engine.begin() as conn:
+        action = conn.execute(text(sql), {'user_id': user_id}).scalar_one_or_none()
+    return action == 'user.password_reset'
+
+
+def verify_repository_login(repository, user_row, password):
+    password_hash = user_row.get('password_hash')
+    if not password_hash:
+        return True
+    if not password:
+        return False
+    return verify_password(password, password_hash)

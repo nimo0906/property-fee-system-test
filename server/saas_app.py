@@ -7,12 +7,12 @@ from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
 from server.saas_repository_errors import TenantScopeError
 from server.saas_storage import SaasStorage
-from server.saas_login_helpers import repository_login_context
+from server.saas_auth_api import build_auth_dependencies, register_auth_routes
 from server.saas_page_registry import register_saas_pages
 from server.saas_billing_api import register_billing_routes
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
-    LoginIn, PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
+    PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
 )
 
 
@@ -29,14 +29,7 @@ def create_app(database_url=None):
     sessions = {}
     storage = SaasStorage(root_dir="/var/lib/property-saas")
 
-    def current_user(session_id: str = Cookie(default="")):
-        user = sessions.get(session_id)
-        if not user:
-            raise HTTPException(status_code=401, detail="unauthenticated")
-        if not user.get("is_active", 1):
-            raise HTTPException(status_code=401, detail="inactive user")
-        return user
-
+    current_user, session_user = build_auth_dependencies(sessions)
     app.state.current_user = current_user
     register_saas_pages(app, service, repository, current_user, sessions)
     register_billing_routes(app, service)
@@ -45,29 +38,7 @@ def create_app(database_url=None):
     def health():
         return {"ok": True, "service": "property-saas-backoffice", "storage": "persistent" if repository else "memory"}
 
-    @app.post("/api/auth/login")
-    def login(data: LoginIn, response: Response):
-        import secrets
-        if repository:
-            tenant_row, project_row, user_row = repository_login_context(repository, data)
-            tenant_id, project_id = tenant_row["id"], project_row["id"]
-            service.tenants[tenant_id] = tenant_row
-            service.projects[project_id] = project_row
-            service.users[user_row["id"]] = {"id": user_row["id"], "tenant_id": tenant_id, "project_id": project_id, "username": data.username, "role_code": data.role_code}
-            user = {"id": user_row["id"], "tenant_id": tenant_id, "username": data.username, "role_code": data.role_code, "is_active": user_row.get("is_active", 1)}
-        else:
-            tenant_id = service.create_tenant(data.tenant_name)
-            project_id = service.create_project(tenant_id, data.project_name)
-            user = service.create_user(tenant_id, data.username, data.role_code)
-        user.update({"tenant_name": data.tenant_name, "project_name": data.project_name, "project_id": project_id, "is_active": user.get("is_active", 1)})
-        sid = secrets.token_hex(16)
-        sessions[sid] = user
-        response.set_cookie("session_id", sid, httponly=True, samesite="lax")
-        return {"ok": True}
-
-    @app.get("/api/auth/me")
-    def me(user=__import__('fastapi').Depends(current_user)):
-        return {"tenant_name": user["tenant_name"], "project_name": user["project_name"], "role_code": user["role_code"]}
+    register_auth_routes(app, service, repository, sessions, session_user)
 
     @app.post("/api/users")
     def create_user(data: UserCreateIn, user=__import__('fastapi').Depends(current_user)):

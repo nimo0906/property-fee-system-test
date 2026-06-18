@@ -20,6 +20,18 @@ def reset_user_password_record(repo, tenant_id, user_id, new_password):
     return target
 
 
+
+def change_user_password_record(repo, tenant_id, user_id, new_password):
+    target = repo.get_user(user_id)
+    if not target or int(target['tenant_id']) != int(tenant_id):
+        raise TenantScopeError('user does not belong to tenant')
+    with repo.engine.begin() as conn:
+        conn.execute(
+            text("UPDATE users SET password_hash=:password_hash WHERE id=:id AND tenant_id=:tenant_id"),
+            {'id': user_id, 'tenant_id': tenant_id, 'password_hash': hash_password(new_password)},
+        )
+    return target
+
 def list_user_records(repo, tenant_id=None):
     sql = "SELECT id,tenant_id,username,role_code,is_active FROM users"
     params = {}
@@ -107,6 +119,7 @@ def attach_user_lifecycle_methods(cls):
     cls.set_user_active_for_actor = _repo_set_user_active_for_actor
     cls.reset_user_password = _repo_reset_user_password
     cls.reset_user_password_for_actor = _repo_reset_user_password_for_actor
+    cls.change_own_password = _repo_change_own_password
 
 
 def _repo_list_users_for_actor(self, actor):
@@ -156,3 +169,11 @@ def _repo_set_user_active_for_actor(self, actor, user_id, is_active):
             detail = _platform_detail(actor, target, {'new_is_active': bool(is_active)})
         _audit_user_active(self, target['tenant_id'], user_id, is_active, target, actor.get('id'), project_id, detail)
     return {'user_id': user_id, 'is_active': 1 if is_active else 0}
+
+
+def _repo_change_own_password(self, user, new_password):
+    target = change_user_password_record(self, user['tenant_id'], user['id'], new_password)
+    project_id = user.get('project_id') or _target_project_id(self, target)
+    if project_id:
+        self.create_audit_log(user['tenant_id'], project_id, user.get('id'), 'user.password_change', 'user', user['id'], {'password_changed': True})
+    return {'user_id': user['id']}
