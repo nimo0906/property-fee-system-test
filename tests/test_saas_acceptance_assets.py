@@ -25,6 +25,7 @@ class TestSaasAcceptanceAssets(unittest.TestCase):
         result = validate_deployment_assets(Path.cwd())
         self.assertTrue(result['ok'], result)
         self.assertIn('scripts/saas_acceptance_check.py', result['files'])
+        self.assertIn('scripts/saas_preflight_check.py', result['files'])
 
     def test_saas_plan_document_matches_current_cloud_backoffice_scope(self):
         doc = Path('docs/saas-cloud-backoffice-plan.md').read_text(encoding='utf-8')
@@ -38,6 +39,7 @@ class TestSaasAcceptanceAssets(unittest.TestCase):
             '收据、导出、对账报表',
             '备份记录、恢复演练、审计日志',
             'scripts/saas_acceptance_check.py',
+            'scripts/saas_preflight_check.py',
         ]
         for text in required:
             self.assertIn(text, doc)

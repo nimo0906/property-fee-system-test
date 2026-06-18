@@ -71,6 +71,25 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertIn('--system-files', script)
         self.assertIn('Refusing implicit full restore', script)
 
+    def test_preflight_script_exists_and_reports_deployment_readiness(self):
+        import subprocess
+        import sys
+
+        script = self.root / 'scripts/saas_preflight_check.py'
+        self.assertTrue(script.exists(), 'missing SaaS preflight check script')
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=self.root,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn('PASS saas deploy assets', result.stdout)
+        self.assertIn('PASS saas storage isolation contract', result.stdout)
+        self.assertIn('PASS saas env example security', result.stdout)
+
     def test_validator_checks_deployment_isolation_contract(self):
         result = validate_deployment_assets(self.root)
         self.assertTrue(result['ok'], result)
