@@ -20,7 +20,7 @@ class DeliveryStaffGuideMixin(BaseHandler):
             <div class="card-body">
               <ol class="mb-3">
                 <li><strong>导入/录入资料</strong>：先补齐业主、房间、商户和空间合同档案，合同仅作行政备查。</li>
-                <li><strong>抄表</strong>：按房间管理对象录入 B座租户和商场商户水表读数。</li>
+                <li><strong>抄表</strong>：按房间管理对象录入住户、商户和商业对象水表读数。</li>
                 <li><strong>物业收费/商业收费</strong>：日常收费进入物业收费或商业收费，按收费项目生成账单。</li>
                 <li><strong>账单核对</strong>：确认面积×单价、周期月数、水电读数、公摊分摊和服务期后，再收费登记。</li>
                 <li><strong>收费 → 收据/发票 → 报表 → 期末结账</strong>：每天核对缴费记录、打印收据、开具发票、查看对账报表和异常预警，月底再做期末结账。</li>
@@ -76,7 +76,7 @@ class DeliveryStaffGuideMixin(BaseHandler):
               <ol class="mb-3">
                 <li>先看首页待办、欠费预警、合同到期和异常提醒。</li>
                 <li>进入<strong>对账报表</strong>查看本月应收、实收、欠费和趋势。</li>
-                <li>对商场重点看商业收费、合同档案到期风险和费用结构。</li>
+                <li>对商业对象重点看商业收费、合同档案到期风险和费用结构。</li>
                 <li>只做经营判断，不直接操作收费、出账和导入写入。</li>
               </ol>
               <div class="d-flex flex-wrap gap-2">

@@ -196,7 +196,7 @@ class TestIntegration06(IntegrationTestBase):
         self.assertNotIn('商户合同出账', body)
 
 
-    def test_mall_commercial_billing_uses_room_rate_cycle_and_excludes_other_units(self):
+    def test_generic_commercial_billing_uses_room_rate_cycle_and_includes_commercial_units(self):
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '商场规则业主', '13900008888')
@@ -210,7 +210,7 @@ class TestIntegration06(IntegrationTestBase):
         status, body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('金莎国际-商场-1F-101 / 甲店', body)
-        self.assertNotIn('金莎国际-A座-A101', body)
+        self.assertIn('金莎国际-A座-A101', body)
         self.assertNotIn('金莎国际-B座-B201', body)
         self.assertNotIn('商场商业收费已迁移', body)
 

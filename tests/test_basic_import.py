@@ -143,7 +143,7 @@ class TestBasicImport(unittest.TestCase):
         self.assertEqual(room['payment_cycle'], 'quarterly')
         self.assertEqual(room['water_rate_type'], '特行')
         reasons = '；'.join(r['reason'] for r in result['problem_rows'])
-        self.assertIn('商场商户误填为居民', reasons)
+        self.assertIn('商业对象误填为居民', reasons)
         self.assertIn('缺少物业费单价', reasons)
         self.assertIn('缺少缴费周期', reasons)
 

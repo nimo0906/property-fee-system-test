@@ -30,7 +30,7 @@ class BillingUiMixin(BaseHandler):
                                     title='物业收费', exclude_commercial=True)
 
     def _commercial_billing(self):
-        """商业收费：商场商户日常财务出账入口。"""
+        """商业收费：商户/商业对象日常财务出账入口。"""
         return self._render_billing(mode='commercial', active_tab='commercial_billing',
                                     title='商业收费', exclude_commercial=False)
 
@@ -41,9 +41,9 @@ class BillingUiMixin(BaseHandler):
         db = get_db()
         room_sql = "SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id"
         if mode == 'commercial':
-            room_sql += " WHERE r.unit='商场' AND r.category IN ('商户','商业')"
+            room_sql += " WHERE r.category IN ('商户','商业')"
         else:
-            room_sql += " WHERE NOT (r.unit='商场' AND r.category IN ('商户','商业'))"
+            room_sql += " WHERE NOT (r.category IN ('商户','商业'))"
         rooms = db.execute(room_sql + " ORDER BY r.building,r.unit,r.room_number").fetchall()
         all_fts = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         elevator_rows = db.execute("SELECT * FROM elevator_fee_tiers ORDER BY floor_from").fetchall()
@@ -131,7 +131,7 @@ class BillingUiMixin(BaseHandler):
         meter_json = json.dumps(meter_map, ensure_ascii=False)
         meter_detail_json = json.dumps(meter_detail_map, ensure_ascii=False)
 
-        # 房间下拉选项：按房间管理里的“单元”字段分组，便于区分 A座/B座/商场等。
+        # 房间下拉选项：按房间管理里的“单元/区域”字段分组，适配住宅、商业、写字楼等通用项目。
         groups = []
         by_unit = {}
         for r in rooms:
@@ -209,7 +209,7 @@ class BillingUiMixin(BaseHandler):
         default_end = date(end_y, end_m, min(today.day, 28)).isoformat()
 
         tpl = self._load_template('billing.html')
-        mode_note = '商业收费只显示房间管理中单元/区域为商场且房间类型为商户/商业的收费对象；空间合同档案仅作行政档案/合同备查。' if mode == 'commercial' else '物业收费主口径为B座/物业基础收费；商场商户请到商业收费出账。'
+        mode_note = '商业收费显示房间管理中房间类型为商户/商业的收费对象；空间合同档案仅作行政档案/合同备查。' if mode == 'commercial' else '物业收费显示居民等基础物业收费对象；商户/商业对象请到商业收费出账。'
         tpl = tpl.replace('{MODE_NOTE}', mode_note)
         tpl = tpl.replace('{OPTS}', opts)
         tpl = tpl.replace('{FEE_HTML}', fee_html or '<div class="text-center text-muted py-4">暂无费用类型</div>')

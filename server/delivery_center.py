@@ -40,7 +40,7 @@ class DeliveryCenterMixin(BaseHandler):
             <div class="card-body">
               <ol class="mb-3">
                 <li><strong>空间合同档案</strong>：维护商户编号、店铺、使用方、面积、合同期、续签、停用和附件，作为行政备查。</li>
-                <li><strong>商业收费主入口</strong>：商场商户日常出账回到“商业收费 + 收费项目”，合同档案不再作为强制出账入口。</li>
+                <li><strong>商业收费主入口</strong>：商户/商业对象日常出账回到“商业收费 + 收费项目”，合同档案不再作为强制出账入口。</li>
                 <li><strong>导入核对与修正</strong>：Excel 导入先预览、修正、确认，不直接写库。</li>
                 <li><strong>云端技术备查</strong>：PostgreSQL schema、seed SQL、迁移摘要保留给管理员，不作为当前开发主线。</li>
                 <li><strong>桌面稳定版收口</strong>：停止新增业务板块，优先做现有模块统一优化、真实使用防错和交付冻结。</li>
@@ -85,7 +85,7 @@ class DeliveryCenterMixin(BaseHandler):
             <div class="row g-3">
               <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>1. 新增档案</strong><div class="small text-muted mt-1">一次录入商户编号、店铺、使用方、业态、面积、合同期和单价信息。</div></div></div>
               <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>2. 资料备查</strong><div class="small text-muted mt-1">详情页查看合同、续签、停用、附件和历史账单，不作为员工日常收费入口。</div></div></div>
-              <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>3. 去商业收费</strong><div class="small text-muted mt-1">商场商户日常收费从商业收费选择收费项目后生成账单。</div></div></div>
+              <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>3. 去商业收费</strong><div class="small text-muted mt-1">商户/商业对象日常收费从商业收费选择收费项目后生成账单。</div></div></div>
               <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>4. 收费登记</strong><div class="small text-muted mt-1">账单生成后进入收费、收据、发票、报表和期末结账流程。</div></div></div>
             </div>
           </div>
@@ -122,7 +122,7 @@ class DeliveryCenterMixin(BaseHandler):
           </div>
         </div>
         <div class="alert alert-light border mt-3 small">
-          <i class="bi bi-info-circle"></i> 交付口径：B座原收费流程保持稳定；商场日常收费以商业收费为核心；空间合同档案只作行政备查和历史追溯。
+          <i class="bi bi-info-circle"></i> 交付口径：住宅等基础物业收费流程保持稳定；商户/商业对象日常收费以商业收费为核心；空间合同档案只作行政备查和历史追溯。
         </div>
         """, "delivery_center"))
 

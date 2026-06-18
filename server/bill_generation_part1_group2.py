@@ -74,7 +74,6 @@ class BillGenerationMixinPart1Group2(BaseHandler):
             cond.append("unit=?")
             vals.append(filters['unit'])
         if filters.get('mode_scope') == 'commercial':
-            cond.append("unit='商场'")
             cond.append("category IN ('商户','商业')")
         if filters.get('room_from'):
             cond.append("room_number>=?")

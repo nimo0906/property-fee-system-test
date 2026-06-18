@@ -11,7 +11,7 @@ SCOPE_OPTIONS = [
     ('all', '全部范围'),
     ('a', 'A座'),
     ('b', 'B座'),
-    ('mall', '商场商户'),
+    ('mall', '商业对象'),
 ]
 
 
@@ -27,8 +27,7 @@ def room_in_auto_scope(room, target_scope='all'):
     if scope == 'b':
         return unit == 'B座' or building == 'B座'
     if scope == 'mall':
-        is_mall_space = unit == '商场' or building == '商场' or '商场' in unit or '商场' in building
-        return is_mall_space and category in ('商户', '商业')
+        return category in ('商户', '商业')
     return True
 
 

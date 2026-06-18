@@ -40,7 +40,7 @@ def _target_key(target_type, room_id=None, commercial_space_id=None):
 
 def _target_label(row):
     if row['target_type'] == 'commercial_space':
-        return f"商场商铺-{h(row['space_no'] or '')} ({h(row['shop_name'] or row['merchant_name'] or '')})"
+        return f"商业空间-{h(row['space_no'] or '')} ({h(row['shop_name'] or row['merchant_name'] or '')})"
     return f"{h(row['building'] or '')}-{h(row['unit'] or '')}-{h(row['room_number'] or '')} ({h(row['tenant_name'] or row['owner_name'] or '')})"
 
 
@@ -131,7 +131,7 @@ class MeterMixin(BaseHandler):
             body = ""
             for r in rows:
                 if r["commercial_space_id"]:
-                    target = f"商场商铺-{h(r['space_no'] or '')} ({h(r['shop_name'] or r['merchant_name'] or '')})"
+                    target = f"商业空间-{h(r['space_no'] or '')} ({h(r['shop_name'] or r['merchant_name'] or '')})"
                 else:
                     target = f"{h(r['building'] or '')}-{h(r['unit'] or '')}-{h(r['room_number'] or '')} ({h(r['tenant_name'] or r['owner_name'] or '')})"
                 badge = '<span class="badge bg-success">已确认</span>' if r["status"] == "confirmed" else '<span class="badge bg-warning text-dark">草稿</span>'
@@ -174,13 +174,13 @@ class MeterMixin(BaseHandler):
             f'<option value="{r["id"]}" data-unit="{h(r["unit"] or "")}" data-water="{h(r["water_rate_type"] or "非居民")}" data-label="{h(r["building"])}-{h(r["unit"] or "")}-{h(r["room_number"])} {h(r["tenant_name"] or r["oname"] or "")}">{h(r["building"])}-{h(r["unit"] or "")}-{h(r["room_number"])} ({h(r["tenant_name"] or r["oname"] or "")})</option>'
             for r in rooms
         )
-        space_opts = '<option value="">--选择商场商铺--</option>' + ''.join(
+        space_opts = '<option value="">--选择商业空间--</option>' + ''.join(
             f'<option value="{s["id"]}" data-water="{h(s["water_rate_type"] or "非居民")}">{h(s["space_no"])} ({h(s["shop_name"] or s["merchant_name"] or "")})</option>'
             for s in spaces
         )
         self._html(self._page("录入抄表", f'''
 <form method="POST" action="/meter_readings/create" class="row g-3">
-<div class="col-md-4"><label>抄表对象 *</label><select name="target_type" class="form-select" id="targetType"><option value="room">房间/商户</option><option value="commercial_space">商铺档案(兼容)</option></select><small class="text-muted">B座租户和商场商户优先按房间管理抄表；商铺档案抄表仅作兼容。</small></div>
+<div class="col-md-4"><label>抄表对象 *</label><select name="target_type" class="form-select" id="targetType"><option value="room">房间/商户</option><option value="commercial_space">商铺档案(兼容)</option></select><small class="text-muted">住户、商户和商业对象优先按房间管理抄表；商铺档案抄表仅作兼容。</small></div>
 <div class="col-md-4 target-room"><label>单元/区域 *</label><select class="form-select" id="mUnit">{unit_opts}</select></div>
 <div class="col-md-4 target-room"><label>房间</label><select name="room_id" class="form-select" id="mRoom" disabled>{room_opts}</select></div>
 <div class="col-md-8 target-space" style="display:none"><label>商铺档案(兼容)</label><select name="commercial_space_id" class="form-select" id="mSpace">{space_opts}</select></div>

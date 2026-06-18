@@ -39,16 +39,17 @@ def _stable_income_bucket(row):
     fee_name = row['fee_name'] or ''
     unit = row['unit'] or ''
     building = row['building'] or ''
-    is_mall = bool(row['commercial_space_id']) or unit == '商场' or building == '商场'
+    category = row['category'] if 'category' in row.keys() else ''
+    is_commercial = bool(row['commercial_space_id']) or category in ('商户', '商业') or unit == '商场' or building == '商场'
     is_water = '水费' in fee_name or '电费' in fee_name or '水电' in fee_name
-    if is_mall and is_water:
-        return '商场水电收入'
-    if is_mall:
+    if is_commercial and is_water:
+        return '商业水电收入'
+    if is_commercial:
         if '租金' in fee_name:
-            return '商场租金收入'
+            return '商业租金收入'
         if '物业费' in fee_name:
-            return '商场物业费收入'
-        return '商场商业收入'
+            return '商业物业费收入'
+        return '商业综合收入'
     if unit == 'B座' or building == 'B座' or 'B座' in unit or 'B座' in building:
         return 'B座水费收入' if is_water else 'B座物业/出租收入'
     return '其他水电收入' if is_water else '其他物业收入'
@@ -57,10 +58,10 @@ def _stable_income_breakdown(rows):
     buckets = {
         'B座物业/出租收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
         'B座水费收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
-        '商场租金收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
-        '商场物业费收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
-        '商场商业收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
-        '商场水电收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
+        '商业租金收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
+        '商业物业费收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
+        '商业综合收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
+        '商业水电收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
     }
     for row in rows:
         name = _stable_income_bucket(row)

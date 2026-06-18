@@ -98,7 +98,7 @@ class TestIntegration18(IntegrationTestBase):
 
 
     def test_billing_page_labels_extra_rooms_by_tenant_not_owner(self):
-        status, body = http_get('/billing', self.cookie, TEST_PORT)
+        status, body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('同租户其他房间', body)
         self.assertNotIn('同业主其他房间', body)
@@ -126,7 +126,7 @@ class TestIntegration18(IntegrationTestBase):
         db.execute("UPDATE rooms SET tenant_name='其他租户', shop_name='其他租户' WHERE id=?", (room_c,))
         db.commit(); db.close()
 
-        status, body = http_get('/billing', self.cookie, TEST_PORT)
+        status, body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         match = re.search(r'window\.OWNER_ROOMS=(.*?);window\.BILLING_MODE', body)
         self.assertIsNotNone(match)
@@ -151,6 +151,52 @@ class TestIntegration18(IntegrationTestBase):
         self.assertIn('syncStickyTotal', js)
         self.assertIn('ownerRoomsSelectAll', js)
         self.assertIn('ownerRoomsClear', js)
+
+
+
+    def test_generic_commercial_billing_includes_non_mall_commercial_rooms(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '通用商业租户', '13900003333')
+        room_id = create_room(db, building='通用项目', unit='写字楼', room_number='OFFICE-801', category='商户', area=88, owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='通用商业租户', shop_name='通用科技店', custom_rate=6, payment_cycle='monthly' WHERE id=?", (room_id,))
+        db.commit(); db.close()
+
+        status, commercial_body = http_get('/commercial_billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('通用项目-写字楼-OFFICE-801', commercial_body)
+        self.assertIn('通用科技店', commercial_body)
+        self.assertNotIn('单元/区域为商场', commercial_body)
+
+        status, property_body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertNotIn('通用项目-写字楼-OFFICE-801', property_body)
+
+
+    def test_generic_commercial_bill_generation_scope_is_not_limited_to_mall_unit(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '通用商业出账租户', '13900004444')
+        room_id = create_room(db, building='通用项目', unit='办公区', room_number='SHOP-901', category='商业', area=50, owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='通用商业出账租户', custom_rate=7, payment_cycle='monthly' WHERE id=?", (room_id,))
+        fee = db.execute("SELECT id,unit_price FROM fee_types WHERE name='装修押金'").fetchone()
+        db.commit(); db.close()
+
+        status, _, loc = http_post('/bills/generate', {
+            'mode_scope': 'commercial',
+            'period_start': '2036-01-01',
+            'period_end': '2036-03-01',
+            'fee_type_ids': str(fee['id']),
+            'mode': 'confirm',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+
+        db = get_db()
+        bill = db.execute("SELECT amount,billing_period FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee['id'])).fetchone()
+        db.close()
+        self.assertIsNotNone(bill)
+        self.assertEqual(bill['billing_period'], '2036-01~2036-03')
+        self.assertAlmostEqual(float(bill['amount']), float(fee['unit_price']))
 
 
     def test_commercial_billing_redirect_shows_generated_range_bill(self):

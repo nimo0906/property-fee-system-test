@@ -41,7 +41,7 @@ class BillGenerationMixinPart1Group1(BaseHandler):
         selected_room_from = qs(q, 'room_from')
         selected_room_to = qs(q, 'room_to')
         default_start, default_end, _, _ = _resolve_generation_period(q)
-        default_unit = '商场' if mode == 'commercial' else ''
+        default_unit = ''
         building_opts = '<option value="">全部楼栋</option>' + ''.join(
             f'<option value="{h(x["building"])}"{" selected" if selected_building == x["building"] else ""}>{h(x["building"])}</option>'
             for x in buildings
@@ -53,7 +53,7 @@ class BillGenerationMixinPart1Group1(BaseHandler):
         self._html(self._page('生成账单', f'''
         <div class="alert alert-info"><i class="bi bi-info-circle"></i>
         选择起始日期、截止日期、房间范围和费用类型，系统按财务自然日期范围生成账单。
-        商业模式仅纳入单元/区域为商场且类型为商户/商业的对象；请先核对面积、物业费单价和缴费周期。</div>
+        商业模式纳入房间类型为商户/商业的对象，不限定楼栋或单元/区域；请先核对面积、物业费单价和缴费周期。</div>
         <form method=POST action="/bills/generate" class="row g-3">
         <input type="hidden" name="mode_scope" value="{h(mode)}">
         <input type="hidden" name="unit" value="{h(default_unit)}">

@@ -19,8 +19,7 @@ def fee_applies_to_category(fee_name, room_category):
 
 def fee_applies_to_room(fee_name, room):
     rcat = room['category'] or '居民'
-    unit = (room['unit'] or '').strip() if 'unit' in room.keys() else ''
-    if '(商业)' in fee_name and unit != '商场':
+    if '(商业)' in fee_name and rcat not in ('商户', '商业'):
         return False
     water_rate = '非居民'
     try:

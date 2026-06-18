@@ -253,16 +253,18 @@ def _normalize_water_rate_type(value):
 
 
 def _append_commercial_rule_warnings(problem_rows, row_no, row, unit, category, area, custom_rate_raw, payment_cycle):
-    if unit != '商场':
+    unit_text = str(unit or '')
+    looks_commercial_area = any(x in unit_text for x in ('商场', '商业', '商铺'))
+    if category == '居民' and looks_commercial_area:
+        problem_rows.append(_problem_row(row_no, '商业对象误填为居民', row))
+    if category not in ('商户', '商业') and not looks_commercial_area:
         return
-    if category == '居民':
-        problem_rows.append(_problem_row(row_no, '商场商户误填为居民', row))
     if not area or area <= 0:
-        problem_rows.append(_problem_row(row_no, '缺少面积', row))
+        problem_rows.append(_problem_row(row_no, '商业对象缺少面积', row))
     if str(custom_rate_raw or '').strip() == '':
-        problem_rows.append(_problem_row(row_no, '缺少物业费单价', row))
+        problem_rows.append(_problem_row(row_no, '商业对象缺少物业费单价', row))
     if not payment_cycle:
-        problem_rows.append(_problem_row(row_no, '缺少缴费周期', row))
+        problem_rows.append(_problem_row(row_no, '商业对象缺少缴费周期', row))
 
 def _to_float(value, default=0):
     try:

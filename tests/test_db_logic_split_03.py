@@ -26,7 +26,7 @@ class TestDBLogic03(DBLogicTestBase):
         self.assertEqual(selected_for_room, [property_fee, elevator_fee])
 
 
-    def test_auto_billing_business_fee_only_applies_to_mall_scope(self):
+    def test_auto_billing_business_fee_applies_to_generic_commercial_scope(self):
         from server.auto_billing import build_auto_billing_preview
         owner_id = self.db.execute("INSERT INTO owners(name) VALUES('商业费范围业主')").lastrowid
         b_room_id = self.db.execute(
@@ -51,7 +51,7 @@ class TestDBLogic03(DBLogicTestBase):
         b_fee_ids = [x['fee_type_id'] for x in items if x['room_id'] == b_room_id]
         mall_fee_ids = [x['fee_type_id'] for x in items if x['room_id'] == mall_room_id]
 
-        self.assertEqual(b_fee_ids, [merchant_fee])
+        self.assertEqual(b_fee_ids, [merchant_fee, business_fee])
         self.assertEqual(mall_fee_ids, [merchant_fee, business_fee])
 
 

@@ -57,9 +57,10 @@ class TestIntegration39(IntegrationTestBase):
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('当前批次：第 201 - 205 条', next_html)
-        self.assertIn('批量201', next_html)
-        self.assertIn('批量205', next_html)
-        self.assertNotIn('批量001', next_html)
+        editable_table = next_html.split('问题提醒', 1)[0]
+        self.assertIn('批量201', editable_table)
+        self.assertIn('批量205', editable_table)
+        self.assertNotIn('批量001', editable_table)
         self.assertIn('name="preview_row_count" value="5"', next_html)
 
     def test_import_result_offers_continue_button_for_remaining_rows(self):

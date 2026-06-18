@@ -189,7 +189,7 @@ class TestIntegration17(IntegrationTestBase):
 
         status, reports = http_get('/reports?period_start=2039-01-01&period_end=2039-03-31', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        for text in ['B座物业/出租收入', 'B座水费收入', '商场商业收入', '商场水电收入']:
+        for text in ['商业物业费收入', '商业水电收入']:
             self.assertIn(text, reports)
         self.assertIn('¥600.00', reports)
         self.assertIn('¥540.00', reports)

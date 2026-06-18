@@ -30,7 +30,7 @@ class TestIntegration07(IntegrationTestBase):
         self.assertIn('name="target_scope"', body)
         self.assertIn('A座', body)
         self.assertIn('B座', body)
-        self.assertIn('商场商户', body)
+        self.assertIn('商业对象', body)
         self.assertIn('物业收费项目', body)
         self.assertIn('商业收费项目', body)
         self.assertIn('其他收费项目', body)
