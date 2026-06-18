@@ -24,6 +24,12 @@ def _backoffice_home(user):
         '/backoffice/users' if can_manage_users else None,
         '账号管理仅管理员可用',
     )
+    onboarding_card = _module_card(
+        '客户开通',
+        '平台管理员开通新客户公司、默认项目和首个租户管理员。',
+        '/backoffice/tenant-onboarding' if user.get('role_code') == 'platform_admin' else None,
+        '客户开通仅平台管理员可用',
+    )
     tenant_project_card = _module_card(
         '租户项目',
         '维护本公司项目边界；平台管理员可只读查看租户和项目全局。',
@@ -32,6 +38,7 @@ def _backoffice_home(user):
     )
     cards = ''.join([
         tenant_admin_card,
+        onboarding_card,
         tenant_project_card,
         user_card,
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),

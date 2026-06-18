@@ -4,6 +4,7 @@
 
 from sqlalchemy import text
 
+from server.passwords import hash_password
 from server.saas_service import PermissionDenied
 
 
@@ -33,4 +34,17 @@ def _repo_create_project_for_actor(self, actor, name, code=None):
 def attach_project_methods(cls):
     cls.list_projects = _repo_list_projects
     cls.create_project_for_actor = _repo_create_project_for_actor
+    cls.onboard_tenant_for_platform = _repo_onboard_tenant_for_platform
     return cls
+
+
+def _repo_onboard_tenant_for_platform(self, actor, tenant_name, project_name, admin_username, admin_password, project_code=None):
+    if actor.get("role_code") != "platform_admin":
+        raise PermissionDenied("platform admin only")
+    tenant = self.create_tenant(tenant_name)
+    project = self.create_project(tenant["id"], project_name, project_code)
+    admin = self.create_user(tenant["id"], admin_username, "system_admin", hash_password(admin_password))
+    self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "tenant.create", "tenant", tenant["id"], {"tenant_name": tenant_name, "actor_username": actor.get("username"), "scope": "platform"})
+    self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "project.create", "project", project["id"], {"name": project_name, "code": project_code, "scope": "platform"})
+    self.create_audit_log(tenant["id"], project["id"], actor.get("id"), "user.create", "user", admin["id"], {"username": admin_username, "role_code": "system_admin", "scope": "platform"})
+    return {"tenant": tenant, "project": project, "admin": admin}
