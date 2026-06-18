@@ -365,7 +365,7 @@ class TestIntegration04(IntegrationTestBase):
         self.assertIn('出账状态', contracts)
         self.assertIn('行政档案/合同备查', contracts)
         self.assertIn('contract-group', contracts)
-        self.assertIn('B座合同', contracts)
+        self.assertIn('收费对象合同', contracts)
         self.assertIn('商业合同', contracts)
         self.assertNotIn('导入合同档案', contracts)
         self.assertIn('新增合同档案', contracts)

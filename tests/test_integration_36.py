@@ -228,7 +228,7 @@ class TestIntegration36(IntegrationTestBase):
             '/import/template/owners.xlsx': ('业主信息模板', ['业主姓名', '业主电话', '身份证号', '备注']),
             '/import/template/payment_ledger.xlsx': ('收款明细识别模板', ['缴费日期', '房间号', '用户名称', '本期金额', '本期收款(合计)', '物业费']),
             '/import/template/bills.xlsx': ('账单记录模板', ['楼栋/区域', '房号/铺位号', '费用项目', '账期', '金额', '状态']),
-            '/import/template/b_tower_contracts.xlsx': ('B座出租合同模板', ['楼栋/区域', '单元/分区', '房号/铺位号', '租户', '租户电话', '面积', '物业费单价', '缴费周期', '合同开始日期', '合同结束日期']),
+            '/import/template/b_tower_contracts.xlsx': ('出租合同模板', ['楼栋/区域', '单元/分区', '房号/铺位号', '租户', '租户电话', '面积', '物业费单价', '缴费周期', '合同开始日期', '合同结束日期']),
         }
         for path, (sheet_name, headers_prefix) in expected.items():
             conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)

@@ -154,7 +154,7 @@ class TestCommercialComplexCloudV201(V2CommercialComplexTestBase):
         self.assertEqual(metrics["total_paid"], 100.0)
         self.assertEqual(metrics["collection_rate"], 25.0)
         self.assertEqual(metrics["segments"]["B座"]["due"], 100.0)
-        self.assertEqual(metrics["segments"]["商场"]["due"], 300.0)
+        self.assertEqual(metrics["segments"]["商业对象"]["due"], 300.0)
         self.assertEqual(metrics["risk_counts"]["unpaid_bills"], 1)
 
 
@@ -180,7 +180,7 @@ class TestCommercialComplexCloudV201(V2CommercialComplexTestBase):
 
         metrics = get_enterprise_dashboard_metrics("2026-06", today=date(2026, 6, 11))
 
-        self.assertEqual(metrics["segments"]["商场"]["unpaid"], 900.0)
+        self.assertEqual(metrics["segments"]["商业对象"]["unpaid"], 900.0)
         self.assertEqual(metrics["segments"]["B座"]["collection_rate"], 100.0)
         self.assertEqual(metrics["arrears_trend"][-1]["period"], "2026-06")
         self.assertEqual(metrics["arrears_trend"][-1]["unpaid"], 900.0)

@@ -50,25 +50,25 @@ def build_migration_summary():
     tables = {table: _count(conn, table) for table in CORE_EXPORT_TABLES}
     bill_total = conn.execute("SELECT COALESCE(SUM(amount),0) FROM bills").fetchone()[0] if _table_exists(conn, "bills") else 0
     pay_total = conn.execute("SELECT COALESCE(SUM(amount_paid),0) FROM payments").fetchone()[0] if _table_exists(conn, "payments") else 0
-    b_tower_bill_total = conn.execute(
+    residential_bill_total = conn.execute(
         """SELECT COALESCE(SUM(b.amount),0)
            FROM bills b JOIN rooms r ON b.room_id=r.id
-           WHERE r.building='B座'"""
+           WHERE COALESCE(r.category,'') NOT IN('商户','商业')"""
     ).fetchone()[0] if _table_exists(conn, "bills") and _table_exists(conn, "rooms") else 0
-    mall_bill_total = conn.execute(
+    commercial_bill_total = conn.execute(
         """SELECT COALESCE(SUM(b.amount),0)
-           FROM bills b JOIN rooms r ON b.room_id=r.id
-           WHERE r.building='商场' OR r.unit='商场'"""
+           FROM bills b LEFT JOIN rooms r ON b.room_id=r.id
+           WHERE b.commercial_space_id IS NOT NULL OR r.category IN('商户','商业')"""
     ).fetchone()[0] if _table_exists(conn, "bills") and _table_exists(conn, "rooms") else 0
     service_period_bill_count = conn.execute(
         """SELECT COUNT(*) FROM bills
            WHERE COALESCE(service_start,'')<>'' AND COALESCE(service_end,'')<>''"""
     ).fetchone()[0] if _table_exists(conn, "bills") else 0
-    mall_rooms = conn.execute(
-        "SELECT COUNT(*) FROM rooms WHERE building='商场' OR unit='商场'"
+    commercial_rooms = conn.execute(
+        "SELECT COUNT(*) FROM rooms WHERE category IN('商户','商业')"
     ).fetchone()[0] if _table_exists(conn, "rooms") else 0
-    b_tower_rooms = conn.execute(
-        "SELECT COUNT(*) FROM rooms WHERE building='B座'"
+    residential_rooms = conn.execute(
+        "SELECT COUNT(*) FROM rooms WHERE COALESCE(category,'') NOT IN('商户','商业')"
     ).fetchone()[0] if _table_exists(conn, "rooms") else 0
     conn.close()
     bill_total = _money(bill_total)
@@ -102,12 +102,12 @@ def build_migration_summary():
             "unpaid_amount_total": unpaid_total,
         },
         "scope": {
-            "b_tower_rooms": int(b_tower_rooms or 0),
-            "mall_rooms": int(mall_rooms or 0),
+            "residential_rooms": int(residential_rooms or 0),
+            "commercial_rooms": int(commercial_rooms or 0),
         },
         "reconciliation": {
-            "b_tower_bill_total": round(float(b_tower_bill_total or 0), 2),
-            "mall_bill_total": round(float(mall_bill_total or 0), 2),
+            "residential_bill_total": round(float(residential_bill_total or 0), 2),
+            "commercial_bill_total": round(float(commercial_bill_total or 0), 2),
             "service_period_bill_count": int(service_period_bill_count or 0),
         },
         "validation_totals": validation_totals,

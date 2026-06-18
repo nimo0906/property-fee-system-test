@@ -104,7 +104,7 @@ GET /api/v1/owners/1
     "rooms": [
       {
         "id": 1,
-        "building": "B座",
+        "building": "住宅楼",
         "unit": "1单元",
         "room_number": "1801",
         "floor": 18,
@@ -131,7 +131,7 @@ GET /api/v1/rooms/1
   "ok": true,
   "data": {
     "id": 1,
-    "building": "B座",
+    "building": "住宅楼",
     "unit": "1单元",
     "room_number": "1801",
     "floor": 18,
@@ -173,7 +173,7 @@ GET /api/v1/bills/1
     },
     "room": {
       "id": 1,
-      "building": "B座",
+      "building": "住宅楼",
       "unit": "1单元",
       "room_number": "1801",
       "area": 88.5

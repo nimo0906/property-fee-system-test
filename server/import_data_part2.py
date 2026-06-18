@@ -195,5 +195,5 @@ class ImportMixinPart2(BaseHandler):
         finally:
             db.close()
         filename = form.getvalue('filename', 'b_tower_contracts.xlsx')
-        self._audit('b_tower_contract_import', 'rooms', None, None, {'filename': filename, 'rows': len(rows), 'allow_create': allow_create, 'result': result, 'backup': backup_name}, 'B座出租合同导入')
+        self._audit('b_tower_contract_import', 'rooms', None, None, {'filename': filename, 'rows': len(rows), 'allow_create': allow_create, 'result': result, 'backup': backup_name}, '出租合同导入')
         return self._render_import_result(filename, 'b_tower_contracts', len(rows), backup_name, result)

@@ -28,8 +28,8 @@ class TestIntegration14(IntegrationTestBase):
             'file': ('b-tower-contracts.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', out.getvalue())
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('B座出租合同导入预览', preview)
-        self.assertIn('允许自动新建系统中不存在的 B座房间', preview)
+        self.assertIn('出租合同导入预览', preview)
+        self.assertIn('允许自动新建系统中不存在的收费对象', preview)
         self.assertIn('B座新租户', preview)
         self.assertIn('B座新增租户', preview)
 
@@ -47,7 +47,7 @@ class TestIntegration14(IntegrationTestBase):
             'water_rate_type_1': '特行', 'notes_1': '默认不新建',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('系统中不存在该 B座房间', result)
+        self.assertIn('系统中不存在该收费对象', result)
         db = get_db()
         existing = db.execute("SELECT tenant_name,custom_rate,payment_cycle,contract_start,contract_end FROM rooms WHERE building='B座' AND room_number='1801'").fetchone()
         missing = db.execute("SELECT id FROM rooms WHERE building='B座' AND room_number='1802'").fetchone()
@@ -147,7 +147,7 @@ class TestIntegration14(IntegrationTestBase):
 
         status, form = http_get('/merchant_contracts/create', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('B座房间合同', form)
+        self.assertIn('收费对象合同', form)
         self.assertIn('name="target_kind"', form)
         self.assertIn('name="room_id"', form)
         self.assertIn('BCT-1401', form)

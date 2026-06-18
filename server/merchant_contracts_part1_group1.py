@@ -6,7 +6,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
     def _merchant_contracts(self, q):
         keyword = qs(q, 'keyword').strip()
         db = get_db()
-        sql = """SELECT c.*,COALESCE(r.building,'商场') building,COALESCE(r.unit,'商场') unit,
+        sql = """SELECT c.*,COALESCE(r.building,'商业空间') building,COALESCE(r.unit,'商业空间') unit,
                       COALESCE(s.space_no,r.room_number) room_number,COALESCE(NULLIF(c.contract_area,0),s.area,r.area,0) area,
                       COALESCE(s.shop_name,c.shop_name,r.shop_name) space_shop_name,
                       COALESCE(s.merchant_name,c.merchant_name) space_merchant_name,
@@ -37,10 +37,18 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             )"""
             vals.extend([like] * 11)
         total_rows = db.execute("SELECT COUNT(*) FROM (" + sql + ")", vals).fetchone()[0]
+        room_total = db.execute("SELECT COUNT(*) FROM (" + sql + ") WHERE room_id IS NOT NULL", vals).fetchone()[0]
+        commercial_total = db.execute("SELECT COUNT(*) FROM (" + sql + ") WHERE room_id IS NULL", vals).fetchone()[0]
         pg, per_page, total_pages = pagination_state(q, total_rows)
-        area_order = business_area_order_sql("COALESCE(r.building,'商场')", "COALESCE(r.unit,'商场')")
+        area_order = business_area_order_sql("COALESCE(r.building,'商业空间')", "COALESCE(r.unit,'商业空间')")
         order_sql = f" ORDER BY {area_order}, CAST(COALESCE(s.floor,r.floor,0) AS REAL) ASC, COALESCE(s.space_no,r.room_number) ASC, c.end_date ASC, c.id DESC"
         rows = db.execute(sql + order_sql + " LIMIT ? OFFSET ?", vals + [per_page, (pg - 1) * per_page]).fetchall()
+        room_rows = [r for r in rows if r['room_id']]
+        commercial_rows = [r for r in rows if not r['room_id']]
+        if room_total and not room_rows:
+            room_rows = db.execute("SELECT * FROM (" + sql + order_sql + ") WHERE room_id IS NOT NULL LIMIT 5", vals).fetchall()
+        if commercial_total and not commercial_rows:
+            commercial_rows = db.execute("SELECT * FROM (" + sql + order_sql + ") WHERE room_id IS NULL LIMIT 5", vals).fetchall()
         db.close()
 
         def row_html(r):
@@ -64,21 +72,19 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             </td>
             </tr>'''
 
-        b_rows = [r for r in rows if str(r['building'] or '').startswith('B') or str(r['unit'] or '').startswith('B')]
-        commercial_rows = [r for r in rows if r not in b_rows]
         search_tip = f'搜索结果：{total_rows} 份合同档案' if keyword else '默认按楼层从低到高排序'
         headers = '<thead><tr><th>空间/合同</th><th>店铺/使用方</th><th>楼层/面积</th><th class="text-end">租金单价</th><th class="text-end">物业单价</th><th class="text-end">押金单价</th><th>合同期</th><th>出账状态</th><th>最近服务期/到期提醒</th><th>状态</th><th class="text-end">操作</th></tr></thead>'
 
-        def group(title, icon, items, open_attr):
+        def group(title, icon, items, total_count, open_attr):
             body = ''.join(row_html(r) for r in items) or '<tr><td colspan="11" class="text-center text-muted py-4">暂无合同档案</td></tr>'
             return f'''<details class="contract-group" {open_attr}>
-              <summary><span><i class="bi {icon}"></i> {title}</span><span class="badge status-info">{len(items)} 份</span></summary>
+              <summary><span><i class="bi {icon}"></i> {title}</span><span class="badge status-info">{total_count} 份</span></summary>
               <div class="table-responsive"><table class="table table-hover align-middle mb-0">{headers}<tbody>{body}</tbody></table></div>
             </details>'''
 
         self._html(self._page("空间合同档案", f'''
         <div class="alert alert-info"><i class="bi bi-file-earmark-text"></i>
-        合同档案按 B座合同 / 商业合同 分组；作为行政档案/合同备查使用，不局限于商场，空间资料和合同资料在同一份档案中维护。日常收费仍从“物业收费”或“商业收费”生成账单。</div>
+        合同档案按收费对象合同 / 商业合同分组；作为行政档案/合同备查使用，不绑定具体客户项目名称。空间资料和合同资料在同一份档案中维护，日常收费仍从“物业收费”或“商业收费”生成账单。</div>
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-file-earmark-text"></i> 空间合同档案</span>
@@ -94,8 +100,8 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             </form>
           </div>
           <div class="card-body contract-group-stack">
-            {group('B座合同', 'bi-building', b_rows, 'open')}
-            {group('商业合同', 'bi-shop', commercial_rows, 'open')}
+            {group('收费对象合同', 'bi-building', room_rows, room_total, 'open')}
+            {group('商业合同', 'bi-shop', commercial_rows, commercial_total, 'open')}
           </div>
           {render_pagination('/merchant_contracts', query_items(q, ['keyword']), pg, total_pages, per_page, total_rows, '合同档案分页')}
         </div>
@@ -106,8 +112,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
         rooms = db.execute(
             """SELECT r.id,r.building,r.unit,r.room_number,r.area,r.floor,r.owner_id,r.tenant_name,r.shop_name,o.name owner_name
                FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id
-               WHERE (r.unit='B座' OR r.building='B座')
-                 AND r.category IN('商户','商业','居民')
+               WHERE r.category IN('商户','商业','居民')
                ORDER BY r.unit,r.room_number,r.id"""
         ).fetchall()
         db.close()
@@ -123,14 +128,14 @@ class MerchantContractMixinPart1Group1(BaseHandler):
           <div class="card-body row g-3">
             <div class="col-12"><h3 class="h6 text-muted border-bottom pb-2">合同对象</h3></div>
             <div class="col-md-4"><label>合同对象类型 *</label><select name="target_kind" id="targetKind" class="form-select" required>
-              <option value="space" selected>商场铺位合同</option>
-              <option value="room">B座房间合同</option>
+              <option value="space" selected>商业空间合同</option>
+              <option value="room">收费对象合同</option>
             </select></div>
-            <div class="col-md-8 target-room d-none"><label>选择 B座房间 *</label><select name="room_id" id="contractRoom" class="form-select">
+            <div class="col-md-8 target-room d-none"><label>选择收费对象 *</label><select name="room_id" id="contractRoom" class="form-select">
               <option value="">请选择房间</option>{room_options}
-            </select><div class="form-text">B座合同必须绑定房间；出账后账单进入房间账单、收据、催缴和报表体系。</div></div>
+            </select><div class="form-text">收费对象合同必须绑定对象；出账后账单进入账单、收据、催缴和报表体系。</div></div>
             <div class="col-12"><h3 class="h6 text-muted border-bottom pb-2">空间资料</h3></div>
-            <div class="col-md-3 target-space"><label>商户编号 *</label><input name="space_no" id="spaceNo" class="form-control" placeholder="如 商场-(-2F)-01A" required></div>
+            <div class="col-md-3 target-space"><label>商户编号 *</label><input name="space_no" id="spaceNo" class="form-control" placeholder="如 SP-01A" required></div>
             <div class="col-md-3"><label>店铺名称</label><input name="shop_name" id="shopName" class="form-control"></div>
             <div class="col-md-3"><label>使用方/商户 *</label><input name="merchant_name" id="merchantName" class="form-control" required></div>
             <div class="col-md-3"><label>业态</label><input name="business_type" class="form-control" placeholder="如 餐饮/零售/台球"></div>
@@ -201,7 +206,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
         room_id = qs(d, "room_id") if target_kind in ("room", "room_legacy") else ""
         space_id = None if target_kind in ("room", "room_legacy") else _space_id_from_contract_form(d)
         if target_kind in ("room", "room_legacy") and not room_id:
-            return self._redirect("/merchant_contracts/create?flash=请选择B座房间")
+            return self._redirect("/merchant_contracts/create?flash=请选择收费对象")
         owner_id = qs(d, "owner_id") or None
         if target_kind in ("room", "room_legacy"):
             db_room = get_db()

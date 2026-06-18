@@ -62,10 +62,17 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
     invoice_link = '/invoices' if can_finance_write else '/bills'
     health_link = '/system_health' if role in ('admin', 'system_admin') else '/reports'
     contract_risks = enterprise['risk_counts']
-    b_data = enterprise['segments'].get('B座', {'due': 0, 'paid': 0, 'bill_count': 0})
-    mall_data = enterprise['segments'].get('商场', {'due': 0, 'paid': 0, 'bill_count': 0})
-    b_rate = round(float(b_data['paid'] or 0) / float(b_data['due'] or 1) * 100, 1) if float(b_data['due'] or 0) > 0 else 0
-    mall_rate = round(float(mall_data['paid'] or 0) / float(mall_data['due'] or 1) * 100, 1) if float(mall_data['due'] or 0) > 0 else 0
+    segment_items = sorted(
+        enterprise['segments'].items(),
+        key=lambda item: (float(item[1].get('due', 0) or 0), int(item[1].get('bill_count', 0) or 0)),
+        reverse=True,
+    )[:2]
+    while len(segment_items) < 2:
+        segment_items.append(('暂无数据' if not segment_items else '其他', {'due': 0, 'paid': 0, 'bill_count': 0}))
+    seg1_name, seg1_data = segment_items[0]
+    seg2_name, seg2_data = segment_items[1]
+    seg1_rate = round(float(seg1_data.get('paid', 0) or 0) / float(seg1_data.get('due', 0) or 1) * 100, 1) if float(seg1_data.get('due', 0) or 0) > 0 else 0
+    seg2_rate = round(float(seg2_data.get('paid', 0) or 0) / float(seg2_data.get('due', 0) or 1) * 100, 1) if float(seg2_data.get('due', 0) or 0) > 0 else 0
     total_fee_due = sum(float(f['tot'] or 0) for f in fts) or 1
     top_fees = fts[:3]
 
@@ -147,10 +154,10 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
             </div>
             <div class="dashboard-focus-grid">
                 <div class="focus-card"><div class="focus-card-inner">
-                    <div class="focus-section-title"><b>B座 / 商场</b><span>收缴率</span></div>
+                    <div class="focus-section-title"><b>区域 / 业态</b><span>收缴率</span></div>
                     <div class="focus-bars">
-                        <div class="focus-bar-row"><span>B座</span><div class="focus-track"><div class="focus-fill" style="width:{pct_width(b_rate)}%"></div></div><b>{b_rate}%</b></div>
-                        <div class="focus-bar-row"><span>商场</span><div class="focus-track"><div class="focus-fill gold" style="width:{pct_width(mall_rate)}%"></div></div><b>{mall_rate}%</b></div>
+                        <div class="focus-bar-row"><span>{h(seg1_name)}</span><div class="focus-track"><div class="focus-fill" style="width:{pct_width(seg1_rate)}%"></div></div><b>{seg1_rate}%</b></div>
+                        <div class="focus-bar-row"><span>{h(seg2_name)}</span><div class="focus-track"><div class="focus-fill gold" style="width:{pct_width(seg2_rate)}%"></div></div><b>{seg2_rate}%</b></div>
                         <div class="focus-bar-row"><span>欠费</span><div class="focus-track"><div class="focus-fill red" style="width:{due_width}%"></div></div><b>{pending_cnt}</b></div>
                     </div>
                 </div></div>

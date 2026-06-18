@@ -31,7 +31,7 @@ class CloudPageMixin(BaseHandler):
           <div class="metric-card primary"><div class="metric-label">账单总额</div><div class="metric-value money">¥{m(money['bill_amount_total'])}</div></div>
           <div class="metric-card success"><div class="metric-label">已收总额</div><div class="metric-value money">¥{m(money['payment_amount_total'])}</div></div>
           <div class="metric-card danger"><div class="metric-label">未收差额</div><div class="metric-value money">¥{m(money['unpaid_amount_total'])}</div></div>
-          <div class="metric-card primary"><div class="metric-label">B座 / 商场房间</div><div class="metric-value">{scope['b_tower_rooms']} / {scope['mall_rooms']}</div></div>
+          <div class="metric-card primary"><div class="metric-label">住宅 / 商业对象</div><div class="metric-value">{scope['residential_rooms']} / {scope['commercial_rooms']}</div></div>
         </div>
         <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center">
           <span><i class="bi bi-database-check"></i> 迁移表行数校验</span>

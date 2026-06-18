@@ -168,7 +168,7 @@ def _contract_target_options(contract):
     rooms = db.execute(
         """SELECT r.id,r.building,r.unit,r.room_number,r.area,r.shop_name,r.owner_id,o.name owner_name
            FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id
-           WHERE (r.building='商场' OR r.unit='商场') AND r.category IN('商户','商业')
+           WHERE r.category IN('商户','商业')
            ORDER BY r.room_number"""
     ).fetchall()
     db.close()
@@ -178,7 +178,7 @@ def _contract_target_options(contract):
         {h(r['building'])}-{h(r['room_number'])} / {h(r['shop_name'] or r['owner_name'] or '-')} / {m(r['area'])}m²</option>"""
         for r in rooms
     )
-    return 'room_id', opts, '当前还没有空间档案，临时兼容旧商场房间；建议先到空间合同档案新增空间。'
+    return 'room_id', opts, '当前还没有空间档案，临时兼容旧商业收费对象；建议先到空间合同档案新增空间。'
 
 
 def _contract_form_html(contract, action, title, warning="", return_url="/merchant_contracts"):
@@ -207,12 +207,12 @@ def _contract_form_html(contract, action, title, warning="", return_url="/mercha
         for code, label in (("active", "启用"), ("inactive", "停用"), ("expired", "到期"))
     )
     hidden_target = ""
-    target_summary = '<div class="alert alert-info">合同对象：商场铺位合同。账单将绑定商场铺位并进入商场账单体系。</div>'
+    target_summary = '<div class="alert alert-info">合同对象：商业空间合同。账单将绑定商业空间并进入商业账单体系。</div>'
     if contract["commercial_space_id"]:
         hidden_target = f'<input type="hidden" name="commercial_space_id" value="{h(contract["commercial_space_id"])}">'
     elif contract["room_id"]:
         hidden_target = f'<input type="hidden" name="room_id" value="{h(contract["room_id"])}">'
-        target_summary = '<div class="alert alert-info">合同对象：B座房间合同。账单将绑定房间并进入房间账单、收据、催缴和报表体系。</div>'
+        target_summary = '<div class="alert alert-info">合同对象：收费对象合同。账单将绑定收费对象并进入账单、收据、催缴和报表体系。</div>'
     return f"""
     {warning}
     <form method="POST" action="{h(action)}" class="card">

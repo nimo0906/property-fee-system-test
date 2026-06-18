@@ -181,9 +181,9 @@ class CloudSecurityPageMixin(BaseHandler):
             <div class="card-body">
               <p><strong>继续桌面稳定版收口：金额、词汇、流程、窄屏体验</strong></p>
               <ul class="mb-0">
-                <li>C 阶段重点做收费率、欠费趋势、商户贡献、费用结构和 B座/商场对比。</li>
+                <li>C 阶段重点做收费率、欠费趋势、商户贡献、费用结构和区域/业态对比。</li>
                 <li>优先增强管理层看板，再增强财务报表分析。</li>
-                <li>仍保持 B座现有收费流程稳定，不引入真实支付闭环。</li>
+                <li>仍保持现有桌面收费流程稳定，不引入真实支付闭环。</li>
               </ul>
               <a class="btn btn-sm btn-outline-primary mt-3" href="/reports">查看现有报表</a>
             </div></div>

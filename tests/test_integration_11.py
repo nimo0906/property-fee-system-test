@@ -76,7 +76,7 @@ class TestIntegration11(IntegrationTestBase):
         status, body = http_get('/', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        for text in ['经营看板', 'B座 / 商场', '收入结构', '业务动态']:
+        for text in ['经营看板', '区域 / 业态', '收入结构', '业务动态']:
             self.assertIn(text, body)
         self.assertIn('收缴率', body)
 

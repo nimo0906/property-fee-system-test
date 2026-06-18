@@ -50,14 +50,12 @@ def _stable_income_bucket(row):
         if '物业费' in fee_name:
             return '商业物业费收入'
         return '商业综合收入'
-    if unit == 'B座' or building == 'B座' or 'B座' in unit or 'B座' in building:
-        return 'B座水费收入' if is_water else 'B座物业/出租收入'
-    return '其他水电收入' if is_water else '其他物业收入'
+    return '住宅水电收入' if is_water else '住宅物业收入'
 
 def _stable_income_breakdown(rows):
     buckets = {
-        'B座物业/出租收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
-        'B座水费收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
+        '住宅物业收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
+        '住宅水电收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
         '商业租金收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
         '商业物业费收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},
         '商业综合收入': {'amount': 0.0, 'paid': 0.0, 'count': 0},

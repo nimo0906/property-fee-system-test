@@ -141,7 +141,7 @@ class TestIntegration13(IntegrationTestBase):
         status, page = http_get('/merchant_contracts', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('<details class="contract-group" open>', page)
-        self.assertIn('B座合同', page)
+        self.assertIn('收费对象合同', page)
         self.assertIn('商业合同', page)
         self.assertIn('HT-B-GROUP-001', page)
         self.assertIn('HT-M-GROUP-001', page)

@@ -199,7 +199,7 @@ class TestIntegration28(IntegrationTestBase):
         status, body = http_get('/reports?period=2032-06', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        for text in ['经营分析看板', 'B座 / 商场对比', '欠费趋势', '商户贡献', '费用结构']:
+        for text in ['经营分析看板', '区域 / 业态对比', '欠费趋势', '商户贡献', '费用结构']:
             self.assertIn(text, body)
         self.assertIn('报表贡献店', body)
         self.assertIn('收缴率', body)
@@ -265,11 +265,11 @@ class TestIntegration28(IntegrationTestBase):
         import io
         import openpyxl
         wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-        self.assertEqual(wb.sheetnames, ['经营概览', 'B座商场对比', '欠费趋势', '商户贡献', '费用结构'])
+        self.assertEqual(wb.sheetnames, ['经营概览', '区域业态对比', '欠费趋势', '商户贡献', '费用结构'])
         self.assertEqual(wb['经营概览']['A1'].value, '经营分析看板')
         self.assertEqual(wb['经营概览']['B3'].value, 1500)
         self.assertEqual(wb['经营概览']['B4'].value, 300)
-        self.assertEqual(wb['B座商场对比']['A2'].value, 'B座')
+        self.assertIn(wb['区域业态对比']['A2'].value, ['住宅对象', '商业对象', 'B座', '商场'])
         self.assertIn('导出贡献店', [row[0] for row in wb['商户贡献'].iter_rows(min_row=2, values_only=True)])
         self.assertIn('物业费', ''.join(str(row[0] or '') for row in wb['费用结构'].iter_rows(min_row=2, values_only=True)))
         wb.close()

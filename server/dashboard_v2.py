@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Enterprise dashboard metrics for B tower + mall commercial-complex v2."""
+"""Enterprise dashboard metrics for generic commercial edition."""
 
 from datetime import date
 
@@ -29,9 +29,9 @@ def get_enterprise_dashboard_metrics(period, today=None):
         (period, period),
     ).fetchone()
     segment_rows = db.execute(
-        """SELECT CASE WHEN b.commercial_space_id IS NOT NULL THEN '商场'
-                       WHEN r.building='B座' THEN 'B座'
-                       WHEN r.building='商场' OR r.unit='商场' THEN '商场'
+        """SELECT CASE WHEN b.commercial_space_id IS NOT NULL THEN '商业空间'
+                       WHEN r.category IN('商户','商业') THEN '商业对象'
+                       WHEN COALESCE(r.building,'')<>'' THEN r.building
                        ELSE '其他' END segment,
                   COALESCE(SUM(b.amount),0) due,
                   COALESCE(SUM((SELECT COALESCE(SUM(p.amount_paid),0)
@@ -65,7 +65,7 @@ def get_enterprise_dashboard_metrics(period, today=None):
            LEFT JOIN merchant_contracts c ON b.source='merchant_contract' AND b.source_ref=CAST(c.id AS TEXT)
            LEFT JOIN rooms r ON b.room_id=r.id
            LEFT JOIN owners o ON b.owner_id=o.id
-           WHERE b.billing_period=? AND (b.commercial_space_id IS NOT NULL OR r.building='商场' OR r.unit='商场')
+           WHERE b.billing_period=? AND (b.commercial_space_id IS NOT NULL OR r.category IN('商户','商业'))
            GROUP BY merchant
            ORDER BY due DESC, merchant
            LIMIT 5""",

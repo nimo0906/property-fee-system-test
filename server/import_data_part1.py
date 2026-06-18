@@ -45,7 +45,7 @@ class ImportMixinPart1(BaseHandler):
                         <option value="payment_ledger"{sel("payment_ledger")}>收款明细识别（不自动入账）</option>
                         <option value="bills"{sel("bills")}>账单记录（谨慎使用）</option>
                         <option value="commercial_contracts"{sel("commercial_contracts")}>商业合同</option>
-                        <option value="b_tower_contracts"{sel("b_tower_contracts")}>B座出租合同</option>
+                        <option value="b_tower_contracts"{sel("b_tower_contracts")}>出租合同（收费对象）</option>
                     </select>
                     <div class="form-text text-warning">自动检测适合模板文件或字段清晰的 Excel；若识别不准确，请手动选择导入类型后重新预览。</div>
                 </div>
@@ -65,7 +65,7 @@ class ImportMixinPart1(BaseHandler):
             </div>
             <div class="import-rule-list">
                 <div class="import-rule-item success"><i class="bi bi-check2-circle"></i><div><strong>基础资料导入</strong><span>可写入收费对象、业主、面积、类别、合同日期、备注资料。</span></div></div>
-                <div class="import-rule-item success"><i class="bi bi-file-earmark-text"></i><div><strong>合同导入</strong><span>商业合同写入合同档案；B座出租合同写入收费对象管理。</span></div></div>
+                <div class="import-rule-item success"><i class="bi bi-file-earmark-text"></i><div><strong>合同导入</strong><span>商业合同写入合同档案；出租合同可写入收费对象管理。</span></div></div>
                 <div class="import-rule-item warning"><i class="bi bi-exclamation-triangle"></i><div><strong>收款明细识别</strong><span>列头识别、房号归属、合同日期、跳过行和问题行需要核对。</span></div></div>
                 <div class="import-rule-item danger"><i class="bi bi-shield-check"></i><div><strong>安全机制</strong><span>确认导入前自动备份，导错后可一键撤销；历史金额不会自动入账。</span></div></div>
             </div>
@@ -84,7 +84,7 @@ class ImportMixinPart1(BaseHandler):
                 <div class="col-md-4"><a class="btn btn-outline-primary w-100" href="/import/template/payment_ledger.xlsx">收款明细识别模板</a></div>
                 <div class="col-md-4"><a class="btn btn-outline-primary w-100" href="/import/template/bills.xlsx">账单记录模板</a></div>
                 <div class="col-md-4"><a class="btn btn-outline-primary w-100" href="/import/template/commercial_contracts.xlsx">商业合同模板</a></div>
-                <div class="col-md-4"><a class="btn btn-outline-primary w-100" href="/import/template/b_tower_contracts.xlsx">B座出租合同模板</a></div>
+                <div class="col-md-4"><a class="btn btn-outline-primary w-100" href="/import/template/b_tower_contracts.xlsx">出租合同模板</a></div>
             </div>
             <div class="small text-muted mt-3">不同导入类型字段不同。商业合同模板必须保留“在租合同”sheet；收款明细识别不会自动入账。</div>
         </div>

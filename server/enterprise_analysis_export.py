@@ -54,11 +54,10 @@ def _overview_sheet(wb, metrics):
 
 
 def _comparison_sheet(wb, metrics):
-    ws = wb.create_sheet("B座商场对比")
+    ws = wb.create_sheet("区域业态对比")
     segments = metrics.get("segments", {})
     rows = []
-    for name in ("B座", "商场"):
-        item = segments.get(name, {})
+    for name, item in sorted(segments.items(), key=lambda kv: (kv[1].get("due", 0), kv[1].get("bill_count", 0)), reverse=True):
         rows.append([
             name, item.get("due", 0), item.get("paid", 0),
             item.get("unpaid", 0), f'{item.get("collection_rate", 0)}%',

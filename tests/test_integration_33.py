@@ -129,8 +129,8 @@ class TestIntegration33(IntegrationTestBase):
             '店铺名称', '业态/商户类别', '备注',
         ])
         self.assertEqual(ws['A2'].value, '默认项目')
-        self.assertEqual(ws['B2'].value, '示例项目')
-        self.assertEqual(ws['D2'].value, '1F-101')
+        self.assertEqual(ws['B2'].value, '商业区')
+        self.assertEqual(ws['D2'].value, 'SP-101')
         self.assertIn('历史收款金额', ws['U2'].value)
         self.assertIn('填写说明', wb.sheetnames)
         wb.close()

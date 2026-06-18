@@ -109,7 +109,11 @@ class RoomMixin(BaseHandler):
         from_import = source == 'import'
         a=f'/rooms/{rid}/edit' if rid else '/rooms/create'
         t='编辑收费对象' if rid else '添加收费对象'
-        b=h(room['building'] if room else '示例项目');u=h(room['unit'] if room else '商场')
+        b=h(room['building'] if room else '默认项目');u=h(room['unit'] if room else '1单元')
+        unit_values = ['1单元', '2单元', '商业区', '写字楼', '地下车库']
+        if u and u not in unit_values:
+            unit_values.insert(0, u)
+        unit_options = ''.join(f'<option value="{h(v)}"{" selected" if u==v else ""}>{h(v)}</option>' for v in unit_values)
         n=h(room['room_number'] if room else '');fl=room['floor'] if room else 7
         cat=room['category'] if room else '商户';ar=room['area'] if room else 100
         cr=h(str(room['custom_rate']) if room and room['custom_rate'] else '')
@@ -133,8 +137,8 @@ class RoomMixin(BaseHandler):
         self._html(self._page(t, stay_note + hierarchy_note + f'''<form method=POST action="{a}" class="row g-3">
     {hidden_source}
     <div class="col-md-3"><label>楼栋/区域 *</label><input name="building" class="form-control" value="{b}" required></div>
-    <div class="col-md-3"><label>单元/分区</label><select name="unit" class="form-select"><option value="A座" {"selected" if u=="A座" else ""}>A座</option><option value="B座" {"selected" if u=="B座" else ""}>B座</option><option value="商场" {"selected" if u=="商场" else ""}>商场</option></select><small class="text-muted">项目下的二级分组，如 1单元、A座、B座、写字楼、商铺区。</small></div>
-    <div class="col-md-3"><label>房号/铺位号 *</label><input name="room_number" class="form-control" value="{n}" required id="rmNum" oninput="autoFloor()"><small class="text-muted">商场建议填铺位号，如 1F-101。</small></div>
+    <div class="col-md-3"><label>单元/分区</label><select name="unit" class="form-select">{unit_options}</select><small class="text-muted">项目下的二级分组，如 1单元、商业区、写字楼、地下车库。</small></div>
+    <div class="col-md-3"><label>房号/铺位号 *</label><input name="room_number" class="form-control" value="{n}" required id="rmNum" oninput="autoFloor()"><small class="text-muted">商业对象建议填铺位号，如 SP-101。</small></div>
     <div class="col-md-3"><label>楼层</label><input name="floor" type="number" class="form-control" value="{fl}" min="-99" max="99" id="rmFloor"><small class="text-muted">地下楼层可填负数，如 -3、-2、-1。</small></div>
     <div class="col-md-3"><label>对象类型</label><select name="category" class="form-select" id="rmCat" onchange="autoRate()"><option value="居民" {"selected" if cat=="居民" else ""}>居民</option><option value="商户" {"selected" if cat=="商户" else ""}>商户</option><option value="商业" {"selected" if cat=="商业" else ""}>商业</option></select><small class="text-muted">决定收费适用范围；商业收费取商户/商业，不限定单元/分区。非居民/特行只是水费档位，不是对象类型。</small></div>
     <div class="col-md-3"><label>面积(m²) *</label><input name="area" type="number" class="form-control" value="{ar}" step="0.01" required></div>

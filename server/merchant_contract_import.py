@@ -31,7 +31,7 @@ class MerchantContractImportMixin(BaseHandler):
         filename = form["file"].filename if "file" in form else ""
         contract_scope = form.getvalue("contract_scope") or "commercial"
         if contract_scope == "b_tower":
-            return self._redirect("/import?data_type=commercial_contracts&flash=B座合同导入模板正在补齐；请先使用房间管理维护 B座出租合同，商业合同可继续导入。")
+            return self._redirect("/import?data_type=commercial_contracts&flash=收费对象合同导入模板正在补齐；请先使用收费对象管理维护出租合同，商业合同可继续导入。")
         raw_data = file_item if isinstance(file_item, bytes) else str(file_item).encode("utf-8")
         if len(raw_data) > MAX_UPLOAD_SIZE:
             return self._redirect("/import?data_type=commercial_contracts&flash=文件不能超过10MB")

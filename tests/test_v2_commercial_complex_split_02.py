@@ -25,7 +25,7 @@ class TestCommercialComplexCloudV202(V2CommercialComplexTestBase):
         })
         confirm_contract_billing(contract_id, build_contract_billing_preview(contract_id, "2026-06-01")["items"])
         metrics = get_enterprise_dashboard_metrics("2026-06", today=date(2026, 6, 11))
-        self.assertEqual(metrics["segments"]["商场"]["due"], 5500.0)
+        self.assertEqual(metrics["segments"]["商业空间"]["due"], 5500.0)
         self.assertEqual(metrics["merchant_contribution"][0]["merchant"], "分析商户")
         self.assertEqual(metrics["merchant_contribution"][0]["due"], 5500.0)
 

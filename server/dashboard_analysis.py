@@ -10,13 +10,17 @@ def render_enterprise_analysis(enterprise):
     arrears = enterprise.get("arrears_trend", [])
     merchants = enterprise.get("merchant_contribution", [])
     fees = enterprise.get("fee_structure", [])
+    comparison_items = sorted(
+        segments.items(),
+        key=lambda item: (float(item[1].get("due", 0) or 0), int(item[1].get("bill_count", 0) or 0)),
+        reverse=True,
+    )
     comparison_rows = "".join(
         f"""<tr><td>{h(name)}</td><td class="text-end">¥{m(data.get("due", 0))}</td>
         <td class="text-end">¥{m(data.get("paid", 0))}</td><td class="text-end">¥{m(data.get("unpaid", 0))}</td>
         <td class="text-end">{data.get("collection_rate", 0)}%</td></tr>"""
-        for name, data in segments.items()
-        if name in ("B座", "商场")
-    ) or '<tr><td colspan="5" class="text-center text-muted py-3">暂无 B座 / 商场对比数据</td></tr>'
+        for name, data in comparison_items
+    ) or '<tr><td colspan="5" class="text-center text-muted py-3">暂无区域/业态对比数据</td></tr>'
     arrears_rows = "".join(
         f"""<tr><td>{h(item["period"])}</td><td class="text-end">¥{m(item["due"])}</td>
         <td class="text-end">¥{m(item["paid"])}</td><td class="text-end text-danger">¥{m(item["unpaid"])}</td></tr>"""
@@ -38,7 +42,7 @@ def render_enterprise_analysis(enterprise):
           <div class="card-body">
             <div class="row g-3">
               <div class="col-lg-6">
-                <h6>B座 / 商场对比</h6>
+                <h6>区域 / 业态对比</h6>
                 <div class="table-responsive"><table class="table table-sm align-middle mb-0">
                   <thead><tr><th>范围</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">未收</th><th class="text-end">收缴率</th></tr></thead>
                   <tbody>{comparison_rows}</tbody>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""B tower rental contract import helpers."""
+"""Rental contract import helpers for charge objects."""
 
 import re
 
@@ -9,7 +9,7 @@ from server.db import h, m
 from server.import_parser import normalize_date
 from server.import_views import _safe_float, _safe_int
 
-B_TOWER_CONTRACT_FIELDS = {
+RENTAL_CONTRACT_FIELDS = {
     "building": ["楼栋", "楼座", "项目", "building"],
     "unit": ["单元", "座", "单元/座", "unit"],
     "room_number": ["房号", "房间号", "铺位号/房号", "房号/铺位", "room_number"],
@@ -37,10 +37,9 @@ def looks_like_b_tower_contract(headers, rows):
     has_room = "room_number" in mapped
     has_basic_owner = "owner_name" in mapped or "owner_phone" in mapped
     has_basic_category = "category" in mapped or "area" in mapped
-    b_hint = "B座" in text or any("B座" in " ".join(str(x or "") for x in row[:6]) for row in rows[:10])
     if has_basic_owner and has_basic_category:
         return False
-    return bool(has_room and has_contract and has_tenant and b_hint)
+    return bool(has_room and has_contract and has_tenant)
 
 
 def parse_b_tower_contract_rows(headers, data_rows):
@@ -51,8 +50,8 @@ def parse_b_tower_contract_rows(headers, data_rows):
             idx = mapping.get(key)
             return str(row[idx] or "").strip() if idx is not None and idx < len(row) else ""
         room_number = val("room_number")
-        building = val("building") or "B座"
-        unit = val("unit") or "B座"
+        building = val("building") or "默认项目"
+        unit = val("unit") or "默认分区"
         contract_start = normalize_date(val("contract_start"))
         contract_end = normalize_date(val("contract_end"))
         payment_cycle_raw = val("payment_cycle")
@@ -113,7 +112,7 @@ def import_b_tower_contract_rows(db, rows, allow_create=False):
             (row["building"], row["room_number"]),
         ).fetchone()
         if not room and not allow_create:
-            _skip(result, row, "系统中不存在该 B座房间，默认不自动新建")
+            _skip(result, row, "系统中不存在该收费对象，默认不自动新建")
             continue
         if room:
             db.execute(
@@ -163,18 +162,18 @@ def render_b_tower_contract_preview(handler, filename, token, rows, allow_create
         <td><select class="form-select form-select-sm" name="water_rate_type_{i}"><option value="非居民" {"selected" if r['water_rate_type']!='特行' else ""}>非居民</option><option value="特行" {"selected" if r['water_rate_type']=='特行' else ""}>特行</option></select></td>
         <td>{inp(i,'notes',r['notes'])}</td>
         <td>{'<span class="badge status-success">可导入</span>' if not r['errors'] else '<span class="badge bg-warning text-dark">需核对</span><div class="small text-danger">' + h('；'.join(r['errors'])) + '</div>'}</td>
-        </tr>''' for i, r in enumerate(rows[:200])) or '<tr><td colspan="14" class="text-center text-muted py-4">未识别到 B座出租合同</td></tr>'
+        </tr>''' for i, r in enumerate(rows[:200])) or '<tr><td colspan="14" class="text-center text-muted py-4">未识别到出租合同</td></tr>'
     checked = "checked" if allow_create else ""
     disabled = "disabled" if not rows else ""
-    handler._html(handler._page("B座出租合同导入预览", f'''
-    <div class="alert alert-warning"><i class="bi bi-building"></i> B座出租合同导入预览：默认只更新已有 B座房间；如需新建缺失房间，请勾选下方选项。</div>
+    handler._html(handler._page("出租合同导入预览", f'''
+    <div class="alert alert-warning"><i class="bi bi-building"></i> 出租合同导入预览：默认只更新已有收费对象；如需新建缺失房间，请勾选下方选项。</div>
     <div class="card import-review-card">
       <div class="card-header d-flex justify-content-between align-items-center"><span>可编辑核对表 · {h(filename)} · {len(rows)} 条</span><a class="btn btn-sm btn-outline-secondary" href="/import?data_type=b_tower_contracts">重新上传</a></div>
       <form method="POST" action="/import/upload">
         <input type="hidden" name="mode" value="confirm_b_tower_contracts"><input type="hidden" name="data_type" value="b_tower_contracts"><input type="hidden" name="filename" value="{h(filename)}"><input type="hidden" name="row_count" value="{len(rows[:200])}">
-        <div class="card-body py-2"><label class="form-check"><input class="form-check-input" type="checkbox" name="allow_create_rooms" value="1" {checked}> 允许自动新建系统中不存在的 B座房间</label></div>
+        <div class="card-body py-2"><label class="form-check"><input class="form-check-input" type="checkbox" name="allow_create_rooms" value="1" {checked}> 允许自动新建系统中不存在的收费对象</label></div>
         <div class="table-responsive import-sticky-scroll"><table class="table table-sm table-hover align-middle mb-0 import-edit-table"><thead><tr><th>导入</th><th>楼栋</th><th>单元</th><th>房号</th><th>租户</th><th>电话</th><th>面积</th><th>物业费单价</th><th>缴费周期</th><th>合同开始</th><th>合同结束</th><th>水费标准</th><th>备注</th><th>状态</th></tr></thead><tbody>{body}</tbody></table></div>
-        <div class="card-body text-end"><button class="btn btn-success" {disabled}>确认导入 B座出租合同</button></div>
+        <div class="card-body text-end"><button class="btn btn-success" {disabled}>确认导入出租合同</button></div>
       </form>
     </div>''', "import"))
 
@@ -187,8 +186,8 @@ def rows_from_b_tower_form(d):
             continue
         row = {
             "row_no": _safe_int(_get(d, f"row_no_{i}"), i + 1),
-            "building": _get(d, f"building_{i}") or "B座",
-            "unit": _get(d, f"unit_{i}") or "B座",
+            "building": _get(d, f"building_{i}") or "默认项目",
+            "unit": _get(d, f"unit_{i}") or "默认分区",
             "room_number": _get(d, f"room_number_{i}"),
             "floor": _infer_floor(_get(d, f"room_number_{i}")),
             "category": "出租",
@@ -213,7 +212,7 @@ def rows_from_b_tower_form(d):
 def _map_headers(headers):
     normalized = {_norm(h): i for i, h in enumerate(headers)}
     result = {}
-    for key, names in B_TOWER_CONTRACT_FIELDS.items():
+    for key, names in RENTAL_CONTRACT_FIELDS.items():
         for name in names:
             idx = normalized.get(_norm(name))
             if idx is not None:
@@ -240,7 +239,7 @@ def _validate_row(row, raw_start, raw_end, raw_cycle, raw_rate):
     if not row["room_number"]:
         errors.append("房号为空")
     if not (str(row["building"]).startswith("B") or str(row["unit"]).startswith("B")):
-        errors.append("非 B座合同")
+        errors.append("非出租合同资料")
     if not row["tenant_name"]:
         errors.append("租户为空")
     if raw_start and not row["contract_start"]:

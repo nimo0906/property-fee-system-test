@@ -76,7 +76,7 @@ class DeliveryPhaseReviewMixin(BaseHandler):
             <div class="table-responsive"><table class="table table-sm align-middle">
               <thead><tr><th>审查项</th><th>当前结论</th><th>证据入口</th></tr></thead>
               <tbody>
-                <tr><td><strong>首页经营驾驶舱已增强</strong></td><td>首页已展示本月应收、实收率、B座 / 商场对比、欠费趋势、商户贡献和费用结构。</td><td><a href="/">收费工作台</a></td></tr>
+                <tr><td><strong>首页经营驾驶舱已增强</strong></td><td>首页已展示本月应收、实收率、区域 / 业态对比、欠费趋势、商户贡献和费用结构。</td><td><a href="/">收费工作台</a></td></tr>
                 <tr><td><strong>报表分析看板已增强</strong></td><td>对账报表页已接入经营分析看板，财务可按自然日期范围查看收缴率、欠费趋势、商户贡献和费用结构。</td><td><a href="/reports">对账报表</a></td></tr>
                 <tr><td><strong>A/B/C 阶段验收链路</strong></td><td>交付收口、云端技术备查、经营分析均有独立审查入口，可逐项回看；当前主线转为桌面稳定版收口。</td><td><a href="/delivery_center">2.0交付中心</a></td></tr>
                 <tr><td><strong>底层安全运行验证</strong></td><td>稳定版收口前已重新运行专项测试和全量回归，确认账单、收款、导入、权限、云端技术备查和报表未被破坏。</td><td><a href="/system_health">系统健康检查</a></td></tr>

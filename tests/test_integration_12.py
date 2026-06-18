@@ -108,7 +108,7 @@ class TestIntegration12(IntegrationTestBase):
         self.assertNotIn('/commercial_spaces/create', page)
         self.assertNotIn('空间/铺位档案', page)
         self.assertIn('/merchant_contracts/create', page)
-        self.assertIn('不局限于商场', page)
+        self.assertIn('不绑定具体客户项目名称', page)
 
 
     def test_merchant_contract_list_delete_button_removes_only_without_contract_bills(self):
