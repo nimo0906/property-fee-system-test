@@ -8,7 +8,7 @@ class PermissionDenied(Exception):
 
 
 ROLE_PERMISSIONS = {
-    "system_admin": {"read", "write", "manage_users", "backup"},
+    "system_admin": {"read", "write", "manage_users", "backup", "billing", "payment", "import"},
     "finance": {"read", "write", "billing", "payment", "import"},
     "cashier": {"read", "payment"},
     "frontdesk": {"read", "write", "import"},
