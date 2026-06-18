@@ -5,6 +5,7 @@
 from server.saas_backoffice import build_saas_migration_plan, build_saas_postgres_schema
 from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
+from server.saas_repository_errors import TenantScopeError
 from server.saas_storage import SaasStorage
 from server.saas_page_registry import register_saas_pages
 from server.saas_billing_api import register_billing_routes
@@ -100,7 +101,7 @@ def create_app(database_url=None):
         try:
             service._require(user, "manage_users")
             if repository:
-                item = repository.set_user_active(user["tenant_id"], user_id, data.is_active, actor_user_id=user["id"], project_id=user["project_id"])
+                item = repository.set_user_active_for_actor(user, user_id, data.is_active)
             else:
                 item = service.set_user_active(user, user["project_id"], user_id, data.is_active)
             sessions_to_drop = [sid for sid, session_user in sessions.items() if session_user.get('id') == user_id]
@@ -108,7 +109,7 @@ def create_app(database_url=None):
                 for sid in sessions_to_drop:
                     sessions.pop(sid, None)
             return {"item": item}
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/users/{user_id}/reset-password")
@@ -120,7 +121,7 @@ def create_app(database_url=None):
             else:
                 item = service.reset_user_password(user, user_id, data.new_password)
             return {"item": item}
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/fee-types")

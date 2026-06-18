@@ -87,6 +87,46 @@ class TestSaasRepositoryUserManagement(unittest.TestCase):
         with self.assertRaises(TenantScopeError):
             self.repo.reset_user_password(self.tenant['id'], other_user['id'], 'badpass')
 
+    def test_platform_admin_can_disable_cross_tenant_user_through_api(self):
+        from fastapi.testclient import TestClient
+        from server.saas_app import create_app
+
+        db_url = f"sqlite:///{Path(self.tmp.name) / 'api_cross_tenant.sqlite3'}"
+        platform = TestClient(create_app(database_url=db_url))
+        login = platform.post('/api/auth/login', json={
+            'tenant_name': '平台物业',
+            'project_name': '平台项目',
+            'username': 'platform_admin',
+            'role_code': 'platform_admin',
+        })
+        self.assertEqual(login.status_code, 200)
+
+        tenant_admin = TestClient(create_app(database_url=db_url))
+        login = tenant_admin.post('/api/auth/login', json={
+            'tenant_name': '客户物业',
+            'project_name': '客户项目',
+            'username': 'tenant_admin',
+            'role_code': 'system_admin',
+        })
+        self.assertEqual(login.status_code, 200)
+        created = tenant_admin.post('/api/users', json={'username': 'api_customer_cashier', 'role_code': 'cashier'})
+        self.assertEqual(created.status_code, 200)
+        user_id = created.json()['item']['id']
+
+        disabled = platform.post(f'/api/users/{user_id}/active', json={'is_active': False})
+        self.assertEqual(disabled.status_code, 200)
+        self.assertEqual(disabled.json()['item']['is_active'], 0)
+
+        repo = create_saas_repository(db_url)
+        target = repo.get_user(user_id)
+        self.assertEqual(target['is_active'], 0)
+        project = next(row for row in repo.list_projects() if row['tenant_id'] == target['tenant_id'])
+        logs = repo.list_audit_logs(target['tenant_id'], project['id'])
+        disable_log = next(row for row in logs if row['action'] == 'user.disable')
+        self.assertEqual(disable_log['detail']['scope'], 'platform')
+        self.assertEqual(disable_log['detail']['actor_username'], 'platform_admin')
+        repo.close()
+
 
 if __name__ == '__main__':
     unittest.main()

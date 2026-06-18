@@ -83,6 +83,12 @@ class TestSaasPermissionMatrix(unittest.TestCase):
         self.assertEqual(reset_log['detail']['scope'], 'platform')
         self.assertEqual(reset_log['detail']['actor_username'], 'platform_admin')
         self.assertNotIn('platform-temp-pass', str(reset_log))
+        disabled = self.service.set_user_active(platform_admin, self.project, other_user['id'], False)
+        self.assertEqual(disabled['is_active'], 0)
+        logs = self.service.list_audit_logs(tenant_admin, other_project)
+        disable_log = next(row for row in logs if row['action'] == 'user.disable')
+        self.assertEqual(disable_log['detail']['scope'], 'platform')
+        self.assertEqual(disable_log['detail']['actor_username'], 'platform_admin')
 
     def test_unknown_role_is_rejected(self):
         with self.assertRaises(ValueError):

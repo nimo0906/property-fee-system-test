@@ -71,15 +71,21 @@ def _repo_list_users(self, tenant_id=None):
 
 def _repo_set_user_active(self, tenant_id, user_id, is_active, actor_user_id=None, project_id=None):
     target = set_user_active_record(self, tenant_id, user_id, is_active)
-    if actor_user_id and project_id:
-        action = 'user.enable' if is_active else 'user.disable'
-        self.create_audit_log(tenant_id, project_id, actor_user_id, action, 'user', user_id, {
-            'target_user_id': user_id,
-            'target_username': target.get('username'),
-            'target_role_code': target.get('role_code'),
-            'new_is_active': bool(is_active),
-        })
+    _audit_user_active(self, tenant_id, user_id, is_active, target, actor_user_id, project_id)
     return {'user_id': user_id, 'is_active': target['is_active']}
+
+
+def _audit_user_active(repo, tenant_id, user_id, is_active, target, actor_user_id, project_id, detail=None):
+    if not actor_user_id or not project_id:
+        return
+    action = 'user.enable' if is_active else 'user.disable'
+    payload = detail or {
+        'target_user_id': user_id,
+        'target_username': target.get('username'),
+        'target_role_code': target.get('role_code'),
+        'new_is_active': bool(is_active),
+    }
+    repo.create_audit_log(tenant_id, project_id, actor_user_id, action, 'user', user_id, payload)
 
 
 def _repo_reset_user_password(self, tenant_id, user_id, new_password, actor_user_id=None, project_id=None):
@@ -98,6 +104,7 @@ def attach_user_lifecycle_methods(cls):
     cls.list_users = _repo_list_users
     cls.list_users_for_actor = _repo_list_users_for_actor
     cls.set_user_active = _repo_set_user_active
+    cls.set_user_active_for_actor = _repo_set_user_active_for_actor
     cls.reset_user_password = _repo_reset_user_password
     cls.reset_user_password_for_actor = _repo_reset_user_password_for_actor
 
@@ -127,3 +134,25 @@ def _repo_reset_user_password_for_actor(self, actor, user_id, new_password):
             detail = _platform_detail(actor, target, {'password_changed': True})
         self.create_audit_log(target['tenant_id'], project_id, actor.get('id'), 'user.password_reset', 'user', user_id, detail)
     return {'user_id': user_id}
+
+
+def _repo_set_user_active_for_actor(self, actor, user_id, is_active):
+    target = self.get_user(user_id)
+    if not target:
+        raise TenantScopeError('user does not belong to tenant')
+    cross_tenant = int(target['tenant_id']) != int(actor['tenant_id'])
+    if cross_tenant and actor.get('role_code') != 'platform_admin':
+        raise TenantScopeError('user does not belong to tenant')
+    set_user_active_record(self, target['tenant_id'], user_id, is_active)
+    project_id = _target_project_id(self, target)
+    if project_id:
+        detail = {
+            'target_user_id': user_id,
+            'target_username': target.get('username'),
+            'target_role_code': target.get('role_code'),
+            'new_is_active': bool(is_active),
+        }
+        if cross_tenant:
+            detail = _platform_detail(actor, target, {'new_is_active': bool(is_active)})
+        _audit_user_active(self, target['tenant_id'], user_id, is_active, target, actor.get('id'), project_id, detail)
+    return {'user_id': user_id, 'is_active': 1 if is_active else 0}

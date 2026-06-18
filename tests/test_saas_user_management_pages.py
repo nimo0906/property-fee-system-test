@@ -102,3 +102,81 @@ class TestSaasUserManagementPages(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestSaasPlatformUserManagementPages(unittest.TestCase):
+    def test_platform_admin_can_disable_cross_tenant_user_from_page_with_target_audit(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            platform = TestClient(create_app(database_url=db_url))
+            login = platform.post('/api/auth/login', json={
+                'tenant_name': '平台物业',
+                'project_name': '平台项目',
+                'username': 'platform_admin',
+                'role_code': 'platform_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+
+            tenant_admin = TestClient(create_app(database_url=db_url))
+            login = tenant_admin.post('/api/auth/login', json={
+                'tenant_name': '客户物业',
+                'project_name': '客户项目',
+                'username': 'tenant_admin',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            created = tenant_admin.post('/api/users', json={'username': 'customer_cashier', 'role_code': 'cashier'})
+            self.assertEqual(created.status_code, 200)
+            user_id = created.json()['item']['id']
+
+            page = platform.get('/backoffice/users')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('customer_cashier', page.text)
+
+            disabled = platform.post(f'/backoffice/users/{user_id}/active', data={'is_active': '0'}, follow_redirects=False)
+            self.assertEqual(disabled.status_code, 303)
+
+            repo = create_saas_repository(db_url)
+            target = repo.get_user(user_id)
+            self.assertEqual(target['is_active'], 0)
+            project = next(row for row in repo.list_projects() if row['tenant_id'] == target['tenant_id'])
+            logs = repo.list_audit_logs(target['tenant_id'], project['id'])
+            disable_log = next(row for row in logs if row['action'] == 'user.disable')
+            self.assertEqual(disable_log['detail']['scope'], 'platform')
+            self.assertEqual(disable_log['detail']['actor_username'], 'platform_admin')
+            repo.close()
+
+    def test_tenant_admin_cannot_disable_other_tenant_user_from_page(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            admin_a = TestClient(create_app(database_url=db_url))
+            login = admin_a.post('/api/auth/login', json={
+                'tenant_name': 'A客户物业',
+                'project_name': 'A客户项目',
+                'username': 'admin_a',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+
+            admin_b = TestClient(create_app(database_url=db_url))
+            login = admin_b.post('/api/auth/login', json={
+                'tenant_name': 'B客户物业',
+                'project_name': 'B客户项目',
+                'username': 'admin_b',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            created = admin_b.post('/api/users', json={'username': 'b_cashier', 'role_code': 'cashier'})
+            self.assertEqual(created.status_code, 200)
+            user_id = created.json()['item']['id']
+
+            blocked = admin_a.post(f'/backoffice/users/{user_id}/active', data={'is_active': '0'}, follow_redirects=False)
+            self.assertEqual(blocked.status_code, 403)
+            repo = create_saas_repository(db_url)
+            self.assertEqual(repo.get_user(user_id)['is_active'], 1)
+            repo.close()

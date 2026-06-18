@@ -122,17 +122,22 @@ class SaasBackofficeService:
     def set_user_active(self, user, project_id, target_user_id, is_active):
         self._require(user, "manage_users")
         target = self.users[target_user_id]
-        if target['tenant_id'] != user['tenant_id'] or not self._same_tenant_project(user, project_id):
+        cross_tenant = target['tenant_id'] != user['tenant_id']
+        if (cross_tenant and user.get('role_code') != 'platform_admin') or (not cross_tenant and not self._same_tenant_project(user, project_id)):
             raise PermissionDenied("cross tenant user")
         active_value = 1 if is_active else 0
         target['is_active'] = active_value
         action = 'user.enable' if is_active else 'user.disable'
-        self._log(user, project_id, action, 'user', target_user_id, {
+        target_project_id = target.get('project_id') or self._default_project_id(target['tenant_id']) or project_id
+        detail = {
             'target_user_id': target_user_id,
             'target_username': target.get('username'),
             'target_role_code': target.get('role_code'),
             'new_is_active': bool(is_active),
-        })
+        }
+        if cross_tenant:
+            detail.update({'scope': 'platform', 'actor_username': user.get('username'), 'actor_tenant_id': user.get('tenant_id')})
+        self._log(user if not cross_tenant else target, target_project_id, action, 'user', target_user_id, detail)
         return {'user_id': target_user_id, 'is_active': active_value}
 
     def create_charge_target(self, user, project_id, building, unit, room_number, category, area):

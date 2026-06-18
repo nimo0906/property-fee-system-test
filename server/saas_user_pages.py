@@ -5,6 +5,7 @@
 import html
 import urllib.parse
 
+from server.saas_repository_errors import TenantScopeError
 from server.saas_service import PermissionDenied
 
 
@@ -147,7 +148,7 @@ def register_user_pages(app, service, repository, current_user, sessions):
             visible, total = _paginate(all_items, page, page_size)
             filters = {'q': q, 'role_code': role_code, 'is_active': is_active, 'page_size': page_size}
             return HTMLResponse(_render_users(user, visible, message, filters=filters, total=total, page=page, page_size=page_size))
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/users/create')
@@ -159,7 +160,7 @@ def register_user_pages(app, service, repository, current_user, sessions):
             else:
                 service.create_staff_user(user, user['project_id'], username, role_code)
             return RedirectResponse('/backoffice/users?message=账号已创建', status_code=303)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/users/{user_id}/active')
@@ -167,13 +168,13 @@ def register_user_pages(app, service, repository, current_user, sessions):
         try:
             service._require(user, 'manage_users')
             enabled = bool(int(is_active))
-            item = repository.set_user_active(user['tenant_id'], user_id, enabled, actor_user_id=user['id'], project_id=user['project_id']) if repository else service.set_user_active(user, user['project_id'], user_id, enabled)
+            item = repository.set_user_active_for_actor(user, user_id, enabled) if repository else service.set_user_active(user, user['project_id'], user_id, enabled)
             if not enabled:
                 for sid, session_user in list(sessions.items()):
                     if session_user.get('id') == user_id:
                         sessions.pop(sid, None)
             return RedirectResponse(f"/backoffice/users?message=账号已{'启用' if item['is_active'] else '停用'}", status_code=303)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/users/{user_id}/reset-password')
@@ -185,5 +186,5 @@ def register_user_pages(app, service, repository, current_user, sessions):
             else:
                 service.reset_user_password(user, user_id, new_password)
             return RedirectResponse('/backoffice/users?message=密码已重置', status_code=303)
-        except PermissionDenied:
+        except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
