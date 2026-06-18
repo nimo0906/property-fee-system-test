@@ -116,6 +116,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('PASS saas deploy assets', result.stdout)
         self.assertIn('PASS saas storage isolation contract', result.stdout)
+        self.assertIn('PASS saas app port localhost binding', result.stdout)
         self.assertIn('PASS saas env example security', result.stdout)
 
     def test_preflight_script_reports_nginx_https_warning(self):
@@ -169,6 +170,17 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertIn('compress', text)
         self.assertIn('missingok', text)
         self.assertIn('copytruncate', text)
+
+
+    def test_validator_requires_app_port_bound_to_localhost_only(self):
+        from server.saas_deploy import inspect_compose_port_binding
+
+        compose = (self.root / 'docker-compose.yml').read_text(encoding='utf-8')
+        binding = inspect_compose_port_binding(compose)
+        self.assertTrue(binding['localhost_only'], binding)
+        self.assertIn('127.0.0.1:8000:8000', binding['ports'])
+        unsafe = inspect_compose_port_binding("ports:\n  - \"8000:8000\"\n")
+        self.assertFalse(unsafe['localhost_only'], unsafe)
 
     def test_validator_checks_deployment_isolation_contract(self):
         result = validate_deployment_assets(self.root)

@@ -18,6 +18,8 @@ def main():
         raise SystemExit(f"deployment assets not ready: {result}")
     print('PASS saas deploy assets')
     print('PASS saas storage isolation contract')
+    if result.get('port_binding', {}).get('localhost_only'):
+        print('PASS saas app port localhost binding')
     env = {
         'POSTGRES_PASSWORD': 'P@ssw0rd-2026-tenant-safe-9c5f1e7b',
         'APP_SECRET_KEY': '0123456789abcdef0123456789abcdef',

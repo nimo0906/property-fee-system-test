@@ -51,6 +51,18 @@ def inspect_nginx_tls(config_text):
     return {"status": status, "has_https": has_https, "has_http": has_http}
 
 
+def inspect_compose_port_binding(compose_text):
+    ports = []
+    for line in str(compose_text or "").splitlines():
+        stripped = line.strip().strip('"').strip("'")
+        if stripped.startswith("-"):
+            value = stripped[1:].strip().strip('"').strip("'")
+            if value.endswith(":8000"):
+                ports.append(value)
+    localhost_only = bool(ports) and all(p.startswith("127.0.0.1:") for p in ports)
+    return {"localhost_only": localhost_only, "ports": ports}
+
+
 def validate_deployment_assets(root):
     files = []
     missing = []
@@ -66,11 +78,14 @@ def validate_deployment_assets(root):
         env_secure = "replace-with-random-password" not in env_text and "replace-with-32-byte-random-secret" not in env_text
     nginx_path = root / "deploy/nginx/property-saas.conf"
     nginx_tls = inspect_nginx_tls(nginx_path.read_text(encoding="utf-8")) if nginx_path.exists() else {"status": "missing", "has_https": False, "has_http": False}
+    compose_path = root / "docker-compose.yml"
+    port_binding = inspect_compose_port_binding(compose_path.read_text(encoding="utf-8")) if compose_path.exists() else {"localhost_only": False, "ports": []}
     return {
-        "ok": not missing and env_secure,
+        "ok": not missing and env_secure and port_binding["localhost_only"],
         "files": files,
         "missing": missing,
         "isolation": ISOLATION_CONTRACT,
         "env_example_secure": env_secure,
         "nginx_tls": nginx_tls,
+        "port_binding": port_binding,
     }
