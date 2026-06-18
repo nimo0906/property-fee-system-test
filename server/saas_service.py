@@ -182,24 +182,50 @@ class SaasBackofficeService:
 
     def preview_charge_target_import(self, user, project_id, rows):
         self._require(user, "import")
+        if not self._same_tenant_project(user, project_id):
+            raise PermissionDenied("cross tenant project")
         valid, errors = [], []
         for idx, row in enumerate(rows, start=1):
             try:
+                building = str(row.get("building") or "").strip()
+                room_number = str(row.get("room_number") or "").strip()
+                if not building:
+                    raise ValueError("楼栋/区域不能为空")
+                if not room_number:
+                    raise ValueError("房号/铺位号不能为空")
                 area = float(row.get("area") or 0)
                 if area <= 0:
-                    raise ValueError("area must be positive")
-                valid.append({**row, "area": area})
-            except Exception:
-                errors.append({"row": idx, "error": "面积必须是数字且大于0"})
+                    raise ValueError("面积必须是数字且大于0")
+                valid.append({**row, "building": building, "room_number": room_number, "area": area})
+            except ValueError as exc:
+                errors.append({"row": idx, "error": str(exc)})
         iid = self._id()
         self.imports[iid] = {"id": iid, "tenant_id": user["tenant_id"], "project_id": project_id,
                              "valid_rows": valid, "errors": errors, "confirmed": False}
         self._log(user, project_id, 'import.preview', 'import', iid, {'valid_count': len(valid), 'error_count': len(errors)})
         return {"import_id": iid, "valid_count": len(valid), "error_count": len(errors), "errors": errors}
 
+    def get_import_review(self, user, project_id, import_id):
+        self._require(user, "import")
+        imp = self.imports[import_id]
+        if imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
+            raise PermissionDenied("cross tenant import")
+        return {
+            "import_id": import_id,
+            "tenant_id": imp["tenant_id"],
+            "project_id": imp["project_id"],
+            "valid_count": len(imp["valid_rows"]),
+            "error_count": len(imp["errors"]),
+            "valid_rows": imp["valid_rows"],
+            "errors": imp["errors"],
+            "confirmed": imp["confirmed"],
+        }
+
     def confirm_charge_target_import(self, user, project_id, import_id):
         self._require(user, "import")
         imp = self.imports[import_id]
+        if imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
+            raise PermissionDenied("cross tenant import")
         if imp["confirmed"]:
             return {"created_count": 0, "skipped_count": len(imp["errors"])}
         created = 0

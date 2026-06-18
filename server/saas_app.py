@@ -148,6 +148,13 @@ def create_app(database_url=None):
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
+    @app.get("/api/imports/{import_id}/review")
+    def import_review(import_id: int, user=__import__('fastapi').Depends(current_user)):
+        try:
+            return service.get_import_review(user, user["project_id"], import_id)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
     @app.get("/api/charge-targets")
     def list_targets(user=__import__('fastapi').Depends(current_user)):
         try:
