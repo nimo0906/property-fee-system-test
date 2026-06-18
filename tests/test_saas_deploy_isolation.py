@@ -136,6 +136,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertIn('PASS saas app port localhost binding', result.stdout)
         self.assertIn('PASS saas compose restart policy', result.stdout)
         self.assertIn('PASS saas postgres healthcheck', result.stdout)
+        self.assertIn('PASS saas app healthcheck', result.stdout)
         self.assertIn('PASS saas env example security', result.stdout)
 
     def test_preflight_script_reports_nginx_https_warning(self):
@@ -208,6 +209,15 @@ class TestSaasDeployIsolation(unittest.TestCase):
         missing = inspect_compose_healthcheck("services:\n  postgres:\n    image: postgres:16-alpine\n")
         self.assertFalse(missing['postgres_has_healthcheck'], missing)
 
+
+    def test_validator_requires_app_healthcheck(self):
+        from server.saas_deploy import inspect_compose_healthcheck
+
+        compose = (self.root / 'docker-compose.yml').read_text(encoding='utf-8')
+        health = inspect_compose_healthcheck(compose)
+        self.assertTrue(health['app_has_healthcheck'], health)
+        self.assertIn('/health', health['app_test'])
+
     def test_validator_requires_app_port_bound_to_localhost_only(self):
         from server.saas_deploy import inspect_compose_port_binding
 
@@ -228,6 +238,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertTrue(result['env_example_secure'], result)
         self.assertEqual(result['restart_policy'], {'postgres': True, 'app': True})
         self.assertTrue(result['healthcheck']['postgres_has_healthcheck'], result)
+        self.assertTrue(result['healthcheck']['app_has_healthcheck'], result)
 
 
 if __name__ == '__main__':

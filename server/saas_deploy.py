@@ -73,9 +73,11 @@ def inspect_compose_restart_policy(compose_text):
 
 def inspect_compose_healthcheck(compose_text):
     text = str(compose_text or "")
-    has = "healthcheck:" in text and "pg_isready" in text
-    test = "pg_isready" if "pg_isready" in text else ""
-    return {"postgres_has_healthcheck": has, "postgres_test": test}
+    postgres_has = "healthcheck:" in text and "pg_isready" in text
+    postgres_test = "pg_isready" if "pg_isready" in text else ""
+    app_has = "http://127.0.0.1:8000/health" in text and "healthcheck:" in text
+    app_test = "/health" if "/health" in text else ""
+    return {"postgres_has_healthcheck": postgres_has, "postgres_test": postgres_test, "app_has_healthcheck": app_has, "app_test": app_test}
 
 
 def validate_deployment_assets(root):
@@ -99,7 +101,7 @@ def validate_deployment_assets(root):
     restart_policy = inspect_compose_restart_policy(compose_text)
     healthcheck = inspect_compose_healthcheck(compose_text)
     return {
-        "ok": not missing and env_secure and port_binding["localhost_only"] and all(restart_policy.values()) and healthcheck["postgres_has_healthcheck"],
+        "ok": not missing and env_secure and port_binding["localhost_only"] and all(restart_policy.values()) and healthcheck["postgres_has_healthcheck"] and healthcheck["app_has_healthcheck"],
         "files": files,
         "missing": missing,
         "isolation": ISOLATION_CONTRACT,
