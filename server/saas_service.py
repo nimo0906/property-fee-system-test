@@ -107,6 +107,33 @@ class SaasBackofficeService:
         self._log(user, project_id, 'user.create', 'user', new_user['id'], {'username': username, 'role_code': role_code})
         return new_user
 
+
+    def list_staff_users(self, user, project_id):
+        self._require(user, "manage_users")
+        if not self._same_tenant_project(user, project_id):
+            return []
+        return [
+            {k: v for k, v in row.items() if k != 'password_hash'}
+            for row in self.users.values()
+            if row['tenant_id'] == user['tenant_id']
+        ]
+
+    def set_user_active(self, user, project_id, target_user_id, is_active):
+        self._require(user, "manage_users")
+        target = self.users[target_user_id]
+        if target['tenant_id'] != user['tenant_id'] or not self._same_tenant_project(user, project_id):
+            raise PermissionDenied("cross tenant user")
+        active_value = 1 if is_active else 0
+        target['is_active'] = active_value
+        action = 'user.enable' if is_active else 'user.disable'
+        self._log(user, project_id, action, 'user', target_user_id, {
+            'target_user_id': target_user_id,
+            'target_username': target.get('username'),
+            'target_role_code': target.get('role_code'),
+            'new_is_active': bool(is_active),
+        })
+        return {'user_id': target_user_id, 'is_active': active_value}
+
     def create_charge_target(self, user, project_id, building, unit, room_number, category, area):
         self._require(user, "write")
         if not self._same_tenant_project(user, project_id):

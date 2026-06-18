@@ -54,6 +54,19 @@ class TestSaasPermissionMatrix(unittest.TestCase):
         with self.assertRaises(PermissionDenied):
             self.service.reset_user_password(self.cashier, new_user['id'], 'new-password')
 
+    def test_admin_can_list_and_disable_users_inside_same_tenant(self):
+        new_user = self.service.create_staff_user(self.admin, self.project, 'new_cashier', 'cashier')
+        users = self.service.list_staff_users(self.admin, self.project)
+        self.assertEqual({u['username'] for u in users}, {'admin', 'finance', 'cashier', 'executive', 'new_cashier'})
+        disabled = self.service.set_user_active(self.admin, self.project, new_user['id'], False)
+        self.assertEqual(disabled['is_active'], 0)
+        logs = self.service.list_audit_logs(self.admin, self.project)
+        disable_log = next(row for row in logs if row['action'] == 'user.disable')
+        self.assertEqual(disable_log['detail']['target_username'], 'new_cashier')
+        self.assertEqual(disable_log['detail']['new_is_active'], False)
+        with self.assertRaises(PermissionDenied):
+            self.service.set_user_active(self.finance, self.project, new_user['id'], True)
+
     def test_unknown_role_is_rejected(self):
         with self.assertRaises(ValueError):
             self.service.create_staff_user(self.admin, self.project, 'ghost', 'owner')
@@ -94,8 +107,14 @@ class TestSaasFastApiPermissionMatrix(unittest.TestCase):
         created = admin.post('/api/users', json={'username': 'cashier_1', 'role_code': 'cashier'})
         self.assertEqual(created.status_code, 200)
         user_id = created.json()['item']['id']
+        users = admin.get('/api/users')
+        self.assertEqual(users.status_code, 200)
+        self.assertIn('cashier_1', [item['username'] for item in users.json()['items']])
         reset = admin.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'safe-temp-password'})
         self.assertEqual(reset.status_code, 200)
+        disabled = admin.post(f'/api/users/{user_id}/active', json={'is_active': False})
+        self.assertEqual(disabled.status_code, 200)
+        self.assertEqual(disabled.json()['item']['is_active'], 0)
 
 
 if __name__ == '__main__':

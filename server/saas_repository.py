@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 
 from server.saas_repository_errors import TenantScopeError
 from server.saas_repository_guards import validate_bill_scope, validate_import_storage_key
-from server.saas_repository_passwords import reset_user_password_record
+from server.saas_repository_passwords import attach_user_lifecycle_methods
 from server.saas_service import PermissionDenied
 
 class SaasRepository:
@@ -248,22 +248,6 @@ class SaasRepository:
             rows = conn.execute(text("SELECT id,tenant_id,name,code,is_active FROM projects ORDER BY id")).mappings().all()
             return [dict(r) for r in rows]
 
-    def list_users(self):
-        with self.engine.begin() as conn:
-            rows = conn.execute(text("SELECT id,tenant_id,username,role_code,is_active FROM users ORDER BY id")).mappings().all()
-            return [dict(r) for r in rows]
-
-    def reset_user_password(self, tenant_id, user_id, new_password, actor_user_id=None, project_id=None):
-        target = reset_user_password_record(self, tenant_id, user_id, new_password)
-        if actor_user_id and project_id:
-            self.create_audit_log(tenant_id, project_id, actor_user_id, 'user.password_reset', 'user', user_id, {
-                'target_user_id': user_id,
-                'target_username': target.get('username'),
-                'target_role_code': target.get('role_code'),
-                'password_changed': True,
-            })
-        return {"user_id": user_id}
-
     def create_backup_record(self, tenant_id, project_id, user_id):
         self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
@@ -297,3 +281,4 @@ def create_saas_repository(url):
 
 from server.saas_repository_search import attach_repository_search
 attach_repository_search(SaasRepository)
+attach_user_lifecycle_methods(SaasRepository)

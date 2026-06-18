@@ -72,6 +72,10 @@ class SimpleSaasHttpApp:
             if path == '/users':
                 item = self.service.create_staff_user(user, user['project_id'], json_body['username'], json_body['role_code'])
                 return self._json_response(200, {'item': item})
+            if path.startswith('/users/') and path.endswith('/active'):
+                user_id = int(path.split('/')[2])
+                item = self.service.set_user_active(user, user['project_id'], user_id, bool(json_body['is_active']))
+                return self._json_response(200, {'item': item})
             if path.startswith('/users/') and path.endswith('/reset-password'):
                 user_id = int(path.split('/')[2])
                 item = self.service.reset_user_password(user, user_id, json_body['new_password'])
@@ -115,6 +119,11 @@ class SimpleSaasHttpApp:
             return self._json_response(200, {'tenant_name': user['tenant_name'], 'project_name': user['project_name'], 'role_code': user['role_code']})
         if not user:
             return self._json_response(401, {'detail': 'unauthenticated'})
+        if path == '/users':
+            try:
+                return self._json_response(200, {'items': self.service.list_staff_users(user, user['project_id'])})
+            except PermissionDenied:
+                return self._json_response(403, {'detail': 'forbidden'})
         if path == '/charge-targets':
             try:
                 items = self.service.list_charge_targets(user, user['project_id'])

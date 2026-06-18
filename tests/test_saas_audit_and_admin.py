@@ -98,6 +98,11 @@ class TestSaasAuditAndAdmin(unittest.TestCase):
         reset_log = next(row for row in logs if row['action'] == 'user.password_reset')
         self.assertNotIn('http-temp-password', str(reset_log))
         self.assertEqual(reset_log['detail']['target_username'], 'cashier_http')
+        disabled = client.post(f'/users/{user_id}/active', json={'is_active': False})
+        self.assertEqual(disabled.status_code, 200)
+        self.assertEqual(disabled.json()['item']['is_active'], 0)
+        logs = client.get('/audit-logs').json()['items']
+        self.assertIn('user.disable', [row['action'] for row in logs])
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ from server.saas_storage import SaasStorage
 from server.saas_billing_api import register_billing_routes
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
-    LoginIn, PasswordResetIn, RestoreDrillIn, TargetIn, UserCreateIn,
+    LoginIn, PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
 )
 
 
@@ -30,6 +30,8 @@ def create_app(database_url=None):
         user = sessions.get(session_id)
         if not user:
             raise HTTPException(status_code=401, detail="unauthenticated")
+        if not user.get("is_active", 1):
+            raise HTTPException(status_code=401, detail="inactive user")
         return user
 
     app.state.current_user = current_user
@@ -51,12 +53,12 @@ def create_app(database_url=None):
             service.tenants[tenant_id] = tenant_row
             service.projects[project_id] = project_row
             service.users[user_row["id"]] = {"id": user_row["id"], "tenant_id": tenant_id, "project_id": project_id, "username": data.username, "role_code": data.role_code}
-            user = {"id": user_row["id"], "tenant_id": tenant_id, "username": data.username, "role_code": data.role_code}
+            user = {"id": user_row["id"], "tenant_id": tenant_id, "username": data.username, "role_code": data.role_code, "is_active": user_row.get("is_active", 1)}
         else:
             tenant_id = service.create_tenant(data.tenant_name)
             project_id = service.create_project(tenant_id, data.project_name)
             user = service.create_user(tenant_id, data.username, data.role_code)
-        user.update({"tenant_name": data.tenant_name, "project_name": data.project_name, "project_id": project_id})
+        user.update({"tenant_name": data.tenant_name, "project_name": data.project_name, "project_id": project_id, "is_active": user.get("is_active", 1)})
         sid = secrets.token_hex(16)
         sessions[sid] = user
         response.set_cookie("session_id", sid, httponly=True, samesite="lax")
@@ -80,6 +82,32 @@ def create_app(database_url=None):
             raise HTTPException(status_code=403, detail="forbidden")
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
+
+
+    @app.get("/api/users")
+    def list_users(user=__import__('fastapi').Depends(current_user)):
+        try:
+            service._require(user, "manage_users")
+            items = repository.list_users(user["tenant_id"]) if repository else service.list_staff_users(user, user["project_id"])
+            return {"items": items}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.post("/api/users/{user_id}/active")
+    def set_user_active(user_id: int, data: UserActiveIn, user=__import__('fastapi').Depends(current_user)):
+        try:
+            service._require(user, "manage_users")
+            if repository:
+                item = repository.set_user_active(user["tenant_id"], user_id, data.is_active, actor_user_id=user["id"], project_id=user["project_id"])
+            else:
+                item = service.set_user_active(user, user["project_id"], user_id, data.is_active)
+            sessions_to_drop = [sid for sid, session_user in sessions.items() if session_user.get('id') == user_id]
+            if not data.is_active:
+                for sid in sessions_to_drop:
+                    sessions.pop(sid, None)
+            return {"item": item}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
 
     @app.post("/api/users/{user_id}/reset-password")
     def reset_password(user_id: int, data: PasswordResetIn, user=__import__('fastapi').Depends(current_user)):

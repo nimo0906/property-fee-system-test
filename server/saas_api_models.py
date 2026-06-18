@@ -52,3 +52,7 @@ class PasswordResetIn(BaseModel):
 class RestoreDrillIn(BaseModel):
     backup_id: str
     scope: str
+
+
+class UserActiveIn(BaseModel):
+    is_active: bool
