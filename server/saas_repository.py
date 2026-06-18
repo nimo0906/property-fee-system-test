@@ -250,11 +250,6 @@ class SaasRepository:
             rows = conn.execute(text("SELECT id,name,status FROM tenants ORDER BY id")).mappings().all()
             return [dict(r) for r in rows]
 
-    def list_projects(self):
-        with self.engine.begin() as conn:
-            rows = conn.execute(text("SELECT id,tenant_id,name,code,is_active FROM projects ORDER BY id")).mappings().all()
-            return [dict(r) for r in rows]
-
     def create_backup_record(self, tenant_id, project_id, user_id):
         self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
@@ -286,6 +281,8 @@ class SaasRepository:
 def create_saas_repository(url):
     return SaasRepository(url)
 
+from server.saas_repository_projects import attach_project_methods
 from server.saas_repository_search import attach_repository_search
+attach_project_methods(SaasRepository)
 attach_repository_search(SaasRepository)
 attach_user_lifecycle_methods(SaasRepository)

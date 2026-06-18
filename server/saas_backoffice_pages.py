@@ -24,8 +24,15 @@ def _backoffice_home(user):
         '/backoffice/users' if can_manage_users else None,
         '账号管理仅管理员可用',
     )
+    tenant_project_card = _module_card(
+        '租户项目',
+        '维护本公司项目边界；平台管理员可只读查看租户和项目全局。',
+        '/backoffice/tenant-projects' if can_manage_users else None,
+        '租户项目仅管理员可用',
+    )
     cards = ''.join([
         tenant_admin_card,
+        tenant_project_card,
         user_card,
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
