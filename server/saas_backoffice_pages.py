@@ -12,6 +12,12 @@ def _module_card(title, desc, href=None, note=''):
 
 def _backoffice_home(user):
     can_manage_users = user.get('role_code') in {'system_admin', 'platform_admin'}
+    tenant_admin_card = _module_card(
+        '租户管理员',
+        '本公司管理员控制台：账号列表、停用员工账号、重置临时密码，并提示客户数据隔离边界。',
+        '/backoffice/tenant-admin' if user.get('role_code') == 'system_admin' else None,
+        '租户管理员入口仅本公司管理员可用',
+    )
     user_card = _module_card(
         '账号管理',
         '管理员维护员工账号、停用离职账号、重置临时密码，并保留审计记录。',
@@ -19,6 +25,7 @@ def _backoffice_home(user):
         '账号管理仅管理员可用',
     )
     cards = ''.join([
+        tenant_admin_card,
         user_card,
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
