@@ -17,7 +17,19 @@ if [ -d "$system_dir" ]; then
   tar -C "$system_dir" -czf "$backup_dir/system-files/system_files.tar.gz" .
 fi
 
+manifest="$backup_dir/checksums.sha256"
+: > "$manifest"
+if [ -f "$backup_dir/db/property_saas.sql" ]; then
+  (cd "$backup_dir" && sha256sum "db/property_saas.sql" >> "$manifest")
+fi
+if [ -f "$backup_dir/tenant-files/customer_files.tar.gz" ]; then
+  (cd "$backup_dir" && sha256sum "tenant-files/customer_files.tar.gz" >> "$manifest")
+fi
+if [ -f "$backup_dir/system-files/system_files.tar.gz" ]; then
+  (cd "$backup_dir" && sha256sum "system-files/system_files.tar.gz" >> "$manifest")
+fi
+
 cat > "$backup_dir/metadata.json" <<JSON
-{"kind":"property-saas-backup","created_at":"$ts","database":"db/property_saas.sql","tenant_files":"tenant-files/customer_files.tar.gz","system_files":"system-files/system_files.tar.gz"}
+{"kind":"property-saas-backup","created_at":"$ts","database":"db/property_saas.sql","tenant_files":"tenant-files/customer_files.tar.gz","system_files":"system-files/system_files.tar.gz","checksums":"checksums.sha256"}
 JSON
 printf 'backup created: %s\n' "$backup_dir"

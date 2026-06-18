@@ -17,6 +17,7 @@
 - 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
 - 客户上传数据和系统自身数据隔离：tenants 与 system 目录分离，备份、日志、系统文件分层。
 - 通用 Linux/VPS 部署资产：Docker Compose、Nginx、systemd、备份和恢复脚本。
+- 备份完整性：`scripts/saas_backup.sh` 生成 `checksums.sha256`，`scripts/saas_restore.sh --verify-metadata` 在恢复前校验备份产物未被篡改。
 - 部署前预检：`scripts/saas_preflight_check.py` 校验部署资产、隔离目录合同、环境密钥占位安全，并提示 Nginx/上游负载均衡的 HTTPS 终止状态。
 
 ## 验收脚本
