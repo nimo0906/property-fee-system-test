@@ -63,6 +63,14 @@ def inspect_compose_port_binding(compose_text):
     return {"localhost_only": localhost_only, "ports": ports}
 
 
+def inspect_compose_restart_policy(compose_text):
+    text = str(compose_text or "")
+    return {
+        "postgres": "restart: unless-stopped" in text,
+        "app": "restart: on-failure" in text,
+    }
+
+
 def validate_deployment_assets(root):
     files = []
     missing = []
@@ -79,13 +87,16 @@ def validate_deployment_assets(root):
     nginx_path = root / "deploy/nginx/property-saas.conf"
     nginx_tls = inspect_nginx_tls(nginx_path.read_text(encoding="utf-8")) if nginx_path.exists() else {"status": "missing", "has_https": False, "has_http": False}
     compose_path = root / "docker-compose.yml"
-    port_binding = inspect_compose_port_binding(compose_path.read_text(encoding="utf-8")) if compose_path.exists() else {"localhost_only": False, "ports": []}
+    compose_text = compose_path.read_text(encoding="utf-8") if compose_path.exists() else ""
+    port_binding = inspect_compose_port_binding(compose_text) if compose_path.exists() else {"localhost_only": False, "ports": []}
+    restart_policy = inspect_compose_restart_policy(compose_text)
     return {
-        "ok": not missing and env_secure and port_binding["localhost_only"],
+        "ok": not missing and env_secure and port_binding["localhost_only"] and all(restart_policy.values()),
         "files": files,
         "missing": missing,
         "isolation": ISOLATION_CONTRACT,
         "env_example_secure": env_secure,
         "nginx_tls": nginx_tls,
         "port_binding": port_binding,
+        "restart_policy": restart_policy,
     }

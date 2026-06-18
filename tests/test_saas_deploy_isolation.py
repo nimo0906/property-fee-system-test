@@ -134,6 +134,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertIn('PASS saas deploy assets', result.stdout)
         self.assertIn('PASS saas storage isolation contract', result.stdout)
         self.assertIn('PASS saas app port localhost binding', result.stdout)
+        self.assertIn('PASS saas compose restart policy', result.stdout)
         self.assertIn('PASS saas env example security', result.stdout)
 
     def test_preflight_script_reports_nginx_https_warning(self):
@@ -189,6 +190,12 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertIn('copytruncate', text)
 
 
+
+    def test_compose_declares_restart_policy_for_services(self):
+        compose = (self.root / 'docker-compose.yml').read_text(encoding='utf-8')
+        self.assertIn('restart: unless-stopped', compose)
+        self.assertIn('restart: on-failure', compose)
+
     def test_validator_requires_app_port_bound_to_localhost_only(self):
         from server.saas_deploy import inspect_compose_port_binding
 
@@ -207,6 +214,7 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertEqual(result['isolation']['backups'], '/var/backups/property-saas')
         self.assertEqual(result['isolation']['logs'], '/var/log/property-saas')
         self.assertTrue(result['env_example_secure'], result)
+        self.assertEqual(result['restart_policy'], {'postgres': True, 'app': True})
 
 
 if __name__ == '__main__':

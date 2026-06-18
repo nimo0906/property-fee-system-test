@@ -20,6 +20,8 @@ def main():
     print('PASS saas storage isolation contract')
     if result.get('port_binding', {}).get('localhost_only'):
         print('PASS saas app port localhost binding')
+    if all(result.get('restart_policy', {}).values()):
+        print('PASS saas compose restart policy')
     env = {
         'POSTGRES_PASSWORD': 'P@ssw0rd-2026-tenant-safe-9c5f1e7b',
         'APP_SECRET_KEY': '0123456789abcdef0123456789abcdef',
