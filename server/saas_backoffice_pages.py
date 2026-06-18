@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*-
 """HTML home pages for SaaS staff backoffice."""
 
+from pathlib import Path
+
+from server.saas_deploy import validate_deployment_assets
 from server.saas_user_pages import _h, _page, _role_name
 
 
@@ -10,37 +13,26 @@ def _module_card(title, desc, href=None, note=''):
     return f'<div class="card"><div class="card-h">{_h(title)}</div><div class="card-b"><p class="sub">{_h(desc)}</p>{action}</div></div>'
 
 
+def _platform_health_summary(user):
+    if user.get('role_code') != 'platform_admin':
+        return ''
+    result = validate_deployment_assets(Path(__file__).resolve().parents[1])
+    files = set(result.get('files', []))
+    asset_status = 'PASS' if result.get('ok') else 'WARN'
+    port_status = 'PASS' if result.get('port_binding', {}).get('localhost_only') else 'WARN'
+    backup_status = 'PASS' if {'scripts/saas_backup.sh', 'scripts/saas_restore.sh'}.issubset(files) else 'WARN'
+    https_status = result.get('nginx_tls', {}).get('status', 'unknown')
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">系统健康</div><div class="card-b"><div class="actions"><span class="badge">部署资产 {asset_status}</span><span class="badge">端口本机绑定 {port_status}</span><span class="badge">备份恢复脚本 {backup_status}</span><span class="badge">HTTPS {https_status}</span><a class="ghost-link" href="/backoffice/deploy-checklist">查看上线清单</a></div><div class="hint">平台运维摘要只展示检查结果，不展示生产密钥或 .env 内容。</div></div></section>'''
+
+
 def _backoffice_home(user):
     can_manage_users = user.get('role_code') in {'system_admin', 'platform_admin'}
-    tenant_admin_card = _module_card(
-        '租户管理员',
-        '本公司管理员控制台：账号列表、停用员工账号、重置临时密码，并提示客户数据隔离边界。',
-        '/backoffice/tenant-admin' if user.get('role_code') == 'system_admin' else None,
-        '租户管理员入口仅本公司管理员可用',
-    )
-    user_card = _module_card(
-        '账号管理',
-        '管理员维护员工账号、停用离职账号、重置临时密码，并保留审计记录。',
-        '/backoffice/users' if can_manage_users else None,
-        '账号管理仅管理员可用',
-    )
-    onboarding_card = _module_card(
-        '客户开通',
-        '平台管理员开通新客户公司、默认项目和首个租户管理员。',
-        '/backoffice/tenant-onboarding' if user.get('role_code') == 'platform_admin' else None,
-        '客户开通仅平台管理员可用',
-    )
-    tenant_project_card = _module_card(
-        '租户项目',
-        '维护本公司项目边界；平台管理员可只读查看租户和项目全局。',
-        '/backoffice/tenant-projects' if can_manage_users else None,
-        '租户项目仅管理员可用',
-    )
+    tenant_admin_card = _module_card('租户管理员', '本公司管理员控制台：账号列表、停用员工账号、重置临时密码，并提示客户数据隔离边界。', '/backoffice/tenant-admin' if user.get('role_code') == 'system_admin' else None, '租户管理员入口仅本公司管理员可用')
+    user_card = _module_card('账号管理', '管理员维护员工账号、停用离职账号、重置临时密码，并保留审计记录。', '/backoffice/users' if can_manage_users else None, '账号管理仅管理员可用')
+    onboarding_card = _module_card('客户开通', '平台管理员开通新客户公司、默认项目和首个租户管理员。', '/backoffice/tenant-onboarding' if user.get('role_code') == 'platform_admin' else None, '客户开通仅平台管理员可用')
+    tenant_project_card = _module_card('租户项目', '维护本公司项目边界；平台管理员可只读查看租户和项目全局。', '/backoffice/tenant-projects' if can_manage_users else None, '租户项目仅管理员可用')
     cards = ''.join([
-        tenant_admin_card,
-        onboarding_card,
-        tenant_project_card,
-        user_card,
+        tenant_admin_card, onboarding_card, tenant_project_card, user_card,
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
         _module_card('出账收款 / 出账审核', '生成账单、审核账单、按账期和状态查询应收。', '/backoffice/bills'),
@@ -52,10 +44,11 @@ def _backoffice_home(user):
         _module_card('云端上线', 'VPS 部署、预检、备份恢复和验收脚本清单。', '/backoffice/deploy-checklist'),
         _module_card('商业验收', '按正式商业后台闭环逐项验收。', '/backoffice/acceptance'),
     ])
+    health = _platform_health_summary(user)
     body = f'''
 <section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-b" style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><strong>当前账号：</strong>{_h(user.get('username'))}<span class="hint"> · {_h(_role_name(user.get('role_code')))}</span></div><form method="post" action="/api/auth/logout"><button class="danger">退出登录</button></form></div></section>
-<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">{cards}</section>'''
+{health}<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">{cards}</section>'''
     return _page('SaaS 员工后台', body)
 
 
