@@ -43,6 +43,9 @@ class TestSaasOpsAudit(unittest.TestCase):
         reset_log = next(row for row in self.service.list_audit_logs(self.admin, self.project) if row['action'] == 'user.password_reset')
         self.assertNotIn('super-secret-password', str(reset_log))
         self.assertEqual(reset_log['detail']['target_user_id'], cashier['id'])
+        self.assertEqual(reset_log['detail']['target_username'], 'cashier')
+        self.assertEqual(reset_log['detail']['target_role_code'], 'cashier')
+        self.assertEqual(reset_log['detail']['password_changed'], True)
 
 
 class TestSaasFastApiOpsAudit(unittest.TestCase):

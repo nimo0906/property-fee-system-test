@@ -69,6 +69,13 @@ class SimpleSaasHttpApp:
             if path == '/charge-targets':
                 target = self.service.create_charge_target(user, user['project_id'], json_body['building'], json_body.get('unit', ''), json_body['room_number'], json_body.get('category', '居民'), json_body.get('area', 0))
                 return self._json_response(200, {'item': target})
+            if path == '/users':
+                item = self.service.create_staff_user(user, user['project_id'], json_body['username'], json_body['role_code'])
+                return self._json_response(200, {'item': item})
+            if path.startswith('/users/') and path.endswith('/reset-password'):
+                user_id = int(path.split('/')[2])
+                item = self.service.reset_user_password(user, user_id, json_body['new_password'])
+                return self._json_response(200, {'item': item})
             if path == '/fee-types':
                 fee = self.service.create_fee_type(user, user['project_id'], json_body['name'], json_body['unit_price'])
                 return self._json_response(200, {'item': fee})

@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, text
 
 from server.saas_repository_errors import TenantScopeError
 from server.saas_repository_guards import validate_bill_scope, validate_import_storage_key
+from server.saas_repository_passwords import reset_user_password_record
 from server.saas_service import PermissionDenied
 
 class SaasRepository:
@@ -253,13 +254,14 @@ class SaasRepository:
             return [dict(r) for r in rows]
 
     def reset_user_password(self, tenant_id, user_id, new_password, actor_user_id=None, project_id=None):
-        target = self.get_user(user_id)
-        if not target or int(target["tenant_id"]) != int(tenant_id):
-            raise TenantScopeError("user does not belong to tenant")
-        with self.engine.begin() as conn:
-            conn.execute(text("UPDATE users SET password_hash=:password_hash WHERE id=:id AND tenant_id=:tenant_id"), {"id": user_id, "tenant_id": tenant_id, "password_hash": f"hash:{new_password}"})
+        target = reset_user_password_record(self, tenant_id, user_id, new_password)
         if actor_user_id and project_id:
-            self.create_audit_log(tenant_id, project_id, actor_user_id, 'user.password_reset', 'user', user_id, {'target_user_id': user_id})
+            self.create_audit_log(tenant_id, project_id, actor_user_id, 'user.password_reset', 'user', user_id, {
+                'target_user_id': user_id,
+                'target_username': target.get('username'),
+                'target_role_code': target.get('role_code'),
+                'password_changed': True,
+            })
         return {"user_id": user_id}
 
     def create_backup_record(self, tenant_id, project_id, user_id):

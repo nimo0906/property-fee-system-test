@@ -1,6 +1,7 @@
 import unittest
 
 from server.saas_http import create_saas_http_app
+from server.passwords import verify_password
 from server.saas_service import PermissionDenied, SaasBackofficeService
 
 
@@ -59,6 +60,8 @@ class TestSaasAuditAndAdmin(unittest.TestCase):
         self.assertTrue(backup['backup_id'].startswith('backup-'))
         reset = app.reset_user_password(admin, cashier['id'], 'new-pass')
         self.assertEqual(reset['user_id'], cashier['id'])
+        self.assertTrue(verify_password('new-pass', app.users[cashier['id']]['password_hash']))
+        self.assertNotIn('new-pass', str(app.list_audit_logs(admin, project)))
         actions = [row['action'] for row in app.list_audit_logs(admin, project)]
         self.assertIn('backup.create', actions)
         self.assertIn('user.password_reset', actions)
@@ -80,6 +83,21 @@ class TestSaasAuditAndAdmin(unittest.TestCase):
         backup = admin_client.post('/backups/create', json={})
         self.assertEqual(backup.status_code, 200)
         self.assertTrue(backup.json()['item']['backup_id'].startswith('backup-'))
+
+    def test_http_admin_reset_password_is_audited_without_plaintext(self):
+        client = create_saas_http_app()
+        client.post('/auth/login', json={
+            'tenant_name': 'HTTP重置物业', 'project_name': 'HTTP重置项目', 'username': 'admin', 'role_code': 'system_admin'
+        })
+        created = client.post('/users', json={'username': 'cashier_http', 'role_code': 'cashier'})
+        self.assertEqual(created.status_code, 200)
+        user_id = created.json()['item']['id']
+        reset = client.post(f'/users/{user_id}/reset-password', json={'new_password': 'http-temp-password'})
+        self.assertEqual(reset.status_code, 200)
+        logs = client.get('/audit-logs').json()['items']
+        reset_log = next(row for row in logs if row['action'] == 'user.password_reset')
+        self.assertNotIn('http-temp-password', str(reset_log))
+        self.assertEqual(reset_log['detail']['target_username'], 'cashier_http')
 
 
 if __name__ == '__main__':

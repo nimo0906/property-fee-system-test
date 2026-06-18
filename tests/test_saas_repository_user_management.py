@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from server.passwords import verify_password
 from server.saas_repository import TenantScopeError, create_saas_repository
 
 
@@ -75,5 +76,8 @@ class TestSaasFastApiPersistentUserManagement(unittest.TestCase):
             reopened = create_saas_repository(db_url)
             users = reopened.list_users()
             self.assertIn('cashier_p', [u['username'] for u in users])
-            self.assertEqual(reopened.get_user(user_id)['password_hash'], 'hash:tmp-password')
+            stored_hash = reopened.get_user(user_id)['password_hash']
+            self.assertNotEqual(stored_hash, 'tmp-password')
+            self.assertNotEqual(stored_hash, 'hash:tmp-password')
+            self.assertTrue(verify_password('tmp-password', stored_hash))
             reopened.close()

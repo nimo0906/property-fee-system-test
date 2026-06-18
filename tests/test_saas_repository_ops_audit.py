@@ -35,6 +35,9 @@ class TestSaasRepositoryOpsAudit(unittest.TestCase):
         reset = next(row for row in logs if row['action'] == 'user.password_reset')
         self.assertEqual(reset['detail']['target_user_id'], cashier['id'])
         self.assertNotIn('secret-password', str(reset))
+        self.assertEqual(reset['detail']['target_username'], 'cashier')
+        self.assertEqual(reset['detail']['target_role_code'], 'cashier')
+        self.assertEqual(reset['detail']['password_changed'], True)
 
 
 if __name__ == '__main__':

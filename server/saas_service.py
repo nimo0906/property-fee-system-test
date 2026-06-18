@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """In-memory SaaS backoffice domain service for first cloud slice tests."""
 
+from server.passwords import hash_password
+
 
 class PermissionDenied(Exception):
     pass
@@ -235,9 +237,14 @@ class SaasBackofficeService:
         target = self.users[target_user_id]
         if target["tenant_id"] != user["tenant_id"]:
             raise PermissionDenied("cross tenant user")
-        target['password_hash'] = f"hash:{new_password}"
+        target['password_hash'] = hash_password(new_password)
         project_id = target.get('project_id') or self._default_project_id(target['tenant_id']) or target['tenant_id']
-        self._log(user, project_id, 'user.password_reset', 'user', target_user_id, {'target_user_id': target_user_id})
+        self._log(user, project_id, 'user.password_reset', 'user', target_user_id, {
+            'target_user_id': target_user_id,
+            'target_username': target.get('username'),
+            'target_role_code': target.get('role_code'),
+            'password_changed': True,
+        })
         return {'user_id': target_user_id}
 
 
