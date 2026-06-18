@@ -98,7 +98,7 @@ class ReminderMixin(BaseHandler):
         total_amt = sum(r['amount'] - r['paid'] for r in all_bills)
         total_late = sum(calc_bill_late_fee(r['bid']) for r in all_bills)
         bld_opts = '<option value="">全部楼栋</option>' + ''.join(f'<option value="{h(b["building"])}"{" selected" if bld == b["building"] else ""}>{h(b["building"])}</option>' for b in blds)
-        unit_opts = '<option value="">全部单元/区域</option>' + ''.join(f'<option value="{h(u["unit"])}"{" selected" if unit == u["unit"] else ""}>{h(u["unit"])}</option>' for u in units)
+        unit_opts = '<option value="">全部单元/分区</option>' + ''.join(f'<option value="{h(u["unit"])}"{" selected" if unit == u["unit"] else ""}>{h(u["unit"])}</option>' for u in units)
         fee_opts = '<option value="">全部收费项目</option>' + ''.join(f'<option value="{f["id"]}"{" selected" if fee_id == str(f["id"]) else ""}>{h(f["name"])}</option>' for f in fts)
         st_opts = f'<option value="">全部状态</option><option value="overdue"{" selected" if st=="overdue" else""}>已逾期</option><option value="approaching"{" selected" if st=="approaching" else""}>即将到期</option><option value="unpaid"{" selected" if st=="unpaid" else""}>未缴</option><option value="partial"{" selected" if st=="partial" else""}>部分缴</option>'
         render_groups = []
@@ -178,7 +178,7 @@ class ReminderMixin(BaseHandler):
     <div class="col-auto"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{h(period_start)}" onchange="this.form.submit()"><small class="text-muted">默认全部</small></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{h(period_end)}" onchange="this.form.submit()"></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{bld_opts}</select></div>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">单元/区域</label><select name="unit" class="form-select form-select-sm" onchange="this.form.submit()">{unit_opts}</select></div>
+    <div class="col-auto"><label class="form-label small text-muted mb-1">单元/分区</label><select name="unit" class="form-select form-select-sm" onchange="this.form.submit()">{unit_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">项目</label><select name="fee_type_id" class="form-select form-select-sm" onchange="this.form.submit()">{fee_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{st_opts}</select></div>
     <div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="房号/租户/业主/账单号"></div>

@@ -127,7 +127,7 @@ class TrialDataResetMixin(BaseHandler):
         self._html(self._page('清空试用业务数据', f'''
         <div class="alert alert-warning"><strong>清空试用业务数据</strong>：仅用于内测/演示环境重新验证流程。它会真实删除数据库中的业务记录，不是隐藏数据。</div>
         <div class="alert alert-light border">
-        <div><strong>默认会删除：</strong>业主、房间、账单、缴费、抄表、发票、结账、公摊等业务记录。</div>
+        <div><strong>默认会删除：</strong>业主、收费对象、账单、缴费、抄表、发票、结账、公摊等业务记录。</div>
         <div><strong>可选删除：</strong>合同档案、商业空间、合同附件、合同出账批次。</div>
         <div><strong>不会删除：</strong>操作员账号、收费项目/单价配置、备份文件、系统更新文件、程序文件。</div>
         <div><strong>安全保护：</strong>执行前会自动生成数据库备份，可通过数据备份页面恢复。</div>
@@ -137,7 +137,7 @@ class TrialDataResetMixin(BaseHandler):
         <div class="row g-3 mb-3">
         <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">账单金额</div><strong>¥{m(summary['bill_amount'])}</strong></div></div>
         <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">缴费金额</div><strong>¥{m(summary['payment_amount'])}</strong></div></div>
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">主要楼栋</div><strong>{h(summary['buildings'] or '-')}</strong></div></div>
+        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">主要楼栋/区域</div><strong>{h(summary['buildings'] or '-')}</strong></div></div>
         </div>
         <div class="row g-3"><div class="col-lg-7">
         <div class="small text-muted mb-2">基础业务资料和收费记录</div>
@@ -152,7 +152,7 @@ class TrialDataResetMixin(BaseHandler):
         <div class="mb-3"><label class="form-label fw-semibold">清空范围</label>
         <input type="hidden" name="scope_form" value="1">
         <div class="form-check"><input class="form-check-input" type="checkbox" name="include_business" checked id="scope_business">
-        <label class="form-check-label" for="scope_business">基础业务资料和收费记录（业主、房间、账单、缴费等）</label></div>
+        <label class="form-check-label" for="scope_business">基础业务资料和收费记录（业主、收费对象、账单、缴费等）</label></div>
         <div class="form-check mt-2"><input class="form-check-input" type="checkbox" name="include_contracts" id="include_contracts">
         <label class="form-check-label" for="include_contracts">同时清空合同档案和商业空间（含合同附件、合同出账批次）</label></div>
         <div class="form-text text-danger">如果你只想删除合同，可以取消“基础业务资料”，只勾选“合同档案和商业空间”。至少选择一个范围。</div></div>

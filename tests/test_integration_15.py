@@ -160,7 +160,7 @@ class TestIntegration15(IntegrationTestBase):
 
     def test_all_pages_return_200(self):
         pages = {
-            '/': '收费工作台', '/rooms': '房间管理', '/owners': '业主管理',
+            '/': '收费工作台', '/rooms': '收费对象管理', '/owners': '业主管理',
             '/fee_types': '收费标准', '/meter_readings': '抄表管理',
             '/billing': '物业收费', '/commercial_billing': '商业收费', '/bills': '账单管理', '/payments': '缴费记录',
             '/invoices': '发票管理',
@@ -203,11 +203,11 @@ class TestIntegration15(IntegrationTestBase):
         status, body = http_get('/rooms?keyword=__NO_ROOM_GUIDE__', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        self.assertIn('还没有房间资料', body)
+        self.assertIn('还没有收费对象资料', body)
         self.assertIn('推荐先按模板导入', body)
         self.assertIn('下载基础资料模板', body)
         self.assertIn('导入基础资料', body)
-        self.assertIn('手动添加房间', body)
+        self.assertIn('手动添加收费对象', body)
         self.assertIn('/import/template/basic.xlsx', body)
         self.assertIn('/import', body)
         self.assertIn('/rooms/create', body)
@@ -223,10 +223,10 @@ class TestIntegration15(IntegrationTestBase):
         }, self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        self.assertIn('生成账单前需要先导入房间资料', body)
+        self.assertIn('生成账单前需要先导入收费对象资料', body)
         self.assertIn('下载基础资料模板', body)
         self.assertIn('导入基础资料', body)
-        self.assertIn('手动添加房间', body)
+        self.assertIn('手动添加收费对象', body)
         self.assertIn('/import/template/basic.xlsx', body)
         self.assertIn('/import', body)
         self.assertIn('/rooms/create', body)
@@ -252,11 +252,12 @@ class TestIntegration15(IntegrationTestBase):
         labels = re.findall(r'<label>([^<]+)</label>', body)
         ordered = [label.replace(' *', '') for label in labels]
         expected = [
-            '楼栋', '单元/区域', '铺位号/房号', '楼层',
-            '房间类型', '面积(m²)', '物业费单价(元/m²·月)', '水费标准',
+            '楼栋/区域', '单元/分区', '房号/铺位号', '楼层',
+            '对象类型', '面积(m²)', '物业费单价(元/m²·月)', '水费标准',
             '业主姓名', '业主电话', '身份证号', '身份证正面', '身份证反面',
             '租户姓名', '租户电话', '租户身份证号', '租户身份证正面', '租户身份证反面',
             '合同起始', '合同到期', '缴费周期', '店铺名称', '业态/商户类别',
             '备注',
         ]
         self.assertEqual(ordered, expected)
+        self.assertIn('项目 → 楼栋/区域 → 单元/分区 → 房号/铺位号', body)

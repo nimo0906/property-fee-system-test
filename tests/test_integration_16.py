@@ -34,7 +34,7 @@ class TestIntegration16(IntegrationTestBase):
         # Then request edit form for room id 1
         status, body = http_get('/rooms/1/edit', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('编辑房间', body)
+        self.assertIn('编辑收费对象', body)
         self.assertIn('租户姓名', body)
         self.assertIn('name="tenant_name"', body)
         self.assertIn('href="/rooms" class="btn btn-outline-secondary">返回</a>', body)

@@ -5,11 +5,11 @@ from server.import_data_part3 import ImportMixinPart3
 
 class ImportMixin(ImportPreviewMixin, ImportFeeMappingMixin, ImportViewMixin, ImportMixinPart1, ImportMixinPart2, ImportMixinPart3):
     COLUMN_MAP = {
-        '楼栋':'building','building':'building','号楼':'building','栋':'building',
-        '单元':'unit','单元/':'unit','单元/座':'unit','单元／座':'unit','单元座':'unit','unit':'unit','座':'unit',
-        '房号':'room_number','房号/铺位':'room_number','铺位号/房号':'room_number','room_number':'room_number','房间号':'room_number','房间':'room_number','门牌号':'room_number','number':'room_number','铺位号':'room_number','铺位':'room_number',
+        '项目':'project','project':'project','项目名称':'project','楼栋':'building','楼栋/区域':'building','区域':'building','building':'building','号楼':'building','栋':'building',
+        '单元':'unit','分区':'unit','单元/分区':'unit','单元/区域':'unit','单元/':'unit','单元/座':'unit','单元／座':'unit','单元座':'unit','unit':'unit','座':'unit',
+        '房号':'room_number','房号/铺位号':'room_number','房号/铺位':'room_number','铺位号/房号':'room_number','room_number':'room_number','房间号':'room_number','收费对象':'room_number','房间':'room_number','门牌号':'room_number','number':'room_number','铺位号':'room_number','铺位':'room_number',
         '楼层':'floor','floor':'floor','层':'floor','floor_number':'floor',
-        '类别':'category','房屋类别':'category','房间类型':'category','类别信息':'category','类别信息栏':'category','类别栏':'category','房屋类型':'category','物业类型':'category','category':'category','类型':'category','category_name':'category',
+        '类别':'category','对象类型':'category','房屋类别':'category','房间类型':'category','类别信息':'category','类别信息栏':'category','类别栏':'category','房屋类型':'category','物业类型':'category','category':'category','类型':'category','category_name':'category',
         '面积':'area','面积㎡':'area','area':'area','area_sqm':'area','建筑面积':'area','平方':'area',
         '物业费单价':'custom_rate','商业物业费单价':'custom_rate','单价':'custom_rate','custom_rate':'custom_rate',
         '缴费周期':'payment_cycle','收费周期':'payment_cycle','付款周期':'payment_cycle','payment_cycle':'payment_cycle',

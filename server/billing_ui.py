@@ -131,7 +131,7 @@ class BillingUiMixin(BaseHandler):
         meter_json = json.dumps(meter_map, ensure_ascii=False)
         meter_detail_json = json.dumps(meter_detail_map, ensure_ascii=False)
 
-        # 房间下拉选项：按房间管理里的“单元/区域”字段分组，适配住宅、商业、写字楼等通用项目。
+        # 房间下拉选项：按房间管理里的“单元/分区”字段分组，适配住宅、商业、写字楼等通用项目。
         groups = []
         by_unit = {}
         for r in rooms:

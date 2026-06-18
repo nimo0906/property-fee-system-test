@@ -48,7 +48,7 @@ class ImportPreviewMixin:
 
     def _field_labels(self):
         return {
-            'building': '楼栋', 'unit': '单元/座', 'room_number': '房号/铺位',
+            'building': '楼栋/区域', 'unit': '单元/分区', 'room_number': '房号/铺位号',
             'floor': '楼层', 'category': '类别', 'area': '面积',
             'owner_name': '业主/商户', 'owner_phone': '电话',
             'tenant_name': '租户', 'tenant_phone': '租户电话', 'tenant_id_card': '租户身份证号', 'shop_name': '店铺名称',
@@ -57,7 +57,7 @@ class ImportPreviewMixin:
         }
 
     def _render_import_preview(self, filename, headers, data_rows, col_map, data_type, header_idx, upload_token, import_offset=0):
-        type_names = {"owners": "业主信息", "rooms": "房间信息", "bills": "账单记录", "payment_ledger": "收款明细表", "unknown": "未知类型"}
+        type_names = {"owners": "业主信息", "rooms": "收费对象信息", "bills": "账单记录", "payment_ledger": "收款明细表", "unknown": "未知类型"}
         detected_tip = f'<div class="alert alert-info"><strong>系统识别为：{h(type_names.get(data_type, data_type))}</strong>。如识别不准确，请返回导入页手动选择类型后重新预览。</div>'
         warning = ''
         if data_type == 'payment_ledger':
@@ -126,7 +126,7 @@ class ImportPreviewMixin:
             <span><i class="bi bi-pencil-square"></i> 数据核对与修正</span>
             <span class="badge status-info">映射后的结果，不是原始 Excel 杂表</span>
         </div><div class="card-body">
-        <p class="small text-muted mb-2">按房间管理字段顺序展示；左侧“动作、楼栋、单元/座、房号/铺位”会固定，横向查看右侧字段时不容易丢失当前户。</p>
+        <p class="small text-muted mb-2">按收费对象管理字段顺序展示；左侧“动作、楼栋/区域、单元/分区、房号/铺位号”会固定，横向查看右侧字段时不容易丢失当前户。</p>
         <div class="import-batch-panel {'has-next' if has_next else 'is-final'}">
             <div class="import-batch-head">
                 <div><div class="import-batch-kicker">批次进度</div><strong>{h(batch_label)}</strong></div>
@@ -164,7 +164,7 @@ class ImportPreviewMixin:
 
     def _render_review_header(self, headers, col_map):
         cols = [
-            ('action','动作'),('building','楼栋'),('unit','单元/座'),('room_number','房号/铺位'),
+            ('action','动作'),('building','楼栋/区域'),('unit','单元/分区'),('room_number','房号/铺位号'),
             ('shop_name','店铺名称'),('tenant_name','租户姓名'),('floor','楼层'),('category','类别'),
             ('business_type','业态'),('area','面积'),('owner_name','业主/商户'),('contract_start','合同开始'),
             ('contract_end','合同结束'),('custom_rate','物业单价'),('payment_cycle','缴费周期'),

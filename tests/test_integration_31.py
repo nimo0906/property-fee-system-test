@@ -132,7 +132,7 @@ class TestIntegration31(IntegrationTestBase):
         self.assertIn('RESTORERESULT', html)
         self.assertIn('2029-02', html)
         self.assertIn('去首页', html)
-        self.assertIn('查看房间', html)
+        self.assertIn('查看收费对象', html)
         self.assertIn('查看账单', html)
         self.assertIn('返回备份', html)
 

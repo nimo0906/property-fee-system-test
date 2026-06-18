@@ -29,7 +29,7 @@ def _water_fee_mismatch_message(db, room_id, fee_type_id, commercial_space_id=No
     if not row or fee_applies_to_room(fee_name, row):
         return ""
     expected = row["water_rate_type"] or "非居民"
-    return f"水费标准与收费项目不一致：房间水费标准为{expected}，当前选择{fee_name}。请在房间管理调整水费标准，或选择水费({expected})抄表。"
+    return f"水费标准与收费项目不一致：房间水费标准为{expected}，当前选择{fee_name}。请在收费对象管理调整水费标准，或选择水费({expected})抄表。"
 
 
 def _target_key(target_type, room_id=None, commercial_space_id=None):
@@ -169,8 +169,8 @@ class MeterMixin(BaseHandler):
         units = db.execute("SELECT DISTINCT unit FROM rooms WHERE unit IS NOT NULL AND unit<>'' ORDER BY unit").fetchall()
         db.close()
         ft_opts = '<option value="">--选择--</option>' + ''.join(f'<option value="{f["id"]}">{h(f["name"])}</option>' for f in fts)
-        unit_opts = '<option value="">--先选择单元/区域--</option>' + ''.join(f'<option value="{h(r["unit"])}">{h(r["unit"])}</option>' for r in units)
-        room_opts = '<option value="">选择单元/区域后再选择房间</option>' + ''.join(
+        unit_opts = '<option value="">--先选择单元/分区--</option>' + ''.join(f'<option value="{h(r["unit"])}">{h(r["unit"])}</option>' for r in units)
+        room_opts = '<option value="">选择单元/分区后再选择收费对象</option>' + ''.join(
             f'<option value="{r["id"]}" data-unit="{h(r["unit"] or "")}" data-water="{h(r["water_rate_type"] or "非居民")}" data-label="{h(r["building"])}-{h(r["unit"] or "")}-{h(r["room_number"])} {h(r["tenant_name"] or r["oname"] or "")}">{h(r["building"])}-{h(r["unit"] or "")}-{h(r["room_number"])} ({h(r["tenant_name"] or r["oname"] or "")})</option>'
             for r in rooms
         )
@@ -180,11 +180,11 @@ class MeterMixin(BaseHandler):
         )
         self._html(self._page("录入抄表", f'''
 <form method="POST" action="/meter_readings/create" class="row g-3">
-<div class="col-md-4"><label>抄表对象 *</label><select name="target_type" class="form-select" id="targetType"><option value="room">房间/商户</option><option value="commercial_space">商铺档案(兼容)</option></select><small class="text-muted">住户、商户和商业对象优先按房间管理抄表；商铺档案抄表仅作兼容。</small></div>
-<div class="col-md-4 target-room"><label>单元/区域 *</label><select class="form-select" id="mUnit">{unit_opts}</select></div>
-<div class="col-md-4 target-room"><label>房间</label><select name="room_id" class="form-select" id="mRoom" disabled>{room_opts}</select></div>
+<div class="col-md-4"><label>抄表对象 *</label><select name="target_type" class="form-select" id="targetType"><option value="room">收费对象/商户</option><option value="commercial_space">商铺档案(兼容)</option></select><small class="text-muted">住户、商户和商业对象优先按收费对象管理抄表；商铺档案抄表仅作兼容。</small></div>
+<div class="col-md-4 target-room"><label>单元/分区 *</label><select class="form-select" id="mUnit">{unit_opts}</select></div>
+<div class="col-md-4 target-room"><label>收费对象</label><select name="room_id" class="form-select" id="mRoom" disabled>{room_opts}</select></div>
 <div class="col-md-8 target-space" style="display:none"><label>商铺档案(兼容)</label><select name="commercial_space_id" class="form-select" id="mSpace">{space_opts}</select></div>
-<div class="col-md-6"><label>费用类型 *</label><select name="fee_type_id" class="form-select" id="mFt" required>{ft_opts}</select><small class="text-muted d-block mt-1" id="waterFeeHint">房间管理水费类型提示：选择对象后，会显示水费标准。例如水费类型为“特行”时，建议选择：水费(特行)。</small></div>
+<div class="col-md-6"><label>费用类型 *</label><select name="fee_type_id" class="form-select" id="mFt" required>{ft_opts}</select><small class="text-muted d-block mt-1" id="waterFeeHint">收费对象管理水费类型提示：选择对象后，会显示水费标准。例如水费类型为“特行”时，建议选择：水费(特行)。</small></div>
 <div class="col-md-3"><label>账期日期</label><input type="date" name="period" class="form-control" value="{period_to_date(get_period())}"></div>
 <div class="col-md-3"><label>抄表日期</label><input type="date" name="reading_date" class="form-control" value="{date.today().isoformat()}"></div>
 <div class="col-md-4"><label>状态</label><select name="status" class="form-select"><option value="draft">草稿</option><option value="confirmed">已确认</option></select></div>
@@ -197,7 +197,7 @@ function mode(){{return document.getElementById('targetType').value;}}
 function activeSelect(){{return mode()==='commercial_space'?document.getElementById('mSpace'):document.getElementById('mRoom');}}
 function refreshMode(){{var sp=mode()==='commercial_space';document.querySelectorAll('.target-room').forEach(x=>x.style.display=sp?'none':'');document.querySelectorAll('.target-space').forEach(x=>x.style.display=sp?'':'none');document.getElementById('mRoom').required=!sp;document.getElementById('mSpace').required=sp;updateWaterFeeHint();loadMeter();}}
 function updateRoomOptions(){{var unit=document.getElementById('mUnit').value;var room=document.getElementById('mRoom');room.value='';for(var i=1;i<room.options.length;i++){{var opt=room.options[i];var ok=unit&&opt.dataset.unit===unit;opt.hidden=!ok;opt.disabled=!ok;}}room.disabled=!unit;updateWaterFeeHint();}}
-function updateWaterFeeHint(){{var sel=activeSelect();var opt=sel.options[sel.selectedIndex];var water=(opt&&opt.dataset&&opt.dataset.water)||'';document.getElementById('waterFeeHint').textContent=water?'当前对象水费标准为 '+water+'，建议选择：水费('+water+')。':'房间管理水费类型提示：选择对象后，会显示水费标准。例如水费类型为“特行”时，建议选择：水费(特行)。';}}
+function updateWaterFeeHint(){{var sel=activeSelect();var opt=sel.options[sel.selectedIndex];var water=(opt&&opt.dataset&&opt.dataset.water)||'';document.getElementById('waterFeeHint').textContent=water?'当前对象水费标准为 '+water+'，建议选择：水费('+water+')。':'收费对象管理水费类型提示：选择对象后，会显示水费标准。例如水费类型为“特行”时，建议选择：水费(特行)。';}}
 function loadMeter(){{var f=document.getElementById('mFt').value;var sel=activeSelect();var id=sel.value;if(!id||!f)return;var url=mode()==='commercial_space'?('/api/commercial_spaces/'+id+'/meter/'+f):('/api/rooms/'+id+'/meter/'+f);fetch(url).then(x=>x.json()).then(d=>document.getElementById('mPrev').value=d.previous_reading).catch(()=>{{}});}}
 document.getElementById('targetType').addEventListener('change',refreshMode);document.getElementById('mUnit').addEventListener('change',updateRoomOptions);document.getElementById('mRoom').addEventListener('change',function(){{updateWaterFeeHint();loadMeter();}});document.getElementById('mSpace').addEventListener('change',function(){{updateWaterFeeHint();loadMeter();}});document.getElementById('mFt').addEventListener('change',loadMeter);refreshMode();updateRoomOptions();
 </script>''', "meter"))

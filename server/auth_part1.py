@@ -183,7 +183,7 @@ class AuthMixinPart1(BaseHandler):
                 <span class="badge bg-danger">超级管理员：admin 保留；系统管理员负责系统维护、更新、备份恢复、账号与全部业务权限</span>
                 <span class="badge bg-primary">业务管理员：客户负责人，账号管理与业务审批</span>
                 <span class="badge bg-info">财务：资料维护、合同、出账、收费、发票、对账、结账</span>
-                <span class="badge bg-secondary">客服业务编辑：业主、房间、合同、抄表、导入和催缴；不做收款结账</span>
+                <span class="badge bg-secondary">客服业务编辑：业主、收费对象、合同、抄表、导入和催缴；不做收款结账</span>
                 <span class="badge bg-dark">管理层只读：查看驾驶舱、报表和风险预警</span>
             </div>
         </div>'''

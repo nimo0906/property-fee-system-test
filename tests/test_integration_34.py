@@ -16,7 +16,7 @@ class TestIntegration34(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('首次账号设置建议', body)
         self.assertIn('财务：资料维护', body)
-        self.assertIn('客服业务编辑：业主、房间、合同、抄表、导入和催缴', body)
+        self.assertIn('客服业务编辑：业主、收费对象、合同、抄表、导入和催缴', body)
 
 
     def test_large_bill_volume_pages_remain_paginated_and_accessible(self):
@@ -142,7 +142,7 @@ class TestIntegration34(IntegrationTestBase):
         status, rooms_html = http_get('/rooms?' + room_query, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('当前筛选共 125 条 / 3 页 / 每页 50 条', rooms_html)
-        self.assertIn('房间分页', rooms_html)
+        self.assertIn('收费对象分页', rooms_html)
         self.assertIn('building=%E5%88%86%E9%A1%B5%E6%A1%A3%E6%A1%88%E6%A5%BC', rooms_html)
 
         status, rooms_page2 = http_get('/rooms?' + room_query + '&page=2&per_page=100', self.cookie, TEST_PORT)

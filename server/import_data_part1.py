@@ -40,7 +40,7 @@ class ImportMixinPart1(BaseHandler):
                     <label class="form-label">数据类型</label>
                     <select name="data_type" class="form-select">
                         <option value="auto"{sel("auto")}>自动检测（推荐）</option>
-                        <option value="rooms"{sel("rooms")}>房间基础资料</option>
+                        <option value="rooms"{sel("rooms")}>收费对象基础资料</option>
                         <option value="owners"{sel("owners")}>业主信息</option>
                         <option value="payment_ledger"{sel("payment_ledger")}>收款明细识别（不自动入账）</option>
                         <option value="bills"{sel("bills")}>账单记录（谨慎使用）</option>
@@ -64,8 +64,8 @@ class ImportMixinPart1(BaseHandler):
                 </div>
             </div>
             <div class="import-rule-list">
-                <div class="import-rule-item success"><i class="bi bi-check2-circle"></i><div><strong>基础资料导入</strong><span>可写入房间、业主、面积、类别、合同日期、备注资料。</span></div></div>
-                <div class="import-rule-item success"><i class="bi bi-file-earmark-text"></i><div><strong>合同导入</strong><span>商业合同写入合同档案；B座出租合同写入房间管理。</span></div></div>
+                <div class="import-rule-item success"><i class="bi bi-check2-circle"></i><div><strong>基础资料导入</strong><span>可写入收费对象、业主、面积、类别、合同日期、备注资料。</span></div></div>
+                <div class="import-rule-item success"><i class="bi bi-file-earmark-text"></i><div><strong>合同导入</strong><span>商业合同写入合同档案；B座出租合同写入收费对象管理。</span></div></div>
                 <div class="import-rule-item warning"><i class="bi bi-exclamation-triangle"></i><div><strong>收款明细识别</strong><span>列头识别、房号归属、合同日期、跳过行和问题行需要核对。</span></div></div>
                 <div class="import-rule-item danger"><i class="bi bi-shield-check"></i><div><strong>安全机制</strong><span>确认导入前自动备份，导错后可一键撤销；历史金额不会自动入账。</span></div></div>
             </div>
@@ -91,7 +91,7 @@ class ImportMixinPart1(BaseHandler):
     </div>
     <div class="import-flow-grid">
         <div class="import-flow-card"><span>01</span><strong>上传预览</strong><small>先看系统识别出的类型、列头和数据行。</small></div>
-        <div class="import-flow-card"><span>02</span><strong>字段核对</strong><small>楼栋、房号、面积、业主、合同日期必须确认。</small></div>
+        <div class="import-flow-card"><span>02</span><strong>字段核对</strong><small>项目、楼栋/区域、单元/分区、房号/铺位号、面积、业主、合同日期必须确认。</small></div>
         <div class="import-flow-card"><span>03</span><strong>确认写入</strong><small>写入前自动创建备份，结果页可撤销。</small></div>
         <div class="import-flow-card"><span>04</span><strong>结果复核</strong><small>下载问题行 CSV，修正后可单独重新导入。</small></div>
     </div>

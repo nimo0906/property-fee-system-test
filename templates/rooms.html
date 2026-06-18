@@ -1,25 +1,25 @@
 <div class="filter-bar">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
-<div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{BOPTS}</select></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">房间类型</label><select name="category" class="form-select form-select-sm" onchange="this.form.submit()">{CAT_OPTS}</select></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">搜索</label><input name="keyword" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="form-control form-control-sm" placeholder="房号/姓名/租户/业态/面积..." value="{KW}"></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">楼栋/区域</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{BOPTS}</select></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">对象类型</label><select name="category" class="form-select form-select-sm" onchange="this.form.submit()">{CAT_OPTS}</select></div>
+<div class="col-auto"><label class="form-label small text-muted mb-1">搜索</label><input name="keyword" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" class="form-control form-control-sm" placeholder="房号/铺位号/客户/租户/业态/面积..." value="{KW}"></div>
 <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/rooms" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div>
 </form>
-<a href="/rooms/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加房间</a>
+<a href="/rooms/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加收费对象</a>
 </div>
 </div>
 <div class="card">
 <div class="card-header d-flex justify-content-between align-items-center">
-<span><i class="bi bi-door-open"></i> 房间台账</span>
+<span><i class="bi bi-door-open"></i> 收费对象台账</span>
 <div class="d-flex align-items-center gap-2">
-<form id="roomBatchDeleteForm" method="POST" action="/rooms/batch_delete" onsubmit="return confirm('确定批量删除选中的空房间？已有账单或抄表记录的房间会自动跳过，不会删除业务记录。')"></form>
+<form id="roomBatchDeleteForm" method="POST" action="/rooms/batch_delete" onsubmit="return confirm('确定批量删除选中的空收费对象？已有账单或抄表记录的对象会自动跳过，不会删除业务记录。')"></form>
 <button form="roomBatchDeleteForm" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> 批量删除</button>
-<small class="text-muted">单元=空间分组；房间类型=收费适用；业态=商户统计</small>
+<small class="text-muted">层级：项目 → 楼栋/区域 → 单元/分区 → 房号/铺位号；对象类型=收费适用</small>
 </div>
 </div>
 <div class="table-responsive"><table class="table table-hover align-middle">
-<thead><tr><th style="width:38px"><input class="form-check-input" type="checkbox" onclick="selectVisibleRooms(this.checked)" title="全选当前可见房间"></th><th>楼栋</th><th>单元</th><th>房号</th><th>店铺</th><th>租户</th><th>楼层</th><th>房间类型</th><th>业态</th><th class="text-end">面积</th><th>业主</th><th>合同期限</th><th style="width:112px">操作</th></tr></thead>
+<thead><tr><th style="width:38px"><input class="form-check-input" type="checkbox" onclick="selectVisibleRooms(this.checked)" title="全选当前可见对象"></th><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>店铺</th><th>租户</th><th>楼层</th><th>对象类型</th><th>业态</th><th class="text-end">面积</th><th>业主</th><th>合同期限</th><th style="width:112px">操作</th></tr></thead>
 <tbody>{ROWS}</tbody></table></div>
 </div>
 {PAGE_LINKS}

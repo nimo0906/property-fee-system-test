@@ -87,7 +87,7 @@ class TestIntegration12(IntegrationTestBase):
         shared_section = nav.split('公共功能', 1)[1].split('财务核对', 1)[0]
         financial_section = nav.split('财务核对', 1)[1].split('系统维护', 1)[0]
         workbench_labels = ['收费工作台', '智能预警', '催缴管理', '数据导入', '合同档案']
-        shared_labels = ['业主管理', '房间管理', '收费项目', '抄表管理', '批量更新', '自动出账', '公摊分摊']
+        shared_labels = ['业主管理', '收费对象管理', '收费项目', '抄表管理', '批量更新', '自动出账', '公摊分摊']
         previous = -1
         for label in workbench_labels:
             pos = workbench_section.index(f'<span>{label}</span>')

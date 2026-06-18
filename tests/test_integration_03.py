@@ -246,7 +246,7 @@ class TestIntegration03(IntegrationTestBase):
         status, body = http_get('/meter_readings/create', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        self.assertIn('房间管理水费类型提示', body)
+        self.assertIn('收费对象管理水费类型提示', body)
         self.assertIn('data-water="特行"', body)
         self.assertIn('WM106', body)
         self.assertIn('建议选择：水费(特行)', body)

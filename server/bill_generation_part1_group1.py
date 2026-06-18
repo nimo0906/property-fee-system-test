@@ -53,7 +53,7 @@ class BillGenerationMixinPart1Group1(BaseHandler):
         self._html(self._page('生成账单', f'''
         <div class="alert alert-info"><i class="bi bi-info-circle"></i>
         选择起始日期、截止日期、房间范围和费用类型，系统按财务自然日期范围生成账单。
-        商业模式纳入房间类型为商户/商业的对象，不限定楼栋或单元/区域；请先核对面积、物业费单价和缴费周期。</div>
+        商业模式纳入房间类型为商户/商业的对象，不限定楼栋或单元/分区；请先核对面积、物业费单价和缴费周期。</div>
         <form method=POST action="/bills/generate" class="row g-3">
         <input type="hidden" name="mode_scope" value="{h(mode)}">
         <input type="hidden" name="unit" value="{h(default_unit)}">
@@ -144,13 +144,13 @@ class BillGenerationMixinPart1Group1(BaseHandler):
     def _bill_generation_no_rooms(self):
         self._html(self._page('生成账单', '''
         <div class="card border-warning">
-            <div class="card-header text-warning"><i class="bi bi-exclamation-triangle"></i> 生成账单前需要先导入房间资料</div>
+            <div class="card-header text-warning"><i class="bi bi-exclamation-triangle"></i> 生成账单前需要先导入收费对象资料</div>
             <div class="card-body">
-                <p>系统没有找到可出账房间。请先准备楼栋、房号、楼层、面积、业主、合同日期等基础资料。</p>
+                <p>系统没有找到可出账收费对象。请先准备项目、楼栋/区域、单元/分区、房号/铺位号、楼层、面积、客户、合同日期等基础资料。</p>
                 <div class="d-flex gap-2 flex-wrap">
                     <a class="btn btn-outline-primary" href="/import/template/basic.xlsx" download="basic_info_template.xlsx">下载基础资料模板</a>
                     <a class="btn btn-primary" href="/import">导入基础资料</a>
-                    <a class="btn btn-outline-secondary" href="/rooms/create">手动添加房间</a>
+                    <a class="btn btn-outline-secondary" href="/rooms/create">手动添加收费对象</a>
                 </div>
             </div>
         </div>

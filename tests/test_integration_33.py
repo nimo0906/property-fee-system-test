@@ -121,22 +121,23 @@ class TestIntegration33(IntegrationTestBase):
         ws = wb['基础资料导入模板']
         headers = [cell.value for cell in ws[1]]
         self.assertEqual(headers, [
-            '楼栋', '单元/座', '铺位号/房号', '楼层',
-            '房间类型', '面积㎡', '物业费单价', '水费标准',
+            '项目', '楼栋/区域', '单元/分区', '房号/铺位号', '楼层',
+            '对象类型', '面积㎡', '物业费单价', '水费标准',
             '业主姓名', '业主电话', '身份证号',
             '租户姓名', '租户电话', '租户身份证号',
             '合同开始日期', '合同结束日期', '缴费周期',
             '店铺名称', '业态/商户类别', '备注',
         ])
-        self.assertEqual(ws['A2'].value, '示例项目')
-        self.assertEqual(ws['C2'].value, '1F-101')
-        self.assertIn('历史收款金额', ws['T2'].value)
+        self.assertEqual(ws['A2'].value, '默认项目')
+        self.assertEqual(ws['B2'].value, '示例项目')
+        self.assertEqual(ws['D2'].value, '1F-101')
+        self.assertIn('历史收款金额', ws['U2'].value)
         self.assertIn('填写说明', wb.sheetnames)
         wb.close()
 
         status, csv_body = http_get('/import/template/basic.csv', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('楼栋,单元/座,铺位号/房号,楼层,房间类型,面积㎡', csv_body)
+        self.assertIn('项目,楼栋/区域,单元/分区,房号/铺位号,楼层,对象类型,面积㎡', csv_body)
 
 
     def test_import_page_guides_real_data_workflow(self):

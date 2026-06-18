@@ -28,7 +28,7 @@ class DeliveryCenterMixin(BaseHandler):
                   <tr><td><strong>系统管理员</strong></td><td>系统维护、账号、备份、更新、云端技术备查</td><td>保留给内部或客户负责人，不给普通员工</td></tr>
                   <tr><td><strong>财务</strong></td><td>商业收费、物业收费、账单核对、收费、发票、对账、结账</td><td>不能做系统维护和清空试用数据</td></tr>
                   <tr><td><strong>收费员</strong></td><td>日常收费、打印收据、查看缴费记录</td><td>不负责合同规则和高风险删除</td></tr>
-                  <tr><td><strong>客服业务编辑</strong></td><td>维护业主、房间、合同、抄表、导入资料并跟进催缴</td><td>不删除资料，不生成账单、不收款、不结账</td></tr>
+                  <tr><td><strong>客服业务编辑</strong></td><td>维护业主、收费对象、合同、抄表、导入资料并跟进催缴</td><td>不删除资料，不生成账单、不收款、不结账</td></tr>
                   <tr><td><strong>管理层只读</strong></td><td>查看驾驶舱、报表和风险预警</td><td>只看经营结果，不操作业务数据</td></tr>
                 </tbody>
               </table></div>
@@ -191,10 +191,10 @@ class DeliveryCenterMixin(BaseHandler):
           <div class="card-header text-primary"><i class="bi bi-diagram-3"></i> 员工操作流程</div>
           <div class="card-body">
             <div class="row g-3">
-              <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>1. 下载导入模板</strong><div class="small text-muted mt-1">模板字段按房间管理口径准备：楼栋、单元/座、房号/铺位、类别、面积、业主/商户、电话、合同日期等。</div></div></div>
+              <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>1. 下载导入模板</strong><div class="small text-muted mt-1">模板字段按收费对象管理口径准备：项目、楼栋/区域、单元/分区、房号/铺位号、类别、面积、业主/商户、电话、合同日期等。</div></div></div>
               <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>2. 字段识别</strong><div class="small text-muted mt-1">系统自动识别 Excel 原始列，并在核对表表头显示来源列名。</div></div></div>
               <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>3. 调整字段映射</strong><div class="small text-muted mt-1">识别不准时展开映射设置，重新生成预览，仍不写入数据库。</div></div></div>
-              <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>4. 数据核对与修正</strong><div class="small text-muted mt-1">直接在核对表修正楼栋、房号、面积、业主、电话、合同日期等关键字段。</div></div></div>
+              <div class="col-md-3"><div class="p-3 border rounded h-100"><strong>4. 数据核对与修正</strong><div class="small text-muted mt-1">直接在核对表修正项目、楼栋/区域、单元/分区、房号/铺位号、面积、业主、电话、合同日期等关键字段。</div></div></div>
             </div>
           </div>
         </div>
@@ -205,7 +205,7 @@ class DeliveryCenterMixin(BaseHandler):
               <ul class="mb-3">
                 <li><strong>第一屏就是数据核对与修正</strong>：用户看到的是最终将写入系统的业务字段，不是原始 Excel 杂表。</li>
                 <li><strong>预览阶段不写入数据库</strong>：上传、字段识别、调整字段映射、重新生成核对表都只能预览。</li>
-                <li><strong>确认导入后才写入</strong>：只有点击“确认导入并生成结果”后，才写入房间、业主或商户基础资料。</li>
+                <li><strong>确认导入后才写入</strong>：只有点击“确认导入并生成结果”后，才写入收费对象、业主或商户基础资料。</li>
                 <li><strong>历史金额不会自动入账</strong>：模板里的历史金额只能作为备注/参考，不自动生成应收或收款。</li>
                 <li><strong>问题行/重复数据提示</strong>：楼栋房号缺失、面积异常、电话异常、疑似重复必须提示给员工核对。</li>
               </ul>
@@ -219,13 +219,13 @@ class DeliveryCenterMixin(BaseHandler):
             <div class="card h-100"><div class="card-header text-info"><i class="bi bi-list-check"></i> 核对口径</div>
             <div class="card-body">
               <ul class="mb-3">
-                <li><strong>房间管理表头一致</strong>：导入核对表应覆盖楼栋、单元/座、房号/铺位、类别、面积、业主/商户、电话、合同日期、备注。</li>
+                <li><strong>收费对象管理表头一致</strong>：导入核对表应覆盖项目、楼栋/区域、单元/分区、房号/铺位号、类别、面积、业主/商户、电话、合同日期、备注。</li>
                 <li><strong>映射效果可见</strong>：每个业务字段下显示“来自：Excel 原始列名”，调整映射后预览内容要变化。</li>
-                <li><strong>编辑停留本页</strong>：修正单元格或行数据时，不跳转到房间管理页面。</li>
+                <li><strong>编辑停留本页</strong>：修正单元格或行数据时，不跳转到收费对象管理页面。</li>
                 <li><strong>确认后可追溯</strong>：导入结果页要能说明新增、更新、跳过、问题行数量。</li>
               </ul>
               <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-sm btn-outline-primary" href="/rooms">房间管理核对</a>
+                <a class="btn btn-sm btn-outline-primary" href="/rooms">收费对象管理核对</a>
                 <a class="btn btn-sm btn-outline-primary" href="/system_health">底层安全检查</a>
               </div>
             </div></div>

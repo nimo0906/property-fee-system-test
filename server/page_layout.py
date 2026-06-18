@@ -63,7 +63,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         ]),
         ('公共功能', [
             ('owners', '/owners', 'bi-people', '业主管理'),
-            ('rooms', '/rooms', 'bi-door-open', '房间管理'),
+            ('rooms', '/rooms', 'bi-door-open', '收费对象管理'),
             ('fee_types', '/fee_types', 'bi-tags', '收费项目'),
             ('meter', '/meter_readings', 'bi-clipboard-data', '抄表管理'),
             ('batch_ops', '/batch_ops', 'bi-pencil-square', '批量更新'),

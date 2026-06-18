@@ -59,7 +59,7 @@ class TestIntegration01(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('清空试用业务数据', confirm_page)
         self.assertIn('会删除', confirm_page)
-        self.assertIn('业主、房间、账单、缴费、抄表、发票、结账、公摊等业务记录', confirm_page)
+        self.assertIn('业主、收费对象、账单、缴费、抄表、发票、结账、公摊等业务记录', confirm_page)
         self.assertIn('不会删除', confirm_page)
         self.assertIn('操作员账号、收费项目/单价配置、备份文件、系统更新文件、程序文件', confirm_page)
         self.assertIn('执行前会自动生成数据库备份', confirm_page)

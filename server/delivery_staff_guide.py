@@ -19,8 +19,8 @@ class DeliveryStaffGuideMixin(BaseHandler):
             <div class="card h-100"><div class="card-header text-primary"><i class="bi bi-calculator"></i> 财务每天怎么操作</div>
             <div class="card-body">
               <ol class="mb-3">
-                <li><strong>导入/录入资料</strong>：先补齐业主、房间、商户和空间合同档案，合同仅作行政备查。</li>
-                <li><strong>抄表</strong>：按房间管理对象录入住户、商户和商业对象水表读数。</li>
+                <li><strong>导入/录入资料</strong>：先补齐业主、收费对象、商户和空间合同档案，合同仅作行政备查。</li>
+                <li><strong>抄表</strong>：按收费对象管理对象录入住户、商户和商业对象水表读数。</li>
                 <li><strong>物业收费/商业收费</strong>：日常收费进入物业收费或商业收费，按收费项目生成账单。</li>
                 <li><strong>账单核对</strong>：确认面积×单价、周期月数、水电读数、公摊分摊和服务期后，再收费登记。</li>
                 <li><strong>收费 → 收据/发票 → 报表 → 期末结账</strong>：每天核对缴费记录、打印收据、开具发票、查看对账报表和异常预警，月底再做期末结账。</li>
@@ -57,13 +57,13 @@ class DeliveryStaffGuideMixin(BaseHandler):
             <div class="card h-100"><div class="card-header text-warning"><i class="bi bi-headset"></i> 客服业务编辑怎么维护资料和催缴</div>
             <div class="card-body">
               <ol class="mb-3">
-                <li>先在房间管理、业主管理或合同档案中维护业主、商户、电话、房号/铺位。</li>
+                <li>先在收费对象管理、业主管理或合同档案中维护业主、商户、电话、房号/铺位。</li>
                 <li>进入<strong>催缴管理</strong>查看欠费项目、欠费金额和服务期。</li>
                 <li>可修正基础资料、合同资料、抄表记录和导入资料；有账单金额争议时交给财务处理。</li>
                 <li>关注合同到期、合同欠费和异常资料，必要时通知财务核对账单。</li>
               </ol>
               <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-sm btn-outline-warning" href="/rooms">房间管理</a>
+                <a class="btn btn-sm btn-outline-warning" href="/rooms">收费对象管理</a>
                 <a class="btn btn-sm btn-outline-warning" href="/merchant_contracts">合同档案</a>
                 <a class="btn btn-sm btn-outline-warning" href="/meter_readings">抄表管理</a>
                 <a class="btn btn-sm btn-outline-warning" href="/reminders">催缴管理</a>

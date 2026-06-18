@@ -14,7 +14,7 @@ class TestIntegration09(IntegrationTestBase):
         status, body = http_get('/', frontdesk_cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        for text in ['业主管理', '房间管理', '合同档案', '抄表管理', '数据导入', '催缴管理', '客服催费对象', '账单管理', '对账报表']:
+        for text in ['业主管理', '收费对象管理', '合同档案', '抄表管理', '数据导入', '催缴管理', '客服催费对象', '账单管理', '对账报表']:
             self.assertIn(text, body)
         for href in ['/billing', '/commercial_billing', '/auto_billing', '/shared_expenses', '/payments', '/invoices', '/closing', '/backups', '/users']:
             self.assertNotIn(f'href="{href}"', body)

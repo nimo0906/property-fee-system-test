@@ -177,8 +177,8 @@ class TestIntegration36(IntegrationTestBase):
     def test_auto_detect_basic_room_file_with_b_tower_room_number_uses_room_preview(self):
         boundary = '----PropertyAutoDetectRoomBoundary'
         csv_data = (
-            '楼栋,单元/座,铺位号/房号,房间类型,面积㎡,业主姓名,租户姓名,合同开始日期,合同结束日期,缴费周期\n'
-            'B座,B座,1601-16,住宅,66.5,自动检测业主,自动检测租户,2026-01-01,2026-12-31,月付\n'
+            '项目,楼栋/区域,单元/分区,房号/铺位号,对象类型,面积㎡,业主姓名,租户姓名,合同开始日期,合同结束日期,缴费周期\n'
+            '示例项目,B座,B座,1601-16,住宅,66.5,自动检测业主,自动检测租户,2026-01-01,2026-12-31,月付\n'
         )
         body = (
             f'--{boundary}\r\n'
@@ -202,7 +202,7 @@ class TestIntegration36(IntegrationTestBase):
         conn.close()
         self.assertEqual(resp.status, 200)
         self.assertIn('数据核对与修正', html)
-        self.assertIn('房间信息', html)
+        self.assertIn('收费对象信息', html)
         self.assertNotIn('B座出租合同导入预览', html)
         self.assertIn('1601-16', html)
 
@@ -227,8 +227,8 @@ class TestIntegration36(IntegrationTestBase):
         expected = {
             '/import/template/owners.xlsx': ('业主信息模板', ['业主姓名', '业主电话', '身份证号', '备注']),
             '/import/template/payment_ledger.xlsx': ('收款明细识别模板', ['缴费日期', '房间号', '用户名称', '本期金额', '本期收款(合计)', '物业费']),
-            '/import/template/bills.xlsx': ('账单记录模板', ['楼栋', '房号', '费用项目', '账期', '金额', '状态']),
-            '/import/template/b_tower_contracts.xlsx': ('B座出租合同模板', ['楼栋', '单元/座', '房号', '租户', '租户电话', '面积', '物业费单价', '缴费周期', '合同开始日期', '合同结束日期']),
+            '/import/template/bills.xlsx': ('账单记录模板', ['楼栋/区域', '房号/铺位号', '费用项目', '账期', '金额', '状态']),
+            '/import/template/b_tower_contracts.xlsx': ('B座出租合同模板', ['楼栋/区域', '单元/分区', '房号/铺位号', '租户', '租户电话', '面积', '物业费单价', '缴费周期', '合同开始日期', '合同结束日期']),
         }
         for path, (sheet_name, headers_prefix) in expected.items():
             conn = http.client.HTTPConnection(BASE_URL, TEST_PORT)

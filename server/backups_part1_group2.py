@@ -48,7 +48,7 @@ class BackupMixinPart1Group2(BaseHandler):
             summary_html = f'''
         <div class="card"><div class="card-header">当前数据库摘要</div><div class="card-body">
         <div class="row g-3 mb-3">
-            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">房间数</div><div class="fs-4 fw-bold">{summary['rooms']}</div></div></div>
+            <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">收费对象数</div><div class="fs-4 fw-bold">{summary['rooms']}</div></div></div>
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">业主数</div><div class="fs-4 fw-bold">{summary['owners']}</div></div></div>
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">账单数</div><div class="fs-4 fw-bold">{summary['bills']}</div></div></div>
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">缴费记录数</div><div class="fs-4 fw-bold">{summary['payments']}</div></div></div>
@@ -57,7 +57,7 @@ class BackupMixinPart1Group2(BaseHandler):
             <tr><td class="text-muted" style="width:140px">账单金额合计</td><td>{m(summary['bill_amount'])}</td></tr>
             <tr><td class="text-muted">缴费金额合计</td><td>{m(summary['payment_amount'])}</td></tr>
             <tr><td class="text-muted">最近账期</td><td>{h(summary['periods'] or '无')}</td></tr>
-            <tr><td class="text-muted">主要楼栋</td><td>{h(summary['buildings'] or '无')}</td></tr>
+            <tr><td class="text-muted">主要楼栋/区域</td><td>{h(summary['buildings'] or '无')}</td></tr>
         </table></div></div>'''
         else:
             summary_html = f'<div class="alert alert-warning">当前数据库摘要读取失败：{h(summary["error"])}</div>'
@@ -71,7 +71,7 @@ class BackupMixinPart1Group2(BaseHandler):
         {summary_html}
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-primary" href="/">去首页</a>
-            <a class="btn btn-outline-primary" href="/rooms">查看房间</a>
+            <a class="btn btn-outline-primary" href="/rooms">查看收费对象</a>
             <a class="btn btn-outline-primary" href="/bills">查看账单</a>
             <a class="btn btn-outline-secondary" href="/backups">返回备份</a>
         </div>

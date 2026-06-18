@@ -88,11 +88,11 @@ class TestIntegration04(IntegrationTestBase):
         status, body = http_get('/meter_readings/create', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        self.assertIn('单元/区域 *', body)
+        self.assertIn('单元/分区 *', body)
         self.assertIn('id="mUnit"', body)
         self.assertIn('data-unit="商场"', body)
         self.assertIn('data-label="METERUNIT-商场-M101', body)
-        self.assertIn('选择单元/区域后再选择房间', body)
+        self.assertIn('选择单元/分区后再选择收费对象', body)
 
 
     def test_meter_create_rejects_water_fee_standard_mismatch(self):
@@ -278,8 +278,8 @@ class TestIntegration04(IntegrationTestBase):
     def test_shared_expense_unit_label_matches_room_management_wording(self):
         status, body = http_get('/shared_expenses', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('单元/区域', body)
-        self.assertIn('全部单元/区域', body)
+        self.assertIn('单元/分区', body)
+        self.assertIn('全部单元/分区', body)
         self.assertNotIn('单元/座', body)
 
 

@@ -18,7 +18,7 @@ def _action_block(role, can_finance_write, can_customer_write):
         return '''
                 <a href="/collections" class="btn btn-primary btn-sm"><i class="bi bi-telephone-outbound"></i> 客服催费对象</a>
                 <a href="/owners" class="btn btn-outline-primary btn-sm"><i class="bi bi-people"></i> 业主管理</a>
-                <a href="/rooms" class="btn btn-outline-primary btn-sm"><i class="bi bi-door-open"></i> 房间管理</a>
+                <a href="/rooms" class="btn btn-outline-primary btn-sm"><i class="bi bi-door-open"></i> 收费对象管理</a>
                 <a href="/merchant_contracts" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-text"></i> 合同档案</a>
                 <a href="/meter_readings" class="btn btn-outline-secondary btn-sm"><i class="bi bi-clipboard-data"></i> 抄表管理</a>'''
     return '''
@@ -36,16 +36,16 @@ def _first_run_steps(can_finance_write, can_customer_write):
             '''<div class="col-md-2"><a class="btn btn-outline-success w-100" href="/bills/generate">4 生成账单</a></div>'''
             '''<div class="col-md-2"><a class="btn btn-outline-success w-100" href="/billing">5 收费登记</a></div>'''
             '''<div class="col-md-2"><a class="btn btn-outline-info w-100" href="/reports">6 对账报表</a></div>'''
-        ), '建议先按模板整理楼栋、房号、楼层、业主、合同日期等基础资料，再生成账单。'
+        ), '建议先按模板整理项目、楼栋/区域、单元/分区、房号/铺位号、楼层、业主、合同日期等基础资料，再生成账单。'
     if can_customer_write:
         return (
             '''<div class="col-md-2"><a class="btn btn-outline-primary w-100" href="/import/template/basic.xlsx" download="basic_info_template.xlsx">1 下载导入模板</a></div>'''
             '''<div class="col-md-2"><a class="btn btn-outline-primary w-100" href="/import">2 导入基础资料</a></div>'''
             '''<div class="col-md-2"><a class="btn btn-outline-primary w-100" href="/owners">3 核对业主</a></div>'''
-            '''<div class="col-md-2"><a class="btn btn-outline-primary w-100" href="/rooms">4 核对房间</a></div>'''
+            '''<div class="col-md-2"><a class="btn btn-outline-primary w-100" href="/rooms">4 核对收费对象</a></div>'''
             '''<div class="col-md-2"><a class="btn btn-outline-primary w-100" href="/merchant_contracts">5 合同档案</a></div>'''
             '''<div class="col-md-2"><a class="btn btn-outline-info w-100" href="/collections">6 催缴跟进</a></div>'''
-        ), '客服账号可维护业主、房间、合同、抄表和导入资料；账单生成、收款确认和结账由财务处理。'
+        ), '客服账号可维护业主、收费对象、合同、抄表和导入资料；账单生成、收款确认和结账由财务处理。'
     return (
         '''<div class="col-md-3"><a class="btn btn-outline-primary w-100" href="/bills">1 查看账单</a></div>'''
         '''<div class="col-md-3"><a class="btn btn-outline-primary w-100" href="/collections">2 客服催费对象</a></div>'''
@@ -100,7 +100,7 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
     elif can_customer_write:
         quick_actions = '''
             <a class="focus-action active" href="/collections">催缴对象</a>
-            <a class="focus-action" href="/rooms">房间资料</a>
+            <a class="focus-action" href="/rooms">收费对象资料</a>
             <a class="focus-action" href="/merchant_contracts">合同档案</a>
             <a class="focus-action" href="/meter_readings">抄表管理</a>
         '''

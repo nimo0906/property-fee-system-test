@@ -27,22 +27,22 @@ class RoomMixin(BaseHandler):
         cats=db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
         db.close()
         rh = self._render_room_rows_by_unit(rows)
-        bo='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
+        bo='<option value="">全部楼栋/区域</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
         default_cats = ["居民", "商户", "商业"]
         cat_values = []
         for x in default_cats + [c["category"] for c in cats]:
             if x and x not in cat_values:
                 cat_values.append(x)
-        cat_opts = '<option value="">全部房间类型</option>' + ''.join(f'<option value="{h(x)}"{" selected" if cat==x else""}>{h(x)}</option>' for x in cat_values)
+        cat_opts = '<option value="">全部对象类型</option>' + ''.join(f'<option value="{h(x)}"{" selected" if cat==x else""}>{h(x)}</option>' for x in cat_values)
         tpl=self._load_template('rooms.html')
         tpl=tpl.replace('{BOPTS}',bo).replace('{KW}',h(kw)).replace('{CAT_OPTS}', cat_opts)
         empty = """<tr><td colspan="13" class="text-center text-muted py-5">
         <div><i class="bi bi-door-open" style="font-size:2rem;color:#adb5bd"></i></div>
-        <h6 class="mt-2">还没有房间资料</h6>
-        <p class="mb-3">推荐先按模板导入楼栋、房号、楼层、面积、业主和合同日期；少量资料也可以手动添加。</p>
+        <h6 class="mt-2">还没有收费对象资料</h6>
+        <p class="mb-3">推荐先按模板导入项目、楼栋/区域、单元/分区、房号/铺位号、楼层、面积、客户和合同日期；少量资料也可以手动添加。</p>
         <a class="btn btn-outline-primary btn-sm" href="/import/template/basic.xlsx" download="basic_info_template.xlsx">下载基础资料模板</a>
         <a class="btn btn-primary btn-sm" href="/import">导入基础资料</a>
-        <a class="btn btn-outline-secondary btn-sm" href="/rooms/create">手动添加房间</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/rooms/create">手动添加收费对象</a>
         </td></tr>"""
         tpl=tpl.replace('{ROWS}',rh or empty)
         page_links = render_pagination(
@@ -52,16 +52,16 @@ class RoomMixin(BaseHandler):
             total_pages,
             per_page,
             total_rows,
-            '房间分页',
+            '收费对象分页',
         )
         tpl = tpl.replace('{PAGE_LINKS}', page_links)
-        self._html(self._page('房间管理',tpl,'rooms'))
+        self._html(self._page('收费对象管理',tpl,'rooms'))
 
     def _render_room_rows_by_unit(self, rows):
         grouped = []
         by_unit = {}
         for r in rows:
-            unit = r["unit"] or "未分单元"
+            unit = r["unit"] or "未分单元/分区"
             if unit not in by_unit:
                 by_unit[unit] = []
                 grouped.append(unit)
@@ -74,11 +74,11 @@ class RoomMixin(BaseHandler):
             parts.append(
                 f'<tr class="room-unit-group" data-unit="{h(unit)}" data-group="{group_id}" data-group-open="1">'
                 f'<td><input class="form-check-input room-unit-select" type="checkbox" '
-                f'onclick="selectRoomUnit(\'{group_id}\', this.checked)" title="选择本单元可见房间"></td>'
+                f'onclick="selectRoomUnit(\'{group_id}\', this.checked)" title="选择本单元/分区可见对象"></td>'
                 f'<td colspan="12"><div class="room-unit-header">'
                 f'<button type="button" class="btn btn-sm btn-link room-unit-toggle" '
                 f'onclick="toggleRoomUnit(\'{group_id}\')" aria-expanded="true">'
-                f'<i class="bi bi-chevron-down" id="icon_{group_id}"></i> {h(unit)} · {len(unit_rows)}间</button>'
+                f'<i class="bi bi-chevron-down" id="icon_{group_id}"></i> {h(unit)} · {len(unit_rows)}个对象</button>'
                 f'<span class="text-muted small">当前筛选结果</span>'
                 f'</div></td></tr>'
             )
@@ -92,7 +92,7 @@ class RoomMixin(BaseHandler):
                     f'<td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td>'
                     f'<td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary" title="编辑"><i class="bi bi-pencil"></i></a>'
                     f'<a href="/rooms/{r["id"]}/tenant_transfer" class="btn btn-sm btn-outline-info" title="转租登记"><i class="bi bi-arrow-left-right"></i> 转租</a>'
-                    f'<form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除房间？该房间的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
+                    f'<form method=POST action="/rooms/{r["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除收费对象？该对象的账单和抄表记录将一并删除！\')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
                 )
         return ''.join(parts)
 
@@ -108,7 +108,7 @@ class RoomMixin(BaseHandler):
         source = qs(q or {}, 'source')
         from_import = source == 'import'
         a=f'/rooms/{rid}/edit' if rid else '/rooms/create'
-        t='编辑房间' if rid else '添加房间'
+        t='编辑收费对象' if rid else '添加收费对象'
         b=h(room['building'] if room else '示例项目');u=h(room['unit'] if room else '商场')
         n=h(room['room_number'] if room else '');fl=room['floor'] if room else 7
         cat=room['category'] if room else '商户';ar=room['area'] if room else 100
@@ -126,16 +126,17 @@ class RoomMixin(BaseHandler):
         wt=(room['water_rate_type'] if room and 'water_rate_type' in room.keys() and room['water_rate_type'] else '非居民')
         nt=h(room['notes'] or'') if room else ''
         stay_note = '<div class="alert alert-info"><strong>导入核对编辑</strong> 保存后会停留在本编辑页，方便继续核对本次导入数据。</div>' if from_import else ''
+        hierarchy_note = '<div class="alert alert-light border"><strong>对象层级：</strong>项目 → 楼栋/区域 → 单元/分区 → 房号/铺位号。当前桌面版默认使用一个项目，楼栋/区域、单元/分区、房号/铺位号用于日常筛选、出账、收据和报表核对。</div>'
         hidden_source = '<input type="hidden" name="source" value="import">' if from_import else ''
         cancel_href = f'/rooms/{rid}/edit?source=import' if from_import and rid else '/rooms'
         cancel_text = '留在编辑页' if from_import else ('返回' if rid else '取消')
-        self._html(self._page(t, stay_note + f'''<form method=POST action="{a}" class="row g-3">
+        self._html(self._page(t, stay_note + hierarchy_note + f'''<form method=POST action="{a}" class="row g-3">
     {hidden_source}
-    <div class="col-md-3"><label>楼栋 *</label><input name="building" class="form-control" value="{b}" required></div>
-    <div class="col-md-3"><label>单元/区域</label><select name="unit" class="form-select"><option value="A座" {"selected" if u=="A座" else ""}>A座</option><option value="B座" {"selected" if u=="B座" else ""}>B座</option><option value="商场" {"selected" if u=="商场" else ""}>商场</option></select><small class="text-muted">用于收费对象分组，如 A座、B座、写字楼、商铺区。</small></div>
-    <div class="col-md-3"><label>铺位号/房号 *</label><input name="room_number" class="form-control" value="{n}" required id="rmNum" oninput="autoFloor()"><small class="text-muted">商场建议填铺位号，如 1F-101。</small></div>
+    <div class="col-md-3"><label>楼栋/区域 *</label><input name="building" class="form-control" value="{b}" required></div>
+    <div class="col-md-3"><label>单元/分区</label><select name="unit" class="form-select"><option value="A座" {"selected" if u=="A座" else ""}>A座</option><option value="B座" {"selected" if u=="B座" else ""}>B座</option><option value="商场" {"selected" if u=="商场" else ""}>商场</option></select><small class="text-muted">项目下的二级分组，如 1单元、A座、B座、写字楼、商铺区。</small></div>
+    <div class="col-md-3"><label>房号/铺位号 *</label><input name="room_number" class="form-control" value="{n}" required id="rmNum" oninput="autoFloor()"><small class="text-muted">商场建议填铺位号，如 1F-101。</small></div>
     <div class="col-md-3"><label>楼层</label><input name="floor" type="number" class="form-control" value="{fl}" min="-99" max="99" id="rmFloor"><small class="text-muted">地下楼层可填负数，如 -3、-2、-1。</small></div>
-    <div class="col-md-3"><label>房间类型</label><select name="category" class="form-select" id="rmCat" onchange="autoRate()"><option value="居民" {"selected" if cat=="居民" else ""}>居民</option><option value="商户" {"selected" if cat=="商户" else ""}>商户</option><option value="商业" {"selected" if cat=="商业" else ""}>商业</option></select><small class="text-muted">决定收费适用范围；商业收费取商户/商业，不限定单元/区域。非居民/特行只是水费档位，不是房间类型。</small></div>
+    <div class="col-md-3"><label>对象类型</label><select name="category" class="form-select" id="rmCat" onchange="autoRate()"><option value="居民" {"selected" if cat=="居民" else ""}>居民</option><option value="商户" {"selected" if cat=="商户" else ""}>商户</option><option value="商业" {"selected" if cat=="商业" else ""}>商业</option></select><small class="text-muted">决定收费适用范围；商业收费取商户/商业，不限定单元/分区。非居民/特行只是水费档位，不是对象类型。</small></div>
     <div class="col-md-3"><label>面积(m²) *</label><input name="area" type="number" class="form-control" value="{ar}" step="0.01" required></div>
     <div class="col-md-3"><label>物业费单价(元/m²·月)</label><input name="custom_rate" type="number" class="form-control" value="{cr}" step="0.01" placeholder="如4.8"><small class="text-muted">商户/商业对象可按户维护独立单价。</small></div>
     <div class="col-md-3"><label>水费标准</label><select name="water_rate_type" class="form-select"><option value="非居民" {"selected" if wt=="非居民" else ""}>非居民 5.8元/m³</option><option value="特行" {"selected" if wt=="特行" else ""}>特行 20.11元/m³</option></select><small class="text-muted">仅用于水费(非居民)/水费(特行)选择。</small></div>
@@ -219,7 +220,7 @@ class RoomMixin(BaseHandler):
             raw = [raw]
         ids = [x for x in raw if str(x).isdigit()]
         if not ids:
-            return self._redirect('/rooms?flash=请先勾选要删除的房间')
+            return self._redirect('/rooms?flash=请先勾选要删除的收费对象')
         placeholders = ','.join('?' * len(ids))
         db = get_db()
         protected_rows = db.execute(
@@ -238,9 +239,9 @@ class RoomMixin(BaseHandler):
             delete_placeholders = ','.join('?' * len(deletable))
             db.execute(f"DELETE FROM rooms WHERE id IN ({delete_placeholders})", deletable)
         db.commit(); db.close()
-        msg = f'已删除房间{len(deletable)}间' if deletable else '没有删除房间'
+        msg = f'已删除收费对象{len(deletable)}个' if deletable else '没有删除收费对象'
         if protected:
-            msg += f'，跳过{len(protected)}间有关联记录的房间'
+            msg += f'，跳过{len(protected)}个有关联记录的对象'
         self._redirect('/rooms?flash=' + msg)
 
     def _room_delete(self, rid):
@@ -252,7 +253,7 @@ class RoomMixin(BaseHandler):
             parts=[]
             if bc>0: parts.append(f'账单{bc}笔')
             if mc>0: parts.append(f'抄表{mc}条')
-            return self._redirect('/rooms?flash=该房间存在账单或抄表记录，不能删除（' + '、'.join(parts) + '）')
+            return self._redirect('/rooms?flash=该收费对象存在账单或抄表记录，不能删除（' + '、'.join(parts) + '）')
         db.execute("DELETE FROM rooms WHERE id=?",(rid,))
         db.commit();db.close()
-        self._redirect('/rooms?flash=已删除房间')
+        self._redirect('/rooms?flash=已删除收费对象')

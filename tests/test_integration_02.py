@@ -97,8 +97,8 @@ class TestIntegration02(IntegrationTestBase):
             self.assertIn('class="room-unit-group"', body)
             self.assertIn('data-unit="B座"', body)
             self.assertIn('data-unit="商场"', body)
-            self.assertIn('B座 · 1间', body)
-            self.assertIn('商场 · 1间', body)
+            self.assertIn('B座 · 1个对象', body)
+            self.assertIn('商场 · 1个对象', body)
             self.assertIn('data-group-open="1"', body)
             self.assertIn('GROUPROOM', body)
             self.assertIn('1401', body)
@@ -109,7 +109,7 @@ class TestIntegration02(IntegrationTestBase):
             status, searched = http_get('/rooms?building=GROUPROOM&keyword=%E9%A4%90%E9%A5%AE', self.cookie, TEST_PORT)
             self.assertEqual(status, 200)
             self.assertIn('class="room-unit-group"', searched)
-            self.assertIn('商场 · 1间', searched)
+            self.assertIn('商场 · 1个对象', searched)
             self.assertIn('S-101', searched)
             self.assertNotIn('1401', searched)
             self.assertIn('data-group-open="1"', searched)
@@ -140,8 +140,8 @@ class TestIntegration02(IntegrationTestBase):
 
             status, _, loc = http_post('/rooms/batch_delete', [('room_ids', str(linked_room)), ('room_ids', str(empty_room))], self.cookie, TEST_PORT)
             self.assertEqual(status, 302)
-            self.assertIn('已删除房间1间', urllib.parse.unquote(loc))
-            self.assertIn('跳过1间有关联记录的房间', urllib.parse.unquote(loc))
+            self.assertIn('已删除收费对象1个', urllib.parse.unquote(loc))
+            self.assertIn('跳过1个有关联记录的对象', urllib.parse.unquote(loc))
 
             db = db_module.get_db()
             self.assertIsNotNone(db.execute('SELECT id FROM rooms WHERE id=?', (linked_room,)).fetchone())
@@ -197,8 +197,8 @@ class TestIntegration02(IntegrationTestBase):
     def test_room_form_explains_unit_category_and_business_type(self):
         status, body = http_get('/rooms/create', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('单元/区域', body)
-        self.assertIn('房间类型', body)
+        self.assertIn('单元/分区', body)
+        self.assertIn('对象类型', body)
         self.assertIn('商业', body)
         room_type_select = body.split('name="category"', 1)[1].split('</select>', 1)[0]
         self.assertNotIn('<option value="非居民"', room_type_select)
