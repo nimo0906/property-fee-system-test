@@ -275,3 +275,7 @@ class SaasRepository:
 
 def create_saas_repository(url):
     return SaasRepository(url)
+
+
+from server.saas_repository_search import attach_repository_search
+attach_repository_search(SaasRepository)

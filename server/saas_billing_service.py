@@ -86,6 +86,39 @@ def export_payments(self, user, project_id, period=None):
                 rows.append([payment.get("receipt_number", ""), bill["bill_number"], payment["amount_paid"], payment.get("method", "")])
         return {"filename": f"payments-{period or 'all'}.csv", "content": _csv(rows)}
 
+
+def _paginate(rows, page, page_size):
+        page = max(int(page or 1), 1)
+        page_size = max(min(int(page_size or 20), 100), 1)
+        start = (page - 1) * page_size
+        return {"total": len(rows), "page": page, "page_size": page_size, "items": rows[start:start + page_size]}
+
+def search_bills(self, user, project_id, keyword="", period=None, status=None, page=1, page_size=20):
+        rows = []
+        keyword = str(keyword or "").lower()
+        for bill in self.list_bills(user, project_id, period, status):
+            target = self.targets.get(bill["charge_target_id"], {})
+            item = {**bill, "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", "")}
+            haystack = " ".join(str(item.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number"]).lower()
+            if not keyword or keyword in haystack:
+                rows.append(item)
+        return _paginate(rows, page, page_size)
+
+def search_payments(self, user, project_id, keyword="", period=None, page=1, page_size=20):
+        self._require(user, "read")
+        bills = {b["id"]: b for b in self.list_bills(user, project_id, period, None)}
+        keyword = str(keyword or "").lower()
+        rows = []
+        for payment in sorted(self.payments.values(), key=lambda p: p["id"]):
+            bill = bills.get(payment["bill_id"])
+            if not bill or payment["tenant_id"] != user["tenant_id"] or payment["project_id"] != project_id:
+                continue
+            item = {**payment, "bill_number": bill["bill_number"], "billing_period": bill["billing_period"]}
+            haystack = " ".join(str(item.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period"]).lower()
+            if not keyword or keyword in haystack:
+                rows.append(item)
+        return _paginate(rows, page, page_size)
+
 def report(self, user, project_id, period):
         self._require(user, "read")
         bills = [b for b in self.bills.values() if b["tenant_id"] == user["tenant_id"] and b["project_id"] == project_id and b["billing_period"] == period]
@@ -105,5 +138,7 @@ def attach_billing_methods(cls):
     cls.record_payment = record_payment
     cls.export_bills = export_bills
     cls.export_payments = export_payments
+    cls.search_bills = search_bills
+    cls.search_payments = search_payments
     cls.report = report
     return cls

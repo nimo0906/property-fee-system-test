@@ -35,6 +35,13 @@ def register_billing_routes(app, service):
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
+    @app.get("/api/bills/search")
+    def search_bills(keyword: str = "", period: str = "", status: str = "", page: int = 1, page_size: int = 20, user=Depends(current_user)):
+        try:
+            return service.search_bills(user, user["project_id"], keyword, period or None, status or None, page, page_size)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
     @app.get("/api/bills")
     def list_bills(period: str = "", status: str = "", user=Depends(current_user)):
         try:
@@ -46,6 +53,13 @@ def register_billing_routes(app, service):
     def approve_bill(bill_id: int, user=Depends(current_user)):
         try:
             return {"item": service.approve_bill(user, user["project_id"], bill_id)}
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.get("/api/payments")
+    def search_payments(keyword: str = "", period: str = "", page: int = 1, page_size: int = 20, user=Depends(current_user)):
+        try:
+            return service.search_payments(user, user["project_id"], keyword, period or None, page, page_size)
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
