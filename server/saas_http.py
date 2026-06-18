@@ -84,6 +84,10 @@ class SimpleSaasHttpApp:
                 fee = self.service.fees[json_body['fee_type_id']]
                 bill = self.service.generate_bill(user, user['project_id'], target, fee, json_body['billing_period'], json_body['service_start'], json_body['service_end'])
                 return self._json_response(200, {'item': bill})
+            if path.startswith('/bills/') and path.endswith('/approve'):
+                bill_id = int(path.split('/')[2])
+                bill = self.service.approve_bill(user, user['project_id'], bill_id)
+                return self._json_response(200, {'item': bill})
             if path == '/payments':
                 payment = self.service.record_payment(user, json_body['bill_id'], json_body['amount'], json_body.get('method', ''), json_body.get('idempotency_key'))
                 return self._json_response(200, {'item': payment})
@@ -107,6 +111,14 @@ class SimpleSaasHttpApp:
         if path == '/charge-targets':
             try:
                 items = self.service.list_charge_targets(user, user['project_id'])
+                return self._json_response(200, {'items': items})
+            except PermissionDenied:
+                return self._json_response(403, {'detail': 'forbidden'})
+        if path.startswith('/bills'):
+            try:
+                query = path.split('?', 1)[1] if '?' in path else ''
+                params = dict(part.split('=', 1) for part in query.split('&') if '=' in part)
+                items = self.service.list_bills(user, user['project_id'], params.get('period') or None, params.get('status') or None)
                 return self._json_response(200, {'items': items})
             except PermissionDenied:
                 return self._json_response(403, {'detail': 'forbidden'})

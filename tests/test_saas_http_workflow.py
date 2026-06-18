@@ -34,6 +34,8 @@ class TestSaasHttpWorkflow(unittest.TestCase):
         })
         self.assertEqual(bill.status_code, 200)
         self.assertEqual(bill.json()['item']['amount'], 200.0)
+        approved = client.post(f"/bills/{bill.json()['item']['id']}/approve", json={})
+        self.assertEqual(approved.status_code, 200)
         paid = client.post('/payments', json={
             'bill_id': bill.json()['item']['id'], 'amount': 50, 'method': 'cash', 'idempotency_key': 'P-001'
         })

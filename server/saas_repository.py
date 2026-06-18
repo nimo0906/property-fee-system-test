@@ -4,6 +4,8 @@
 
 from sqlalchemy import create_engine, text
 
+from server.saas_service import PermissionDenied
+
 
 class TenantScopeError(Exception):
     pass
@@ -27,7 +29,7 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,username TEXT NOT NULL,role_code TEXT NOT NULL,password_hash TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,username))",
             "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,building,unit,room_number))",
             "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,name))",
-            "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'unpaid',UNIQUE(tenant_id,project_id,bill_number))",
+            "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending_review',UNIQUE(tenant_id,project_id,bill_number))",
             "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,UNIQUE(tenant_id,idempotency_key))",
             "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT '{}')",
             "CREATE TABLE IF NOT EXISTS backup_records(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,backup_id))",
@@ -129,12 +131,42 @@ class SaasRepository:
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
             result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
-                VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:period,:service_start,:service_end,:amount,'unpaid')"""),
+                VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:period,:service_start,:service_end,:amount,'pending_review')"""),
                 {"tenant_id": tenant_id, "project_id": project_id, "target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "period": period, "service_start": service_start, "service_end": service_end, "amount": float(amount)})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "unpaid"}
+            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "pending_review"}
+
+    def approve_bill(self, tenant_id, project_id, bill_id):
+        self._require_project_scope(tenant_id, project_id)
+        bill = self._row("SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status FROM bills WHERE id=:id", {"id": bill_id})
+        if not bill or int(bill["tenant_id"]) != int(tenant_id) or int(bill["project_id"]) != int(project_id):
+            raise TenantScopeError("bill does not belong to tenant")
+        with self.engine.begin() as conn:
+            conn.execute(text("UPDATE bills SET status='unpaid' WHERE id=:id AND tenant_id=:tenant_id AND project_id=:project_id"), {"id": bill_id, "tenant_id": tenant_id, "project_id": project_id})
+        bill["status"] = "unpaid"
+        return bill
+
+    def list_bills(self, tenant_id, project_id, period=None, status=None):
+        self._require_project_scope(tenant_id, project_id)
+        sql = "SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status FROM bills WHERE tenant_id=:tenant_id AND project_id=:project_id"
+        params = {"tenant_id": tenant_id, "project_id": project_id}
+        if period:
+            sql += " AND billing_period=:period"
+            params["period"] = period
+        if status:
+            sql += " AND status=:status"
+            params["status"] = status
+        sql += " ORDER BY id"
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(sql), params).mappings().all()
+            return [dict(r) for r in rows]
 
     def create_payment(self, tenant_id, project_id, bill_id, amount, method, idempotency_key):
         self._require_project_scope(tenant_id, project_id)
+        bill = self._row("SELECT id,tenant_id,project_id,status FROM bills WHERE id=:id", {"id": bill_id})
+        if not bill or int(bill["tenant_id"]) != int(tenant_id) or int(bill["project_id"]) != int(project_id):
+            raise TenantScopeError("bill does not belong to tenant")
+        if bill["status"] == "pending_review":
+            raise PermissionDenied("bill pending review")
         existing = self._row("SELECT id,tenant_id,project_id,bill_id,amount_paid,method,idempotency_key FROM payments WHERE tenant_id=:tenant_id AND idempotency_key=:key", {"tenant_id": tenant_id, "key": idempotency_key}) if idempotency_key else None
         if existing:
             return existing

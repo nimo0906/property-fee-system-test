@@ -6,6 +6,7 @@ from server.saas_backoffice import build_saas_migration_plan, build_saas_postgre
 from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
 from server.saas_storage import SaasStorage
+from server.saas_billing_api import register_billing_routes
 
 
 def create_app(database_url=None):
@@ -44,19 +45,6 @@ def create_app(database_url=None):
     class ImportConfirmIn(BaseModel):
         import_id: int
 
-    class BillGenerateIn(BaseModel):
-        target_id: int
-        fee_type_id: int
-        billing_period: str
-        service_start: str
-        service_end: str
-
-    class PaymentIn(BaseModel):
-        bill_id: int
-        amount: float
-        method: str = ""
-        idempotency_key: str = ""
-
     class ImportFileRegisterIn(BaseModel):
         import_type: str
         original_name: str
@@ -79,6 +67,9 @@ def create_app(database_url=None):
         if not user:
             raise HTTPException(status_code=401, detail="unauthenticated")
         return user
+
+    app.state.current_user = current_user
+    register_billing_routes(app, service)
 
     @app.get("/health")
     def health():
@@ -214,27 +205,6 @@ def create_app(database_url=None):
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
-
-    @app.post("/api/bills/generate")
-    def generate_bill(data: BillGenerateIn, user=__import__('fastapi').Depends(current_user)):
-        try:
-            service._require(user, "billing")
-            target = service.targets[data.target_id]
-            fee = service.fees[data.fee_type_id]
-            return {"item": service.generate_bill(user, user["project_id"], target, fee, data.billing_period, data.service_start, data.service_end)}
-        except PermissionDenied:
-            raise HTTPException(status_code=403, detail="forbidden")
-
-    @app.post("/api/payments")
-    def record_payment(data: PaymentIn, user=__import__('fastapi').Depends(current_user)):
-        try:
-            return {"item": service.record_payment(user, data.bill_id, data.amount, data.method, data.idempotency_key or None)}
-        except PermissionDenied:
-            raise HTTPException(status_code=403, detail="forbidden")
-
-    @app.get("/api/reports/summary")
-    def report_summary(period: str, user=__import__('fastapi').Depends(current_user)):
-        return service.report(user, user["project_id"], period)
 
     @app.get("/api/audit-logs")
     def audit_logs(user=__import__('fastapi').Depends(current_user)):

@@ -36,6 +36,8 @@ class TestSaasFastApiWorkflow(unittest.TestCase):
         })
         self.assertEqual(bill.status_code, 200)
         self.assertEqual(bill.json()['item']['amount'], 200.0)
+        approved = client.post(f"/api/bills/{bill.json()['item']['id']}/approve", json={})
+        self.assertEqual(approved.status_code, 200)
         payment = client.post('/api/payments', json={
             'bill_id': bill.json()['item']['id'], 'amount': 50, 'method': 'cash', 'idempotency_key': 'FAST-PAY-1'
         })

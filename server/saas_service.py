@@ -134,54 +134,6 @@ class SaasBackofficeService:
         self._log(user, project_id, 'fee_type.create', 'fee_type', fid, {'name': name, 'unit_price': float(unit_price)})
         return fee
 
-    def generate_bill(self, user, project_id, target, fee, period, service_start, service_end):
-        self._require(user, "billing")
-        if not self._same_tenant_project(user, project_id):
-            raise PermissionDenied("cross tenant project")
-        if target["tenant_id"] != user["tenant_id"] or target["project_id"] != project_id:
-            raise PermissionDenied("cross tenant target")
-        if fee["tenant_id"] != user["tenant_id"] or fee["project_id"] != project_id:
-            raise PermissionDenied("cross tenant fee")
-        amount = round(float(target["area"]) * float(fee["unit_price"]), 2)
-        bid = self._id()
-        bill = {"id": bid, "tenant_id": user["tenant_id"], "project_id": project_id,
-                "charge_target_id": target["id"], "fee_type_id": fee["id"],
-                "billing_period": period, "service_start": service_start, "service_end": service_end,
-                "bill_number": f"BILL-{bid:06d}", "amount": amount, "status": "unpaid"}
-        self.bills[bid] = bill
-        self._log(user, project_id, 'bill.generate', 'bill', bid, {'bill_number': bill['bill_number'], 'amount': amount, 'billing_period': period})
-        return bill
-
-    def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
-        self._require(user, "payment")
-        bill = self.bills[bill_id]
-        if bill["tenant_id"] != user["tenant_id"] or bill["project_id"] != user["project_id"]:
-            raise PermissionDenied("cross tenant bill")
-        key = (user["tenant_id"], idempotency_key) if idempotency_key else None
-        if key and key in self.payment_keys:
-            return self.payments[self.payment_keys[key]]
-        pid = self._id()
-        payment = {"id": pid, "tenant_id": user["tenant_id"], "project_id": bill["project_id"],
-                   "bill_id": bill_id, "amount_paid": float(amount), "method": method,
-                   "idempotency_key": idempotency_key}
-        self.payments[pid] = payment
-        if key:
-            self.payment_keys[key] = pid
-        paid = sum(p["amount_paid"] for p in self.payments.values() if p["bill_id"] == bill_id)
-        bill["status"] = "paid" if paid >= bill["amount"] else "partial"
-        self._log(user, bill['project_id'], 'payment.record', 'payment', pid, {'bill_id': bill_id, 'amount_paid': float(amount), 'method': method, 'idempotency_key': idempotency_key})
-        return payment
-
-    def report(self, user, project_id, period):
-        self._require(user, "read")
-        bills = [b for b in self.bills.values() if b["tenant_id"] == user["tenant_id"] and b["project_id"] == project_id and b["billing_period"] == period]
-        bill_ids = {b["id"] for b in bills}
-        payments = [p for p in self.payments.values() if p["tenant_id"] == user["tenant_id"] and p["bill_id"] in bill_ids]
-        due = round(sum(b["amount"] for b in bills), 2)
-        paid = round(sum(p["amount_paid"] for p in payments), 2)
-        return {"bill_count": len(bills), "bill_amount_total": due,
-                "payment_amount_total": paid, "unpaid_amount_total": round(due - paid, 2)}
-
     def preview_charge_target_import(self, user, project_id, rows):
         self._require(user, "import")
         if not self._same_tenant_project(user, project_id):
@@ -287,3 +239,7 @@ class SaasBackofficeService:
         project_id = target.get('project_id') or self._default_project_id(target['tenant_id']) or target['tenant_id']
         self._log(user, project_id, 'user.password_reset', 'user', target_user_id, {'target_user_id': target_user_id})
         return {'user_id': target_user_id}
+
+
+from server.saas_billing_service import attach_billing_methods
+attach_billing_methods(SaasBackofficeService)

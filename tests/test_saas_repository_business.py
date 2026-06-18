@@ -22,6 +22,7 @@ class TestSaasRepositoryBusiness(unittest.TestCase):
         target = repo.create_charge_target(tenant['id'], project['id'], '住宅楼', '1单元', '101', '居民', 80)
         fee = repo.create_fee_type(tenant['id'], project['id'], '物业费', 2.5)
         bill = repo.create_bill(tenant['id'], project['id'], target['id'], fee['id'], '2026-06', '2026-06-01', '2026-06-30', 200)
+        repo.approve_bill(tenant['id'], project['id'], bill['id'])
         payment = repo.create_payment(tenant['id'], project['id'], bill['id'], 50, 'cash', 'PAY-001')
         duplicate = repo.create_payment(tenant['id'], project['id'], bill['id'], 50, 'cash', 'PAY-001')
         self.assertEqual(payment['id'], duplicate['id'])

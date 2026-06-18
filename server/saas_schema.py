@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS bills (
     service_start DATE,
     service_end DATE,
     amount NUMERIC(12,2) NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'unpaid',
+    status TEXT NOT NULL DEFAULT 'pending_review',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(tenant_id, project_id, bill_number),
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)

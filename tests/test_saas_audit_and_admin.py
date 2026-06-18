@@ -13,6 +13,7 @@ class TestSaasAuditAndAdmin(unittest.TestCase):
         target = app.create_charge_target(finance, project, '住宅楼', '1单元', '101', '居民', 80)
         fee = app.create_fee_type(finance, project, '物业费', 2)
         bill = app.generate_bill(finance, project, target, fee, '2026-06', '2026-06-01', '2026-06-30')
+        app.approve_bill(finance, project, bill['id'])
         app.record_payment(finance, bill['id'], 50, 'cash', idempotency_key='AUDIT-PAY-1')
         preview = app.preview_charge_target_import(finance, project, [
             {'building': '住宅楼', 'unit': '1单元', 'room_number': '102', 'category': '居民', 'area': '60'}

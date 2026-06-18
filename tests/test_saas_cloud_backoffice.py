@@ -91,6 +91,7 @@ class TestSaasCloudBackoffice(unittest.TestCase):
         fee = app.create_fee_type(finance, project, "物业费", 3)
         bill = app.generate_bill(finance, project, target, fee, "2026-06", "2026-06-01", "2026-06-30")
         self.assertEqual(bill["amount"], 300.0)
+        app.approve_bill(finance, project, bill["id"])
         payment1 = app.record_payment(cashier, bill["id"], 120, "cash", idempotency_key="PAY-001")
         payment2 = app.record_payment(cashier, bill["id"], 120, "cash", idempotency_key="PAY-001")
         self.assertEqual(payment1["id"], payment2["id"])

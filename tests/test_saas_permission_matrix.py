@@ -20,6 +20,7 @@ class TestSaasPermissionMatrix(unittest.TestCase):
         target = self.service.create_charge_target(self.finance, self.project, '1栋', '1单元', '101', '居民', 80)
         fee = self.service.create_fee_type(self.finance, self.project, '物业费', 2.5)
         bill = self.service.generate_bill(self.finance, self.project, target, fee, '2026-06', '2026-06-01', '2026-06-30')
+        self.service.approve_bill(self.finance, self.project, bill['id'])
         payment = self.service.record_payment(self.finance, bill['id'], 100, 'cash', 'FIN-PAY-1')
         self.assertEqual(payment['amount_paid'], 100.0)
 
@@ -27,6 +28,7 @@ class TestSaasPermissionMatrix(unittest.TestCase):
         target = self.service.create_charge_target(self.finance, self.project, '1栋', '1单元', '101', '居民', 80)
         fee = self.service.create_fee_type(self.finance, self.project, '物业费', 2.5)
         bill = self.service.generate_bill(self.finance, self.project, target, fee, '2026-06', '2026-06-01', '2026-06-30')
+        self.service.approve_bill(self.finance, self.project, bill['id'])
 
         payment = self.service.record_payment(self.cashier, bill['id'], 100, 'cash', 'CASH-PAY-1')
         self.assertEqual(payment['amount_paid'], 100.0)
