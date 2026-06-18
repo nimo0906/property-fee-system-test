@@ -11,6 +11,7 @@ class PermissionDenied(Exception):
 
 ROLE_PERMISSIONS = {
     "system_admin": {"read", "write", "manage_users", "backup", "billing", "payment", "import"},
+    "platform_admin": {"read", "manage_users", "platform_users"},
     "finance": {"read", "write", "billing", "payment", "import"},
     "cashier": {"read", "payment"},
     "frontdesk": {"read", "write", "import"},
@@ -115,7 +116,7 @@ class SaasBackofficeService:
         return [
             {k: v for k, v in row.items() if k != 'password_hash'}
             for row in self.users.values()
-            if row['tenant_id'] == user['tenant_id']
+            if user['role_code'] == 'platform_admin' or row['tenant_id'] == user['tenant_id']
         ]
 
     def set_user_active(self, user, project_id, target_user_id, is_active):
@@ -262,16 +263,20 @@ class SaasBackofficeService:
     def reset_user_password(self, user, target_user_id, new_password):
         self._require(user, "manage_users")
         target = self.users[target_user_id]
-        if target["tenant_id"] != user["tenant_id"]:
+        cross_tenant = target["tenant_id"] != user["tenant_id"]
+        if cross_tenant and user.get('role_code') != 'platform_admin':
             raise PermissionDenied("cross tenant user")
         target['password_hash'] = hash_password(new_password)
         project_id = target.get('project_id') or self._default_project_id(target['tenant_id']) or target['tenant_id']
-        self._log(user, project_id, 'user.password_reset', 'user', target_user_id, {
+        detail = {
             'target_user_id': target_user_id,
             'target_username': target.get('username'),
             'target_role_code': target.get('role_code'),
             'password_changed': True,
-        })
+        }
+        if cross_tenant:
+            detail.update({'scope': 'platform', 'actor_username': user.get('username'), 'actor_tenant_id': user.get('tenant_id')})
+        self._log(user if not cross_tenant else target, project_id, 'user.password_reset', 'user', target_user_id, detail)
         return {'user_id': target_user_id}
 
 

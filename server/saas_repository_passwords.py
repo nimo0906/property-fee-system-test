@@ -46,6 +46,25 @@ def set_user_active_record(repo, tenant_id, user_id, is_active):
     return target
 
 
+
+def _target_project_id(repo, target):
+    project = repo._row("SELECT id FROM projects WHERE tenant_id=:tenant_id ORDER BY id LIMIT 1", {'tenant_id': target['tenant_id']})
+    return project['id'] if project else None
+
+
+def _platform_detail(actor, target, extra=None):
+    detail = {
+        'target_user_id': target['id'],
+        'target_username': target.get('username'),
+        'target_role_code': target.get('role_code'),
+        'scope': 'platform',
+        'actor_username': actor.get('username'),
+        'actor_tenant_id': actor.get('tenant_id'),
+    }
+    if extra:
+        detail.update(extra)
+    return detail
+
 def _repo_list_users(self, tenant_id=None):
     return list_user_records(self, tenant_id)
 
@@ -77,5 +96,34 @@ def _repo_reset_user_password(self, tenant_id, user_id, new_password, actor_user
 
 def attach_user_lifecycle_methods(cls):
     cls.list_users = _repo_list_users
+    cls.list_users_for_actor = _repo_list_users_for_actor
     cls.set_user_active = _repo_set_user_active
     cls.reset_user_password = _repo_reset_user_password
+    cls.reset_user_password_for_actor = _repo_reset_user_password_for_actor
+
+
+def _repo_list_users_for_actor(self, actor):
+    if actor.get('role_code') == 'platform_admin':
+        return list_user_records(self)
+    return list_user_records(self, actor['tenant_id'])
+
+
+def _repo_reset_user_password_for_actor(self, actor, user_id, new_password):
+    target = self.get_user(user_id)
+    if not target:
+        raise TenantScopeError('user does not belong to tenant')
+    if actor.get('role_code') != 'platform_admin' and int(target['tenant_id']) != int(actor['tenant_id']):
+        raise TenantScopeError('user does not belong to tenant')
+    reset_user_password_record(self, target['tenant_id'], user_id, new_password)
+    project_id = _target_project_id(self, target)
+    if project_id:
+        detail = {
+            'target_user_id': user_id,
+            'target_username': target.get('username'),
+            'target_role_code': target.get('role_code'),
+            'password_changed': True,
+        }
+        if actor.get('role_code') == 'platform_admin' and int(target['tenant_id']) != int(actor['tenant_id']):
+            detail = _platform_detail(actor, target, {'password_changed': True})
+        self.create_audit_log(target['tenant_id'], project_id, actor.get('id'), 'user.password_reset', 'user', user_id, detail)
+    return {'user_id': user_id}

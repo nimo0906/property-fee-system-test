@@ -13,6 +13,7 @@ class TestSaasRepositoryUserManagement(unittest.TestCase):
         self.tenant = self.repo.create_tenant('A物业')
         self.project = self.repo.create_project(self.tenant['id'], 'A项目')
         self.repo.upsert_role('system_admin', '管理员')
+        self.repo.upsert_role('platform_admin', '平台管理员')
         self.repo.upsert_role('finance', '财务')
         self.repo.upsert_role('cashier', '收费员')
 
@@ -53,6 +54,27 @@ class TestSaasRepositoryUserManagement(unittest.TestCase):
         self.assertEqual(disable_log['detail']['target_username'], 'cashier_a')
         with self.assertRaises(TenantScopeError):
             self.repo.set_user_active(self.tenant['id'], 99999, False)
+
+    def test_platform_admin_can_list_and_reset_all_tenant_users_with_target_audit(self):
+        admin = self.repo.create_staff_user(self.tenant['id'], self.project['id'], 'tenant_admin', 'system_admin')
+        other_tenant = self.repo.create_tenant('B物业')
+        other_project = self.repo.create_project(other_tenant['id'], 'B项目')
+        other_user = self.repo.create_staff_user(other_tenant['id'], other_project['id'], 'cashier_b', 'cashier')
+        platform = self.repo.create_staff_user(self.tenant['id'], self.project['id'], 'platform_admin', 'platform_admin')
+
+        users = self.repo.list_users_for_actor(platform)
+        self.assertIn('cashier_b', {u['username'] for u in users})
+        reset = self.repo.reset_user_password_for_actor(platform, other_user['id'], 'global-temp-pass')
+        self.assertEqual(reset['user_id'], other_user['id'])
+        self.assertTrue(verify_password('global-temp-pass', self.repo.get_user(other_user['id'])['password_hash']))
+        logs = self.repo.list_audit_logs(other_tenant['id'], other_project['id'])
+        reset_log = next(row for row in logs if row['action'] == 'user.password_reset')
+        self.assertEqual(reset_log['detail']['scope'], 'platform')
+        self.assertEqual(reset_log['detail']['actor_username'], 'platform_admin')
+        self.assertNotIn('global-temp-pass', str(reset_log))
+
+        with self.assertRaises(TenantScopeError):
+            self.repo.reset_user_password_for_actor(admin, other_user['id'], 'blocked-pass')
 
     def test_reset_password_requires_same_tenant(self):
         user = self.repo.create_staff_user(self.tenant['id'], self.project['id'], 'finance_a', 'finance')

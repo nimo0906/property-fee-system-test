@@ -67,6 +67,23 @@ class TestSaasPermissionMatrix(unittest.TestCase):
         with self.assertRaises(PermissionDenied):
             self.service.set_user_active(self.finance, self.project, new_user['id'], True)
 
+    def test_platform_admin_can_manage_users_across_tenants_with_scoped_audit(self):
+        other_tenant = self.service.create_tenant('其他物业')
+        other_project = self.service.create_project(other_tenant, '其他项目')
+        tenant_admin = self.service.create_user(other_tenant, 'other_admin', 'system_admin')
+        other_user = self.service.create_staff_user(tenant_admin, other_project, 'other_cashier', 'cashier')
+        platform_admin = self.service.create_user(self.tenant, 'platform_admin', 'platform_admin')
+
+        users = self.service.list_staff_users(platform_admin, self.project)
+        self.assertIn('other_cashier', {row['username'] for row in users})
+        reset = self.service.reset_user_password(platform_admin, other_user['id'], 'platform-temp-pass')
+        self.assertEqual(reset['user_id'], other_user['id'])
+        logs = self.service.list_audit_logs(tenant_admin, other_project)
+        reset_log = next(row for row in logs if row['action'] == 'user.password_reset')
+        self.assertEqual(reset_log['detail']['scope'], 'platform')
+        self.assertEqual(reset_log['detail']['actor_username'], 'platform_admin')
+        self.assertNotIn('platform-temp-pass', str(reset_log))
+
     def test_unknown_role_is_rejected(self):
         with self.assertRaises(ValueError):
             self.service.create_staff_user(self.admin, self.project, 'ghost', 'owner')

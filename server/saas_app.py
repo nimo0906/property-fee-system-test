@@ -88,7 +88,7 @@ def create_app(database_url=None):
     def list_users(user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "manage_users")
-            items = repository.list_users(user["tenant_id"]) if repository else service.list_staff_users(user, user["project_id"])
+            items = repository.list_users_for_actor(user) if repository else service.list_staff_users(user, user["project_id"])
             return {"items": items}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
@@ -114,7 +114,7 @@ def create_app(database_url=None):
         try:
             service._require(user, "manage_users")
             if repository:
-                item = repository.reset_user_password(user["tenant_id"], user_id, data.new_password, actor_user_id=user["id"], project_id=user["project_id"])
+                item = repository.reset_user_password_for_actor(user, user_id, data.new_password)
             else:
                 item = service.reset_user_password(user, user_id, data.new_password)
             return {"item": item}

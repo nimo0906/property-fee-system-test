@@ -85,7 +85,7 @@ class SaasRepository:
             return [row[0] for row in rows]
 
     def _validate_role(self, role_code):
-        if role_code not in {"system_admin", "finance", "cashier", "frontdesk", "executive"}:
+        if role_code not in {"platform_admin", "system_admin", "finance", "cashier", "frontdesk", "executive"}:
             raise ValueError("unknown role")
 
     def create_user(self, tenant_id, username, role_code, password_hash=None):
