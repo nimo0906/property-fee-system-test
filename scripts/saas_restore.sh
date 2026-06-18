@@ -24,16 +24,31 @@ if [ ! -f "$source_path" ]; then
   exit 2
 fi
 
+validate_tar_safe() {
+  local archive=$1
+  local member
+  while IFS= read -r member; do
+    case "$member" in
+      /*|../*|*/../*|*'/..')
+        echo "unsafe archive member: $member" >&2
+        exit 2
+        ;;
+    esac
+  done < <(tar -tzf "$archive")
+}
+
 case "$scope" in
   --database)
     docker compose exec -T postgres psql -U "$POSTGRES_USER" "$POSTGRES_DB" < "$source_path"
     ;;
   --tenant-files)
+    validate_tar_safe "$source_path"
     target=${SAAS_CUSTOMER_FILES_DIR:-/var/lib/property-saas/tenants}
     mkdir -p "$target"
     tar -C "$target" -xzf "$source_path"
     ;;
   --system-files)
+    validate_tar_safe "$source_path"
     target=${SAAS_SYSTEM_FILES_DIR:-/var/lib/property-saas/system}
     mkdir -p "$target"
     tar -C "$target" -xzf "$source_path"

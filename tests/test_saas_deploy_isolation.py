@@ -106,6 +106,31 @@ class TestSaasDeployIsolation(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('WARN nginx http only', result.stdout)
 
+    def test_restore_script_rejects_archive_path_traversal(self):
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        import tarfile
+
+        with tempfile.TemporaryDirectory() as td:
+            archive = Path(td) / 'evil.tar.gz'
+            payload = Path(td) / 'payload.txt'
+            payload.write_text('evil', encoding='utf-8')
+            with tarfile.open(archive, 'w:gz') as tf:
+                tf.add(payload, arcname='../escape.txt')
+            result = subprocess.run(
+                ['bash', 'scripts/saas_restore.sh', '--tenant-files', str(archive)],
+                cwd=self.root,
+                env={**os.environ, 'SAAS_CUSTOMER_FILES_DIR': str(Path(td) / 'tenant-target')},
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                timeout=30,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('unsafe archive member', result.stdout)
+
     def test_validator_checks_deployment_isolation_contract(self):
         result = validate_deployment_assets(self.root)
         self.assertTrue(result['ok'], result)
