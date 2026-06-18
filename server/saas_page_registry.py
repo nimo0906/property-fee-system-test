@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Register SaaS HTML backoffice pages."""
 
+from server.saas_audit_log_pages import register_audit_log_pages
 from server.saas_backoffice_pages import register_backoffice_pages
 from server.saas_bill_pages import register_bill_pages
 from server.saas_charge_target_pages import register_charge_target_pages
@@ -21,3 +22,4 @@ def register_saas_pages(app, service, repository, current_user, sessions):
     register_payment_pages(app, service, repository, current_user)
     register_report_pages(app, service, repository, current_user)
     register_import_pages(app, service, repository, current_user)
+    register_audit_log_pages(app, service, repository, current_user)

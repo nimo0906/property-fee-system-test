@@ -26,6 +26,7 @@ def _backoffice_home(user):
         _module_card('收款登记', '登记收款、查看收据号和收款流水。', '/backoffice/payments'),
         _module_card('对账报表', '按账期查看应收、实收和欠费。', '/backoffice/reports'),
         _module_card('数据导入', '导入收费对象，先预览校验再确认写入。', '/backoffice/imports'),
+        _module_card('审计日志', '查看账号、导入、出账、审核、收款等关键操作。', '/backoffice/audit-logs'),
     ])
     body = f'''
 <section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
