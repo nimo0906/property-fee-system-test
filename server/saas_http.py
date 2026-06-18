@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Minimal SaaS HTTP app shim for tenant/session/auth tests."""
+
+from http.cookies import SimpleCookie
+import secrets
+
+from server.saas_service import PermissionDenied, SaasBackofficeService
+
+
+class SimpleResponse:
+    def __init__(self, status_code=200, json_body=None, cookies=None):
+        self.status_code = status_code
+        self._json = json_body or {}
+        self.cookies = cookies or {}
+
+    def json(self):
+        return self._json
+
+
+class SimpleSaasHttpApp:
+    def __init__(self):
+        self.service = SaasBackofficeService.in_memory()
+        self.sessions = {}
+        self.cookies = {}
+
+    def _session_user(self, cookie_header):
+        if not cookie_header:
+            return None
+        cookie = SimpleCookie()
+        cookie.load(cookie_header)
+        session_id = cookie.get('session_id')
+        if not session_id:
+            return None
+        return self.sessions.get(session_id.value)
+
+    def _json_response(self, status_code, body=None, cookies=None):
+        return SimpleResponse(status_code=status_code, json_body=body or {}, cookies=cookies or {})
+
+    def _headers_with_cookies(self, headers):
+        headers = dict(headers or {})
+        if self.cookies and 'Cookie' not in headers:
+            headers['Cookie'] = '; '.join(f"{k}={v}" for k, v in self.cookies.items())
+        return headers
+
+    def post(self, path, json_body=None, headers=None, json=None):
+        json_body = json if json is not None else json_body
+        json_body = json_body or {}
+        headers = self._headers_with_cookies(headers)
+        if path == '/auth/login':
+            tenant_name = json_body['tenant_name']
+            project_name = json_body['project_name']
+            username = json_body['username']
+            role_code = json_body['role_code']
+            tenant_id = self.service.create_tenant(tenant_name)
+            project_id = self.service.create_project(tenant_id, project_name)
+            user = self.service.create_user(tenant_id, username, role_code)
+            user['tenant_name'] = tenant_name
+            user['project_name'] = project_name
+            user['project_id'] = project_id
+            session_id = secrets.token_hex(16)
+            self.sessions[session_id] = user
+            self.cookies['session_id'] = session_id
+            return self._json_response(200, {'ok': True}, {'session_id': session_id})
+        user = self._session_user(headers.get('Cookie', ''))
+        if not user:
+            return self._json_response(401, {'detail': 'unauthenticated'})
+        if path == '/charge-targets':
+            try:
+                target = self.service.create_charge_target(user, user['project_id'], json_body['building'], json_body.get('unit', ''), json_body['room_number'], json_body.get('category', '居民'), json_body.get('area', 0))
+                return self._json_response(200, {'item': target})
+            except PermissionDenied:
+                return self._json_response(403, {'detail': 'forbidden'})
+        return self._json_response(404, {'detail': 'not found'})
+
+    def get(self, path, headers=None):
+        headers = self._headers_with_cookies(headers)
+        user = self._session_user(headers.get('Cookie', ''))
+        if path == '/auth/me':
+            if not user:
+                return self._json_response(401, {'detail': 'unauthenticated'})
+            return self._json_response(200, {'tenant_name': user['tenant_name'], 'project_name': user['project_name'], 'role_code': user['role_code']})
+        if not user:
+            return self._json_response(401, {'detail': 'unauthenticated'})
+        if path == '/charge-targets':
+            try:
+                items = self.service.list_charge_targets(user, user['project_id'])
+                return self._json_response(200, {'items': items})
+            except PermissionDenied:
+                return self._json_response(403, {'detail': 'forbidden'})
+        return self._json_response(404, {'detail': 'not found'})
+
+
+class FastApiLikeApp(SimpleSaasHttpApp):
+    pass
+
+
+def create_saas_http_app():
+    return FastApiLikeApp()
