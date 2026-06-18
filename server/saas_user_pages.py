@@ -48,6 +48,7 @@ def _render_users(user, items, message='', filters=None, total=0, page=1, page_s
     rows = ''.join(_render_user_row(row) for row in items) or '<tr><td colspan="7">暂无账号</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     tenant_filter = _render_tenant_filter(user, filters)
+    side_panel = _render_side_panel(user)
     role_options = ''.join(
         f'<option value="{_h(code)}"{" selected" if filters.get("role_code") == code else ""}>{_h(name)}</option>'
         for code, name in [('', '全部角色'), ('platform_admin', '平台管理员'), ('system_admin', '租户管理员'), ('finance', '财务'), ('cashier', '收费员'), ('frontdesk', '客服业务编辑'), ('executive', '管理层只读')]
@@ -67,9 +68,14 @@ def _render_users(user, items, message='', filters=None, total=0, page=1, page_s
 <section class="hero"><div><h1>账号管理</h1><div class="sub">正式商业后台账号控制台。租户管理员只能管理本公司员工；平台管理员可跨租户处理账号，但操作会写入目标租户审计。</div></div><div class="badge tenant-scope">{_h(scope_label)}</div></section>
 {notice}
 <section class="grid"><div class="card"><div class="card-h">员工账号列表</div><div class="card-b"><form method="get" action="/backoffice/users" class="filters"><input type="hidden" name="page" value="1"><div><label>关键字</label><input name="q" value="{_h(filters.get('q', ''))}" placeholder="账号关键词"></div>{tenant_filter}<div><label>角色</label><select name="role_code">{role_options}</select></div><div><label>状态</label><select name="is_active">{active_options}</select></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">筛选</button></div></form>{pager}<table><thead><tr><th>ID</th><th>租户</th><th>账号</th><th>角色</th><th>状态</th><th>重置密码</th><th>账号状态</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
-<aside class="card"><div class="card-h">新建员工账号</div><div class="card-b"><form method="post" action="/backoffice/users/create"><label>登录账号</label><input name="username" required placeholder="例如 cashier_01"><label>角色</label><select name="role_code"><option value="cashier">收费员</option><option value="finance">财务</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="system_admin">租户管理员</option></select><button class="primary">创建账号</button><div class="hint">创建后请立即通过左侧“重置密码”设置临时密码，并要求员工首次登录后修改。</div></form></div></aside></section>'''
+{side_panel}</section>'''
     return _page('账号管理', body)
 
+
+def _render_side_panel(user):
+    if user.get('role_code') == 'platform_admin':
+        return '''<aside class="card"><div class="card-h">客户开通</div><div class="card-b"><p class="sub">平台管理员不在这里直接新建客户员工，避免把客户员工建到平台租户。</p><p class="sub">请通过客户开通创建客户公司、默认项目和首个租户管理员，再由租户管理员维护本公司员工。</p><a class="ghost-link" href="/backoffice/tenant-onboarding">进入客户开通</a></div></aside>'''
+    return '''<aside class="card"><div class="card-h">新建员工账号</div><div class="card-b"><form method="post" action="/backoffice/users/create"><label>登录账号</label><input name="username" required placeholder="例如 cashier_01"><label>角色</label><select name="role_code"><option value="cashier">收费员</option><option value="finance">财务</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="system_admin">租户管理员</option></select><button class="primary">创建账号</button><div class="hint">创建后请立即通过左侧“重置密码”设置临时密码，并要求员工首次登录后修改。</div></form></div></aside>'''
 
 
 def _render_tenant_filter(user, filters):

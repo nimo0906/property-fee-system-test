@@ -199,6 +199,30 @@ class TestSaasPlatformUserManagementPages(unittest.TestCase):
             self.assertIn('a_cashier', filtered.text)
             self.assertNotIn('b_cashier', filtered.text)
 
+
+    def test_platform_admin_user_page_guides_to_tenant_onboarding_instead_of_staff_create(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            platform = TestClient(create_app(database_url=db_url))
+            login = platform.post('/api/auth/login', json={
+                'tenant_name': '平台物业',
+                'project_name': '平台项目',
+                'username': 'platform_admin',
+                'role_code': 'platform_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+
+            page = platform.get('/backoffice/users')
+            self.assertEqual(page.status_code, 200)
+            self.assertNotIn('action="/backoffice/users/create"', page.text)
+            self.assertNotIn('新建员工账号', page.text)
+            self.assertIn('客户开通', page.text)
+            self.assertIn('/backoffice/tenant-onboarding', page.text)
+            self.assertIn('避免把客户员工建到平台租户', page.text)
+
     def test_tenant_admin_cannot_disable_other_tenant_user_from_page(self):
         import tempfile
         from pathlib import Path
