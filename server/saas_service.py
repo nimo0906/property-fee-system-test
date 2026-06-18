@@ -73,9 +73,18 @@ class SaasBackofficeService:
         self.projects[pid] = {"id": pid, "tenant_id": tenant_id, "name": name}
         return pid
 
+    def _default_project_id(self, tenant_id):
+        return next((p["id"] for p in self.projects.values() if p["tenant_id"] == tenant_id), None)
+
     def create_user(self, tenant_id, username, role_code):
         uid = self._id()
-        user = {"id": uid, "tenant_id": tenant_id, "username": username, "role_code": role_code}
+        user = {
+            "id": uid,
+            "tenant_id": tenant_id,
+            "project_id": self._default_project_id(tenant_id),
+            "username": username,
+            "role_code": role_code,
+        }
         self.users[uid] = user
         return user
 
@@ -112,6 +121,10 @@ class SaasBackofficeService:
         self._require(user, "billing")
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
+        if target["tenant_id"] != user["tenant_id"] or target["project_id"] != project_id:
+            raise PermissionDenied("cross tenant target")
+        if fee["tenant_id"] != user["tenant_id"] or fee["project_id"] != project_id:
+            raise PermissionDenied("cross tenant fee")
         amount = round(float(target["area"]) * float(fee["unit_price"]), 2)
         bid = self._id()
         bill = {"id": bid, "tenant_id": user["tenant_id"], "project_id": project_id,
@@ -125,7 +138,7 @@ class SaasBackofficeService:
     def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
         self._require(user, "payment")
         bill = self.bills[bill_id]
-        if bill["tenant_id"] != user["tenant_id"]:
+        if bill["tenant_id"] != user["tenant_id"] or bill["project_id"] != user["project_id"]:
             raise PermissionDenied("cross tenant bill")
         key = (user["tenant_id"], idempotency_key) if idempotency_key else None
         if key and key in self.payment_keys:

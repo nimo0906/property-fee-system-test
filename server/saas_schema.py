@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS projects (
     code TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(id, tenant_id),
     UNIQUE(tenant_id, name)
 );
 
@@ -58,7 +59,8 @@ CREATE TABLE IF NOT EXISTS owners (
     name TEXT NOT NULL,
     phone TEXT,
     id_card_masked TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS charge_targets (
@@ -72,7 +74,8 @@ CREATE TABLE IF NOT EXISTS charge_targets (
     category TEXT NOT NULL,
     area NUMERIC(12,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE(tenant_id, project_id, building, unit, room_number)
+    UNIQUE(tenant_id, project_id, building, unit, room_number),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS fee_types (
@@ -82,7 +85,8 @@ CREATE TABLE IF NOT EXISTS fee_types (
     name TEXT NOT NULL,
     unit_price NUMERIC(12,4) NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    UNIQUE(tenant_id, project_id, name)
+    UNIQUE(tenant_id, project_id, name),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS bills (
@@ -98,7 +102,8 @@ CREATE TABLE IF NOT EXISTS bills (
     amount NUMERIC(12,2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'unpaid',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE(tenant_id, project_id, bill_number)
+    UNIQUE(tenant_id, project_id, bill_number),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS payments (
@@ -110,7 +115,8 @@ CREATE TABLE IF NOT EXISTS payments (
     method TEXT,
     idempotency_key TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE(tenant_id, idempotency_key)
+    UNIQUE(tenant_id, idempotency_key),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS imports (
@@ -124,7 +130,8 @@ CREATE TABLE IF NOT EXISTS imports (
     file_size BIGINT,
     content_type TEXT,
     summary JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -136,6 +143,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     entity_type TEXT,
     entity_id BIGINT,
     detail JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 """.strip()

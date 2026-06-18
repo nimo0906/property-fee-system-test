@@ -5,6 +5,10 @@
 from sqlalchemy import create_engine, text
 
 
+class TenantScopeError(Exception):
+    pass
+
+
 class SaasRepository:
     def __init__(self, url):
         self.engine = create_engine(url, future=True)
@@ -53,6 +57,11 @@ class SaasRepository:
     def get_project(self, project_id):
         return self._row("SELECT id,tenant_id,name,code,is_active FROM projects WHERE id=:id", {"id": project_id})
 
+    def _require_project_scope(self, tenant_id, project_id):
+        project = self.get_project(project_id)
+        if not project or int(project["tenant_id"]) != int(tenant_id):
+            raise TenantScopeError("project does not belong to tenant")
+
     def upsert_role(self, code, name):
         with self.engine.begin() as conn:
             conn.execute(text("INSERT OR REPLACE INTO roles(code,name) VALUES(:code,:name)"), {"code": code, "name": name})
@@ -82,6 +91,7 @@ class SaasRepository:
         return self._row("SELECT id,tenant_id,username,role_code,password_hash,is_active FROM users WHERE id=:id", {"id": user_id})
 
     def create_charge_target(self, tenant_id, project_id, building, unit, room_number, category, area):
+        self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
             result = conn.execute(text("""INSERT INTO charge_targets(tenant_id,project_id,building,unit,room_number,category,area)
                 VALUES(:tenant_id,:project_id,:building,:unit,:room_number,:category,:area)"""),
@@ -95,12 +105,14 @@ class SaasRepository:
             return [dict(r) for r in rows]
 
     def create_fee_type(self, tenant_id, project_id, name, unit_price):
+        self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
             result = conn.execute(text("INSERT INTO fee_types(tenant_id,project_id,name,unit_price) VALUES(:tenant_id,:project_id,:name,:unit_price)"),
                 {"tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price)})
             return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price)}
 
     def create_bill(self, tenant_id, project_id, target_id, fee_type_id, period, service_start, service_end, amount):
+        self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
             result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
@@ -109,6 +121,7 @@ class SaasRepository:
             return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "unpaid"}
 
     def create_payment(self, tenant_id, project_id, bill_id, amount, method, idempotency_key):
+        self._require_project_scope(tenant_id, project_id)
         existing = self._row("SELECT id,tenant_id,project_id,bill_id,amount_paid,method,idempotency_key FROM payments WHERE tenant_id=:tenant_id AND idempotency_key=:key", {"tenant_id": tenant_id, "key": idempotency_key}) if idempotency_key else None
         if existing:
             return existing
@@ -129,6 +142,7 @@ class SaasRepository:
         return {"bill_count": int(bill_row["bill_count"] or 0), "bill_amount_total": due, "payment_amount_total": paid, "unpaid_amount_total": round(due - paid, 2)}
 
     def create_audit_log(self, tenant_id, project_id, user_id, action, entity_type, entity_id, detail):
+        self._require_project_scope(tenant_id, project_id)
         import json
         with self.engine.begin() as conn:
             result = conn.execute(text("""INSERT INTO audit_logs(tenant_id,project_id,user_id,action,entity_type,entity_id,detail_json)
@@ -144,6 +158,7 @@ class SaasRepository:
             return [{**dict(r), "detail": json.loads(r["detail_json"] or "{}")} for r in rows]
 
     def create_import_file(self, tenant_id, project_id, import_type, original_name, storage_key, file_size, content_type):
+        self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
             result = conn.execute(text("""INSERT INTO imports(tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type)
                 VALUES(:tenant_id,:project_id,:import_type,'uploaded',:original_name,:storage_key,:file_size,:content_type)"""),
