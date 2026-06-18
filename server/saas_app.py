@@ -4,9 +4,10 @@
 
 from server.saas_backoffice import build_saas_migration_plan, build_saas_postgres_schema
 from server.saas_service import PermissionDenied, SaasBackofficeService
+from server.saas_repository import create_saas_repository
 
 
-def create_app():
+def create_app(database_url=None):
     try:
         from fastapi import Cookie, FastAPI, HTTPException, Response
         from pydantic import BaseModel
@@ -15,6 +16,7 @@ def create_app():
 
     app = FastAPI(title="物业收费管理系统 SaaS 后台")
     service = SaasBackofficeService.in_memory()
+    repository = create_saas_repository(database_url) if database_url else None
     sessions = {}
 
     class LoginIn(BaseModel):
@@ -61,14 +63,22 @@ def create_app():
 
     @app.get("/health")
     def health():
-        return {"ok": True, "service": "property-saas-backoffice"}
+        return {"ok": True, "service": "property-saas-backoffice", "storage": "persistent" if repository else "memory"}
 
     @app.post("/api/auth/login")
     def login(data: LoginIn, response: Response):
         import secrets
-        tenant_id = service.create_tenant(data.tenant_name)
-        project_id = service.create_project(tenant_id, data.project_name)
-        user = service.create_user(tenant_id, data.username, data.role_code)
+        if repository:
+            tenant_row = repository.create_tenant(data.tenant_name)
+            project_row = repository.create_project(tenant_row["id"], data.project_name)
+            user_row = repository.create_user(tenant_row["id"], data.username, data.role_code)
+            tenant_id = tenant_row["id"]
+            project_id = project_row["id"]
+            user = {"id": user_row["id"], "tenant_id": tenant_id, "username": data.username, "role_code": data.role_code}
+        else:
+            tenant_id = service.create_tenant(data.tenant_name)
+            project_id = service.create_project(tenant_id, data.project_name)
+            user = service.create_user(tenant_id, data.username, data.role_code)
         user.update({"tenant_name": data.tenant_name, "project_name": data.project_name, "project_id": project_id})
         sid = secrets.token_hex(16)
         sessions[sid] = user
@@ -148,6 +158,12 @@ def create_app():
             return {"item": service.create_backup_marker(user, user["project_id"])}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.get("/api/admin/bootstrap-state")
+    def bootstrap_state():
+        if not repository:
+            return {"tenants": [], "projects": [], "users": []}
+        return {"tenants": repository.list_tenants(), "projects": repository.list_projects(), "users": repository.list_users()}
 
     @app.get("/cloud/schema.sql")
     def schema_sql():

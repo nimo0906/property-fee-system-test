@@ -143,5 +143,21 @@ class SaasRepository:
             return [{**dict(r), "detail": json.loads(r["detail_json"] or "{}")} for r in rows]
 
 
+    def list_tenants(self):
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("SELECT id,name,status FROM tenants ORDER BY id")).mappings().all()
+            return [dict(r) for r in rows]
+
+    def list_projects(self):
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("SELECT id,tenant_id,name,code,is_active FROM projects ORDER BY id")).mappings().all()
+            return [dict(r) for r in rows]
+
+    def list_users(self):
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("SELECT id,tenant_id,username,role_code,is_active FROM users ORDER BY id")).mappings().all()
+            return [dict(r) for r in rows]
+
+
 def create_saas_repository(url):
     return SaasRepository(url)
