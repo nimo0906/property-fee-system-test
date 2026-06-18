@@ -22,8 +22,11 @@ def _bill_rows(bills, targets, fees):
     for bill in bills:
         target = target_map.get(int(bill.get('charge_target_id') or 0), {})
         fee = fee_map.get(int(bill.get('fee_type_id') or 0), {})
-        rows.append(f'''<tr><td>{_h(bill.get('bill_number'))}</td><td>{_h(bill.get('billing_period'))}</td><td>{_h(_target_label(target))}</td><td>{_h(fee.get('name'))}</td><td>{_h(bill.get('amount'))}</td><td>{_h(bill.get('status'))}</td></tr>''')
-    return ''.join(rows) or '<tr><td colspan="6">暂无账单</td></tr>'
+        approve_action = ''
+        if bill.get('status') == 'pending_review':
+            approve_action = f'<form method="post" action="/backoffice/bills/{_h(bill.get("id"))}/approve" class="inline"><button class="primary">审核通过</button></form>'
+        rows.append(f'''<tr><td>{_h(bill.get('bill_number'))}</td><td>{_h(bill.get('billing_period'))}</td><td>{_h(_target_label(target))}</td><td>{_h(fee.get('name'))}</td><td>{_h(bill.get('amount'))}</td><td>{_h(bill.get('status'))}</td><td>{approve_action}</td></tr>''')
+    return ''.join(rows) or '<tr><td colspan="7">暂无账单</td></tr>'
 
 
 def _render_bills(user, bills, targets, fees, filters=None, message=''):
@@ -36,7 +39,7 @@ def _render_bills(user, bills, targets, fees, filters=None, message=''):
 <section class="hero"><div><h1>账单生成</h1><div class="sub">从当前项目的收费对象和收费项目生成应收账单。账单、金额和筛选结果都按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><form method="get" action="/backoffice/bills" class="filters"><div><label>账期</label><input name="period" value="{_h(filters.get('period', ''))}" placeholder="例如 2026-06"></div><div><label>状态</label><select name="status">{_status_options(filters.get('status', ''))}</select></div><div><button class="primary">查询账单</button></div></form></div></section>
-<section class="grid"><div class="card"><div class="card-h">账单列表</div><div class="card-b"><table><thead><tr><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>状态</th></tr></thead><tbody>{rows}</tbody></table></div></div>
+<section class="grid"><div class="card"><div class="card-h">账单列表</div><div class="card-b"><table><thead><tr><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">生成账单</div><div class="card-b">{form}</div></aside></section>'''
     return _page('账单生成', body)
 
@@ -92,5 +95,17 @@ def register_bill_pages(app, service, repository, current_user):
             else:
                 service.generate_bill(user, user['project_id'], service.targets[target_id], service.fees[fee_type_id], billing_period, service_start, service_end)
             return RedirectResponse(f'/backoffice/bills?period={_h(billing_period)}&message=账单已生成', status_code=303)
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/bills/{bill_id}/approve')
+    def approve_bill_page(bill_id: int, user=Depends(current_user)):
+        try:
+            service._require(user, 'billing')
+            if repository:
+                repository.approve_bill(user['tenant_id'], user['project_id'], bill_id, actor_user_id=user['id'])
+            else:
+                service.approve_bill(user, user['project_id'], bill_id)
+            return RedirectResponse('/backoffice/bills?status=pending_review&message=账单已审核', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')

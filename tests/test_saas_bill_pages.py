@@ -104,3 +104,83 @@ class TestSaasBillPages(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestSaasBillApprovalPages(unittest.TestCase):
+    def _client(self, role_code='finance', database_url=None, tenant_name='账单审核物业', project_name='账单审核项目'):
+        client = TestClient(create_app(database_url=database_url))
+        response = client.post('/api/auth/login', json={
+            'tenant_name': tenant_name,
+            'project_name': project_name,
+            'username': role_code,
+            'role_code': role_code,
+        })
+        self.assertEqual(response.status_code, 200)
+        return client
+
+    def _seed_bill(self, client):
+        target = client.post('/api/charge-targets', json={
+            'building': '2栋', 'unit': '2单元', 'room_number': '201', 'category': '居民', 'area': 90,
+        })
+        self.assertEqual(target.status_code, 200)
+        fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 3.0})
+        self.assertEqual(fee.status_code, 200)
+        bill = client.post('/api/bills/generate', json={
+            'target_id': target.json()['item']['id'],
+            'fee_type_id': fee.json()['item']['id'],
+            'billing_period': '2026-07',
+            'service_start': '2026-07-01',
+            'service_end': '2026-07-31',
+        })
+        self.assertEqual(bill.status_code, 200)
+        return bill.json()['item']
+
+    def test_bill_page_shows_approve_action_for_pending_review(self):
+        client = self._client('finance')
+        self._seed_bill(client)
+        page = client.get('/backoffice/bills?status=pending_review')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('审核通过', page.text)
+        self.assertIn('/backoffice/bills/', page.text)
+
+    def test_finance_can_approve_bill_from_page_and_it_moves_to_unpaid(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            bill = self._seed_bill(client)
+
+            approved = client.post(f"/backoffice/bills/{bill['id']}/approve", follow_redirects=False)
+            self.assertEqual(approved.status_code, 303)
+
+            page = client.get('/backoffice/bills?status=unpaid')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('unpaid', page.text)
+            self.assertNotIn('<td>pending_review</td>', page.text)
+
+            repo = create_saas_repository(db_url)
+            stored = repo.list_bills(repo.list_tenants()[0]['id'], repo.list_projects()[0]['id'], status='unpaid')
+            self.assertEqual([item['status'] for item in stored], ['unpaid'])
+            repo.close()
+
+    def test_cashier_cannot_approve_bill_from_page(self):
+        client = self._client('finance')
+        bill = self._seed_bill(client)
+        cashier = self._client('cashier')
+        page = cashier.get('/backoffice/bills')
+        self.assertEqual(page.status_code, 200)
+        self.assertNotIn('审核通过', page.text)
+        blocked = cashier.post(f"/backoffice/bills/{bill['id']}/approve", follow_redirects=False)
+        self.assertEqual(blocked.status_code, 403)
+
+    def test_other_tenant_cannot_see_or_approve_bill(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client_a = self._client('finance', database_url=db_url, tenant_name='A审核物业', project_name='A审核项目')
+            bill = self._seed_bill(client_a)
+
+            client_b = self._client('finance', database_url=db_url, tenant_name='B审核物业', project_name='B审核项目')
+            page_b = client_b.get('/backoffice/bills')
+            self.assertEqual(page_b.status_code, 200)
+            self.assertNotIn('2栋', page_b.text)
+            self.assertNotIn('201', page_b.text)
+            blocked = client_b.post(f"/backoffice/bills/{bill['id']}/approve", follow_redirects=False)
+            self.assertEqual(blocked.status_code, 403)
