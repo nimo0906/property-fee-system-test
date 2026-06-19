@@ -13,12 +13,16 @@ ITEMS = [
     ('P0-6 导入复核', '预览不写库、错误行下载、重复对象跳过。', '/backoffice/imports'),
     ('P0-7 高风险审计', '审计风险分级、详情脱敏、租户隔离查询。', '/backoffice/audit-logs'),
     ('P0-8 备份恢复', '备份和恢复演练显示操作人、审计链路、隐藏系统路径。', '/backoffice/backups'),
+    ('P0-11 商业交付演示', '新租户从空库开始，完成创建项目、收费对象、收费项目、出账、审核、收款、报表、导出、备份恢复演练。', '/backoffice/acceptance'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
     ('商业上线总门禁', 'scripts/saas_release_gate.py'),
     ('上线证据报告', 'scripts/saas_release_evidence.py'),
     ('商业验收总览检查', 'scripts/saas_commercial_readiness_check.py'),
+    ('商业交付演示手册', 'docs/saas-commercial-delivery-drill.md'),
+    ('商业交付演示脚本', 'scripts/saas_commercial_delivery_drill.py'),
+    ('商业交付演示检查', 'scripts/saas_commercial_delivery_drill_check.py'),
 ]
 
 
