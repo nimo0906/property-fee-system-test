@@ -92,27 +92,39 @@ def _to_int(value, default):
         return default
 
 
-def _paged_items(items, keyword='', page=1, page_size=20):
+def _only_arrears(value):
+    return str(value or '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
+def _filtered_items(items, keyword='', arrears=False):
     keyword = str(keyword or '').strip()
+    rows = [item for item in items if _match_keyword(item, keyword)]
+    if arrears:
+        rows = [item for item in rows if float(item.get('arrears_amount_total') or 0) > 0]
+    return rows, keyword
+
+
+def _paged_items(items, keyword='', page=1, page_size=20, arrears=False):
     page = max(_to_int(page, 1), 1)
     page_size = min(max(_to_int(page_size, 20), 1), 50)
-    filtered = [item for item in items if _match_keyword(item, keyword)]
+    filtered, keyword = _filtered_items(items, keyword, arrears)
     start = (page - 1) * page_size
     return filtered[start:start + page_size], len(filtered), page, page_size, keyword
 
 
-def _query(keyword, page, page_size):
-    return urllib.parse.urlencode({'keyword': keyword, 'page': page, 'page_size': page_size})
+def _query(keyword, page, page_size, arrears=False):
+    return urllib.parse.urlencode({'keyword': keyword, 'page': page, 'page_size': page_size, 'arrears': '1' if arrears else ''})
 
 
-def _filter_form(keyword, page_size):
+def _filter_form(keyword, page_size, arrears=False):
     options = ''.join(f'<option value="{n}"{" selected" if page_size == n else ""}>{n}</option>' for n in [10, 20, 50])
-    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">商户检索</div><div class="card-b"><form method="get" action="/backoffice/merchants" class="filters"><input type="hidden" name="page" value="1"><div><label>关键词</label><input name="keyword" value="{_h(keyword)}" placeholder="铺位号 / 店名 / 承租人 / 电话"></div><div><label>每页数量</label><select name="page_size">{options}</select></div><div><button class="primary">检索</button></div></form></div></section>'''
+    checked = ' checked' if arrears else ''
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">商户检索</div><div class="card-b"><form method="get" action="/backoffice/merchants" class="filters"><input type="hidden" name="page" value="1"><div><label>关键词</label><input name="keyword" value="{_h(keyword)}" placeholder="铺位号 / 店名 / 承租人 / 电话"></div><div><label>每页数量</label><select name="page_size">{options}</select></div><div><label><input type="checkbox" name="arrears" value="1"{checked}> 仅看欠费商户</label></div><div><button class="primary">检索</button></div></form></div></section>'''
 
 
-def _pager(keyword, page, page_size, total):
-    prev_link = f'<a class="ghost-link" href="/backoffice/merchants?{_query(keyword, page - 1, page_size)}">上一页</a>' if page > 1 else '<span class="ghost-link disabled">上一页</span>'
-    next_link = f'<a class="ghost-link" href="/backoffice/merchants?{_query(keyword, page + 1, page_size)}">下一页</a>' if page * page_size < total else '<span class="ghost-link disabled">下一页</span>'
+def _pager(keyword, page, page_size, total, arrears=False):
+    prev_link = f'<a class="ghost-link" href="/backoffice/merchants?{_query(keyword, page - 1, page_size, arrears)}">上一页</a>' if page > 1 else '<span class="ghost-link disabled">上一页</span>'
+    next_link = f'<a class="ghost-link" href="/backoffice/merchants?{_query(keyword, page + 1, page_size, arrears)}">下一页</a>' if page * page_size < total else '<span class="ghost-link disabled">下一页</span>'
     return f'<div class="pager"><span>共 {total} 个商户 · 第 {page} 页</span><span>{prev_link} {next_link}</span></div>'
 
 
@@ -149,15 +161,15 @@ def _bill_form(items, fees):
     return f'''<form method="post" action="/backoffice/merchants/generate-bill"><label>商户 / 铺位</label><select name="target_id">{_target_options(items)}</select><label>收费项目</label><select name="fee_type_id">{_fee_options(fees)}</select><label>账期</label><input name="billing_period" required placeholder="例如 2027-01"><label>服务开始</label><input name="service_start" required placeholder="2027-01-01"><label>服务结束</label><input name="service_end" required placeholder="2027-01-31"><button class="primary">生成商户账单</button><div class="hint">金额按收费项目规则计算；商户独立单价优先于收费项目单价。</div></form>'''
 
 
-def _render_merchants(user, items, message='', keyword='', page=1, page_size=20, total=0, fees=None):
+def _render_merchants(user, items, message='', keyword='', page=1, page_size=20, total=0, fees=None, arrears=False):
     rows = ''.join(_merchant_row(item) for item in items) or '<tr><td colspan="12">暂无商户档案</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     body = f'''
 <section class="hero"><div><h1>商户档案</h1><div class="sub">基于收费对象中的商户/商业铺位形成商户档案视图；不新增独立合同表，先用于维护铺位号、店名、承租人、电话、面积、独立单价和缴费周期。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="/api/merchants/export.csv">导出商户CSV</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
-{_filter_form(keyword, page_size)}
-<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>账单数</th><th>应收合计</th><th>已收合计</th><th>欠费余额</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
+{_filter_form(keyword, page_size, arrears)}
+<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total, arrears)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>账单数</th><th>应收合计</th><th>已收合计</th><th>欠费余额</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total, arrears)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
 
 
@@ -177,18 +189,18 @@ def register_merchant_directory(app, service, repository, current_user):
         return repository.list_fee_types(user['tenant_id'], user['project_id']) if repository else service.list_fee_types(user, user['project_id'])
 
     @app.get('/api/merchants')
-    def merchant_api(keyword: str = '', page: int = 1, page_size: int = 20, user=Depends(current_user)):
+    def merchant_api(keyword: str = '', page: int = 1, page_size: int = 20, arrears: str = '', user=Depends(current_user)):
         try:
-            visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size)
+            visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size, _only_arrears(arrears))
             return {'items': visible, 'total': total, 'page': page, 'page_size': page_size}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
 
     @app.get('/api/merchants/export.csv')
-    def merchant_export_csv(keyword: str = '', user=Depends(current_user)):
+    def merchant_export_csv(keyword: str = '', arrears: str = '', user=Depends(current_user)):
         try:
-            items = [item for item in _items(user) if _match_keyword(item, str(keyword or '').strip())]
+            items, _ = _filtered_items(_items(user), keyword, _only_arrears(arrears))
             return PlainTextResponse(
                 _csv_text(items),
                 media_type='text/csv; charset=utf-8',
@@ -198,10 +210,11 @@ def register_merchant_directory(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/backoffice/merchants', response_class=HTMLResponse)
-    def merchant_page(user=Depends(current_user), message: str = '', keyword: str = '', page: int = 1, page_size: int = 20):
+    def merchant_page(user=Depends(current_user), message: str = '', keyword: str = '', page: int = 1, page_size: int = 20, arrears: str = ''):
         try:
-            visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size)
-            return HTMLResponse(_render_merchants(user, visible, message, keyword, page, page_size, total, _fees(user)))
+            arrears_only = _only_arrears(arrears)
+            visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size, arrears_only)
+            return HTMLResponse(_render_merchants(user, visible, message, keyword, page, page_size, total, _fees(user), arrears_only))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
