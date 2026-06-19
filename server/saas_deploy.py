@@ -48,6 +48,7 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_production_deployment_rehearsal_check.py",
     "scripts/saas_production_precheck.py",
     "scripts/saas_first_tenant_wizard_check.py",
+    "scripts/saas_first_tenant_delivery_loop_check.py",
     "scripts/build_saas_formal_launch_report.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",

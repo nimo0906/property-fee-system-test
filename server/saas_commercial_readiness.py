@@ -38,6 +38,7 @@ ITEMS = [
     ('P0-33 实机部署演练', '通用 Linux/VPS、腾讯云 CVM、阿里云 ECS 按接近生产的部署、登录、业务闭环、隔离、授权绑定和备份恢复完成验收。', '/backoffice/deploy-checklist'),
     ('P0-34 生产部署一键自检', '实施人员用一条自检命令检查服务器环境、端口、目录隔离、Docker Compose、Nginx、systemd、logrotate、备份恢复、授权绑定和上线证据。', '/backoffice/deploy-checklist'),
     ('P0-35 首租户初始化向导', '提供可视化登录入口和平台管理员首租户初始化向导，从客户公司、默认项目、租户管理员、授权绑定进入导入、收费项目、测试账单和隔离验收。', '/backoffice/first-tenant-wizard'),
+    ('P0-37 首租户业务引导闭环', '首租户创建后提供导入模板、收费项目、测试账单、测试收款、报表、验收记录的可点击交付路径。', '/backoffice/first-tenant-wizard'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -85,6 +86,7 @@ GATES = [
     ('生产部署一键自检', 'scripts/saas_production_precheck.py'),
     ('生产部署自检说明', 'docs/saas-production-precheck.md'),
     ('首租户初始化向导检查', 'scripts/saas_first_tenant_wizard_check.py'),
+    ('首租户业务引导闭环检查', 'scripts/saas_first_tenant_delivery_loop_check.py'),
 ]
 
 
