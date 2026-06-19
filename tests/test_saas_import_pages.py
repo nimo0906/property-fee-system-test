@@ -50,7 +50,10 @@ class TestSaasImportPages(unittest.TestCase):
 
             import_id = preview.text.split('name="import_id" value="')[1].split('"')[0]
             confirmed = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id}, follow_redirects=False)
-            self.assertEqual(confirmed.status_code, 303)
+            self.assertEqual(confirmed.status_code, 200)
+            self.assertIn('导入结果', confirmed.text)
+            self.assertIn('成功导入：1', confirmed.text)
+            self.assertIn('跳过错误：2', confirmed.text)
 
             repo = create_saas_repository(db_url)
             targets = repo.list_charge_targets(repo.list_tenants()[0]['id'], repo.list_projects()[0]['id'])
@@ -103,7 +106,8 @@ class TestSaasImportPages(unittest.TestCase):
             preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': CSV_ROWS})
             import_id = preview.text.split('name="import_id" value="')[1].split('"')[0]
             confirmed = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id}, follow_redirects=False)
-            self.assertEqual(confirmed.status_code, 303)
+            self.assertEqual(confirmed.status_code, 200)
+            self.assertIn('导入结果', confirmed.text)
 
             page = client.get('/backoffice/imports')
             self.assertEqual(page.status_code, 200)

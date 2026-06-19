@@ -108,6 +108,20 @@ def _render_preview(user, review):
     return _page('导入预览', body)
 
 
+def _render_confirm_result(user, import_id, result, already_confirmed=False):
+    note = '<p class="sub">该批次已确认过，本次不会重复写入。</p>' if already_confirmed else '<p class="sub">只写入有效行；错误行未污染正式数据。</p>'
+    body = (f'<section class="hero"><div><h1>导入结果</h1>'
+            f'<div class="sub">导入批次摘要：确认导入后请核对成功和跳过数量，再进入收费对象列表检查。</div></div>'
+            f'<div class="badge tenant-scope">{_h(user.get("tenant_name"))} · {_h(user.get("project_name"))}</div></section>'
+            f'<section class="card"><div class="card-h">导入批次摘要</div><div class="card-b">'
+            f'<p><strong>批次 ID：{_h(import_id)}</strong></p>'
+            f'<p>成功导入：{str(result.get("created_count", 0))}</p>'
+            f'<p>跳过错误：{str(result.get("skipped_count", 0))}</p>{note}'
+            f'<div class="actions"><a class="ghost-link" href="/backoffice/charge-targets">查看收费对象</a>'
+            f'<a class="ghost-link" href="/backoffice/imports">继续导入</a></div></div></section>')
+    return _page('导入结果', body)
+
+
 def _valid_row(row):
     return f'''<tr><td>{_h(row.get('building'))}</td><td>{_h(row.get('unit'))}</td><td>{_h(row.get('room_number'))}</td><td>{_h(row.get('category'))}</td><td>{_h(row.get('area'))}</td></tr>'''
 
@@ -175,20 +189,27 @@ def register_import_pages(app, service, repository, current_user):
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 
-    @app.post('/backoffice/imports/charge-targets/confirm')
+    @app.post('/backoffice/imports/charge-targets/confirm', response_class=HTMLResponse)
     def confirm_import_page(import_id: int = Form(...), user=Depends(current_user)):
         try:
+            already_confirmed = False
             if repository:
                 service._require(user, 'import')
                 review = service.get_import_review(user, user['project_id'], import_id)
-                if not review['confirmed']:
+                already_confirmed = bool(review['confirmed'])
+                if already_confirmed:
+                    result = {'created_count': 0, 'skipped_count': review['error_count']}
+                else:
                     for row in review['valid_rows']:
                         item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'])
                         service.targets[item['id']] = item
                     service.imports[import_id]['confirmed'] = True
                     repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, {'created_count': review['valid_count'], 'skipped_count': review['error_count']})
+                    result = {'created_count': review['valid_count'], 'skipped_count': review['error_count']}
             else:
-                service.confirm_charge_target_import(user, user['project_id'], import_id)
-            return RedirectResponse('/backoffice/charge-targets?message=导入已确认', status_code=303)
+                before = service.get_import_review(user, user['project_id'], import_id)
+                already_confirmed = bool(before['confirmed'])
+                result = service.confirm_charge_target_import(user, user['project_id'], import_id)
+            return HTMLResponse(_render_confirm_result(user, import_id, result, already_confirmed))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
