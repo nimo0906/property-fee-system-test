@@ -96,3 +96,21 @@ bash scripts/saas_restore.sh --system-files /var/backups/property-saas/<backup-d
 - 不提交真实 `.env`。
 - 不把客户上传文件与系统配置、日志、备份密钥混放。
 - 不跳过备份恢复演练直接开放生产访问。
+
+## 商业上线总门禁
+
+生产交付前必须执行商业上线总门禁：
+
+```bash
+PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_gate.py
+```
+
+该门禁会顺序执行：
+
+- `scripts/saas_preflight_check.py`
+- `scripts/saas_ops_check.py`
+- `scripts/saas_acceptance_check.py`
+- `scripts/saas_phase1_closure_check.py`
+- `scripts/saas_demo_tenant_drill.py`
+
+任一子检查失败都不能进入正式商业云端部署。
