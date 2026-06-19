@@ -232,6 +232,17 @@ class SaasRepository:
             rows = conn.execute(text("SELECT id,name,status FROM tenants ORDER BY id")).mappings().all()
             return [dict(r) for r in rows]
 
+    def list_users(self, tenant_id=None):
+        sql = "SELECT id,tenant_id,username,role_code,is_active FROM users"
+        params = {}
+        if tenant_id is not None:
+            sql += " WHERE tenant_id=:tenant_id"
+            params["tenant_id"] = tenant_id
+        sql += " ORDER BY id"
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(sql), params).mappings().all()
+            return [dict(r) for r in rows]
+
     def create_backup_record(self, tenant_id, project_id, user_id):
         self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:

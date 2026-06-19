@@ -5,6 +5,7 @@
 from urllib.parse import urlencode
 
 from server.saas_backup_activity import _render_boundary_card
+from server.saas_backup_view import backup_items, restore_drill_items
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
@@ -14,15 +15,15 @@ def _backup_rows(records):
     rows = []
     for item in records:
         backup_id = item.get('backup_id')
-        rows.append(f'''<tr><td>{_h(backup_id)}</td><td>{_h(item.get('status'))}</td><td>{_h(item.get('created_at', ''))}</td><td><a class="ghost-link" href="/backoffice/backups/{_h(backup_id)}">备份详情</a></td></tr>''')
-    return ''.join(rows) or '<tr><td colspan="4">暂无备份记录</td></tr>'
+        rows.append(f'''<tr><td>{_h(backup_id)}</td><td>{_h(item.get('status'))}</td><td>{_h(item.get('created_at', ''))}</td><td>{_h(item.get('created_by_username', ''))}</td><td><a class="ghost-link" href="/backoffice/backups/{_h(backup_id)}">备份详情</a></td></tr>''')
+    return ''.join(rows) or '<tr><td colspan="5">暂无备份记录</td></tr>'
 
 
 def _drill_rows(drills):
     rows = []
     for item in drills:
-        rows.append(f'''<tr><td>{_h(item.get('backup_id'))}</td><td>{_h(item.get('scope'))}</td><td>{_h(item.get('status'))}</td><td>{_h(item.get('created_at', ''))}</td><td><a class="ghost-link" href="/backoffice/backups/restore-drills/{_h(item.get('id'))}">恢复演练详情</a></td></tr>''')
-    return ''.join(rows) or '<tr><td colspan="5">暂无恢复演练记录</td></tr>'
+        rows.append(f'''<tr><td>{_h(item.get('backup_id'))}</td><td>{_h(item.get('scope'))}</td><td>{_h(item.get('status'))}</td><td>{_h(item.get('created_at', ''))}</td><td>{_h(item.get('created_by_username', ''))}</td><td><a class="ghost-link" href="/backoffice/backups/restore-drills/{_h(item.get('id'))}">恢复演练详情</a></td></tr>''')
+    return ''.join(rows) or '<tr><td colspan="6">暂无恢复演练记录</td></tr>'
 
 
 def _forms(can_manage, records):
@@ -105,9 +106,9 @@ def _render(user, records, drills=None, params=None):
     body = f'''
 <section class="hero"><div><h1>备份记录</h1><div class="sub">记录当前租户和项目的备份与恢复演练。页面不展示真实存储密钥或服务器路径。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {_filter_card(params)}
-<section class="grid"><div class="card"><div class="card-h">备份记录</div><div class="card-b">{_pager(backup_result, params)}<table><thead><tr><th>备份ID</th><th>状态</th><th>创建时间</th><th>入口</th></tr></thead><tbody>{_backup_rows(backup_result['items'])}</tbody></table></div></div>
+<section class="grid"><div class="card"><div class="card-h">备份记录</div><div class="card-b">{_pager(backup_result, params)}<table><thead><tr><th>备份ID</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{_backup_rows(backup_result['items'])}</tbody></table></div></div>
 <aside class="card"><div class="card-h">恢复演练</div><div class="card-b">{_forms(can_manage, records)}</div></aside></section>
-<section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b">{_pager(drill_result, params)}<table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>入口</th></tr></thead><tbody>{_drill_rows(drill_result['items'])}</tbody></table></div></section>
+<section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b">{_pager(drill_result, params)}<table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{_drill_rows(drill_result['items'])}</tbody></table></div></section>
 {_render_boundary_card(can_manage)}'''
     return _page('备份记录', body)
 
@@ -116,15 +117,15 @@ def _render_backup_detail(user, record, drills):
     related_rows = _drill_rows([d for d in drills if d.get('backup_id') == record.get('backup_id')])
     body = f'''
 <section class="hero"><div><h1>备份详情</h1><div class="sub">只展示备份编号、状态和恢复演练结果，不展示真实服务器路径或密钥。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card"><div class="card-h">备份详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(record.get('backup_id'))}</td></tr><tr><th>状态</th><td>{_h(record.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(record.get('created_at', ''))}</td></tr></tbody></table></div></section>
-<section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b"><table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>入口</th></tr></thead><tbody>{related_rows}</tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>'''
+<section class="card"><div class="card-h">备份详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(record.get('backup_id'))}</td></tr><tr><th>状态</th><td>{_h(record.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(record.get('created_at', ''))}</td></tr><tr><th>操作人</th><td>{_h(record.get('created_by_username', ''))}</td></tr><tr><th>审计日志</th><td><a class="ghost-link" href="/backoffice/audit-logs/{_h(record.get('audit_log_id'))}">查看审计日志</a></td></tr></tbody></table></div></section>
+<section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b"><table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{related_rows}</tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>'''
     return _page('备份详情', body)
 
 
 def _render_drill_detail(user, drill):
     body = f'''
 <section class="hero"><div><h1>恢复演练详情</h1><div class="sub">恢复演练只记录范围、状态和备份编号，不执行真实恢复，不展示服务器路径或密钥。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card"><div class="card-h">恢复演练详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(drill.get('backup_id'))}</td></tr><tr><th>范围</th><td>{_h(drill.get('scope'))}</td></tr><tr><th>状态</th><td>{_h(drill.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(drill.get('created_at', ''))}</td></tr></tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>'''
+<section class="card"><div class="card-h">恢复演练详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(drill.get('backup_id'))}</td></tr><tr><th>范围</th><td>{_h(drill.get('scope'))}</td></tr><tr><th>状态</th><td>{_h(drill.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(drill.get('created_at', ''))}</td></tr><tr><th>操作人</th><td>{_h(drill.get('created_by_username', ''))}</td></tr><tr><th>审计日志</th><td><a class="ghost-link" href="/backoffice/audit-logs/{_h(drill.get('audit_log_id'))}">查看审计日志</a></td></tr></tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>'''
     return _page('恢复演练详情', body)
 
 
@@ -132,17 +133,29 @@ def register_backup_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
     from fastapi.responses import HTMLResponse, RedirectResponse
 
+    def _ops_context(user):
+        if repository:
+            return repository.list_users(user['tenant_id']), repository.list_audit_logs(user['tenant_id'], user['project_id'])
+        users = [u for u in service.users.values() if u['tenant_id'] == user['tenant_id']]
+        return users, service.list_audit_logs(user, user['project_id'])
+
     def _records(user):
         service._require(user, 'read')
         if repository:
-            return repository.list_backup_records(user['tenant_id'], user['project_id'])
-        return [r for r in service.backup_records.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == user['project_id']]
+            records = repository.list_backup_records(user['tenant_id'], user['project_id'])
+        else:
+            records = [r for r in service.backup_records.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == user['project_id']]
+        users, audits = _ops_context(user)
+        return backup_items(records, users, audits)
 
     def _drills(user):
         service._require(user, 'read')
         if repository:
-            return repository.list_restore_drills(user['tenant_id'], user['project_id'])
-        return [r for r in service.restore_drills.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == user['project_id']]
+            drills = repository.list_restore_drills(user['tenant_id'], user['project_id'])
+        else:
+            drills = [r for r in service.restore_drills.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == user['project_id']]
+        users, audits = _ops_context(user)
+        return restore_drill_items(drills, users, audits)
 
     @app.get('/backoffice/backups', response_class=HTMLResponse)
     def backup_page(keyword: str = '', status: str = '', scope: str = '', page: int = 1, page_size: int = 20, user=Depends(current_user)):

@@ -16,6 +16,7 @@ from server.saas_billing_api import register_billing_routes
 from server.saas_owner_api import register_owner_routes
 from server.saas_isolation_self_check import register_isolation_self_check_api
 from server.saas_audit_api import register_audit_api
+from server.saas_backup_api import register_backup_api
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
     PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
@@ -42,6 +43,7 @@ def create_app(database_url=None):
     register_owner_routes(app, service)
     register_isolation_self_check_api(app, service, repository, current_user)
     register_audit_api(app, service, repository)
+    register_backup_api(app, service, repository)
 
     @app.get("/health")
     def health():
@@ -253,26 +255,6 @@ def create_app(database_url=None):
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
-
-    @app.get("/api/backups")
-    def list_backups(user=__import__('fastapi').Depends(current_user)):
-        try:
-            service._require(user, "backup")
-            items = repository.list_backup_records(user["tenant_id"], user["project_id"]) if repository else service.list_backup_records(user, user["project_id"])
-            return {"items": items}
-        except PermissionDenied:
-            raise HTTPException(status_code=403, detail="forbidden")
-
-    @app.post("/api/restore-drills")
-    def create_restore_drill(data: RestoreDrillIn, user=__import__('fastapi').Depends(current_user)):
-        try:
-            service._require(user, "backup")
-            item = repository.create_restore_drill(user["tenant_id"], user["project_id"], user["id"], data.backup_id, data.scope) if repository else service.record_restore_drill(user, user["project_id"], data.backup_id, data.scope)
-            return {"item": item}
-        except PermissionDenied:
-            raise HTTPException(status_code=403, detail="forbidden")
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc))
 
     @app.get("/api/admin/bootstrap-state")
     def bootstrap_state():
