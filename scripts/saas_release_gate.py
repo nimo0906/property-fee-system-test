@@ -79,6 +79,7 @@ CHECKS = [
     "scripts/saas_production_acceptance_evidence_summary_check.py",
     "scripts/saas_production_acceptance_evidence_download_check.py",
     "scripts/saas_production_acceptance_signoff_check.py",
+    "scripts/saas_production_acceptance_signoff_history_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]

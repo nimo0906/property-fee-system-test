@@ -67,6 +67,7 @@ ITEMS = [
     ('P0-63 生产验收证据摘要', '生产验收结果中心读取验收留档、上线证据、隔离证据文件状态和最近生成时间。', '/backoffice/production-acceptance'),
     ('P0-64 生产验收证据预览下载', '生产验收结果中心提供验收留档、上线证据和隔离证据的登录后预览/下载入口。', '/backoffice/production-acceptance'),
     ('P0-65 生产验收签收表', '生产验收结果中心支持填写执行人、服务器域名、客户签收人和实施人员，并生成可打印/下载的正式验收留档。', '/backoffice/production-acceptance/signoff'),
+    ('P0-66 生产验收签收历史', '每次生产验收签收都保存系统侧历史记录，可在后台查看并下载指定历史留档，避免覆盖后无法追溯。', '/backoffice/production-acceptance/signoff'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -143,6 +144,7 @@ GATES = [
     ('生产验收证据摘要检查', 'scripts/saas_production_acceptance_evidence_summary_check.py'),
     ('生产验收证据预览下载检查', 'scripts/saas_production_acceptance_evidence_download_check.py'),
     ('生产验收签收表检查', 'scripts/saas_production_acceptance_signoff_check.py'),
+    ('生产验收签收历史检查', 'scripts/saas_production_acceptance_signoff_history_check.py'),
 ]
 
 

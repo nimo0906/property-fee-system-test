@@ -5,6 +5,7 @@
 import datetime as dt
 from pathlib import Path
 
+from server.saas_production_acceptance_history import append_history, get_history, history_rows
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 
@@ -94,6 +95,7 @@ def _write_signoff(data):
     path.parent.mkdir(parents=True, exist_ok=True)
     text = _signoff_markdown(data)
     path.write_text(text, encoding='utf-8')
+    append_history(ROOT, data, text)
     return text
 
 
@@ -105,7 +107,8 @@ def _require_admin(user):
 def _render_signoff_form(user, message=''):
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     body = f'''<section class="hero"><div><h1>生产验收签收表</h1><div class="sub">填写后生成正式生产验收留档；只记录系统侧交付证据，不保存生产密钥、内部编号或客户上传文件内容。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>{notice}
-<section class="card"><div class="card-h">签收信息</div><div class="card-b"><form method="post" action="/backoffice/production-acceptance/signoff"><label>执行人</label><input name="operator_name" required placeholder="例如 实施A"><label>服务器域名</label><input name="server_domain" required placeholder="例如 saas.example.com"><label>验收结论</label><input name="acceptance_status" required value="PASS"><label>客户签收人</label><input name="customer_signer" required placeholder="例如 客户负责人B"><label>实施人员</label><input name="implementation_signer" required placeholder="例如 实施C"><label>签收日期</label><input name="signoff_date" required placeholder="例如 2026-06-19"><label>备注</label><input name="notes" placeholder="例如 现场验收通过"><button class="primary">保存并生成验收留档</button><div class="hint">客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；本表仅保存系统侧验收摘要。</div></form><div class="actions" style="margin-top:12px"><a class="ghost-link" href="/backoffice/production-acceptance/signoff/print">打印签收表</a><a class="ghost-link" href="/backoffice/production-acceptance/signoff/download.md">下载 Markdown</a><a class="ghost-link" href="/backoffice/production-acceptance">返回结果中心</a></div></div></section>'''
+<section class="card"><div class="card-h">签收信息</div><div class="card-b"><form method="post" action="/backoffice/production-acceptance/signoff"><label>执行人</label><input name="operator_name" required placeholder="例如 实施A"><label>服务器域名</label><input name="server_domain" required placeholder="例如 saas.example.com"><label>验收结论</label><input name="acceptance_status" required value="PASS"><label>客户签收人</label><input name="customer_signer" required placeholder="例如 客户负责人B"><label>实施人员</label><input name="implementation_signer" required placeholder="例如 实施C"><label>签收日期</label><input name="signoff_date" required placeholder="例如 2026-06-19"><label>备注</label><input name="notes" placeholder="例如 现场验收通过"><button class="primary">保存并生成验收留档</button><div class="hint">客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；本表仅保存系统侧验收摘要。</div></form><div class="actions" style="margin-top:12px"><a class="ghost-link" href="/backoffice/production-acceptance/signoff/print">打印签收表</a><a class="ghost-link" href="/backoffice/production-acceptance/signoff/download.md">下载 Markdown</a><a class="ghost-link" href="/backoffice/production-acceptance">返回结果中心</a></div></div></section>
+<section class="card" style="margin-top:18px"><div class="card-h">签收历史记录</div><div class="card-b"><table><thead><tr><th>序号</th><th>执行人</th><th>客户签收人</th><th>签收日期</th><th>备注</th><th>操作</th></tr></thead><tbody>{history_rows(ROOT, _h)}</tbody></table><div class="hint">历史记录保存在系统侧 release/production_acceptance_signoffs/history.json，不进入租户业务数据或客户上传目录。</div></div></section>'''
     return _page('生产验收签收表', body)
 
 
@@ -149,6 +152,19 @@ def register_production_acceptance_pages(app, current_user):
             _require_admin(user)
             label, rel, text = _read_evidence('acceptance-result')
             return Response(text, media_type='text/markdown; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="saas-production-acceptance-result.md"'})
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
+
+
+    @app.get('/backoffice/production-acceptance/signoff/history/{record_id}/download.md')
+    def production_signoff_history_download(record_id: int, user=Depends(current_user)):
+        try:
+            _require_admin(user)
+            record = get_history(ROOT, record_id)
+            if not record:
+                raise HTTPException(status_code=404, detail='not_found')
+            filename = f'saas-production-acceptance-signoff-{record_id}.md'
+            return Response(record.get('markdown') or '', media_type='text/markdown; charset=utf-8', headers={'Content-Disposition': f'attachment; filename="{filename}"'})
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 
