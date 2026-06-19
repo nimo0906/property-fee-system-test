@@ -40,6 +40,7 @@ GATE_CHECKS = [
     "scripts/saas_tenant_business_template_check.py",
     "scripts/saas_tenant_business_config_check.py",
     "scripts/saas_tenant_business_config_page_check.py",
+    "scripts/saas_fee_type_template_init_check.py",
     "scripts/saas_isolation_evidence.py",
 ]
 POSTPONED = [
