@@ -4,6 +4,7 @@
 
 from server.passwords import verify_password
 from server.saas_login_helpers import repository_login_context, user_must_change_password, verify_repository_login
+from server.saas_password_policy import password_meets_policy
 from server.saas_service import PermissionDenied
 
 
@@ -95,7 +96,7 @@ def register_auth_routes(app, service, repository, sessions, session_user):
     @app.post("/api/auth/change-password")
     def change_password(data: PasswordChangeIn, user=Depends(session_user)):
         try:
-            if len(data.new_password or "") < 8:
+            if not password_meets_policy(data.new_password):
                 raise HTTPException(status_code=400, detail="new password too short")
             if repository:
                 stored = repository.get_user(user["id"])

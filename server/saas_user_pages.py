@@ -5,6 +5,7 @@
 import html
 import urllib.parse
 
+from server.saas_password_policy import password_length_error, password_meets_policy
 from server.saas_repository_errors import TenantScopeError
 from server.saas_service import PermissionDenied
 
@@ -220,8 +221,8 @@ def register_user_pages(app, service, repository, current_user, sessions):
             service._require(user, 'manage_users')
             if int(user_id) == int(user.get('id')):
                 raise PermissionDenied('use change-password for own account')
-            if len(new_password or '') < 8:
-                return PlainTextResponse('临时密码至少 8 位', status_code=400)
+            if not password_meets_policy(new_password):
+                return PlainTextResponse(password_length_error('临时密码'), status_code=400)
             if repository:
                 repository.reset_user_password_for_actor(user, user_id, new_password)
             else:

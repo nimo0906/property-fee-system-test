@@ -9,6 +9,7 @@ from server.saas_repository_errors import TenantScopeError
 from server.saas_storage import SaasStorage
 from server.saas_auth_api import build_auth_dependencies, register_auth_routes
 from server.saas_page_registry import register_saas_pages
+from server.saas_password_policy import password_meets_policy
 from server.saas_billing_api import register_billing_routes
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
@@ -91,7 +92,7 @@ def create_app(database_url=None):
             service._require(user, "manage_users")
             if int(user_id) == int(user.get("id")):
                 raise PermissionDenied("use change-password for own account")
-            if len(data.new_password or "") < 8:
+            if not password_meets_policy(data.new_password):
                 raise HTTPException(status_code=400, detail="temporary password too short")
             if repository:
                 item = repository.reset_user_password_for_actor(user, user_id, data.new_password)

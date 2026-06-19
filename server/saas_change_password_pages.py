@@ -3,6 +3,7 @@
 """Personal password change pages for SaaS backoffice."""
 
 from server.passwords import verify_password
+from server.saas_password_policy import password_length_error, password_meets_policy
 from server.saas_user_pages import _h, _page, _role_name
 
 
@@ -26,8 +27,8 @@ def register_change_password_pages(app, service, repository, session_user):
 
     @app.post('/backoffice/change-password', response_class=HTMLResponse)
     def change_password_submit(old_password: str = Form(...), new_password: str = Form(...), user=Depends(session_user)):
-        if len(new_password or '') < 8:
-            return HTMLResponse(_render_change_password(user, '新密码至少 8 位', is_error=True), status_code=400)
+        if not password_meets_policy(new_password):
+            return HTMLResponse(_render_change_password(user, password_length_error('新密码'), is_error=True), status_code=400)
         if repository:
             stored = repository.get_user(user['id'])
             if not stored or not verify_password(old_password, stored.get('password_hash')):
