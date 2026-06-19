@@ -12,6 +12,7 @@ from server.saas_change_password_pages import register_change_password_pages
 from server.saas_data_boundary_pages import register_data_boundary_pages
 from server.saas_fee_type_pages import register_fee_type_pages
 from server.saas_deploy_pages import register_deploy_pages
+from server.saas_production_acceptance_pages import register_production_acceptance_pages
 from server.saas_import_pages import register_import_pages
 from server.saas_license_ops_pages import register_license_ops_pages
 from server.saas_login_pages import register_login_pages
@@ -40,6 +41,7 @@ def register_saas_pages(app, service, repository, current_user, sessions, sessio
     register_first_tenant_acceptance_pages(app, service, current_user)
     register_first_tenant_delivery_package_pages(app, current_user, service)
     register_deploy_pages(app, current_user)
+    register_production_acceptance_pages(app, current_user)
     register_data_boundary_pages(app, current_user, service, repository)
     register_acceptance_pages(app, current_user, service, repository)
     register_change_password_pages(app, service, repository, session_user or current_user)
