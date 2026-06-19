@@ -17,6 +17,7 @@ ITEMS = [
     ('P0-12 最小上线包', '整理部署配置、验收演示、运维备份、上线证据；不提交真实 .env，客户上传数据与系统自身数据隔离。', '/backoffice/deploy-checklist'),
     ('P0-13 客户交付签收', '上线前人工验收，覆盖部署完成确认、数据不混用确认、客户签收和实施人员签收。', '/backoffice/acceptance'),
     ('P0-14 上线总报告', 'SaaS 云端商业版上线总报告，汇总 P0-1 到 P0-13、验证命令、部署资产、演示路径和签收路径。', '/backoffice/acceptance'),
+    ('P0-15 正式报告文件', '正式 DOCX/PDF 交付版：release/saas-commercial-launch-report.docx 与 release/saas-commercial-launch-report.pdf。', '/backoffice/acceptance'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -32,6 +33,9 @@ GATES = [
     ('客户交付签收检查', 'scripts/saas_customer_acceptance_signoff_check.py'),
     ('上线总报告', 'docs/saas-commercial-launch-report.md'),
     ('上线总报告检查', 'scripts/saas_commercial_launch_report_check.py'),
+    ('正式报告 DOCX', 'release/saas-commercial-launch-report.docx'),
+    ('正式报告 PDF', 'release/saas-commercial-launch-report.pdf'),
+    ('正式报告检查', 'scripts/saas_formal_launch_report_check.py'),
 ]
 
 
