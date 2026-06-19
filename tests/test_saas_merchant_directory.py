@@ -106,6 +106,36 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             for text in ['商户已新增', 'B-208', '咖啡店', '王商户', '8.8', 'quarterly']:
                 self.assertIn(text, page.text)
 
+    def test_merchant_directory_supports_search_and_pagination(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            for index in range(1, 6):
+                self._create_target(
+                    client,
+                    room_number=f'C-{index:03d}',
+                    shop_name=f'品牌{index}',
+                    tenant_name=f'商户{index}',
+                    tenant_phone=f'1390000000{index}',
+                )
+
+            api = client.get('/api/merchants?keyword=品牌3&page=1&page_size=2')
+            self.assertEqual(api.status_code, 200)
+            data = api.json()
+            self.assertEqual(data['total'], 1)
+            self.assertEqual(data['page'], 1)
+            self.assertEqual(data['page_size'], 2)
+            self.assertEqual([item['space_no'] for item in data['items']], ['C-003'])
+
+            page = client.get('/backoffice/merchants?keyword=品牌&page=2&page_size=2')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('商户检索', page.text)
+            self.assertIn('共 5 个商户', page.text)
+            self.assertIn('第 2 页', page.text)
+            self.assertIn('C-003', page.text)
+            self.assertIn('C-004', page.text)
+            self.assertNotIn('C-001', page.text)
+            self.assertNotIn('C-005', page.text)
+
 
 if __name__ == '__main__':
     unittest.main()
