@@ -16,6 +16,7 @@ GATE_CHECKS = [
     "scripts/saas_ops_check.py",
     "scripts/saas_acceptance_check.py",
     "scripts/saas_phase1_closure_check.py",
+    "scripts/saas_legacy_gap_check.py",
     "scripts/saas_demo_tenant_drill.py",
     "scripts/saas_isolation_evidence.py",
 ]
@@ -84,6 +85,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_g
 - 收费对象、收费项目、账单生成、账单审核、收款登记、对账报表、导出已由 `scripts/saas_acceptance_check.py` 和 `scripts/saas_demo_tenant_drill.py` 覆盖。
 - 备份恢复演练、管理员密码重置流程、日志轮转由 `scripts/saas_ops_check.py` 覆盖。
 - 第一阶段范围和后置边界由 `scripts/saas_phase1_closure_check.py` 覆盖。
+- 原桌面业务迁移差距由 `scripts/saas_legacy_gap_check.py` 和 `docs/saas-legacy-business-migration-gap.md` 覆盖。
 - 租户隔离证据明细由 `scripts/saas_isolation_evidence.py` 生成。
 
 ## 后置范围

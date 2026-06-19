@@ -45,11 +45,12 @@ def _backoffice_home(user):
         _module_card('审计日志', '查看账号、导入、出账、审核、收款等关键操作。', '/backoffice/audit-logs'),
         _module_card('备份恢复', '创建备份记录，提交恢复演练。', '/backoffice/backups'),
         _module_card('云端上线', 'VPS 部署、预检、备份恢复和验收脚本清单。', '/backoffice/deploy-checklist'),
+        _module_card('迁移差距', '原桌面版业务能力到 SaaS 云端版迁移差距清单：收费核心、商户合同、水电表、停车费等后续迁移路线。', '/backoffice/acceptance#legacy-gap'),
         _module_card('商业验收', '按正式商业后台闭环逐项验收。', '/backoffice/acceptance'),
     ])
     health = _platform_health_summary(user)
     body = f'''
-<section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。迁移检查：scripts/saas_legacy_gap_check.py，文档：docs/saas-legacy-business-migration-gap.md。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-b" style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><strong>当前账号：</strong>{_h(user.get('username'))}<span class="hint"> · {_h(_role_name(user.get('role_code')))}</span></div><div class="actions"><a class="ghost-link" href="/backoffice/change-password">修改密码</a><form method="post" action="/api/auth/logout"><button class="danger">退出登录</button></form></div></div></section>
 {health}{render_first_run_guide(user)}<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">{cards}</section>'''
     return _page('SaaS 员工后台', body)

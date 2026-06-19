@@ -60,6 +60,7 @@ def main():
         "scripts/saas_isolation_evidence.py",
         "scripts/saas_release_evidence.py",
         "docs/saas-cloud-ops-runbook.md",
+        "docs/saas-legacy-business-migration-gap.md",
         "docs/saas-demo-tenant-drill.md",
     ]:
         require_file(path)
