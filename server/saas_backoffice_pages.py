@@ -32,9 +32,10 @@ def _backoffice_home(user, license_service=None, service=None, repository=None):
     tenant_admin_card = _module_card('租户管理员', '本公司管理员控制台：账号列表、停用员工账号、重置临时密码，并提示客户数据隔离边界。', '/backoffice/tenant-admin' if user.get('role_code') == 'system_admin' else None, '租户管理员入口仅本公司管理员可用')
     user_card = _module_card('账号管理', '管理员维护员工账号、停用离职账号、重置临时密码，并保留审计记录。', '/backoffice/users' if can_manage_users else None, '账号管理仅管理员可用')
     onboarding_card = _module_card('客户开通', '平台管理员开通新客户公司、默认项目和首个租户管理员。', '/backoffice/tenant-onboarding' if user.get('role_code') == 'platform_admin' else None, '客户开通仅平台管理员可用')
+    first_wizard_card = _module_card('首租户初始化', '正式交付向导：创建客户公司、默认项目、租户管理员、授权绑定，并进入导入、收费项目和验收闭环。', '/backoffice/first-tenant-wizard' if user.get('role_code') == 'platform_admin' else None, '首租户初始化仅平台管理员可用')
     tenant_project_card = _module_card('租户项目', '维护本公司项目边界；平台管理员可只读查看租户和项目全局。', '/backoffice/tenant-projects' if can_manage_users else None, '租户项目仅管理员可用')
     cards = ''.join([
-        tenant_admin_card, onboarding_card, tenant_project_card, user_card,
+        tenant_admin_card, onboarding_card, first_wizard_card, tenant_project_card, user_card,
         _module_card('授权运维', '平台管理员查看租户授权状态、席位使用、到期时间和超限风险。', '/backoffice/license-ops' if user.get('role_code') == 'platform_admin' else None, '授权运维仅平台管理员可用'),
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
