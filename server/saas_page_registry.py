@@ -13,6 +13,7 @@ from server.saas_data_boundary_pages import register_data_boundary_pages
 from server.saas_fee_type_pages import register_fee_type_pages
 from server.saas_deploy_pages import register_deploy_pages
 from server.saas_import_pages import register_import_pages
+from server.saas_license_ops_pages import register_license_ops_pages
 from server.saas_payment_pages import register_payment_pages
 from server.saas_permission_pages import register_permission_pages
 from server.saas_report_pages import register_report_pages
@@ -26,6 +27,7 @@ def register_saas_pages(app, service, repository, current_user, sessions, sessio
     register_backoffice_pages(app, current_user, session_user or current_user)
     register_tenant_admin_pages(app, service, repository, current_user)
     register_tenant_project_pages(app, service, repository, current_user)
+    register_license_ops_pages(app, service, repository, current_user)
     register_tenant_onboarding_pages(app, service, repository, current_user)
     register_deploy_pages(app, current_user)
     register_data_boundary_pages(app, current_user, service, repository)

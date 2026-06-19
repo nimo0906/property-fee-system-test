@@ -35,6 +35,7 @@ def _backoffice_home(user, license_service=None):
     tenant_project_card = _module_card('租户项目', '维护本公司项目边界；平台管理员可只读查看租户和项目全局。', '/backoffice/tenant-projects' if can_manage_users else None, '租户项目仅管理员可用')
     cards = ''.join([
         tenant_admin_card, onboarding_card, tenant_project_card, user_card,
+        _module_card('授权运维', '平台管理员查看租户授权状态、席位使用、到期时间和超限风险。', '/backoffice/license-ops' if user.get('role_code') == 'platform_admin' else None, '授权运维仅平台管理员可用'),
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
         _module_card('出账收款 / 出账审核', '生成账单、审核账单、按账期和状态查询应收。', '/backoffice/bills'),
