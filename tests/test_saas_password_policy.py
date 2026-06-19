@@ -5,6 +5,7 @@ from server.saas_password_policy import (
     password_change_error,
     password_length_error,
     password_meets_policy,
+    password_reset_error,
 )
 
 
@@ -21,6 +22,10 @@ class TestSaasPasswordPolicy(unittest.TestCase):
     def test_password_policy_rejects_same_old_and_new_password(self):
         self.assertEqual(password_change_error('same-password', 'same-password'), '新密码不能与原密码相同')
         self.assertIsNone(password_change_error('old-password', 'new-password'))
+
+    def test_password_policy_rejects_same_reset_password(self):
+        self.assertEqual(password_reset_error(True), '临时密码不能与当前密码相同')
+        self.assertIsNone(password_reset_error(False))
 
 
 if __name__ == '__main__':

@@ -5,7 +5,8 @@
 import html
 import urllib.parse
 
-from server.saas_password_policy import password_length_error, password_meets_policy
+from server.passwords import verify_password
+from server.saas_password_policy import password_length_error, password_meets_policy, password_reset_error
 from server.saas_repository_errors import TenantScopeError
 from server.saas_service import PermissionDenied
 
@@ -223,6 +224,10 @@ def register_user_pages(app, service, repository, current_user, sessions):
                 raise PermissionDenied('use change-password for own account')
             if not password_meets_policy(new_password):
                 return PlainTextResponse(password_length_error('临时密码'), status_code=400)
+            target = repository.get_user(user_id) if repository else service.users.get(user_id, {})
+            reset_error = password_reset_error(bool(target and verify_password(new_password, target.get('password_hash'))))
+            if reset_error:
+                return PlainTextResponse(reset_error, status_code=400)
             if repository:
                 repository.reset_user_password_for_actor(user, user_id, new_password)
             else:

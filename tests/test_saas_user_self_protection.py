@@ -122,5 +122,40 @@ class TestSaasUserSelfProtection(unittest.TestCase):
             repo.close()
 
 
+    def test_admin_reset_password_rejects_same_as_target_current_password(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = TestClient(create_app(database_url=db_url))
+            login = client.post('/api/auth/login', json={
+                'tenant_name': '重置同密物业',
+                'project_name': '重置同密项目',
+                'username': 'admin',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            created = client.post('/api/users', json={'username': 'cashier_same_reset', 'role_code': 'cashier'})
+            user_id = created.json()['item']['id']
+            first_reset = client.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'Temp-pass-2026'})
+            self.assertEqual(first_reset.status_code, 200)
+
+            api_reset = client.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'Temp-pass-2026'})
+            self.assertEqual(api_reset.status_code, 400)
+
+            page_reset = client.post(
+                f'/backoffice/users/{user_id}/reset-password',
+                data={'new_password': 'Temp-pass-2026'},
+                follow_redirects=False,
+            )
+            self.assertEqual(page_reset.status_code, 400)
+            self.assertIn('临时密码不能与当前密码相同', page_reset.text)
+
+            repo = create_saas_repository(db_url)
+            project_id = repo.list_projects()[0]['id']
+            logs = repo.list_audit_logs(repo.get_user(user_id)['tenant_id'], project_id)
+            reset_logs = [row for row in logs if row['action'] == 'user.password_reset']
+            self.assertEqual(len(reset_logs), 1)
+            repo.close()
+
+
 if __name__ == '__main__':
     unittest.main()

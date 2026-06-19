@@ -17,3 +17,9 @@ def password_change_error(old_password, new_password):
     if old_password == new_password:
         return '新密码不能与原密码相同'
     return None
+
+
+def password_reset_error(current_password_matches_new):
+    if current_password_matches_new:
+        return '临时密码不能与当前密码相同'
+    return None
