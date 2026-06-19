@@ -36,6 +36,11 @@ def attach_report_repository_methods(cls):
                 LEFT JOIN ({payment_subquery}) paid_by_bill ON paid_by_bill.bill_id=b.id
                 WHERE b.tenant_id=:tenant_id AND b.project_id=:project_id AND b.billing_period=:period
                 GROUP BY ct.building ORDER BY MIN(b.id)"""), params).mappings().all()
+            by_unit = conn.execute(text(f"""SELECT ct.unit name,COUNT(*) bill_count,COALESCE(SUM(b.amount),0) due,COALESCE(SUM(paid_by_bill.paid),0) paid
+                FROM bills b JOIN charge_targets ct ON b.charge_target_id=ct.id AND b.tenant_id=ct.tenant_id AND b.project_id=ct.project_id
+                LEFT JOIN ({payment_subquery}) paid_by_bill ON paid_by_bill.bill_id=b.id
+                WHERE b.tenant_id=:tenant_id AND b.project_id=:project_id AND b.billing_period=:period
+                GROUP BY ct.unit ORDER BY MIN(b.id)"""), params).mappings().all()
             by_fee_type = conn.execute(text(f"""SELECT ft.name name,COUNT(*) bill_count,COALESCE(SUM(b.amount),0) due,COALESCE(SUM(paid_by_bill.paid),0) paid
                 FROM bills b JOIN fee_types ft ON b.fee_type_id=ft.id AND b.tenant_id=ft.tenant_id AND b.project_id=ft.project_id
                 LEFT JOIN ({payment_subquery}) paid_by_bill ON paid_by_bill.bill_id=b.id
@@ -46,6 +51,6 @@ def attach_report_repository_methods(cls):
                 LEFT JOIN ({payment_subquery}) paid_by_bill ON paid_by_bill.bill_id=b.id
                 WHERE b.tenant_id=:tenant_id AND b.project_id=:project_id AND b.billing_period=:period
                 GROUP BY ct.category ORDER BY MIN(b.id)"""), params).mappings().all()
-        return {"by_building": _summary_rows(by_building), "by_fee_type": _summary_rows(by_fee_type), "by_category": _summary_rows(by_category)}
+        return {"by_building": _summary_rows(by_building), "by_unit": _summary_rows(by_unit), "by_fee_type": _summary_rows(by_fee_type), "by_category": _summary_rows(by_category)}
 
     cls.report_breakdown = report_breakdown
