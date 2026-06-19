@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Platform license operations page for SaaS tenants."""
 
-from server.saas_license_binding import license_customer_code_for_tenant
+from server.saas_license_binding import bind_tenant_license_customer, license_customer_code_for_tenant
 from server.saas_license_seats import active_staff_count
 from server.saas_license_status import build_saas_license_status
 from server.saas_service import PermissionDenied
@@ -51,8 +51,8 @@ def _active_count_for_tenant(service, repository, tenant):
 
 
 def register_license_ops_pages(app, service, repository, current_user):
-    from fastapi import Depends, HTTPException
-    from fastapi.responses import HTMLResponse
+    from fastapi import Depends, Form, HTTPException
+    from fastapi.responses import HTMLResponse, RedirectResponse
 
     @app.get('/backoffice/license-ops', response_class=HTMLResponse)
     def license_ops_page(user=Depends(current_user)):
@@ -60,6 +60,16 @@ def register_license_ops_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
         rows = build_license_ops_rows(service, repository, getattr(app.state, 'license_service', None))
         return HTMLResponse(_render_page(rows))
+
+    @app.post('/backoffice/license-ops/bind')
+    def bind_license_customer(tenant_name: str = Form(...), customer_code: str = Form(...), user=Depends(current_user)):
+        if user.get('role_code') != 'platform_admin':
+            raise HTTPException(status_code=403, detail='forbidden')
+        tenant_user = _binding_user_for_tenant(service, repository, tenant_name.strip(), user)
+        if not tenant_user:
+            raise HTTPException(status_code=404, detail='tenant not found')
+        bind_tenant_license_customer(service, repository, tenant_user, customer_code.strip())
+        return RedirectResponse('/backoffice/license-ops?message=授权客户已绑定', status_code=303)
 
 
 def _tenant_items(service, repository):
@@ -77,10 +87,25 @@ def _tenant_probe_user(service, repository, tenant):
     return {'tenant_id': tenant_id, 'project_id': project.get('id'), 'role_code': 'platform_admin'}
 
 
+def _binding_user_for_tenant(service, repository, tenant_name, actor):
+    tenant = next((item for item in _tenant_items(service, repository) if item.get('name') == tenant_name), None)
+    if not tenant:
+        return None
+    probe = _tenant_probe_user(service, repository, tenant)
+    user = dict(actor)
+    user.update({
+        'tenant_id': probe.get('tenant_id'),
+        'project_id': probe.get('project_id'),
+        'tenant_name': tenant_name,
+    })
+    return user
+
+
 def _render_page(rows):
-    table_rows = ''.join(_row(item) for item in rows) or '<tr><td colspan="6">暂无租户</td></tr>'
+    table_rows = ''.join(_row(item) for item in rows) or '<tr><td colspan="7">暂无租户</td></tr>'
+    form = '''<section class="card" style="margin-bottom:18px"><div class="card-h">绑定授权客户</div><div class="card-b"><form method="post" action="/backoffice/license-ops/bind" class="filters"><div><label>客户公司</label><input name="tenant_name" required placeholder="SaaS 租户名称"></div><div><label>授权客户编号</label><input name="customer_code" required placeholder="license customer_code"></div><div><button class="primary">绑定授权客户</button></div></form><div class="hint">绑定只写入授权映射和租户范围审计，不写入客户业务数据。</div></div></section>'''
     body = f'''<section class="hero"><div><h1>授权状态运维</h1><div class="sub">平台管理员查看各租户授权状态、席位使用、到期时间和超限风险；不展示业务数据、授权库内部字段或生产密钥。</div></div><div class="badge tenant-scope">平台运维视图</div></section>
-<section class="card"><div class="card-h">授权租户概览</div><div class="card-b"><table><thead><tr><th>客户公司</th><th>授权客户</th><th>绑定状态</th><th>授权状态</th><th>席位使用</th><th>到期时间</th><th>超限风险</th></tr></thead><tbody>{table_rows}</tbody></table></div></section>'''
+{form}<section class="card"><div class="card-h">授权租户概览</div><div class="card-b"><table><thead><tr><th>客户公司</th><th>授权客户</th><th>绑定状态</th><th>授权状态</th><th>席位使用</th><th>到期时间</th><th>超限风险</th></tr></thead><tbody>{table_rows}</tbody></table></div></section>'''
     return _page('授权状态运维', body)
 
 
