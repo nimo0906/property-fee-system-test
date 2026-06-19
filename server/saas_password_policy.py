@@ -11,3 +11,9 @@ def password_meets_policy(password):
 
 def password_length_error(label):
     return f'{label}至少 {PASSWORD_MIN_LENGTH} 位'
+
+
+def password_change_error(old_password, new_password):
+    if old_password == new_password:
+        return '新密码不能与原密码相同'
+    return None

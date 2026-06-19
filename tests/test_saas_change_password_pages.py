@@ -119,6 +119,45 @@ class TestSaasChangePasswordPages(unittest.TestCase):
             self.assertIn('新密码至少 8 位', page_short.text)
             self.assertEqual(staff.get('/api/auth/me').json()['must_change_password'], True)
 
+
+    def test_change_password_rejects_same_old_and_new_password(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            admin = TestClient(create_app(database_url=db_url))
+            self.assertEqual(admin.post('/api/auth/login', json={
+                'tenant_name': '相同密码物业',
+                'project_name': '相同密码项目',
+                'username': 'admin',
+                'role_code': 'system_admin',
+            }).status_code, 200)
+            created = admin.post('/api/users', json={'username': 'cashier_same', 'role_code': 'cashier'})
+            user_id = created.json()['item']['id']
+            admin.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'Temp-pass-2026'})
+
+            staff = TestClient(create_app(database_url=db_url))
+            self.assertEqual(staff.post('/api/auth/login', json={
+                'tenant_name': '相同密码物业',
+                'project_name': '相同密码项目',
+                'username': 'cashier_same',
+                'role_code': 'cashier',
+                'password': 'Temp-pass-2026',
+            }).status_code, 200)
+
+            api_same = staff.post('/api/auth/change-password', json={
+                'old_password': 'Temp-pass-2026',
+                'new_password': 'Temp-pass-2026',
+            })
+            self.assertEqual(api_same.status_code, 400)
+            self.assertEqual(staff.get('/api/auth/me').json()['must_change_password'], True)
+
+            page_same = staff.post('/backoffice/change-password', data={
+                'old_password': 'Temp-pass-2026',
+                'new_password': 'Temp-pass-2026',
+            })
+            self.assertEqual(page_same.status_code, 400)
+            self.assertIn('新密码不能与原密码相同', page_same.text)
+            self.assertEqual(staff.get('/api/auth/me').json()['must_change_password'], True)
+
     def test_wrong_old_password_stays_on_change_password_page(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

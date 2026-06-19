@@ -4,7 +4,7 @@
 
 from server.passwords import verify_password
 from server.saas_login_helpers import repository_login_context, user_must_change_password, verify_repository_login
-from server.saas_password_policy import password_meets_policy
+from server.saas_password_policy import password_change_error, password_meets_policy
 from server.saas_service import PermissionDenied
 
 
@@ -98,6 +98,8 @@ def register_auth_routes(app, service, repository, sessions, session_user):
         try:
             if not password_meets_policy(data.new_password):
                 raise HTTPException(status_code=400, detail="new password too short")
+            if password_change_error(data.old_password, data.new_password):
+                raise HTTPException(status_code=400, detail="new password must differ from old password")
             if repository:
                 stored = repository.get_user(user["id"])
                 if not stored or not verify_password(data.old_password, stored.get("password_hash")):
