@@ -21,6 +21,7 @@ ITEMS = [
     ('P0-16 一页式上线指引', '实施人员按执行顺序完成服务器、环境、门禁、演示、备份恢复、隔离、签收和报告留存。', '/backoffice/acceptance'),
     ('P0-17 首日巡检清单', '上线后按 T+0、T+2、T+24 巡检服务健康、权限、隔离、收费抽查、备份、日志、审计和回退观察点。', '/backoffice/acceptance'),
     ('P0-18 七日稳定复盘', '上线后第 7 日复盘业务数据、金额报表、租户隔离、权限审计、备份恢复、客户反馈，并判断是否进入下一阶段。', '/backoffice/acceptance'),
+    ('P0-19 下一阶段立项决策', '7 日稳定后评估业主端 H5、微信/支付宝真实支付、授权云服务后台、更多桌面业务迁移的进入条件和边界。', '/backoffice/acceptance'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -45,6 +46,8 @@ GATES = [
     ('首日巡检检查', 'scripts/saas_day1_operations_checklist_check.py'),
     ('七日稳定复盘', 'docs/saas-day7-stability-review.md'),
     ('七日稳定复盘检查', 'scripts/saas_day7_stability_review_check.py'),
+    ('下一阶段立项决策', 'docs/saas-next-phase-decision-checklist.md'),
+    ('下一阶段立项决策检查', 'scripts/saas_next_phase_decision_check.py'),
 ]
 
 
