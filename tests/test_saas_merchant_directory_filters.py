@@ -131,6 +131,40 @@ class TestSaasMerchantDirectoryFilters(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id']:
                 self.assertNotIn(hidden, payment_page.text)
 
+    def test_payment_target_link_filters_payment_ledger_rows(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='LEDGER-101', shop_name='流水目标店', tenant_name='流水目标商户', area=80, unit_price_override=4.0)
+            other = self._create_target(client, room_number='LEDGER-102', shop_name='流水其他店', tenant_name='流水其他商户', area=30, unit_price_override=2.0)
+            fee = client.post('/api/fee-types', json={'name': '流水筛选物业费', 'unit_price': 1.0}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-08',
+                'service_start': '2027-08-01', 'service_end': '2027-08-31',
+            }).json()['item']
+            other_bill = client.post('/api/bills/generate', json={
+                'target_id': other['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-08',
+                'service_start': '2027-08-01', 'service_end': '2027-08-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            client.post(f"/api/bills/{other_bill['id']}/approve", json={})
+            target_payment = client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 120, 'method': 'cash',
+                'idempotency_key': 'MERCHANT-LEDGER-TARGET',
+            }).json()['item']
+            other_payment = client.post('/api/payments', json={
+                'bill_id': other_bill['id'], 'amount': 30, 'method': 'transfer',
+                'idempotency_key': 'MERCHANT-LEDGER-OTHER',
+            }).json()['item']
+
+            page = client.get(f"/backoffice/payments?target_id={target['id']}")
+            self.assertEqual(page.status_code, 200)
+            self.assertIn(target_payment['receipt_number'], page.text)
+            self.assertIn('流水目标店', page.text)
+            self.assertNotIn(other_payment['receipt_number'], page.text)
+            self.assertNotIn('流水其他店', page.text)
+            for hidden in ['tenant_id', 'project_id']:
+                self.assertNotIn(hidden, page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

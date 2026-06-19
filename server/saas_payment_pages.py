@@ -154,7 +154,9 @@ def register_payment_pages(app, service, repository, current_user):
             bills = _attach_target_labels(service.list_bills(user, user['project_id']), targets)
             rows = service.search_payments(user, user['project_id'], keyword or '', period or None, 1, 10000)['items']
         if str(target_id or '').strip():
-            bills = [bill for bill in bills if int(bill.get('charge_target_id') or 0) == int(target_id)]
+            bill_ids = {int(bill.get('id')) for bill in bills if int(bill.get('charge_target_id') or 0) == int(target_id)}
+            bills = [bill for bill in bills if int(bill.get('id')) in bill_ids]
+            rows = [row for row in rows if int(row.get('bill_id') or 0) in bill_ids]
         return bills, _paginate(_filter_payments(rows, method, amount_min, amount_max), page, page_size)
 
     def _find_payment(user, payment_id):
