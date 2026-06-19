@@ -9,6 +9,27 @@ from server.saas_csv_export import bill_export_rows, csv_content, payment_export
 from server.saas_payment_pages import _filter_payments
 
 
+def _to_export_float(value):
+    try:
+        return float(value) if str(value or '').strip() else None
+    except ValueError:
+        return None
+
+
+def _filter_bill_export_rows(items, amount_min='', amount_max=''):
+    low = _to_export_float(amount_min)
+    high = _to_export_float(amount_max)
+    rows = []
+    for item in items:
+        amount = float(item.get('amount') or 0)
+        if low is not None and amount < low:
+            continue
+        if high is not None and amount > high:
+            continue
+        rows.append(item)
+    return rows
+
+
 def register_billing_routes(app, service):
     from fastapi import Depends, HTTPException
     from pydantic import BaseModel
@@ -136,14 +157,18 @@ def register_billing_routes(app, service):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/exports/bills")
-    def export_bills(period: str = "", status: str = "", user=Depends(current_user)):
+    def export_bills(period: str = "", status: str = "", room_number: str = "", amount_min: str = "", amount_max: str = "", user=Depends(current_user)):
         try:
             if repository:
-                result = repository.search_bills(user["tenant_id"], user["project_id"], "", period or None, status or None, 1, 10000)
-                headers, rows = bill_export_rows(result["items"])
+                result = repository.search_bills(user["tenant_id"], user["project_id"], room_number or "", period or None, status or None, 1, 10000)
+                items = _filter_bill_export_rows(result["items"], amount_min, amount_max)
+                headers, rows = bill_export_rows(items)
                 content = csv_content(headers, rows)
                 return {"filename": f"bills-{period or 'all'}.csv", "content": content}
-            return service.export_bills(user, user["project_id"], period or None, status or None)
+            result = service.search_bills(user, user["project_id"], room_number or "", period or None, status or None, 1, 10000)
+            items = _filter_bill_export_rows(result["items"], amount_min, amount_max)
+            headers, rows = bill_export_rows(items)
+            return {"filename": f"bills-{period or 'all'}.csv", "content": csv_content(headers, rows)}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 

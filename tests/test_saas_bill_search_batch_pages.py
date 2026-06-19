@@ -1,4 +1,5 @@
 import tempfile
+from urllib.parse import quote
 import unittest
 from pathlib import Path
 
@@ -71,6 +72,29 @@ class TestSaasBillSearchBatchPages(unittest.TestCase):
             self.assertIn('value="商铺"', html)
             self.assertIn('value="200"', html)
             self.assertIn('value="300"', html)
+
+
+    def test_bill_page_export_preserves_and_applies_current_filters(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(database_url=db_url)
+            self._seed_bill(client, '101', 50, '2026-06')
+            self._seed_bill(client, '商铺A', 120, '2026-06')
+            other = self._seed_bill(client, '201', 80, '2026-07')
+            client.post(f"/api/bills/{other['id']}/approve", json={})
+
+            href = f'/api/exports/bills?period=2026-06&status=pending_review&room_number={quote("商铺")}&amount_min=200&amount_max=300'
+            page = client.get('/backoffice/bills?period=2026-06&status=pending_review&room_number=商铺&amount_min=200&amount_max=300&page_size=10')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn(href.replace('&', '&amp;'), page.text)
+
+            exported = client.get(href)
+            self.assertEqual(exported.status_code, 200)
+            content = exported.json()['content']
+            self.assertIn('商铺A', content)
+            self.assertIn('240.0', content)
+            self.assertNotIn('101', content)
+            self.assertNotIn('201', content)
 
     def test_bill_page_paginates_and_batch_approves_selected_pending_bills(self):
         with tempfile.TemporaryDirectory() as td:

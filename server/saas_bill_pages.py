@@ -55,12 +55,18 @@ def _render_bills(user, bills, targets, fees, filters=None, message='', page=1, 
     return _page('账单生成', body)
 
 
+def _bill_export_href(filters):
+    params = {key: value for key, value in filters.items() if value}
+    query = urllib.parse.urlencode(params)
+    return '/api/exports/bills?' + query if query else '/api/exports/bills'
+
+
 def _filter_form(filters, page_size):
     page_size_options = ''.join(
         f'<option value="{n}"{" selected" if int(page_size) == n else ""}>{n}</option>'
         for n in [10, 20, 50]
     )
-    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">高级筛选</div><div class="card-b"><form method="get" action="/backoffice/bills" class="filters"><input type="hidden" name="page" value="1"><div><label>账期</label><input name="period" value="{_h(filters.get('period'))}" placeholder="例如 2026-06"></div><div><label>状态</label><select name="status">{_status_options(filters.get('status', ''))}</select></div><div><label>房号 / 铺位号</label><input name="room_number" value="{_h(filters.get('room_number'))}" placeholder="房号关键词"></div><div><label>最低金额</label><input name="amount_min" type="number" step="0.01" min="0" value="{_h(filters.get('amount_min'))}"></div><div><label>最高金额</label><input name="amount_max" type="number" step="0.01" min="0" value="{_h(filters.get('amount_max'))}"></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">查询账单</button></div></form></div></section>'''
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">高级筛选</div><div class="card-b"><form method="get" action="/backoffice/bills" class="filters"><input type="hidden" name="page" value="1"><div><label>账期</label><input name="period" value="{_h(filters.get('period'))}" placeholder="例如 2026-06"></div><div><label>状态</label><select name="status">{_status_options(filters.get('status', ''))}</select></div><div><label>房号 / 铺位号</label><input name="room_number" value="{_h(filters.get('room_number'))}" placeholder="房号关键词"></div><div><label>最低金额</label><input name="amount_min" type="number" step="0.01" min="0" value="{_h(filters.get('amount_min'))}"></div><div><label>最高金额</label><input name="amount_max" type="number" step="0.01" min="0" value="{_h(filters.get('amount_max'))}"></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">查询账单</button></div><div><a class="ghost-link" href="{_h(_bill_export_href(filters))}">导出账单</a></div></form></div></section>'''
 
 
 def _batch_approve_bar(user):
