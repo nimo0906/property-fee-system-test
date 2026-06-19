@@ -41,13 +41,38 @@ class TestSaasImportErrorDownload(unittest.TestCase):
         self.assertIn('text/csv', response.headers.get('content-type', ''))
         self.assertIn('attachment; filename="charge_targets_errors.csv"', response.headers.get('content-disposition', ''))
         lines = response.text.strip().splitlines()
-        self.assertEqual(lines[0], 'row,error,building,unit,room_number,category,area')
+        self.assertEqual(
+            lines[0],
+            'row,error,owner_name,owner_phone,owner_type,building,unit,room_number,floor,shop_name,tenant_name,tenant_phone,category,area,unit_price_override,payment_cycle,notes',
+        )
         self.assertIn('楼栋/区域不能为空', response.text)
         self.assertIn('房号/铺位号不能为空', response.text)
         self.assertIn('面积必须是数字且大于0', response.text)
         self.assertNotIn('tenant_id', response.text)
         self.assertNotIn('project_id', response.text)
         self.assertNotIn('POSTGRES_PASSWORD=', response.text)
+
+    def test_error_csv_preserves_legacy_chinese_fields_for_repair(self):
+        client = self._client('finance')
+        csv_text = '业主姓名,联系电话,楼栋/区域,单元/分区,房号/铺位号,楼层,店名,承租人,承租人电话,类型,面积,独立单价,缴费周期,备注\n张三,13800000000,,一层,A-001,1,花店,李四,13900000000,商户,88.5,6.5,monthly,缺楼栋\n'
+        page = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+        self.assertEqual(page.status_code, 200)
+        marker = 'name="import_id" value="'
+        start = page.text.index(marker) + len(marker)
+        import_id = int(page.text[start:page.text.index('"', start)])
+
+        response = client.get(f'/api/imports/{import_id}/errors.csv')
+
+        self.assertEqual(response.status_code, 200)
+        header = response.text.splitlines()[0]
+        self.assertEqual(
+            header,
+            'row,error,owner_name,owner_phone,owner_type,building,unit,room_number,floor,shop_name,tenant_name,tenant_phone,category,area,unit_price_override,payment_cycle,notes',
+        )
+        for text in ['张三', '13800000000', '一层', 'A-001', '花店', '李四', '13900000000', '6.5', 'monthly', '缺楼栋']:
+            self.assertIn(text, response.text)
+        self.assertNotIn('tenant_id', response.text)
+        self.assertNotIn('project_id', response.text)
 
     def test_error_csv_is_tenant_scoped_and_requires_login(self):
         client_a = self._client('finance')

@@ -25,6 +25,11 @@ TEMPLATES = {
     },
 }
 
+CHARGE_TARGET_TEMPLATE_HEADERS = [
+    'owner_name', 'owner_phone', 'owner_type', 'building', 'unit', 'room_number', 'floor',
+    'shop_name', 'tenant_name', 'tenant_phone', 'category', 'area', 'unit_price_override', 'payment_cycle', 'notes',
+]
+
 
 def business_template(code='residential'):
     return TEMPLATES.get(code or 'residential', TEMPLATES['residential'])
@@ -53,4 +58,20 @@ def render_template_summary(selected='residential'):
 
 def template_csv(code='residential'):
     item = business_template(code)
-    return 'building,unit,room_number,category,area\n' + item['sample'] + '\n'
+    sample = _full_sample(item['sample'])
+    return (
+        ','.join(CHARGE_TARGET_TEMPLATE_HEADERS) + '\n'
+        + ','.join(sample) + '\n'
+        + f'# compact legacy sample: {item["sample"]}\n'
+        + '# legacy aliases: 业主姓名,联系电话,楼栋/区域,单元/分区,房号/铺位号,面积\n'
+    )
+
+
+def _full_sample(sample):
+    parts = [part.strip() for part in sample.split(',')]
+    building, unit, room_number, category, area = (parts + [''] * 5)[:5]
+    owner_type = '商户' if category == '商户' else '业主'
+    return [
+        '示例业主', '13800000000', owner_type, building, unit, room_number, '',
+        '示例店名' if category == '商户' else '', '', '', category, area, '', 'monthly', '模板示例',
+    ]

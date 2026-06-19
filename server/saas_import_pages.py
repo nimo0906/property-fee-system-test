@@ -6,7 +6,8 @@ import csv
 import io
 
 from server.saas_import_activity import display_filename, render_import_activity
-from server.saas_business_templates import render_template_summary, template_csv
+from server.saas_business_templates import CHARGE_TARGET_TEMPLATE_HEADERS, render_template_summary, template_csv
+from server.saas_import_mapping import normalize_import_row
 from server.saas_tenant_business_config import template_code_for_user
 from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_service import PermissionDenied
@@ -14,7 +15,7 @@ from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
 
 STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
-TEMPLATE_CSV = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80\n商场,一层,A-001,商户,56.5\n# 可选字段: owner_name,owner_phone；兼容中文旧表头: 楼栋/区域,房号/铺位号\n'
+TEMPLATE_CSV = ','.join(CHARGE_TARGET_TEMPLATE_HEADERS) + '\n示例业主,13800000000,业主,1栋,1单元,101,,,张租户,13900000000,居民,80,,monthly,模板示例\n# legacy aliases: 业主姓名,联系电话,楼栋/区域,单元/分区,房号/铺位号,面积\n'
 
 
 def _parse_csv_rows(csv_text):
@@ -91,11 +92,19 @@ def _template_rows():
     fields = [
         ('owner_name', '业主姓名', '选填', '例如 张三、某某商户'),
         ('owner_phone', '联系电话', '选填', '例如 13800000000'),
+        ('owner_type', '业主类型', '选填', '例如 业主、住户、商户'),
         ('building', '楼栋 / 区域', '必填', '例如 1栋、商场、A区'),
         ('unit', '单元 / 分区', '选填', '例如 1单元、二层、东区'),
         ('room_number', '房号 / 铺位号', '必填', '例如 101、A-001'),
+        ('floor', '楼层', '选填', '整数，例如 3'),
+        ('shop_name', '店名', '选填', '商户或铺位店名'),
+        ('tenant_name', '承租人', '选填', '承租人姓名'),
+        ('tenant_phone', '承租电话', '选填', '承租人联系电话'),
         ('category', '类型', '必填', '例如 居民、商户、车位'),
         ('area', '面积', '必填', '数字，单位平方米'),
+        ('unit_price_override', '独立单价', '选填', '商户/铺位差异化收费单价'),
+        ('payment_cycle', '缴费周期', '选填', '例如 monthly、quarterly'),
+        ('notes', '备注', '选填', '补充说明'),
     ]
     return ''.join(
         '<tr>'
@@ -109,7 +118,7 @@ def _render_template_page(user, business_template='residential'):
     body = f'''
 <section class="hero"><div><h1>收费对象导入模板</h1><div class="sub">不同公司业务可以不同，但第一版 SaaS 收费对象导入统一使用楼栋 / 区域、单元 / 分区、房号 / 铺位号、类型、面积七个字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>是否必填</th><th>填写说明</th></tr></thead><tbody>{_template_rows()}</tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/charge-targets.csv?business_template={_h(business_template)}">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>
-<section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>{render_template_summary(business_template)}'''
+<section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">旧表头兼容：业主姓名、联系电话、楼栋/区域、单元/分区、房号/铺位号、面积等桌面旧模板字段可以继续预览导入。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>{render_template_summary(business_template)}'''
     return _page('收费对象导入模板', body)
 
 
@@ -122,19 +131,12 @@ def _error_download_link(review):
 
 def _error_csv(review):
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=['row', 'error', 'building', 'unit', 'room_number', 'category', 'area'])
+    fieldnames = ['row', 'error'] + CHARGE_TARGET_TEMPLATE_HEADERS
+    writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
     for err in review.get('errors', []):
-        data = err.get('data') or {}
-        writer.writerow({
-            'row': err.get('row'),
-            'error': err.get('error'),
-            'building': data.get('building', ''),
-            'unit': data.get('unit', ''),
-            'room_number': data.get('room_number', ''),
-            'category': data.get('category', ''),
-            'area': data.get('area', ''),
-        })
+        data = normalize_import_row(err.get('data') or {})
+        writer.writerow({'row': err.get('row'), 'error': err.get('error'), **{key: data.get(key, '') for key in CHARGE_TARGET_TEMPLATE_HEADERS}})
     return output.getvalue()
 
 

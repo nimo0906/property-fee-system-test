@@ -55,10 +55,32 @@ class TestSaasImportTemplatePages(unittest.TestCase):
         self.assertIn('text/csv', response.headers.get('content-type', ''))
         self.assertIn('attachment; filename="charge_targets_template.csv"', response.headers.get('content-disposition', ''))
         lines = response.text.strip().splitlines()
-        self.assertEqual(lines[0], 'building,unit,room_number,category,area')
-        self.assertIn('1栋,1单元,101,居民,80', response.text)
+        self.assertEqual(
+            lines[0],
+            'owner_name,owner_phone,owner_type,building,unit,room_number,floor,shop_name,tenant_name,tenant_phone,category,area,unit_price_override,payment_cycle,notes',
+        )
+        self.assertIn('1栋,1单元,101', response.text)
+        self.assertIn('居民,80', response.text)
         self.assertNotIn('tenant_id', response.text)
         self.assertNotIn('project_id', response.text)
+
+    def test_template_page_documents_full_owner_room_charge_target_fields(self):
+        client = self._client('finance')
+        page = client.get('/backoffice/imports/templates/charge-targets')
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '业主类型',
+            '楼层',
+            '店名',
+            '承租人',
+            '承租电话',
+            '独立单价',
+            '缴费周期',
+            '备注',
+            '旧表头兼容',
+            '业主姓名、联系电话、楼栋/区域、单元/分区、房号/铺位号',
+        ]:
+            self.assertIn(text, page.text)
 
     def test_template_routes_require_login(self):
         client = TestClient(create_app())
