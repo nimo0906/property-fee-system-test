@@ -73,6 +73,33 @@ class TestSaasMerchantDirectoryFilters(unittest.TestCase):
             self.assertNotIn('PAID-FILTER', csv_text)
             self.assertNotIn('NO-BILL', csv_text)
 
+    def test_merchant_directory_can_filter_by_building_and_unit_in_api_page_and_export(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            self._create_target(client, room_number='A-201', building='商场A区', unit='二层', shop_name='A区二层店')
+            self._create_target(client, room_number='A-101', building='商场A区', unit='一层', shop_name='A区一层店')
+            self._create_target(client, room_number='B-201', building='商场B区', unit='二层', shop_name='B区二层店')
+
+            api = client.get('/api/merchants?building=商场A区&unit=二层')
+            self.assertEqual(api.status_code, 200)
+            self.assertEqual(api.json()['total'], 1)
+            self.assertEqual(api.json()['items'][0]['space_no'], 'A-201')
+
+            page = client.get('/backoffice/merchants?building=商场A区&unit=二层')
+            self.assertEqual(page.status_code, 200)
+            for expected in ['楼栋 / 区域', '分区', '商场A区', '二层', 'A-201', 'A区二层店']:
+                self.assertIn(expected, page.text)
+            for hidden in ['A-101', 'B-201', 'tenant_id', 'project_id']:
+                self.assertNotIn(hidden, page.text)
+
+            csv_response = client.get('/api/merchants/export.csv?building=商场A区&unit=二层')
+            self.assertEqual(csv_response.status_code, 200)
+            csv_text = csv_response.content.decode('utf-8-sig')
+            self.assertIn('A-201', csv_text)
+            self.assertIn('A区二层店', csv_text)
+            self.assertNotIn('A-101', csv_text)
+            self.assertNotIn('B-201', csv_text)
+
 
 if __name__ == '__main__':
     unittest.main()
