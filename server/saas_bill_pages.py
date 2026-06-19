@@ -186,7 +186,7 @@ def register_bill_pages(app, service, repository, current_user):
                 fee = repository.get_fee_type(user['tenant_id'], user['project_id'], fee_type_id)
                 if not target or not fee:
                     raise HTTPException(status_code=404, detail='target or fee type not found')
-                amount = calculate_bill_amount(target, fee)
+                amount = calculate_bill_amount(target, fee, service_start, service_end)
                 repository.create_bill(user['tenant_id'], user['project_id'], target_id, fee_type_id, billing_period, service_start, service_end, amount, actor_user_id=user['id'])
             else:
                 service.generate_bill(user, user['project_id'], service.targets[target_id], service.fees[fee_type_id], billing_period, service_start, service_end)

@@ -39,7 +39,7 @@ def register_billing_routes(app, service):
                 item = repository.create_bill(
                     user["tenant_id"], user["project_id"], target["id"], fee["id"],
                     data.billing_period, data.service_start, data.service_end,
-                    calculate_bill_amount(target, fee),
+                    calculate_bill_amount(target, fee, data.service_start, data.service_end),
                     actor_user_id=user["id"],
                 )
             else:

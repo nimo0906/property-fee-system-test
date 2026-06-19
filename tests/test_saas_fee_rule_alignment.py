@@ -74,3 +74,74 @@ def test_fee_type_page_exposes_billing_mode_and_keeps_tenant_scoped_rules():
         for text in ['计费方式', '按面积', '固定金额', '固定停车费']:
             assert text in page.text
         assert '固定金额' in page.text
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""P0 fee rule alignment: target price override and service period proration."""
+
+import tempfile
+from pathlib import Path
+
+from server.saas_repository import create_saas_repository
+
+
+def test_repository_uses_target_price_override_before_fee_default_price():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('规则物业')
+        project = repo.create_project(tenant['id'], '规则项目')
+        target = repo.create_charge_target(
+            tenant['id'], project['id'], '商场', '一层', 'A-101', '商户', 50, unit_price_override=8
+        )
+        fee = repo.create_fee_type(tenant['id'], project['id'], '商户物业费', 5, 'area')
+        bill = repo.create_bill(
+            tenant['id'], project['id'], target['id'], fee['id'], '2026-09', '2026-09-01', '2026-09-30', None
+        )
+        assert bill['amount'] == 400.0
+        listed = repo.list_charge_targets(tenant['id'], project['id'])
+        assert listed[0]['unit_price_override'] == 8.0
+        repo.close()
+
+
+def test_repository_prorates_amount_by_service_months_for_multi_month_period():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('规则物业')
+        project = repo.create_project(tenant['id'], '规则项目')
+        target = repo.create_charge_target(tenant['id'], project['id'], '1栋', '1单元', '101', '居民', 80)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '物业费', 2, 'area')
+        bill = repo.create_bill(
+            tenant['id'], project['id'], target['id'], fee['id'], '2026-09~2026-11', '2026-09-01', '2026-11-30', None
+        )
+        assert bill['amount'] == 480.0
+        repo.close()
+
+
+def test_api_and_page_accept_target_price_override_for_saas_billing():
+    with tempfile.TemporaryDirectory() as td:
+        client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        target = client.post('/api/charge-targets', json={
+            'building': '商场', 'unit': '一层', 'room_number': 'B-101', 'category': '商户',
+            'area': 60, 'unit_price_override': 7,
+        }).json()['item']
+        fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 3, 'billing_mode': 'area'}).json()['item']
+        bill = client.post('/api/bills/generate', json={
+            'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2026-12',
+            'service_start': '2026-12-01', 'service_end': '2026-12-31',
+        })
+        assert bill.status_code == 200, bill.text
+        assert bill.json()['item']['amount'] == 420.0
+        page = client.get('/backoffice/charge-targets')
+        assert '独立单价' in page.text
+
+
+def test_import_mapping_keeps_target_price_override_for_confirmed_rows():
+    client = login_client()
+    preview = client.post('/api/imports/charge-targets/preview', json={'rows': [{
+        '业主姓名': '张商户', '楼栋/区域': '商场', '单元/分区': '二层', '房号/铺位号': 'C-201',
+        '类型': '商户', '面积': '40', '独立单价': '9',
+    }]})
+    assert preview.status_code == 200, preview.text
+    confirm = client.post('/api/imports/charge-targets/confirm', json={'import_id': preview.json()['import_id']})
+    assert confirm.status_code == 200, confirm.text
+    targets = client.get('/api/charge-targets').json()['items']
+    assert targets[0]['unit_price_override'] == 9.0

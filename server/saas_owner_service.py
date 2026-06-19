@@ -22,7 +22,7 @@ def attach_owner_methods(cls):
             return []
         return [o for o in self.owners.values() if o["tenant_id"] == user["tenant_id"] and o["project_id"] == project_id]
 
-    def create_charge_target(self, user, project_id, building, unit, room_number, category, area, owner_id=0):
+    def create_charge_target(self, user, project_id, building, unit, room_number, category, area, owner_id=0, unit_price_override=None):
         self._require(user, "write")
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
@@ -31,9 +31,11 @@ def attach_owner_methods(cls):
         if owner_id and (not owner or owner["tenant_id"] != user["tenant_id"] or owner["project_id"] != project_id):
             raise PermissionDenied("cross tenant owner")
         tid = self._id()
+        price_override = float(unit_price_override) if unit_price_override not in (None, "") else None
         target = {"id": tid, "tenant_id": user["tenant_id"], "project_id": project_id,
                   "owner_id": owner_id or None, "owner_name": owner.get("name") if owner else "", "owner_phone": owner.get("phone") if owner else "",
-                  "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area)}
+                  "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area),
+                  "unit_price_override": price_override}
         self.targets[tid] = target
         self._log(user, project_id, 'charge_target.create', 'charge_target', tid, {'building': building, 'room_number': room_number})
         return target

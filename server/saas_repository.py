@@ -27,7 +27,7 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS role_permissions(role_code TEXT NOT NULL,permission_code TEXT NOT NULL,PRIMARY KEY(role_code,permission_code))",
             "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,username TEXT NOT NULL,role_code TEXT NOT NULL,password_hash TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,username))",
             "CREATE TABLE IF NOT EXISTS owners(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,phone TEXT,owner_type TEXT NOT NULL DEFAULT '业主')",
-            "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,building,unit,room_number))",
+            "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,unit_price_override REAL,UNIQUE(tenant_id,project_id,building,unit,room_number))",
             "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,billing_mode TEXT NOT NULL DEFAULT 'area',UNIQUE(tenant_id,project_id,name))",
             "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending_review',UNIQUE(tenant_id,project_id,bill_number))",
             "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key))",
@@ -39,10 +39,14 @@ class SaasRepository:
         with self.engine.begin() as conn:
             for stmt in stmts:
                 conn.execute(text(stmt))
-            try:
-                conn.execute(text("ALTER TABLE fee_types ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'area'"))
-            except Exception:
-                pass
+            for alter in [
+                "ALTER TABLE fee_types ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'area'",
+                "ALTER TABLE charge_targets ADD COLUMN unit_price_override REAL",
+            ]:
+                try:
+                    conn.execute(text(alter))
+                except Exception:
+                    pass
 
     def _row(self, sql, params):
         with self.engine.begin() as conn:
@@ -115,7 +119,7 @@ class SaasRepository:
         if amount is None:
             target = self.get_charge_target(tenant_id, project_id, target_id)
             fee = self.get_fee_type(tenant_id, project_id, fee_type_id)
-            amount = calculate_bill_amount(target, fee)
+            amount = calculate_bill_amount(target, fee, service_start, service_end)
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
             result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)

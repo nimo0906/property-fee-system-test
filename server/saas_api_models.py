@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Pydantic request models for SaaS FastAPI routes."""
 
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -41,6 +43,7 @@ class TargetIn(BaseModel):
     room_number: str
     category: str = "居民"
     area: float
+    unit_price_override: Optional[float] = None
 
 
 class ImportPreviewIn(BaseModel):

@@ -13,6 +13,7 @@ FIELD_ALIASES = {
     "owner_name": ("owner_name", "业主姓名", "业主", "客户名称", "商户名称"),
     "owner_phone": ("owner_phone", "联系电话", "手机号", "业主电话", "电话"),
     "owner_type": ("owner_type", "业主类型", "客户类型"),
+    "unit_price_override": ("unit_price_override", "独立单价", "覆盖单价", "商户单价"),
 }
 
 
@@ -35,6 +36,7 @@ def normalize_import_row(row):
         "owner_name": _pick(row, "owner_name"),
         "owner_phone": _pick(row, "owner_phone"),
         "owner_type": _pick(row, "owner_type", "业主") or "业主",
+        "unit_price_override": _pick(row, "unit_price_override"),
     }
 
 
@@ -55,6 +57,10 @@ def attach_import_mapping_methods(cls):
                 if area <= 0:
                     raise ValueError("面积必须是数字且大于0")
                 row["area"] = area
+                if row.get("unit_price_override") not in (None, ""):
+                    row["unit_price_override"] = float(row["unit_price_override"])
+                else:
+                    row["unit_price_override"] = None
                 valid.append(row)
             except ValueError as exc:
                 errors.append({"row": idx, "error": str(exc), "data": dict(raw)})
@@ -97,7 +103,7 @@ def attach_import_mapping_methods(cls):
                 owner = self.create_owner(user, project_id, row["owner_name"], row.get("owner_phone", ""), row.get("owner_type", "业主"))
                 owner_id = owner["id"]
                 owner_created += 1
-            self.create_charge_target(user, project_id, row["building"], row.get("unit", ""), row["room_number"], row.get("category", "居民"), row["area"], owner_id)
+            self.create_charge_target(user, project_id, row["building"], row.get("unit", ""), row["room_number"], row.get("category", "居民"), row["area"], owner_id, row.get("unit_price_override"))
             created += 1
         imp["confirmed"] = True
         imp["owner_created_count"] = owner_created

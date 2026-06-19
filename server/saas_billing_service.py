@@ -14,7 +14,7 @@ def generate_bill(self, user, project_id, target, fee, period, service_start, se
             raise PermissionDenied("cross tenant target")
         if fee["tenant_id"] != user["tenant_id"] or fee["project_id"] != project_id:
             raise PermissionDenied("cross tenant fee")
-        amount = calculate_bill_amount(target, fee)
+        amount = calculate_bill_amount(target, fee, service_start, service_end)
         bid = self._id()
         bill = {"id": bid, "tenant_id": user["tenant_id"], "project_id": project_id,
                 "charge_target_id": target["id"], "fee_type_id": fee["id"],

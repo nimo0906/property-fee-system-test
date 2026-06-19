@@ -128,10 +128,10 @@ def create_app(database_url=None):
         try:
             service._require(user, "write")
             if repository:
-                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id)
+                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override)
                 service._log(user, user["project_id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
             else:
-                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id)
+                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override)
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
