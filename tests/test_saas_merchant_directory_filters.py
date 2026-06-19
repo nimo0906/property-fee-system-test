@@ -1,6 +1,9 @@
+import html
+import re
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.parse import unquote
 
 from fastapi.testclient import TestClient
 
@@ -231,6 +234,27 @@ class TestSaasMerchantDirectoryFilters(unittest.TestCase):
             self.assertEqual(bills[0]['amount'], 100.0)
             result_page = client.get(response.headers['location'])
             self.assertIn('商户批量出账：新增 1 笔，跳过 0 笔', result_page.text)
+
+    def test_merchant_page_export_link_preserves_current_filters(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='CSV-A201', building='商场A区', unit='二层', shop_name='CSV目标店', tenant_name='CSV目标商户', area=80, unit_price_override=4.0)
+            self._create_target(client, room_number='CSV-B201', building='商场B区', unit='二层', shop_name='CSV其他店', tenant_name='CSV其他商户', area=20, unit_price_override=3.0)
+            fee = client.post('/api/fee-types', json={'name': 'CSV筛选物业费', 'unit_price': 1.0}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-11',
+                'service_start': '2027-11-01', 'service_end': '2027-11-30',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+
+            page = client.get('/backoffice/merchants?keyword=CSV&arrears=1&building=商场A区&unit=二层')
+            self.assertEqual(page.status_code, 200)
+            match = re.search(r'href="([^"]+)">导出商户CSV', page.text)
+            self.assertIsNotNone(match)
+            export_href = unquote(html.unescape(match.group(1)))
+            self.assertEqual(export_href, '/api/merchants/export.csv?keyword=CSV&arrears=1&building=商场A区&unit=二层')
+            self.assertIn('CSV-A201', page.text)
+            self.assertNotIn('CSV-B201', page.text)
 
 
 if __name__ == '__main__':

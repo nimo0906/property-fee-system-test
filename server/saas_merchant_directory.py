@@ -123,6 +123,12 @@ def _query(keyword, page, page_size, arrears=False, building='', unit=''):
     return urllib.parse.urlencode({'keyword': keyword, 'page': page, 'page_size': page_size, 'arrears': '1' if arrears else '', 'building': building, 'unit': unit})
 
 
+def _export_query(keyword='', arrears=False, building='', unit=''):
+    params = {'keyword': keyword, 'arrears': '1' if arrears else '', 'building': building, 'unit': unit}
+    query = urllib.parse.urlencode({key: value for key, value in params.items() if value})
+    return f'/api/merchants/export.csv?{query}' if query else '/api/merchants/export.csv'
+
+
 def _filter_form(keyword, page_size, arrears=False, building='', unit=''):
     options = ''.join(f'<option value="{n}"{" selected" if page_size == n else ""}>{n}</option>' for n in [10, 20, 50])
     checked = ' checked' if arrears else ''
@@ -174,7 +180,7 @@ def _render_merchants(user, items, message='', keyword='', page=1, page_size=20,
     body = f'''
 <section class="hero"><div><h1>商户档案</h1><div class="sub">基于收费对象中的商户/商业铺位形成商户档案视图；不新增独立合同表，先用于维护铺位号、店名、承租人、电话、面积、独立单价和缴费周期。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
-<section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="/api/merchants/export.csv">导出商户CSV</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="{_h(_export_query(keyword, arrears, building, unit))}">导出商户CSV</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
 {_filter_form(keyword, page_size, arrears, building, unit)}
 <section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total, arrears, building, unit)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>账单数</th><th>应收合计</th><th>已收合计</th><th>欠费余额</th><th>收款</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total, arrears, building, unit)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
