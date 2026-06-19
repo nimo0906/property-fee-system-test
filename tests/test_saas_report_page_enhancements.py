@@ -74,6 +74,50 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'POSTGRES_PASSWORD', 'APP_SECRET_KEY', 'password']:
                 self.assertNotIn(hidden, page.text)
 
+    def test_report_breakdown_groups_due_paid_unpaid_by_building_and_fee_type(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url)
+            property_fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+            parking_fee = client.post('/api/fee-types', json={'name': '车位费', 'unit_price': 80, 'billing_mode': 'fixed'}).json()['item']
+
+            def seed(building, room, area, fee, paid):
+                target = client.post('/api/charge-targets', json={
+                    'building': building, 'unit': '商场', 'room_number': room, 'category': '商户', 'area': area,
+                }).json()['item']
+                bill = client.post('/api/bills/generate', json={
+                    'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2026-12',
+                    'service_start': '2026-12-01', 'service_end': '2026-12-31',
+                }).json()['item']
+                client.post(f"/api/bills/{bill['id']}/approve", json={})
+                if paid:
+                    response = client.post('/api/payments', json={
+                        'bill_id': bill['id'], 'amount': paid, 'method': 'cash',
+                        'idempotency_key': f"REPORT-BREAKDOWN-{building}-{room}-{fee['id']}",
+                    })
+                    self.assertEqual(response.status_code, 200)
+
+            seed('A座', 'A101', 100, property_fee, 50)
+            seed('B座', 'B201', 300, property_fee, 600)
+            seed('B座', 'B202', 1, parking_fee, 0)
+
+            api = client.get('/api/reports/breakdown?period=2026-12')
+            self.assertEqual(api.status_code, 200)
+            data = api.json()
+            self.assertEqual(data['by_building'], [
+                {'name': 'A座', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 50.0, 'unpaid_amount_total': 150.0},
+                {'name': 'B座', 'bill_count': 2, 'bill_amount_total': 680.0, 'payment_amount_total': 600.0, 'unpaid_amount_total': 80.0},
+            ])
+            self.assertEqual(data['by_fee_type'], [
+                {'name': '物业费', 'bill_count': 2, 'bill_amount_total': 800.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 150.0},
+                {'name': '车位费', 'bill_count': 1, 'bill_amount_total': 80.0, 'payment_amount_total': 0.0, 'unpaid_amount_total': 80.0},
+            ])
+
+            page = client.get('/backoffice/reports?period=2026-12')
+            self.assertEqual(page.status_code, 200)
+            for text in ['按楼栋 / 区域汇总', '按收费项目汇总', 'A座', 'B座', '物业费', '车位费', '680.0', '650.0']:
+                self.assertIn(text, page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -163,3 +163,12 @@ def register_billing_routes(app, service):
         if repository:
             return repository.report_summary(user["tenant_id"], user["project_id"], period)
         return service.report(user, user["project_id"], period)
+
+    @app.get("/api/reports/breakdown")
+    def report_breakdown(period: str, user=Depends(current_user)):
+        try:
+            if repository:
+                return repository.report_breakdown(user["tenant_id"], user["project_id"], period)
+            return {"by_building": [], "by_fee_type": []}
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail="forbidden")

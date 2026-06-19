@@ -43,7 +43,19 @@ def _summary_card(summary):
     return f'''<section class="card" style="margin-top:18px"><div class="card-h">经营摘要</div><div class="card-b"><table><tbody><tr><th>收缴率</th><td>{_h(collection_rate)}</td></tr><tr><th>欠费率</th><td>{_h(arrears_rate)}</td></tr><tr><th>欠费提醒</th><td>{hint}</td></tr></tbody></table></div></section>'''
 
 
-def _render_report(user, period, summary):
+def _breakdown_table(title, rows):
+    body = ''.join([
+        f"<tr><td>{_h(row.get('name'))}</td><td>{_h(row.get('bill_count'))}</td><td>{_h(row.get('bill_amount_total'))}</td><td>{_h(row.get('payment_amount_total'))}</td><td>{_h(row.get('unpaid_amount_total'))}</td></tr>"
+        for row in rows
+    ]) or '<tr><td colspan="5" class="hint">暂无数据</td></tr>'
+    return f'''<section class="card"><div class="card-h">{_h(title)}</div><div class="card-b"><table><thead><tr><th>名称</th><th>账单数</th><th>应收</th><th>实收</th><th>欠费</th></tr></thead><tbody>{body}</tbody></table></div></section>'''
+
+
+def _breakdown_cards(breakdown):
+    return f'''<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px">{_breakdown_table('按楼栋 / 区域汇总', breakdown.get('by_building', []))}{_breakdown_table('按收费项目汇总', breakdown.get('by_fee_type', []))}</section>'''
+
+
+def _render_report(user, period, summary, breakdown=None):
     metrics = ''.join([
         _metric('账单数量', summary.get('bill_count', 0)),
         _metric('应收金额', summary.get('bill_amount_total', 0.0)),
@@ -55,6 +67,7 @@ def _render_report(user, period, summary):
 {render_business_closure('reports')}
 {_filter_card(user, period)}
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
+{_breakdown_cards(breakdown or {'by_building': [], 'by_fee_type': []})}
 {_summary_card(summary)}'''
     return _page('对账报表', body)
 
@@ -70,8 +83,10 @@ def register_report_pages(app, service, repository, current_user):
             selected_period = period or '2026-09'
             if repository:
                 summary = repository.report_summary(user['tenant_id'], user['project_id'], selected_period)
+                breakdown = repository.report_breakdown(user['tenant_id'], user['project_id'], selected_period)
             else:
                 summary = service.report(user, user['project_id'], selected_period)
-            return HTMLResponse(_render_report(user, selected_period, summary))
+                breakdown = {'by_building': [], 'by_fee_type': []}
+            return HTMLResponse(_render_report(user, selected_period, summary, breakdown))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
