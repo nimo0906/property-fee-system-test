@@ -159,7 +159,7 @@ def _service_bill_exists(service, user, project_id, period, target_id, fee_type_
 def _batch_bill_form(fees):
     if not fees:
         return '<div class="hint">请先维护收费项目后再批量出账。</div>'
-    return f'''<form method="post" action="/backoffice/merchants/batch-generate-bills"><label>收费项目</label><select name="fee_type_id">{_fee_options(fees)}</select><label>账期</label><input name="billing_period" required placeholder="例如 2027-03"><label>服务开始</label><input name="service_start" required placeholder="2027-03-01"><label>服务结束</label><input name="service_end" required placeholder="2027-03-31"><button class="primary">批量生成商户账单</button><div class="hint">仅为商户/商业收费对象出账；重复账期会自动跳过。</div></form>'''
+    return f'''<form method="post" action="/backoffice/merchants/batch-generate-bills"><label>收费项目</label><select name="fee_type_id">{_fee_options(fees)}</select><label>楼栋 / 区域范围</label><input name="building" placeholder="选填，精确匹配楼栋/区域"><label>分区范围</label><input name="unit" placeholder="选填，精确匹配单元/分区"><label>账期</label><input name="billing_period" required placeholder="例如 2027-03"><label>服务开始</label><input name="service_start" required placeholder="2027-03-01"><label>服务结束</label><input name="service_end" required placeholder="2027-03-31"><button class="primary">批量生成商户账单</button><div class="hint">仅为商户/商业收费对象出账；重复账期会自动跳过。</div></form>'''
 
 
 def _bill_form(items, fees):
@@ -226,15 +226,15 @@ def register_merchant_directory(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/merchants/batch-generate-bills')
-    def batch_generate_merchant_bills_page(fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(...), user=Depends(current_user)):
+    def batch_generate_merchant_bills_page(fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(...), building: str = Form(''), unit: str = Form(''), user=Depends(current_user)):
         try:
             service._require(user, 'billing')
             if repository:
-                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户', actor_user_id=user['id'])
-                extra = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', actor_user_id=user['id'])
+                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户', building=building, unit=unit, actor_user_id=user['id'])
+                extra = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', building=building, unit=unit, actor_user_id=user['id'])
             else:
-                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户')
-                extra = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业')
+                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户', building=building, unit=unit)
+                extra = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', building=building, unit=unit)
             created = int(result.get('created_count', 0)) + int(extra.get('created_count', 0))
             skipped = int(result.get('skipped_count', 0)) + int(extra.get('skipped_count', 0))
             return RedirectResponse(f'/backoffice/merchants?message=商户批量出账：新增 {created} 笔，跳过 {skipped} 笔', status_code=303)

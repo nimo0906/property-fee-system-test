@@ -204,6 +204,34 @@ class TestSaasMerchantDirectoryFilters(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id']:
                 self.assertNotIn(hidden, content)
 
+    def test_merchant_batch_billing_can_scope_by_building_and_unit(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            self._create_target(client, room_number='SCOPE-A201', building='商场A区', unit='二层', shop_name='A区二层出账店', area=20, unit_price_override=5.0)
+            self._create_target(client, room_number='SCOPE-A101', building='商场A区', unit='一层', shop_name='A区一层不出账店', area=30, unit_price_override=6.0)
+            self._create_target(client, room_number='SCOPE-B201', building='商场B区', unit='二层', shop_name='B区二层不出账店', area=40, unit_price_override=7.0)
+            fee = client.post('/api/fee-types', json={'name': '范围批量物业费', 'unit_price': 1.0}).json()['item']
+
+            page = client.get('/backoffice/merchants')
+            self.assertIn('楼栋 / 区域范围', page.text)
+            self.assertIn('分区范围', page.text)
+
+            response = client.post('/backoffice/merchants/batch-generate-bills', data={
+                'fee_type_id': str(fee['id']),
+                'billing_period': '2027-10',
+                'service_start': '2027-10-01',
+                'service_end': '2027-10-31',
+                'building': '商场A区',
+                'unit': '二层',
+            }, follow_redirects=False)
+            self.assertEqual(response.status_code, 303)
+
+            bills = client.get('/api/bills?period=2027-10').json()['items']
+            self.assertEqual(len(bills), 1)
+            self.assertEqual(bills[0]['amount'], 100.0)
+            result_page = client.get(response.headers['location'])
+            self.assertIn('商户批量出账：新增 1 笔，跳过 0 笔', result_page.text)
+
 
 if __name__ == '__main__':
     unittest.main()
