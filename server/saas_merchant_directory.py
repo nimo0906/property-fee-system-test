@@ -104,6 +104,12 @@ def _service_bill_exists(service, user, project_id, period, target_id, fee_type_
     return any(bill.get('bill_number') == bill_number for bill in service.bills.values())
 
 
+def _batch_bill_form(fees):
+    if not fees:
+        return '<div class="hint">请先维护收费项目后再批量出账。</div>'
+    return f'''<form method="post" action="/backoffice/merchants/batch-generate-bills"><label>收费项目</label><select name="fee_type_id">{_fee_options(fees)}</select><label>账期</label><input name="billing_period" required placeholder="例如 2027-03"><label>服务开始</label><input name="service_start" required placeholder="2027-03-01"><label>服务结束</label><input name="service_end" required placeholder="2027-03-31"><button class="primary">批量生成商户账单</button><div class="hint">仅为商户/商业收费对象出账；重复账期会自动跳过。</div></form>'''
+
+
 def _bill_form(items, fees):
     if not items or not fees:
         return '<div class="hint">请先维护商户档案和收费项目后再生成账单。</div>'
@@ -118,7 +124,7 @@ def _render_merchants(user, items, message='', keyword='', page=1, page_size=20,
 {notice}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
 {_filter_form(keyword, page_size)}
-<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
+<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
 
 
@@ -148,6 +154,22 @@ def register_merchant_directory(app, service, repository, current_user):
         try:
             visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size)
             return HTMLResponse(_render_merchants(user, visible, message, keyword, page, page_size, total, _fees(user)))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/merchants/batch-generate-bills')
+    def batch_generate_merchant_bills_page(fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(...), user=Depends(current_user)):
+        try:
+            service._require(user, 'billing')
+            if repository:
+                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户', actor_user_id=user['id'])
+                extra = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', actor_user_id=user['id'])
+            else:
+                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户')
+                extra = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业')
+            created = int(result.get('created_count', 0)) + int(extra.get('created_count', 0))
+            skipped = int(result.get('skipped_count', 0)) + int(extra.get('skipped_count', 0))
+            return RedirectResponse(f'/backoffice/merchants?message=商户批量出账：新增 {created} 笔，跳过 {skipped} 笔', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 

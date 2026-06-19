@@ -186,6 +186,33 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             page = client.get(second.headers['location'])
             self.assertIn('商户账单已存在，已跳过', page.text)
 
+    def test_merchant_directory_can_batch_generate_commercial_bills_and_skip_duplicates(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            self._create_target(client, room_number='M-101', category='商户', shop_name='商户店1', area=20, unit_price_override=5.0)
+            self._create_target(client, room_number='M-102', category='商业', shop_name='商户店2', area=30, unit_price_override=6.0)
+            self._create_target(client, room_number='R-101', category='居民', shop_name='住宅不应出账', area=40)
+            fee = client.post('/api/fee-types', json={'name': '商户批量物业费', 'unit_price': 2.0}).json()['item']
+            payload = {
+                'fee_type_id': str(fee['id']),
+                'billing_period': '2027-03',
+                'service_start': '2027-03-01',
+                'service_end': '2027-03-31',
+            }
+
+            first = client.post('/backoffice/merchants/batch-generate-bills', data=payload, follow_redirects=False)
+            second = client.post('/backoffice/merchants/batch-generate-bills', data=payload, follow_redirects=False)
+
+            self.assertEqual(first.status_code, 303)
+            self.assertEqual(second.status_code, 303)
+            bills = client.get('/api/bills?period=2027-03').json()['items']
+            self.assertEqual(len(bills), 2)
+            self.assertEqual(sorted([bill['amount'] for bill in bills]), [100.0, 180.0])
+            page = client.get(first.headers['location'])
+            self.assertIn('商户批量出账：新增 2 笔，跳过 0 笔', page.text)
+            page_again = client.get(second.headers['location'])
+            self.assertIn('商户批量出账：新增 0 笔，跳过 2 笔', page_again.text)
+
 
 if __name__ == '__main__':
     unittest.main()
