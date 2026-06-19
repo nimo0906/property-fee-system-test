@@ -68,3 +68,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_phase1_cl
 ## 6. 下一阶段建议
 
 下一阶段建议先做部署演练和样例客户验收：使用脱敏样例库，在通用 Linux/VPS 上完成从部署、初始化、导入、出账、收款、报表、备份、恢复演练到日志检查的完整走查。确认稳定后，再进入真实客户试点和更细的业务差异配置。
+
+## 7. 样例客户验收演练
+
+第一阶段收口后新增样例客户验收演练，用于在不接触客户真实资料的前提下验证商业后台闭环。执行 `scripts/saas_demo_tenant_drill.py` 可创建样例物业公司、导入收费对象、配置收费项目、完成账单生成、账单审核、收款登记、对账报表、导出、备份恢复演练和租户隔离复核。详细说明见 `docs/saas-demo-tenant-drill.md`。
