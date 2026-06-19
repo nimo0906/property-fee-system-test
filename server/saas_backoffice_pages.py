@@ -41,6 +41,7 @@ def _backoffice_home(user):
         _module_card('对账报表', '按账期查看应收、实收和欠费。', '/backoffice/reports'),
         _module_card('数据导入', '导入收费对象，先预览校验再确认写入。', '/backoffice/imports'),
         _module_card('权限矩阵', '查看各角色可做、不可做和租户隔离边界。', '/backoffice/permissions'),
+        _module_card('数据边界', '检查公司数据、客户上传数据、系统自身数据和备份恢复的隔离边界。', '/backoffice/data-boundaries'),
         _module_card('审计日志', '查看账号、导入、出账、审核、收款等关键操作。', '/backoffice/audit-logs'),
         _module_card('备份恢复', '创建备份记录，提交恢复演练。', '/backoffice/backups'),
         _module_card('云端上线', 'VPS 部署、预检、备份恢复和验收脚本清单。', '/backoffice/deploy-checklist'),
