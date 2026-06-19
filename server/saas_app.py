@@ -18,6 +18,7 @@ from server.saas_isolation_self_check import register_isolation_self_check_api
 from server.saas_audit_api import register_audit_api
 from server.saas_backup_api import register_backup_api
 from server.saas_license_enforcement import LicenseRequired, require_license_or_audit
+from server.saas_license_seats import LicenseSeatsExceeded, require_seat_available
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
     PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
@@ -34,6 +35,7 @@ def create_app(database_url=None):
     service = SaasBackofficeService.in_memory()
     repository = create_saas_repository(database_url) if database_url else None
     app.state.repository = repository
+    app.state.saas_service = service
     sessions = {}
     storage = SaasStorage(root_dir="/var/lib/property-saas")
 
@@ -60,12 +62,21 @@ def create_app(database_url=None):
         except LicenseRequired:
             raise HTTPException(status_code=403, detail='license_required')
 
+    def require_license_seat(user, module):
+        try:
+            require_seat_available(
+                user, module, getattr(app.state, 'license_service', None), service, repository, 1
+            )
+        except LicenseSeatsExceeded:
+            raise HTTPException(status_code=403, detail='license_seats_exceeded')
+
     @app.post("/api/users")
     def create_user(data: UserCreateIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "manage_users")
             if user.get("role_code") == "platform_admin":
                 raise PermissionDenied("use tenant onboarding for customer staff")
+            require_license_seat(user, 'user.create')
             if repository:
                 item = repository.create_staff_user(user["tenant_id"], user["project_id"], data.username, data.role_code)
                 service.users[item["id"]] = {**item, "username": data.username, "role_code": data.role_code}
@@ -93,6 +104,8 @@ def create_app(database_url=None):
             service._require(user, "manage_users")
             if int(user_id) == int(user.get("id")) and not data.is_active:
                 raise PermissionDenied("cannot disable own account")
+            if data.is_active:
+                require_license_seat(user, 'user.enable')
             if repository:
                 item = repository.set_user_active_for_actor(user, user_id, data.is_active)
             else:
