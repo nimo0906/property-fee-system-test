@@ -38,7 +38,7 @@ def _forms(can_manage, records):
 
 
 def _acceptance_backup_notice():
-    return '''<section class="card" style="margin-top:18px"><div class="card-h">首租户验收记录备份范围</div><div class="card-b"><p class="sub">system-files 包含首租户验收记录和系统侧签收证据；恢复演练选择 system-files 时应核对 <code>first_tenant_acceptance/records.json</code> 已随系统侧文件归档。</p></div></section>'''
+    return '''<section class="card" style="margin-top:18px"><div class="card-h">系统侧验收材料备份范围</div><div class="card-b"><p class="sub">system-files 包含首租户验收记录和系统侧签收证据；恢复演练选择 system-files 时应核对 <code>first_tenant_acceptance/records.json</code> 已随系统侧文件归档。</p><p class="sub">system-files 也必须覆盖生产验收签收历史和当前验收留档：<code>production_acceptance_signoffs/history.json</code>、<code>saas-production-acceptance-result.md</code>。恢复演练选择 system-files 后，应核对生产验收签收历史仍可查看和下载。</p></div></section>'''
 
 def _filter_records(records, drills, params):
     keyword = str(params.get('keyword') or '').strip().lower()
