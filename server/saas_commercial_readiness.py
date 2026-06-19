@@ -56,6 +56,7 @@ ITEMS = [
     ('P0-52 生产环境数据库自动接入', '正式部署时 create_app 自动读取 DATABASE_URL 或 POSTGRES_* 环境变量接入 PostgreSQL，避免云端以内存模式运行。', '/backoffice/deploy-checklist'),
     ('P0-53 PostgreSQL仓储初始化兼容', '仓储初始化按数据库 dialect 生成建表和权限 upsert SQL，避免 PostgreSQL 启动时使用 SQLite 专用语法。', '/backoffice/deploy-checklist'),
     ('P0-54 PostgreSQL业务写入ID兼容', '核心业务插入按数据库 dialect 获取新记录 ID，PostgreSQL 使用 RETURNING id，SQLite 继续使用 lastrowid。', '/backoffice/deploy-checklist'),
+    ('P0-55 systemd生产环境文件加载', 'systemd 服务加载 /opt/property-saas/.env，确保 VPS 启动时带上数据库、应用密钥和 SaaS 存储目录环境变量。', '/backoffice/deploy-checklist'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -121,6 +122,7 @@ GATES = [
     ('生产环境数据库自动接入检查', 'scripts/saas_production_database_env_check.py'),
     ('PostgreSQL仓储初始化兼容检查', 'scripts/saas_postgres_repository_compat_check.py'),
     ('PostgreSQL业务写入ID兼容检查', 'scripts/saas_postgres_insert_id_check.py'),
+    ('systemd生产环境文件加载检查', 'scripts/saas_systemd_env_file_check.py'),
 ]
 
 

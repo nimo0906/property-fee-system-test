@@ -5,6 +5,7 @@ Requires=docker.service
 
 [Service]
 WorkingDirectory=/opt/property-saas
+EnvironmentFile=-/opt/property-saas/.env
 Environment=SAAS_CUSTOMER_FILES_DIR=/var/lib/property-saas/tenants
 Environment=SAAS_SYSTEM_FILES_DIR=/var/lib/property-saas/system
 Environment=SAAS_BACKUP_DIR=/var/backups/property-saas

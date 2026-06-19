@@ -17,6 +17,7 @@ REQUIRED_ASSETS = [
     'deploy/systemd/property-saas.service', 'deploy/logrotate/property-saas',
     'scripts/saas_backup.sh', 'scripts/saas_restore.sh',
     'scripts/saas_release_gate.py', 'scripts/saas_release_evidence.py',
+    'scripts/saas_systemd_env_file_check.py',
     'scripts/saas_isolation_evidence.py', 'scripts/saas_license_binding_backup_check.py',
     'docs/saas-production-precheck.md', 'release/saas-release-evidence.md',
     'release/saas-isolation-evidence.md',
@@ -72,6 +73,7 @@ def check_deployment_contract(root):
 def check_ops_assets(root):
     service = read(root / 'deploy/systemd/property-saas.service')
     require('docker compose' in service or 'docker-compose' in service, 'systemd service must manage compose')
+    require('EnvironmentFile=-/opt/property-saas/.env' in service, 'systemd service must load production env file')
     print('PASS production precheck systemd')
     logrotate = read(root / 'deploy/logrotate/property-saas')
     require('/var/log/property-saas' in logrotate, 'logrotate must cover SaaS logs')

@@ -62,6 +62,7 @@ CHECKS = [
     "scripts/saas_production_database_env_check.py",
     "scripts/saas_postgres_repository_compat_check.py",
     "scripts/saas_postgres_insert_id_check.py",
+    "scripts/saas_systemd_env_file_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]

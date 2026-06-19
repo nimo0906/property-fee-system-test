@@ -43,6 +43,8 @@ def main():
 
     for path in ['docker-compose.yml', 'deploy/nginx/property-saas.conf', 'deploy/systemd/property-saas.service']:
         require((ROOT / path).exists(), f'missing deploy asset: {path}')
+    service = (ROOT / 'deploy/systemd/property-saas.service').read_text(encoding='utf-8')
+    require('EnvironmentFile=-/opt/property-saas/.env' in service, 'systemd missing production env file')
     print('PASS saas deployment commands')
 
 
