@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Deployment asset validation for Linux/VPS SaaS slice."""
+"""Deployment asset validation for Linux/VPS SaaS slice.
+
+Includes 租户隔离证据明细 release evidence assets.
+"""
 
 REQUIRED_DEPLOY_FILES = (
     "docker-compose.yml",
@@ -16,6 +19,7 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_phase1_closure_check.py",
     "scripts/saas_demo_tenant_drill.py",
     "scripts/saas_release_gate.py",
+    "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
     "docs/saas-cloud-ops-runbook.md",
     "docs/saas-phase-1-closure-report.md",
