@@ -2,12 +2,39 @@
 # -*- coding: utf-8 -*-
 """Production acceptance result center page for SaaS delivery."""
 
+import datetime as dt
+from pathlib import Path
+
 from server.saas_user_pages import _h, _page
+
+ROOT = Path(__file__).resolve().parents[1]
+EVIDENCE_FILES = [
+    ('验收留档', 'release/saas-production-acceptance-result.md'),
+    ('上线证据', 'release/saas-release-evidence.md'),
+    ('隔离证据', 'release/saas-isolation-evidence.md'),
+]
+
+
+def evidence_summary(root=ROOT):
+    rows = []
+    for label, rel in EVIDENCE_FILES:
+        path = Path(root) / rel
+        exists = path.exists()
+        updated = '未生成'
+        if exists:
+            updated = dt.datetime.fromtimestamp(path.stat().st_mtime, dt.timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+        rows.append({'label': label, 'path': rel, 'status': '存在' if exists else '缺失', 'updated_at': updated})
+    return rows
+
+
+def _summary_rows():
+    return ''.join(f'<tr><td>{_h(row["label"])}：{_h(row["status"])}</td><td><code>{_h(row["path"])}</code></td><td>{_h(row["updated_at"])}</td></tr>' for row in evidence_summary())
 
 
 def _render_production_acceptance(user):
     body = f'''
 <section class="hero"><div><h1>生产验收结果中心</h1><div class="sub">实施人员现场交付统一入口：一键验收总入口、验收结果留档文件、上线证据报告、租户隔离证据和首租户冒烟说明。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">证据文件摘要</div><div class="card-b"><table><thead><tr><th>状态</th><th>文件</th><th>最近生成时间</th></tr></thead><tbody>{_summary_rows()}</tbody></table></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">一键验收总入口</div><div class="card-b"><p><code>scripts/saas_production_acceptance_gate.py</code></p><p class="sub">串联 .env 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据和上线证据报告；失败即停止交付。</p></div></section>
 <section class="grid"><div class="card"><div class="card-h">验收结果留档文件</div><div class="card-b"><p><code>release/saas-production-acceptance-result.md</code></p><p class="sub">记录执行人、服务器域名、PASS/FAIL、客户签收人和实施人员签字。</p></div></div>
 <div class="card"><div class="card-h">上线证据报告</div><div class="card-b"><p><code>release/saas-release-evidence.md</code></p><p class="sub">上线门禁和部署资产的脱敏证据汇总。</p></div></div>

@@ -64,6 +64,7 @@ ITEMS = [
     ('P0-60 生产一键验收总入口', '串联 .env 现场校验、生产预检、运行状态、首租户业务冒烟、隔离证据和上线证据报告，减少现场漏跑。', '/backoffice/deploy-checklist'),
     ('P0-61 生产验收结果留档', '生成脱敏生产验收结果文件，记录执行人、服务器域名、检查项结果、首租户冒烟、租户隔离和签收位置。', '/backoffice/deploy-checklist'),
     ('P0-62 生产验收结果页面', '后台提供生产验收结果中心，集中查看一键验收、留档文件、上线证据、隔离证据和首租户冒烟说明。', '/backoffice/production-acceptance'),
+    ('P0-63 生产验收证据摘要', '生产验收结果中心读取验收留档、上线证据、隔离证据文件状态和最近生成时间。', '/backoffice/production-acceptance'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -137,6 +138,7 @@ GATES = [
     ('生产一键验收总入口', 'scripts/saas_production_acceptance_gate.py'),
     ('生产验收结果留档', 'scripts/saas_production_acceptance_result.py'),
     ('生产验收结果页面检查', 'scripts/saas_production_acceptance_page_check.py'),
+    ('生产验收证据摘要检查', 'scripts/saas_production_acceptance_evidence_summary_check.py'),
 ]
 
 
