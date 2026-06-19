@@ -20,13 +20,18 @@ def build_saas_license_status(license_service, customer_code, product_code=PRODU
     return {key: raw.get(key) for key in _ALLOWED_FIELDS}
 
 
+def license_allows_write(license_service, customer_code):
+    return bool(build_saas_license_status(license_service, customer_code).get('allowed'))
+
+
 def render_saas_license_status(user, license_service=None):
     status = build_saas_license_status(license_service, user.get('tenant_name') or '')
     label = '已授权' if status.get('allowed') else _status_label(status.get('status'))
     seats = int(status.get('seats') or 0)
     expires = status.get('expires_at') or '未配置'
     badge = 'ok' if status.get('allowed') else 'warn'
-    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">授权状态</div><div class="card-b"><div class="actions"><span class="badge {badge}">{_h(label)}</span><span class="badge">席位 {seats}</span><span class="badge">到期 {_h(expires)}</span></div><div class="hint">本区域只读取授权云服务返回结果，不展示授权库、业务库、内部租户编号或客户上传数据。</div></div></section>'''
+    restriction = '' if status.get('allowed') else '<div class="hint"><strong>授权限制：</strong>已限制出账、收费项目、收费对象、导入确认和备份创建等写入操作；只读查看仍可用于核对数据。</div>'
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">授权状态</div><div class="card-b"><div class="actions"><span class="badge {badge}">{_h(label)}</span><span class="badge">席位 {seats}</span><span class="badge">到期 {_h(expires)}</span></div><div class="hint">本区域只读取授权云服务返回结果，不展示授权库、业务库、内部租户编号或客户上传数据。</div>{restriction}</div></section>'''
 
 
 def _status_label(value):
