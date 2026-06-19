@@ -52,7 +52,7 @@ def _breakdown_table(title, rows):
 
 
 def _breakdown_cards(breakdown):
-    return f'''<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px">{_breakdown_table('按楼栋 / 区域汇总', breakdown.get('by_building', []))}{_breakdown_table('按收费项目汇总', breakdown.get('by_fee_type', []))}</section>'''
+    return f'''<section class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:18px">{_breakdown_table('按楼栋 / 区域汇总', breakdown.get('by_building', []))}{_breakdown_table('按收费项目汇总', breakdown.get('by_fee_type', []))}{_breakdown_table('按收费对象分类汇总', breakdown.get('by_category', []))}</section>'''
 
 
 def _render_report(user, period, summary, breakdown=None):
@@ -67,7 +67,7 @@ def _render_report(user, period, summary, breakdown=None):
 {render_business_closure('reports')}
 {_filter_card(user, period)}
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
-{_breakdown_cards(breakdown or {'by_building': [], 'by_fee_type': []})}
+{_breakdown_cards(breakdown or {'by_building': [], 'by_fee_type': [], 'by_category': []})}
 {_summary_card(summary)}'''
     return _page('对账报表', body)
 
@@ -86,7 +86,7 @@ def register_report_pages(app, service, repository, current_user):
                 breakdown = repository.report_breakdown(user['tenant_id'], user['project_id'], selected_period)
             else:
                 summary = service.report(user, user['project_id'], selected_period)
-                breakdown = {'by_building': [], 'by_fee_type': []}
+                breakdown = {'by_building': [], 'by_fee_type': [], 'by_category': []}
             return HTMLResponse(_render_report(user, selected_period, summary, breakdown))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')

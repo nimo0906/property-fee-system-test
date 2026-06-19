@@ -112,10 +112,13 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
                 {'name': '物业费', 'bill_count': 2, 'bill_amount_total': 800.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 150.0},
                 {'name': '车位费', 'bill_count': 1, 'bill_amount_total': 80.0, 'payment_amount_total': 0.0, 'unpaid_amount_total': 80.0},
             ])
+            self.assertEqual(data['by_category'], [
+                {'name': '商户', 'bill_count': 3, 'bill_amount_total': 880.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 230.0},
+            ])
 
             page = client.get('/backoffice/reports?period=2026-12')
             self.assertEqual(page.status_code, 200)
-            for text in ['按楼栋 / 区域汇总', '按收费项目汇总', 'A座', 'B座', '物业费', '车位费', '680.0', '650.0']:
+            for text in ['按楼栋 / 区域汇总', '按收费项目汇总', '按收费对象分类汇总', 'A座', 'B座', '物业费', '车位费', '商户', '680.0', '650.0']:
                 self.assertIn(text, page.text)
 
 
