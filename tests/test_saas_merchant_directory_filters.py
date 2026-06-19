@@ -100,6 +100,37 @@ class TestSaasMerchantDirectoryFilters(unittest.TestCase):
             self.assertNotIn('A-101', csv_text)
             self.assertNotIn('B-201', csv_text)
 
+    def test_merchant_directory_links_arrears_merchant_to_target_payment_page(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            arrears_target = self._create_target(client, room_number='PAY-101', shop_name='快捷收款店', tenant_name='快捷商户', area=80, unit_price_override=4.0)
+            other_target = self._create_target(client, room_number='PAY-102', shop_name='其他收款店', tenant_name='其他商户', area=30, unit_price_override=2.0)
+            fee = client.post('/api/fee-types', json={'name': '快捷收款物业费', 'unit_price': 1.0}).json()['item']
+            arrears_bill = client.post('/api/bills/generate', json={
+                'target_id': arrears_target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-07',
+                'service_start': '2027-07-01', 'service_end': '2027-07-31',
+            }).json()['item']
+            other_bill = client.post('/api/bills/generate', json={
+                'target_id': other_target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-07',
+                'service_start': '2027-07-01', 'service_end': '2027-07-31',
+            }).json()['item']
+            client.post(f"/api/bills/{arrears_bill['id']}/approve", json={})
+            client.post(f"/api/bills/{other_bill['id']}/approve", json={})
+
+            merchant_page = client.get('/backoffice/merchants?arrears=1')
+            self.assertEqual(merchant_page.status_code, 200)
+            payment_href = f"/backoffice/payments?target_id={arrears_target['id']}"
+            self.assertIn('登记收款', merchant_page.text)
+            self.assertIn(payment_href, merchant_page.text)
+
+            payment_page = client.get(payment_href)
+            self.assertEqual(payment_page.status_code, 200)
+            self.assertIn('快捷收款店', payment_page.text)
+            self.assertIn(arrears_bill['bill_number'], payment_page.text)
+            self.assertNotIn(other_bill['bill_number'], payment_page.text)
+            for hidden in ['tenant_id', 'project_id']:
+                self.assertNotIn(hidden, payment_page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

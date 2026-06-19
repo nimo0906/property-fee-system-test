@@ -109,11 +109,33 @@ def _render_receipt(user, payment):
     return _page('收据详情', body)
 
 
+def _attach_target_labels(bills, targets):
+    target_map = {int(target.get('id')): target for target in targets}
+    rows = []
+    for bill in bills:
+        target = target_map.get(int(bill.get('charge_target_id') or 0), {})
+        rows.append({**bill, **{
+            'building': target.get('building') or '',
+            'unit': target.get('unit') or '',
+            'room_number': target.get('room_number') or '',
+            'shop_name': target.get('shop_name') or '',
+            'tenant_name': target.get('tenant_name') or '',
+        }})
+    return rows
+
+
+def _bill_label(bill):
+    target = ' '.join(str(bill.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
+    if bill.get('shop_name') or bill.get('tenant_name'):
+        target = f"{target} {bill.get('shop_name') or bill.get('tenant_name') or ''}".strip()
+    return target
+
+
 def _create_form(bills):
     unpaid_bills = [bill for bill in bills if bill.get('status') in {'unpaid', 'partial'}]
     if not unpaid_bills:
         return '<div class="hint">请先把账单审核为未收款/部分收款，再登记收款。</div>'
-    options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(b.get("status"))} · 应收 {_h(b.get("amount"))} · 已收 {_h(b.get("paid_amount", 0))} · 欠费 {_h(b.get("unpaid_amount", b.get("amount")))}</option>' for b in unpaid_bills)
+    options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(_bill_label(b))} · {_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(b.get("status"))} · 应收 {_h(b.get("amount"))} · 已收 {_h(b.get("paid_amount", 0))} · 欠费 {_h(b.get("unpaid_amount", b.get("amount")))}</option>' for b in unpaid_bills)
     return f'''<form method="post" action="/backoffice/payments/create"><label>账单</label><select name="bill_id" required>{options}</select><label>收款金额</label><input name="amount" required type="number" step="0.01" min="0.01" placeholder="例如 100"><label>收款方式</label><input name="method" placeholder="cash / transfer / wechat / alipay"><label>幂等键</label><input name="idempotency_key" placeholder="可选，防重复提交"><button class="primary">登记收款</button><div class="hint">幂等键用于防止重复入账；收款后账单状态会自动变为 partial 或 paid。</div></form>'''
 
 
@@ -121,14 +143,18 @@ def register_payment_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
     from fastapi.responses import HTMLResponse, RedirectResponse
 
-    def _context(user, keyword='', period='', method='', amount_min='', amount_max='', page=1, page_size=20):
+    def _context(user, keyword='', period='', method='', amount_min='', amount_max='', page=1, page_size=20, target_id=''):
         service._require(user, 'read')
         if repository:
-            bills = repository.list_bills(user['tenant_id'], user['project_id'])
+            targets = repository.list_charge_targets(user['tenant_id'], user['project_id'])
+            bills = _attach_target_labels(repository.list_bills(user['tenant_id'], user['project_id']), targets)
             rows = repository.search_payments(user['tenant_id'], user['project_id'], keyword or '', period or None, 1, 10000)['items']
         else:
-            bills = service.list_bills(user, user['project_id'])
+            targets = service.list_charge_targets(user, user['project_id'])
+            bills = _attach_target_labels(service.list_bills(user, user['project_id']), targets)
             rows = service.search_payments(user, user['project_id'], keyword or '', period or None, 1, 10000)['items']
+        if str(target_id or '').strip():
+            bills = [bill for bill in bills if int(bill.get('charge_target_id') or 0) == int(target_id)]
         return bills, _paginate(_filter_payments(rows, method, amount_min, amount_max), page, page_size)
 
     def _find_payment(user, payment_id):
@@ -136,10 +162,10 @@ def register_payment_pages(app, service, repository, current_user):
         return next((item for item in rows if int(item.get('id')) == int(payment_id)), None)
 
     @app.get('/backoffice/payments', response_class=HTMLResponse)
-    def payment_page(keyword: str = '', period: str = '', method: str = '', amount_min: str = '', amount_max: str = '', page: int = 1, page_size: int = 20, message: str = '', user=Depends(current_user)):
+    def payment_page(keyword: str = '', period: str = '', method: str = '', amount_min: str = '', amount_max: str = '', page: int = 1, page_size: int = 20, message: str = '', target_id: str = '', user=Depends(current_user)):
         try:
-            params = {'keyword': keyword, 'period': period, 'method': method, 'amount_min': amount_min, 'amount_max': amount_max, 'page': page, 'page_size': page_size}
-            bills, result = _context(user, keyword, period, method, amount_min, amount_max, page, page_size)
+            params = {'keyword': keyword, 'period': period, 'method': method, 'amount_min': amount_min, 'amount_max': amount_max, 'page': page, 'page_size': page_size, 'target_id': target_id}
+            bills, result = _context(user, keyword, period, method, amount_min, amount_max, page, page_size, target_id)
             return HTMLResponse(_render_payments(user, result, bills, params, message))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
