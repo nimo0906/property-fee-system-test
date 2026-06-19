@@ -67,7 +67,7 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             self.assertEqual(home.status_code, 200)
             self.assertIn('/backoffice/merchants', home.text)
             self.assertEqual(page.status_code, 200)
-            for text in ['商户档案', '铺位号', '店名', '承租人', 'B-301', 'B租户店', 'B商户']:
+            for text in ['商户档案', '铺位号', '店名', '承租人', '导出商户CSV', '/api/merchants/export.csv', 'B-301', 'B租户店', 'B商户']:
                 self.assertIn(text, page.text)
             self.assertNotIn('A租户店', page.text)
             for hidden in ['tenant_id', 'project_id', 'POSTGRES_PASSWORD', 'APP_SECRET_KEY']:
@@ -244,6 +244,42 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             page = client.get('/backoffice/merchants')
             for text in ['账单数', '应收合计', '已收合计', '欠费余额', '320.0', '120.0', '200.0']:
                 self.assertIn(text, page.text)
+
+    def test_merchant_directory_can_export_filtered_csv_without_internal_scope_ids(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client_a = self._client(db_url, tenant_name='A导出物业', project_name='A导出项目')
+            self._create_target(client_a, room_number='A-EXPORT', shop_name='A不应导出', tenant_name='A商户')
+
+            client_b = self._client(db_url, tenant_name='B导出物业', project_name='B导出项目')
+            target = self._create_target(client_b, room_number='B-EXPORT', shop_name='导出店', tenant_name='导出商户', area=80, unit_price_override=4.0)
+            self._create_target(client_b, room_number='B-SKIP', shop_name='其他店', tenant_name='其他商户', area=20)
+            fee = client_b.post('/api/fee-types', json={'name': '导出物业费', 'unit_price': 2.0}).json()['item']
+            bill = client_b.post('/api/bills/generate', json={
+                'target_id': target['id'],
+                'fee_type_id': fee['id'],
+                'billing_period': '2027-05',
+                'service_start': '2027-05-01',
+                'service_end': '2027-05-31',
+            }).json()['item']
+            client_b.post(f"/api/bills/{bill['id']}/approve", json={})
+            client_b.post('/api/payments', json={
+                'bill_id': bill['id'],
+                'amount': 120,
+                'method': 'cash',
+                'idempotency_key': 'MERCHANT-EXPORT-1',
+            })
+
+            response = client_b.get('/api/merchants/export.csv?keyword=导出店')
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('text/csv', response.headers.get('content-type', ''))
+            self.assertIn('attachment; filename="merchants.csv"', response.headers.get('content-disposition', ''))
+            text = response.content.decode('utf-8-sig')
+            for expected in ['铺位号', '店名', '承租人', '账单数', '应收合计', '已收合计', '欠费余额', 'B-EXPORT', '导出店', '导出商户', '320.0', '120.0', '200.0']:
+                self.assertIn(expected, text)
+            for hidden in ['tenant_id', 'project_id', 'A不应导出', 'B-SKIP']:
+                self.assertNotIn(hidden, text)
 
 
 if __name__ == '__main__':

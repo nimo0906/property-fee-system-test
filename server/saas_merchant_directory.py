@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """Merchant directory views backed by SaaS charge targets."""
 
+import csv
+import io
 import urllib.parse
 
 from server.saas_repository_errors import TenantScopeError
@@ -53,6 +55,23 @@ def _attach_bill_totals(items, bills):
         row['paid_amount_total'] = round(row['paid_amount_total'] + float(bill.get('paid_amount') or 0), 2)
         row['arrears_amount_total'] = round(row['arrears_amount_total'] + float(bill.get('unpaid_amount') or 0), 2)
     return [{**item, **totals.get(int(item['id']), {})} for item in items]
+
+
+def _csv_text(items):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['铺位号', '楼栋 / 区域', '分区', '楼层', '店名', '承租人', '电话', '类型', '面积', '独立单价', '缴费周期', '账单数', '应收合计', '已收合计', '欠费余额', '备注'])
+    for item in items:
+        price = '' if item.get('unit_price_override') in (None, '') else item.get('unit_price_override')
+        writer.writerow([
+            item.get('space_no') or '', item.get('building') or '', item.get('unit') or '',
+            item.get('floor') or '', item.get('shop_name') or '', item.get('merchant_name') or '',
+            item.get('phone') or '', item.get('category') or '', item.get('area') or '', price,
+            item.get('payment_cycle') or '', item.get('bill_count', 0),
+            item.get('bill_amount_total', 0.0), item.get('paid_amount_total', 0.0),
+            item.get('arrears_amount_total', 0.0), item.get('notes') or '',
+        ])
+    return '\ufeff' + output.getvalue()
 
 
 def _create_form():
@@ -136,7 +155,7 @@ def _render_merchants(user, items, message='', keyword='', page=1, page_size=20,
     body = f'''
 <section class="hero"><div><h1>商户档案</h1><div class="sub">基于收费对象中的商户/商业铺位形成商户档案视图；不新增独立合同表，先用于维护铺位号、店名、承租人、电话、面积、独立单价和缴费周期。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
-<section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="/api/merchants/export.csv">导出商户CSV</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
 {_filter_form(keyword, page_size)}
 <section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>账单数</th><th>应收合计</th><th>已收合计</th><th>欠费余额</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
@@ -144,7 +163,7 @@ def _render_merchants(user, items, message='', keyword='', page=1, page_size=20,
 
 def register_merchant_directory(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
-    from fastapi.responses import HTMLResponse, RedirectResponse
+    from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
     def _items(user):
         service._require(user, 'read')
@@ -162,6 +181,19 @@ def register_merchant_directory(app, service, repository, current_user):
         try:
             visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size)
             return {'items': visible, 'total': total, 'page': page, 'page_size': page_size}
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+
+    @app.get('/api/merchants/export.csv')
+    def merchant_export_csv(keyword: str = '', user=Depends(current_user)):
+        try:
+            items = [item for item in _items(user) if _match_keyword(item, str(keyword or '').strip())]
+            return PlainTextResponse(
+                _csv_text(items),
+                media_type='text/csv; charset=utf-8',
+                headers={'Content-Disposition': 'attachment; filename="merchants.csv"'},
+            )
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
