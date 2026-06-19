@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML bill generation and list pages for SaaS backoffice."""
 
+from server.saas_business_closure import render_business_closure
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
@@ -38,6 +39,7 @@ def _render_bills(user, bills, targets, fees, filters=None, message=''):
     body = f'''
 <section class="hero"><div><h1>账单生成</h1><div class="sub">从当前项目的收费对象和收费项目生成应收账单。账单、金额和筛选结果都按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{render_business_closure('bills')}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><form method="get" action="/backoffice/bills" class="filters"><div><label>账期</label><input name="period" value="{_h(filters.get('period', ''))}" placeholder="例如 2026-06"></div><div><label>状态</label><select name="status">{_status_options(filters.get('status', ''))}</select></div><div><button class="primary">查询账单</button></div></form></div></section>
 <section class="grid"><div class="card"><div class="card-h">账单列表</div><div class="card-b"><table><thead><tr><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">生成账单</div><div class="card-b">{form}</div></aside></section>'''

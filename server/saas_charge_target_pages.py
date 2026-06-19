@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML charge target management pages for SaaS backoffice."""
 
+from server.saas_business_closure import render_business_closure
 from server.saas_user_pages import _h, _page
 from server.saas_service import PermissionDenied
 
@@ -14,6 +15,7 @@ def _render_targets(user, items, message=''):
     body = f'''
 <section class="hero"><div><h1>收费对象管理</h1><div class="sub">统一维护楼栋 / 区域、单元 / 分区、房号 / 铺位号。所有数据按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{render_business_closure('charge_targets')}
 <section class="grid"><div class="card"><div class="card-h">收费对象列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>楼栋 / 区域</th><th>单元 / 分区</th><th>房号 / 铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">新增收费对象</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收费对象管理', body)

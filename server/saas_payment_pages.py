@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML payment recording and list pages for SaaS backoffice."""
 
+from server.saas_business_closure import render_business_closure
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
@@ -22,6 +23,7 @@ def _render_payments(user, payments, bills, message=''):
     body = f'''
 <section class="hero"><div><h1>收款登记</h1><div class="sub">登记已审核账单的收款记录，按当前租户和项目隔离。现金、转账、微信/支付宝线下记录都可在这里留痕。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{render_business_closure('payments')}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><form method="get" action="/backoffice/payments" class="filters"><div><label>关键字</label><input name="keyword" value="" placeholder="收据号 / 账单号 / 方式"></div><div><label>账期</label><input name="period" value="" placeholder="例如 2026-08"></div><div><button class="primary">查询收款</button></div></form></div></section>
 <section class="grid"><div class="card"><div class="card-h">收款列表</div><div class="card-b"><table><thead><tr><th>收据号</th><th>账单号</th><th>账期</th><th>金额</th><th>方式</th></tr></thead><tbody>{rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">登记收款</div><div class="card-b">{form}</div></aside></section>'''

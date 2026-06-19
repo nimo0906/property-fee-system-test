@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML fee type management pages for SaaS backoffice."""
 
+from server.saas_business_closure import render_business_closure
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 
@@ -14,6 +15,7 @@ def _render_fee_types(user, items, message=''):
     body = f'''
 <section class="hero"><div><h1>收费项目管理</h1><div class="sub">配置物业费、水费、停车费等通用收费项目和单价。所有价格规则按当前租户和项目隔离保存。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{render_business_closure('fee_types')}
 <section class="grid"><div class="card"><div class="card-h">收费项目列表</div><div class="card-b"><table><thead><tr><th>ID</th><th>收费项目</th><th>单价</th></tr></thead><tbody>{rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">新增收费项目</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收费项目管理', body)

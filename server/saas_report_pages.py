@@ -3,6 +3,7 @@
 """HTML reconciliation report pages for SaaS backoffice."""
 
 from server.saas_repository import TenantScopeError
+from server.saas_business_closure import render_business_closure
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page, _role_name
 
@@ -23,6 +24,7 @@ def _render_report(user, period, summary):
     ])
     body = f'''
 <section class="hero"><div><h1>对账报表</h1><div class="sub">按账期汇总当前租户和项目的应收、实收、欠费。报表只读取本公司数据，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+{render_business_closure('reports')}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><form method="get" action="/backoffice/reports" class="filters"><div><label>账期</label><input name="period" required value="{_h(period)}" placeholder="例如 2026-09"></div><div><button class="primary">查看报表</button></div><div class="hint">当前角色：{_h(role_label)} {readonly}</div></form></div></section>
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>'''
     return _page('对账报表', body)
