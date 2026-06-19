@@ -147,14 +147,24 @@ def register_billing_routes(app, service):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/exports/payments")
-    def export_payments(period: str = "", user=Depends(current_user)):
+    def export_payments(period: str = "", target_id: str = "", user=Depends(current_user)):
         try:
             if repository:
                 result = repository.search_payments(user["tenant_id"], user["project_id"], "", period or None, 1, 10000)
-                headers, rows = payment_export_rows(result["items"])
+                items = result["items"]
+                if str(target_id or '').strip():
+                    bill_ids = {int(bill.get('id')) for bill in repository.list_bills(user["tenant_id"], user["project_id"]) if int(bill.get('charge_target_id') or 0) == int(target_id)}
+                    items = [item for item in items if int(item.get('bill_id') or 0) in bill_ids]
+                headers, rows = payment_export_rows(items)
                 content = csv_content(headers, rows)
                 return {"filename": f"payments-{period or 'all'}.csv", "content": content}
-            return service.export_payments(user, user["project_id"], period or None)
+            result = service.export_payments(user, user["project_id"], period or None)
+            if str(target_id or '').strip():
+                bill_ids = {int(bill.get('id')) for bill in service.list_bills(user, user["project_id"]) if int(bill.get('charge_target_id') or 0) == int(target_id)}
+                payments = service.search_payments(user, user["project_id"], "", period or None, 1, 10000)["items"]
+                headers, rows = payment_export_rows([item for item in payments if int(item.get('bill_id') or 0) in bill_ids])
+                result = {"filename": f"payments-{period or 'all'}.csv", "content": csv_content(headers, rows)}
+            return result
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
