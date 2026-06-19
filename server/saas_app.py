@@ -17,7 +17,7 @@ from server.saas_owner_api import register_owner_routes
 from server.saas_isolation_self_check import register_isolation_self_check_api
 from server.saas_audit_api import register_audit_api
 from server.saas_backup_api import register_backup_api
-from server.saas_license_status import license_allows_write
+from server.saas_license_enforcement import LicenseRequired, require_license_or_audit
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
     PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
@@ -52,9 +52,12 @@ def create_app(database_url=None):
 
     register_auth_routes(app, service, repository, sessions, session_user)
 
-    def require_active_license(user):
-        license_service = getattr(app.state, 'license_service', None)
-        if license_service is not None and not license_allows_write(license_service, user.get('tenant_name') or ''):
+    def require_active_license(user, module):
+        try:
+            require_license_or_audit(
+                user, module, getattr(app.state, 'license_service', None), service, repository
+            )
+        except LicenseRequired:
             raise HTTPException(status_code=403, detail='license_required')
 
     @app.post("/api/users")
@@ -125,7 +128,7 @@ def create_app(database_url=None):
     def create_fee(data: FeeIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "write")
-            require_active_license(user)
+            require_active_license(user, 'fee_type.create')
             if repository:
                 item = repository.create_fee_type(user["tenant_id"], user["project_id"], data.name, data.unit_price, data.billing_mode)
                 service._log(user, user["project_id"], 'fee_type.create', 'fee_type', item['id'], {'name': data.name, 'unit_price': float(data.unit_price), 'billing_mode': item.get('billing_mode')})
@@ -139,7 +142,7 @@ def create_app(database_url=None):
     def create_target(data: TargetIn, user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "write")
-            require_active_license(user)
+            require_active_license(user, 'charge_target.create')
             if repository:
                 item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override)
                 service._log(user, user["project_id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
@@ -178,7 +181,7 @@ def create_app(database_url=None):
         try:
             if repository:
                 service._require(user, "import")
-                require_active_license(user)
+                require_active_license(user, 'import.confirm')
                 review = service.get_import_review(user, user["project_id"], data.import_id)
                 if review["confirmed"]:
                     return {"created_count": 0, "skipped_count": review["error_count"], "duplicate_skipped_count": 0}
@@ -260,7 +263,7 @@ def create_app(database_url=None):
     def create_backup(user=__import__('fastapi').Depends(current_user)):
         try:
             service._require(user, "backup")
-            require_active_license(user)
+            require_active_license(user, 'backup.create')
             item = repository.create_backup_record(user["tenant_id"], user["project_id"], user["id"]) if repository else service.create_backup_marker(user, user["project_id"])
             return {"item": item}
         except PermissionDenied:

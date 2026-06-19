@@ -27,6 +27,7 @@ ITEMS = [
     ('P0-22 授权管理后台', '授权云服务支持客户、产品、授权、授权审计的 API 和管理页面；只展示授权数据，不展示业务数据。', '/backoffice/acceptance'),
     ('P0-23 授权状态展示', 'SaaS 员工后台只读取授权云服务返回结果，展示授权状态、席位和到期时间，不暴露授权库或业务库内部字段。', '/backoffice'),
     ('P0-24 授权限制策略', '未授权或授权过期时限制高风险写入操作，保留只读查看和数据核对，不破坏租户隔离。', '/backoffice'),
+    ('P0-25 授权拦截审计', '授权限制触发时记录租户范围内的 license.write_blocked 审计事件，便于商业售后和争议追踪。', '/backoffice/audit-logs'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -60,6 +61,7 @@ GATES = [
     ('授权管理后台检查', 'scripts/saas_license_cloud_management_check.py'),
     ('授权状态展示检查', 'scripts/saas_license_status_integration_check.py'),
     ('授权限制策略检查', 'scripts/saas_license_enforcement_check.py'),
+    ('授权拦截审计检查', 'scripts/saas_license_enforcement_audit_check.py'),
 ]
 
 

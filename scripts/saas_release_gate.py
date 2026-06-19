@@ -33,6 +33,7 @@ CHECKS = [
     "scripts/saas_license_cloud_management_check.py",
     "scripts/saas_license_status_integration_check.py",
     "scripts/saas_license_enforcement_check.py",
+    "scripts/saas_license_enforcement_audit_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]

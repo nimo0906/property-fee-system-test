@@ -61,6 +61,7 @@ class SaasBackofficeService:
             "project_id": project_id,
             "user_id": user["id"],
             "username": user["username"],
+            "tenant_name": user.get("tenant_name", ""),
             "role_code": user["role_code"],
             "action": action,
             "entity_type": entity_type,
