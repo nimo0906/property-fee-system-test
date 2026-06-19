@@ -58,6 +58,7 @@ def _package_precheck_rows():
 def _render_production_acceptance(user):
     body = f'''
 <section class="hero"><div><h1>生产验收结果中心</h1><div class="sub">实施人员现场交付统一入口：一键验收总入口、验收结果留档文件、上线证据报告、租户隔离证据和首租户冒烟说明。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">生产交付总览</div><div class="card-b"><a class="ghost-link" href="/backoffice/production-delivery">返回生产交付总览</a></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">证据文件摘要</div><div class="card-b"><table><thead><tr><th>状态</th><th>文件</th><th>最近生成时间</th><th>操作</th></tr></thead><tbody>{_summary_rows()}</tbody></table></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">交付证据包</div><div class="card-b"><p class="sub">下载脱敏后的正式交付证据包，包含验收留档、上线证据、租户隔离证据、签收历史和备份覆盖说明。</p><div class="actions"><a class="ghost-link" href="/backoffice/production-acceptance/evidence-package.zip">下载交付证据包</a></div><div class="hint">证据包不包含 生产环境文件、生产密钥、客户上传文件内容或真实服务器绝对路径。</div></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">证据包预检状态</div><div class="card-b"><table><thead><tr><th>总包文件</th><th>状态</th><th>进入总包</th><th>来源</th></tr></thead><tbody>{_package_precheck_rows()}</tbody></table><div class="hint">缺失文件会以占位说明进入总包，现场交付前应尽量补齐为“存在”。</div></div></section>

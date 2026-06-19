@@ -49,6 +49,7 @@ def _backoffice_home(user, license_service=None, service=None, repository=None):
         _module_card('数据边界', '检查公司数据、客户上传数据、系统自身数据和备份恢复的隔离边界。', '/backoffice/data-boundaries'),
         _module_card('审计日志', '查看账号、导入、出账、审核、收款等关键操作。', '/backoffice/audit-logs'),
         _module_card('备份恢复', '创建备份记录，提交恢复演练。', '/backoffice/backups'),
+        _module_card('生产交付总览', '现场实施统一入口：部署自检、生产验收、证据包、签收历史和备份恢复覆盖核验。', '/backoffice/production-delivery' if can_manage_users else None, '生产交付总览仅管理员可用'),
         _module_card('云端上线', 'VPS 部署、预检、备份恢复和验收脚本清单。', '/backoffice/deploy-checklist'),
         _module_card('迁移差距', '原桌面版业务能力到 SaaS 云端版迁移差距清单：收费核心、商户合同、水电表、停车费等后续迁移路线。', '/backoffice/acceptance#legacy-gap'),
         _module_card('商业验收', '按正式商业后台闭环逐项验收。', '/backoffice/acceptance'),

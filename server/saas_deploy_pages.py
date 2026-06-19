@@ -41,6 +41,7 @@ def _render_deploy_checklist(user):
 
 
 
+<section class="card" style="margin-top:18px"><div class="card-h">生产交付总览</div><div class="card-b"><a class="ghost-link" href="/backoffice/production-delivery">进入生产交付总览</a></div></section>
 <section class="card" style="margin-top:18px"><div class="card-h">生产验收结果中心</div><div class="card-b"><a class="ghost-link" href="/backoffice/production-acceptance">进入生产验收结果中心</a></div></section>
 <section class="card" style="margin-top:18px"><div class="card-h">生产验收结果留档</div><div class="card-b"><ul><li>生成：scripts/saas_production_acceptance_result.py。</li><li>文件：release/saas-production-acceptance-result.md。</li><li>内容：执行人、服务器域名、PASS/FAIL、客户签收人、实施人员签字。</li><li>覆盖首租户业务冒烟结果、租户隔离结果、备份/证据文件位置。</li><li>留档不包含生产密钥、客户真实数据或内部字段。</li></ul></div></section>
 <section class="card" style="margin-top:18px"><div class="card-h">生产一键验收总入口</div><div class="card-b"><ul><li>总入口：scripts/saas_production_acceptance_gate.py。</li><li>本地计划：PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_acceptance_gate.py --dry-run。</li><li>本地业务闭环：PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_acceptance_gate.py --local-testclient。</li><li>生产执行：PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_acceptance_gate.py --env-file .env --base-url https://your-domain.example.com。</li><li>串联 .env 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据、上线证据报告。</li><li>失败即停止交付，修复后重新执行总入口。</li></ul></div></section>
