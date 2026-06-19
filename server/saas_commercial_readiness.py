@@ -33,6 +33,7 @@ ITEMS = [
     ('P0-28 授权客户绑定', 'SaaS 租户必须显式绑定授权客户编号，避免靠名称匹配导致授权错绑。', '/backoffice/license-ops'),
     ('P0-29 授权绑定管理入口', '平台管理员可在授权状态运维页绑定或变更租户授权客户编号，并写入 license.tenant_bind 审计。', '/backoffice/license-ops'),
     ('P0-30 授权绑定持久化', '授权绑定关系持久化到系统侧独立 JSON 文件，不写入客户上传数据目录或 SaaS 业务表。', '/backoffice/license-ops'),
+    ('P0-31 授权绑定备份恢复', '授权绑定文件可导出、恢复和校验，保障服务器迁移或重部署后绑定不丢失。', '/backoffice/license-ops'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -72,6 +73,7 @@ GATES = [
     ('授权客户绑定检查', 'scripts/saas_license_tenant_binding_check.py'),
     ('授权绑定管理入口检查', 'scripts/saas_license_binding_page_check.py'),
     ('授权绑定持久化检查', 'scripts/saas_license_binding_persistence_check.py'),
+    ('授权绑定备份恢复检查', 'scripts/saas_license_binding_backup_check.py'),
 ]
 
 
