@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 """HTML reconciliation report pages for SaaS backoffice."""
 
+from urllib.parse import urlencode
+
 from server.saas_repository import TenantScopeError
 from server.saas_business_closure import render_business_closure
 from server.saas_service import PermissionDenied
@@ -13,9 +15,35 @@ def _metric(label, value, kind=''):
     return f'<div class="card"><div class="card-h">{_h(label)}</div><div class="card-b"><div class="metric {kind}">{_h(display)}</div></div></div>'
 
 
-def _render_report(user, period, summary):
+def _percent(numerator, denominator):
+    if not denominator:
+        return '0.00%'
+    return f'{(float(numerator or 0) / float(denominator) * 100):.2f}%'
+
+
+def _export_links(period):
+    query = urlencode({'period': period}) if period else ''
+    suffix = f'?{query}' if query else ''
+    return f'''<div class="actions"><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a></div>'''
+
+
+def _filter_card(user, period):
     role_label = _role_name(user.get('role_code'))
     readonly = '<span class="badge">只读</span>' if user.get('role_code') == 'executive' else ''
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">高级筛选</div><div class="card-b"><form method="get" action="/backoffice/reports" class="filters"><div><label>账期</label><input name="period" required value="{_h(period)}" placeholder="例如 2026-09"></div><div><button class="primary">查看报表</button></div><div>{_export_links(period)}</div><div class="hint">当前角色：{_h(role_label)} {readonly}</div></form></div></section>'''
+
+
+def _summary_card(summary):
+    due = float(summary.get('bill_amount_total') or 0)
+    paid = float(summary.get('payment_amount_total') or 0)
+    unpaid = float(summary.get('unpaid_amount_total') or 0)
+    collection_rate = _percent(paid, due)
+    arrears_rate = _percent(unpaid, due)
+    hint = '暂无欠费' if unpaid <= 0 else f'欠费提醒：当前账期仍有 {_h(unpaid)} 未收，请安排催缴或复核。'
+    return f'''<section class="card" style="margin-top:18px"><div class="card-h">经营摘要</div><div class="card-b"><table><tbody><tr><th>收缴率</th><td>{_h(collection_rate)}</td></tr><tr><th>欠费率</th><td>{_h(arrears_rate)}</td></tr><tr><th>欠费提醒</th><td>{hint}</td></tr></tbody></table></div></section>'''
+
+
+def _render_report(user, period, summary):
     metrics = ''.join([
         _metric('账单数量', summary.get('bill_count', 0)),
         _metric('应收金额', summary.get('bill_amount_total', 0.0)),
@@ -25,8 +53,9 @@ def _render_report(user, period, summary):
     body = f'''
 <section class="hero"><div><h1>对账报表</h1><div class="sub">按账期汇总当前租户和项目的应收、实收、欠费。报表只读取本公司数据，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {render_business_closure('reports')}
-<section class="card" style="margin-bottom:18px"><div class="card-b"><form method="get" action="/backoffice/reports" class="filters"><div><label>账期</label><input name="period" required value="{_h(period)}" placeholder="例如 2026-09"></div><div><button class="primary">查看报表</button></div><div class="hint">当前角色：{_h(role_label)} {readonly}</div></form></div></section>
-<section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>'''
+{_filter_card(user, period)}
+<section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
+{_summary_card(summary)}'''
     return _page('对账报表', body)
 
 
