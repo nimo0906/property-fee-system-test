@@ -36,6 +36,7 @@ ITEMS = [
     ('P0-31 授权绑定备份恢复', '授权绑定文件可导出、恢复和校验，保障服务器迁移或重部署后绑定不丢失。', '/backoffice/license-ops'),
     ('P0-32 授权绑定运维交付', '授权绑定、备份、恢复、迁移和审计检查整理为实施人员可执行交付清单。', '/backoffice/acceptance'),
     ('P0-33 实机部署演练', '通用 Linux/VPS、腾讯云 CVM、阿里云 ECS 按接近生产的部署、登录、业务闭环、隔离、授权绑定和备份恢复完成验收。', '/backoffice/deploy-checklist'),
+    ('P0-34 生产部署一键自检', '实施人员用一条自检命令检查服务器环境、端口、目录隔离、Docker Compose、Nginx、systemd、logrotate、备份恢复、授权绑定和上线证据。', '/backoffice/deploy-checklist'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -80,6 +81,8 @@ GATES = [
     ('授权绑定运维交付清单', 'docs/saas-license-binding-ops-runbook.md'),
     ('实机部署演练检查', 'scripts/saas_production_deployment_rehearsal_check.py'),
     ('实机部署演练清单', 'docs/saas-production-deployment-rehearsal.md'),
+    ('生产部署一键自检', 'scripts/saas_production_precheck.py'),
+    ('生产部署自检说明', 'docs/saas-production-precheck.md'),
 ]
 
 
