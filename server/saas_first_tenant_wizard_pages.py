@@ -33,7 +33,7 @@ def _business_delivery_loop(created=False):
         ('3. 生成首批测试账单', '/backoffice/bills', '用少量对象生成测试账单，核对金额、账期、服务期。'),
         ('4. 登记测试收款', '/backoffice/payments', '登记一笔测试收款，验证部分收款、已收和欠费联动。'),
         ('5. 查看欠费/实收报表', '/backoffice/reports', '检查应收、实收、欠费汇总，确认数据只属于当前客户。'),
-        ('6. 生成交付验收记录', '/backoffice/acceptance', '留存租户隔离验收、备份恢复演练和客户签收证据。'),
+        ('6. 生成交付验收记录', '/backoffice/first-tenant-acceptance', '留存租户隔离验收、备份恢复演练和客户签收证据。'),
     ]
     rows = ''.join(
         '<tr><td><strong>{}</strong></td><td>{}</td><td><a class="ghost-link" href="{}">进入</a></td></tr>'.format(
@@ -41,7 +41,7 @@ def _business_delivery_loop(created=False):
         )
         for title, href, desc in items
     )
-    return f"""<section class="card" style="margin-top:18px"><div class="card-h">首租户业务引导闭环</div><div class="card-b"><p class="sub">{_h(intro)}；必须覆盖租户隔离验收、备份恢复演练、客户上传数据与系统自身数据隔离。</p><div class="actions" style="margin-bottom:12px"><a class="ghost-link" href="/backoffice/imports">导入收费对象</a><a class="ghost-link" href="/backoffice/fee-types">配置收费项目</a><a class="ghost-link" href="/backoffice/bills">生成首批测试账单</a><a class="ghost-link" href="/backoffice/payments">登记测试收款</a><a class="ghost-link" href="/backoffice/reports">查看欠费/实收报表</a><a class="ghost-link" href="/backoffice/acceptance">生成交付验收记录</a></div><table><thead><tr><th>步骤</th><th>交付说明</th><th>入口</th></tr></thead><tbody>{rows}</tbody></table></div></section>"""
+    return f"""<section class="card" style="margin-top:18px"><div class="card-h">首租户业务引导闭环</div><div class="card-b"><p class="sub">{_h(intro)}；必须覆盖租户隔离验收、备份恢复演练、客户上传数据与系统自身数据隔离。</p><div class="actions" style="margin-bottom:12px"><a class="ghost-link" href="/backoffice/imports">导入收费对象</a><a class="ghost-link" href="/backoffice/fee-types">配置收费项目</a><a class="ghost-link" href="/backoffice/bills">生成首批测试账单</a><a class="ghost-link" href="/backoffice/payments">登记测试收款</a><a class="ghost-link" href="/backoffice/reports">查看欠费/实收报表</a><a class="ghost-link" href="/backoffice/first-tenant-acceptance">生成交付验收记录</a><a class="ghost-link" href="/backoffice/acceptance">商业验收总览</a></div><table><thead><tr><th>步骤</th><th>交付说明</th><th>入口</th></tr></thead><tbody>{rows}</tbody></table></div></section>"""
 
 
 def _tenant_user_for_name(service, repository, tenant_name, actor):

@@ -45,6 +45,7 @@ CHECKS = [
     "scripts/saas_production_precheck.py",
     "scripts/saas_first_tenant_wizard_check.py",
     "scripts/saas_first_tenant_delivery_loop_check.py",
+    "scripts/saas_first_tenant_acceptance_record_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]
