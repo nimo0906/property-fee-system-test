@@ -12,6 +12,8 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_restore.sh",
     "scripts/saas_acceptance_check.py",
     "scripts/saas_preflight_check.py",
+    "scripts/saas_ops_check.py",
+    "docs/saas-cloud-ops-runbook.md",
 )
 
 
