@@ -35,8 +35,9 @@ def _backoffice_home(user, license_service=None, service=None, repository=None):
     first_wizard_card = _module_card('首租户初始化', '正式交付向导：创建客户公司、默认项目、租户管理员、授权绑定，并进入导入、收费项目和验收闭环。', '/backoffice/first-tenant-wizard' if user.get('role_code') == 'platform_admin' else None, '首租户初始化仅平台管理员可用')
     delivery_package_card = _module_card('首租户交付包', '实施人员统一入口：登录、初始化、业务闭环、验收记录、打印导出、部署自检、备份恢复和授权绑定。', '/backoffice/first-tenant-delivery-package' if can_manage_users else None, '首租户交付包仅管理员可用')
     tenant_project_card = _module_card('租户项目', '维护本公司项目边界；平台管理员可只读查看租户和项目全局。', '/backoffice/tenant-projects' if can_manage_users else None, '租户项目仅管理员可用')
+    business_config_card = _module_card('业务配置', '维护本公司业务模板，导入模板和收费项目建议按当前公司业务显示。', '/backoffice/tenant-business-config')
     cards = ''.join([
-        tenant_admin_card, onboarding_card, first_wizard_card, delivery_package_card, tenant_project_card, user_card,
+        tenant_admin_card, onboarding_card, first_wizard_card, delivery_package_card, tenant_project_card, business_config_card, user_card,
         _module_card('授权运维', '平台管理员查看租户授权状态、席位使用、到期时间和超限风险。', '/backoffice/license-ops' if user.get('role_code') == 'platform_admin' else None, '授权运维仅平台管理员可用'),
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),

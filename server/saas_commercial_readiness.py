@@ -44,6 +44,7 @@ ITEMS = [
     ('P0-40 首租户交付包总览', '把登录、初始化向导、业务闭环、验收记录、打印导出、部署自检、备份恢复、授权绑定集中到实施人员统一入口。', '/backoffice/first-tenant-delivery-package'),
     ('P0-41 租户业务配置模板', '首租户初始化可选择住宅物业、商业/商铺、园区/办公、混合项目模板，提示字段、收费项目、账单周期和导入样例。', '/backoffice/first-tenant-wizard'),
     ('P0-42 租户业务配置持久化', '每个客户公司保存自己的业务模板配置，导入模板默认按当前租户配置展示，且不写入客户业务表或授权库。', '/backoffice/imports/templates/charge-targets'),
+    ('P0-43 业务配置管理页面', '租户管理员可在后台维护本公司业务模板，普通业务角色只读查看，保存后导入模板按当前公司配置展示。', '/backoffice/tenant-business-config'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -97,6 +98,7 @@ GATES = [
     ('首租户交付包总览检查', 'scripts/saas_first_tenant_delivery_package_check.py'),
     ('租户业务配置模板检查', 'scripts/saas_tenant_business_template_check.py'),
     ('租户业务配置持久化检查', 'scripts/saas_tenant_business_config_check.py'),
+    ('业务配置管理页面检查', 'scripts/saas_tenant_business_config_page_check.py'),
 ]
 
 
