@@ -73,6 +73,39 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'POSTGRES_PASSWORD', 'APP_SECRET_KEY']:
                 self.assertNotIn(hidden, page.text)
 
+    def test_merchant_directory_page_can_create_merchant_charge_target(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+
+            response = client.post('/backoffice/merchants/create', data={
+                'building': '商场B区',
+                'unit': '二层',
+                'space_no': 'B-208',
+                'floor': '2',
+                'shop_name': '咖啡店',
+                'merchant_name': '王商户',
+                'phone': '13900000000',
+                'area': '66.5',
+                'unit_price_override': '8.8',
+                'payment_cycle': 'quarterly',
+                'notes': '新签商户',
+            }, follow_redirects=False)
+
+            self.assertEqual(response.status_code, 303)
+            self.assertIn('/backoffice/merchants', response.headers.get('location', ''))
+            data = client.get('/api/merchants').json()
+            self.assertEqual(data['total'], 1)
+            merchant = data['items'][0]
+            self.assertEqual(merchant['space_no'], 'B-208')
+            self.assertEqual(merchant['shop_name'], '咖啡店')
+            self.assertEqual(merchant['merchant_name'], '王商户')
+            self.assertEqual(merchant['phone'], '13900000000')
+            self.assertEqual(merchant['unit_price_override'], 8.8)
+            self.assertEqual(merchant['payment_cycle'], 'quarterly')
+            page = client.get(response.headers['location'])
+            for text in ['商户已新增', 'B-208', '咖啡店', '王商户', '8.8', 'quarterly']:
+                self.assertIn(text, page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

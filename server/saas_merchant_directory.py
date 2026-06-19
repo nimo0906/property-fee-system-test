@@ -38,18 +38,24 @@ def _merchant_row(item):
     return f'''<tr><td>{_h(item.get('space_no'))}</td><td>{_h(item.get('building'))}</td><td>{_h(item.get('unit'))}</td><td>{_h(item.get('floor') or '')}</td><td>{_h(item.get('shop_name'))}</td><td>{_h(item.get('merchant_name'))}</td><td>{_h(item.get('phone'))}</td><td>{_h(item.get('category'))}</td><td>{_h(item.get('area'))}</td><td>{_h(price)}</td><td>{_h(item.get('payment_cycle'))}</td><td>{_h(item.get('notes'))}</td></tr>'''
 
 
-def _render_merchants(user, items):
+def _create_form():
+    return '''<form method="post" action="/backoffice/merchants/create"><label>楼栋 / 区域</label><input name="building" required placeholder="例如 商场B区"><label>分区</label><input name="unit" placeholder="例如 二层"><label>铺位号</label><input name="space_no" required placeholder="例如 B-208"><label>楼层</label><input name="floor" type="number" step="1"><label>店名</label><input name="shop_name" placeholder="店铺名称"><label>承租人</label><input name="merchant_name" required placeholder="商户/承租人"><label>电话</label><input name="phone" placeholder="联系电话"><label>面积</label><input name="area" required type="number" step="0.01" min="0.01"><label>独立单价</label><input name="unit_price_override" type="number" step="0.01" min="0"><label>缴费周期</label><input name="payment_cycle" placeholder="monthly / quarterly"><label>备注</label><input name="notes" placeholder="备注"><button class="primary">新增商户</button><div class="hint">商户档案写入当前项目的收费对象，类型固定为商户。</div></form>'''
+
+
+def _render_merchants(user, items, message=''):
     rows = ''.join(_merchant_row(item) for item in items) or '<tr><td colspan="12">暂无商户档案</td></tr>'
+    notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     body = f'''
 <section class="hero"><div><h1>商户档案</h1><div class="sub">基于收费对象中的商户/商业铺位形成商户档案视图；不新增独立合同表，先用于维护铺位号、店名、承租人、电话、面积、独立单价和缴费周期。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+{notice}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
-<section class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b"><table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table></div></section>'''
+<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b"><table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table></div></div><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
 
 
 def register_merchant_directory(app, service, repository, current_user):
-    from fastapi import Depends, HTTPException
-    from fastapi.responses import HTMLResponse
+    from fastapi import Depends, Form, HTTPException
+    from fastapi.responses import HTMLResponse, RedirectResponse
 
     def _items(user):
         service._require(user, 'read')
@@ -65,8 +71,21 @@ def register_merchant_directory(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/backoffice/merchants', response_class=HTMLResponse)
-    def merchant_page(user=Depends(current_user)):
+    def merchant_page(user=Depends(current_user), message: str = ''):
         try:
-            return HTMLResponse(_render_merchants(user, _items(user)))
+            return HTMLResponse(_render_merchants(user, _items(user), message))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/merchants/create')
+    def create_merchant_page(building: str = Form(...), unit: str = Form(''), space_no: str = Form(...), floor: str = Form(''), shop_name: str = Form(''), merchant_name: str = Form(...), phone: str = Form(''), area: float = Form(...), unit_price_override: str = Form(''), payment_cycle: str = Form(''), notes: str = Form(''), user=Depends(current_user)):
+        try:
+            service._require(user, 'write')
+            floor_value = int(floor) if str(floor or '').strip() else None
+            if repository:
+                repository.create_charge_target(user['tenant_id'], user['project_id'], building, unit, space_no, '商户', area, 0, unit_price_override or None, floor=floor_value, shop_name=shop_name, tenant_name=merchant_name, tenant_phone=phone, payment_cycle=payment_cycle, notes=notes)
+            else:
+                service.create_charge_target(user, user['project_id'], building, unit, space_no, '商户', area, 0, unit_price_override or None, floor=floor_value, shop_name=shop_name, tenant_name=merchant_name, tenant_phone=phone, payment_cycle=payment_cycle, notes=notes)
+            return RedirectResponse('/backoffice/merchants?message=商户已新增', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
