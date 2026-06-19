@@ -53,6 +53,7 @@ ITEMS = [
     ('P0-49 首租户验收记录持久化', '首租户交付验收记录保存到系统侧独立文件，重启后仍可读取，不进入客户上传目录或授权库。', '/backoffice/first-tenant-acceptance'),
     ('P0-50 首租户验收记录备份证据', '备份元数据显式列出首租户验收记录路径，恢复演练可验证系统侧签收证据未丢失。', '/backoffice/backups'),
     ('P0-51 首租户验收记录备份页面提示', '备份页、备份详情和恢复演练详情提示 system-files 覆盖首租户验收记录，方便实施人员现场核对。', '/backoffice/backups'),
+    ('P0-52 生产环境数据库自动接入', '正式部署时 create_app 自动读取 DATABASE_URL 或 POSTGRES_* 环境变量接入 PostgreSQL，避免云端以内存模式运行。', '/backoffice/deploy-checklist'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -115,6 +116,7 @@ GATES = [
     ('首租户验收记录持久化检查', 'scripts/saas_first_tenant_acceptance_persistence_check.py'),
     ('首租户验收记录备份证据检查', 'scripts/saas_first_tenant_acceptance_backup_evidence_check.py'),
     ('首租户验收记录备份页面检查', 'scripts/saas_first_tenant_acceptance_backup_page_check.py'),
+    ('生产环境数据库自动接入检查', 'scripts/saas_production_database_env_check.py'),
 ]
 
 

@@ -10,7 +10,7 @@ from server.saas_storage import SaasStorage
 from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_auth_api import build_auth_dependencies, register_auth_routes
 from server.saas_page_registry import register_saas_pages
-from server.saas_first_tenant_acceptance_store import acceptance_store_from_env
+from server.saas_first_tenant_acceptance_store import acceptance_store_from_env, database_url_from_env
 from server.passwords import verify_password
 from server.saas_password_policy import password_meets_policy, password_reset_error
 from server.saas_billing_api import register_billing_routes
@@ -31,7 +31,7 @@ def create_app(database_url=None, acceptance_store=None):
 
     app = FastAPI(title="物业收费管理系统 SaaS 后台")
     service = SaasBackofficeService.in_memory()
-    repository = create_saas_repository(database_url) if database_url else None
+    database_url = database_url or database_url_from_env(); repository = create_saas_repository(database_url) if database_url else None
     app.state.repository = repository
     if acceptance_store is None:
         acceptance_store = acceptance_store_from_env()

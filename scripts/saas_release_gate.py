@@ -59,6 +59,7 @@ CHECKS = [
     "scripts/saas_first_tenant_acceptance_persistence_check.py",
     "scripts/saas_first_tenant_acceptance_backup_evidence_check.py",
     "scripts/saas_first_tenant_acceptance_backup_page_check.py",
+    "scripts/saas_production_database_env_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]

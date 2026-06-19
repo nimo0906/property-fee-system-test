@@ -5,6 +5,7 @@
 import json
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 
 class FirstTenantAcceptanceStore:
@@ -44,3 +45,18 @@ def _clean_record(item):
 def acceptance_store_from_env():
     system_dir = os.environ.get('SAAS_SYSTEM_FILES_DIR')
     return FirstTenantAcceptanceStore(Path(system_dir).parent) if system_dir else None
+
+
+def database_url_from_env(env=None):
+    env = env or os.environ
+    if env.get('DATABASE_URL'):
+        return env.get('DATABASE_URL')
+    required = [env.get('POSTGRES_USER'), env.get('POSTGRES_PASSWORD'), env.get('POSTGRES_DB')]
+    if not all(required):
+        return None
+    user = quote(str(env.get('POSTGRES_USER')), safe='')
+    password = quote(str(env.get('POSTGRES_PASSWORD')), safe='')
+    host = quote(str(env.get('POSTGRES_HOST') or 'postgres'), safe='')
+    port = str(env.get('POSTGRES_PORT') or '5432')
+    db = quote(str(env.get('POSTGRES_DB')), safe='')
+    return f'postgresql://{user}:{password}@{host}:{port}/{db}'
