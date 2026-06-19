@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_license_binding import bind_tenant_license_customer
 from server.saas_license_cloud import LicenseCloudService
 from server.saas_license_status import build_saas_license_status
 
@@ -51,6 +52,8 @@ def test_saas_backoffice_home_shows_sanitized_license_status():
         'role_code': 'system_admin',
     })
     assert login.status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '工单拆分物业')
 
     page = client.get('/backoffice')
 

@@ -30,6 +30,7 @@ ITEMS = [
     ('P0-25 授权拦截审计', '授权限制触发时记录租户范围内的 license.write_blocked 审计事件，便于商业售后和争议追踪。', '/backoffice/audit-logs'),
     ('P0-26 授权席位限制', '授权席位数与启用员工账号数联动，超过席位时限制新增或启用员工账号并记录审计。', '/backoffice/users'),
     ('P0-27 授权状态运维', '平台管理员查看各租户授权状态、席位使用数、到期时间和超限风险，不展示业务数据或授权库内部字段。', '/backoffice/license-ops'),
+    ('P0-28 授权客户绑定', 'SaaS 租户必须显式绑定授权客户编号，避免靠名称匹配导致授权错绑。', '/backoffice/license-ops'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -66,6 +67,7 @@ GATES = [
     ('授权拦截审计检查', 'scripts/saas_license_enforcement_audit_check.py'),
     ('授权席位限制检查', 'scripts/saas_license_seat_limit_check.py'),
     ('授权状态运维检查', 'scripts/saas_license_ops_page_check.py'),
+    ('授权客户绑定检查', 'scripts/saas_license_tenant_binding_check.py'),
 ]
 
 

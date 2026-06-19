@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_license_binding import bind_tenant_license_customer
 from server.saas_license_cloud import LicenseCloudService
 from server.saas_license_status import license_allows_write
 
@@ -65,6 +66,8 @@ def test_active_license_allows_create_fee_type():
     app.state.license_service = _active_license_service()
     client = TestClient(app)
     assert _login(client).status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '授权限制物业')
 
     response = client.post('/api/fee-types', json={
         'name': '物业费',

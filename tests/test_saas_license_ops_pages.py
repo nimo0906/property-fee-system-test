@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_license_binding import bind_tenant_license_customer
 from server.saas_license_cloud import LicenseCloudService
 from server.saas_license_ops_pages import build_license_ops_rows
 
@@ -36,8 +37,12 @@ def test_license_ops_rows_show_status_seats_and_risk_without_internal_fields():
     client = TestClient(app)
     app.state.license_service = _license_service()
     assert _login(client, '甲方物业').status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '甲方物业')
     assert client.post('/api/users', json={'username': 'cashier1', 'role_code': 'cashier'}).status_code == 200
     assert _login(client, '乙方物业').status_code == 200
+    beta_user = max(app.state.saas_service.users.values(), key=lambda item: item['id'])
+    bind_tenant_license_customer(app.state.saas_service, None, beta_user, '乙方物业')
 
     rows = build_license_ops_rows(app.state.saas_service, None, app.state.license_service)
 
@@ -58,6 +63,8 @@ def test_platform_admin_can_view_license_ops_page_but_tenant_admin_cannot():
     app.state.license_service = _license_service()
     setup = TestClient(app)
     assert _login(setup, '甲方物业').status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '甲方物业')
     assert setup.post('/api/users', json={'username': 'cashier1', 'role_code': 'cashier'}).status_code == 200
 
     platform = TestClient(app)

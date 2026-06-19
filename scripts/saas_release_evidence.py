@@ -25,6 +25,7 @@ GATE_CHECKS = [
     "scripts/saas_license_enforcement_audit_check.py",
     "scripts/saas_license_seat_limit_check.py",
     "scripts/saas_license_ops_page_check.py",
+    "scripts/saas_license_tenant_binding_check.py",
     "scripts/saas_isolation_evidence.py",
 ]
 POSTPONED = [

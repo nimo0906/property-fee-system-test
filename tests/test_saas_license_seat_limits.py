@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_license_binding import bind_tenant_license_customer
 from server.saas_license_cloud import LicenseCloudService
 from server.saas_license_seats import active_staff_count, seats_available
 
@@ -36,6 +37,7 @@ def test_seat_helpers_count_active_tenant_staff_only():
     assert _login(client).status_code == 200
     service = app.state.saas_service
     user = next(iter(service.users.values()))
+    bind_tenant_license_customer(service, None, user, '席位物业')
 
     assert active_staff_count(service, None, user) == 1
     assert seats_available(_license_service(seats=1), service, None, user, increment=0) is True
@@ -48,6 +50,8 @@ def test_create_user_is_blocked_when_license_seats_exceeded_and_audited():
     app.state.license_service = _license_service(seats=1)
     client = TestClient(app)
     assert _login(client).status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '席位物业')
 
     response = client.post('/api/users', json={'username': 'cashier1', 'role_code': 'cashier'})
 
@@ -69,6 +73,8 @@ def test_create_user_allowed_when_license_has_available_seats():
     app.state.license_service = _license_service(seats=2)
     client = TestClient(app)
     assert _login(client).status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '席位物业')
 
     response = client.post('/api/users', json={'username': 'cashier1', 'role_code': 'cashier'})
 
@@ -81,6 +87,8 @@ def test_enable_user_is_blocked_when_seats_are_full_but_disable_is_allowed():
     app.state.license_service = _license_service(seats=2)
     client = TestClient(app)
     assert _login(client).status_code == 200
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '席位物业')
     created = client.post('/api/users', json={'username': 'cashier1', 'role_code': 'cashier'}).json()['item']
     assert client.post(f"/api/users/{created['id']}/active", json={'is_active': False}).status_code == 200
     app.state.license_service = _license_service(seats=1)

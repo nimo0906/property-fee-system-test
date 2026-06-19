@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Platform license operations page for SaaS tenants."""
 
+from server.saas_license_binding import license_customer_code_for_tenant
 from server.saas_license_seats import active_staff_count
 from server.saas_license_status import build_saas_license_status
 from server.saas_service import PermissionDenied
@@ -18,12 +19,17 @@ def build_license_ops_rows(service, repository, license_service):
     rows = []
     for tenant_name in sorted(name for name in tenant_map if name):
         tenant = tenant_map[tenant_name]
-        status = build_saas_license_status(license_service, tenant_name)
+        customer_code = license_customer_code_for_tenant(service, repository, tenant)
+        if not customer_code and tenant.get('id') is None:
+            customer_code = tenant_name
+        status = build_saas_license_status(license_service, customer_code)
         active_count = _active_count_for_tenant(service, repository, tenant)
         seats = int(status.get('seats') or 0)
         rows.append({
             'tenant_name': tenant_name,
             'status_label': '已授权' if status.get('allowed') else _status_label(status.get('status')),
+            'customer_code': customer_code or '未绑定',
+            'binding_label': _binding_label(tenant, customer_code),
             'licensed_seats': seats,
             'active_staff_count': active_count,
             'expires_at': status.get('expires_at') or '未配置',
@@ -74,13 +80,19 @@ def _tenant_probe_user(service, repository, tenant):
 def _render_page(rows):
     table_rows = ''.join(_row(item) for item in rows) or '<tr><td colspan="6">暂无租户</td></tr>'
     body = f'''<section class="hero"><div><h1>授权状态运维</h1><div class="sub">平台管理员查看各租户授权状态、席位使用、到期时间和超限风险；不展示业务数据、授权库内部字段或生产密钥。</div></div><div class="badge tenant-scope">平台运维视图</div></section>
-<section class="card"><div class="card-h">授权租户概览</div><div class="card-b"><table><thead><tr><th>客户公司</th><th>授权状态</th><th>席位使用</th><th>到期时间</th><th>超限风险</th></tr></thead><tbody>{table_rows}</tbody></table></div></section>'''
+<section class="card"><div class="card-h">授权租户概览</div><div class="card-b"><table><thead><tr><th>客户公司</th><th>授权客户</th><th>绑定状态</th><th>授权状态</th><th>席位使用</th><th>到期时间</th><th>超限风险</th></tr></thead><tbody>{table_rows}</tbody></table></div></section>'''
     return _page('授权状态运维', body)
 
 
 def _row(item):
     seats = f"{item.get('active_staff_count')} / {item.get('licensed_seats')}"
-    return f'''<tr><td><strong>{_h(item.get('tenant_name'))}</strong></td><td>{_h(item.get('status_label'))}</td><td>{_h(seats)}</td><td>{_h(item.get('expires_at'))}</td><td>{_h(item.get('risk_label'))}</td></tr>'''
+    return f'''<tr><td><strong>{_h(item.get('tenant_name'))}</strong></td><td>{_h(item.get('customer_code'))}</td><td>{_h(item.get('binding_label'))}</td><td>{_h(item.get('status_label'))}</td><td>{_h(seats)}</td><td>{_h(item.get('expires_at'))}</td><td>{_h(item.get('risk_label'))}</td></tr>'''
+
+
+def _binding_label(tenant, customer_code):
+    if tenant.get('id') is None and customer_code:
+        return '仅授权客户'
+    return '已绑定' if customer_code else '未绑定'
 
 
 def _risk_label(allowed, seats, active_count):

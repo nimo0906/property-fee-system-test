@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """License enforcement helpers with sanitized audit logging."""
 
+from server.saas_license_binding import license_customer_code_for_user
 from server.saas_license_status import build_saas_license_status
 
 
@@ -12,7 +13,7 @@ class LicenseRequired(Exception):
 def require_license_or_audit(user, module, license_service=None, service=None, repository=None):
     if license_service is None:
         return True
-    status = build_saas_license_status(license_service, user.get('tenant_name') or '')
+    status = build_saas_license_status(license_service, license_customer_code_for_user(service, repository, user))
     if status.get('allowed'):
         return True
     detail = {

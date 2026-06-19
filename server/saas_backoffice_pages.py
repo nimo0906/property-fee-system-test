@@ -27,7 +27,7 @@ def _platform_health_summary(user):
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">系统健康</div><div class="card-b"><div class="actions"><span class="badge">部署资产 {asset_status}</span><span class="badge">端口本机绑定 {port_status}</span><span class="badge">备份恢复脚本 {backup_status}</span><span class="badge">HTTPS {https_status}</span><a class="ghost-link" href="/backoffice/deploy-checklist">查看上线清单</a></div><div class="hint">平台运维摘要只展示检查结果，不展示生产密钥或 .env 内容。</div></div></section>'''
 
 
-def _backoffice_home(user, license_service=None):
+def _backoffice_home(user, license_service=None, service=None, repository=None):
     can_manage_users = user.get('role_code') in {'system_admin', 'platform_admin'}
     tenant_admin_card = _module_card('租户管理员', '本公司管理员控制台：账号列表、停用员工账号、重置临时密码，并提示客户数据隔离边界。', '/backoffice/tenant-admin' if user.get('role_code') == 'system_admin' else None, '租户管理员入口仅本公司管理员可用')
     user_card = _module_card('账号管理', '管理员维护员工账号、停用离职账号、重置临时密码，并保留审计记录。', '/backoffice/users' if can_manage_users else None, '账号管理仅管理员可用')
@@ -54,7 +54,7 @@ def _backoffice_home(user, license_service=None):
     body = f'''
 <section class="hero"><div><h1>SaaS 员工后台</h1><div class="sub">正式商业云端后台入口。当前租户、项目和角色会决定可见模块，避免不同公司数据混在一起。迁移检查：scripts/saas_legacy_gap_check.py，文档：docs/saas-legacy-business-migration-gap.md。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-b" style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><strong>当前账号：</strong>{_h(user.get('username'))}<span class="hint"> · {_h(_role_name(user.get('role_code')))}</span></div><div class="actions"><a class="ghost-link" href="/backoffice/change-password">修改密码</a><form method="post" action="/api/auth/logout"><button class="danger">退出登录</button></form></div></div></section>
-{health}{render_saas_license_status(user, license_service)}{render_first_run_guide(user)}<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">{cards}</section>'''
+{health}{render_saas_license_status(user, license_service, service, repository)}{render_first_run_guide(user)}<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr))">{cards}</section>'''
     return _page('SaaS 员工后台', body)
 
 
@@ -66,4 +66,4 @@ def register_backoffice_pages(app, current_user, session_user=None):
     def backoffice_home(user=Depends(session_user or current_user)):
         if user.get('must_change_password'):
             return RedirectResponse('/backoffice/change-password', status_code=303)
-        return HTMLResponse(_backoffice_home(user, getattr(app.state, 'license_service', None)))
+        return HTMLResponse(_backoffice_home(user, getattr(app.state, 'license_service', None), app.state.saas_service, getattr(app.state, 'repository', None)))

@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_license_binding import bind_tenant_license_customer
 from server.saas_license_cloud import LicenseCloudService
 from server.saas_license_status import build_saas_license_status
 
@@ -35,6 +36,8 @@ def main():
     client = TestClient(app)
     login = client.post('/api/auth/login', json={'tenant_name': '检查物业', 'project_name': '检查项目', 'username': 'admin', 'role_code': 'system_admin'})
     require(login.status_code == 200, 'login failed')
+    user = next(iter(app.state.saas_service.users.values()))
+    bind_tenant_license_customer(app.state.saas_service, None, user, '检查物业')
     page = client.get('/backoffice')
     require(page.status_code == 200, 'backoffice failed')
     for item in ['授权状态', '已授权', '席位 9', '到期 2099-12-31']:
