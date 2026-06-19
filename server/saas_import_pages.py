@@ -4,13 +4,14 @@
 
 import csv
 import io
-from server.saas_import_activity import display_filename, render_import_activity
 
+from server.saas_import_activity import display_filename, render_import_activity
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
 
 STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
+TEMPLATE_CSV = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80\n商场,一层,A-001,商户,56.5\n'
 
 
 def _parse_csv_rows(csv_text):
@@ -28,11 +29,13 @@ def _render_file_notice(item):
 def _render_import_home(user, file_item=None, files=None, logs=None):
     can_import = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'frontdesk'}
     form = _preview_form() if can_import else '<div class="hint">当前角色不能导入，只能查看业务数据。</div>'
+    upload = _upload_form() if can_import else '<div class="hint">当前角色不能登记上传文件。</div>'
     body = f'''
 <section class="hero"><div><h1>数据导入</h1><div class="sub">先预览校验，不直接写库；确认后只导入有效行，错误行不会污染正式数据。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {_render_file_notice(file_item)}
 <section class="grid"><div class="card"><div class="card-h">收费对象导入</div><div class="card-b">{form}</div></div>
-<aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{_upload_form() if can_import else '<div class="hint">当前角色不能登记上传文件。</div>'}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>
+<aside class="card"><div class="card-h">导入模板</div><div class="card-b"><p class="sub">先按模板准备收费对象数据，再复制 CSV 内容做预览。</p><div class="actions"><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">字段说明</a><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a></div><div class="hint">模板不包含 tenant_id 或 project_id，系统会按当前登录租户和项目写入。</div></div></aside>
+<aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{upload}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>
 {render_import_activity(files, logs)}'''
     return _page('数据导入', body)
 
@@ -44,6 +47,30 @@ def _upload_form():
 def _preview_form():
     sample = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80'
     return f'''<form method="post" action="/backoffice/imports/charge-targets/preview"><label>CSV 内容</label><textarea name="csv_text" rows="10" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:10px" placeholder="{_h(sample)}"></textarea><button class="primary">导入预览</button><div class="hint">预览阶段不会写入收费对象。</div></form>'''
+
+
+def _template_rows():
+    fields = [
+        ('building', '楼栋 / 区域', '必填', '例如 1栋、商场、A区'),
+        ('unit', '单元 / 分区', '选填', '例如 1单元、二层、东区'),
+        ('room_number', '房号 / 铺位号', '必填', '例如 101、A-001'),
+        ('category', '类型', '必填', '例如 居民、商户、车位'),
+        ('area', '面积', '必填', '数字，单位平方米'),
+    ]
+    return ''.join(
+        '<tr>'
+        f'<td>{_h(code)}</td><td>{_h(label)}</td><td>{_h(required)}</td><td>{_h(note)}</td>'
+        '</tr>'
+        for code, label, required, note in fields
+    )
+
+
+def _render_template_page(user):
+    body = f'''
+<section class="hero"><div><h1>收费对象导入模板</h1><div class="sub">不同公司业务可以不同，但第一版 SaaS 收费对象导入统一使用楼栋 / 区域、单元 / 分区、房号 / 铺位号、类型、面积五个字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>是否必填</th><th>填写说明</th></tr></thead><tbody>{_template_rows()}</tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>
+<section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录账号的 tenant_id 和 project_id，不允许客户在模板里填写或覆盖。</p></div></section>'''
+    return _page('收费对象导入模板', body)
 
 
 def _render_preview(user, review):
@@ -62,7 +89,7 @@ def _valid_row(row):
 
 def register_import_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
-    from fastapi.responses import HTMLResponse, RedirectResponse
+    from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 
     def _activity(user):
         if repository:
@@ -77,6 +104,14 @@ def register_import_pages(app, service, repository, current_user):
     def import_page(user=Depends(current_user)):
         files, logs = _activity(user)
         return HTMLResponse(_render_import_home(user, files=files, logs=logs))
+
+    @app.get('/backoffice/imports/templates/charge-targets', response_class=HTMLResponse)
+    def import_template_page(user=Depends(current_user)):
+        return HTMLResponse(_render_template_page(user))
+
+    @app.get('/api/imports/templates/charge-targets.csv')
+    def import_template_csv(user=Depends(current_user)):
+        return PlainTextResponse(TEMPLATE_CSV, media_type='text/csv; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="charge_targets_template.csv"'})
 
     @app.post('/backoffice/imports/files/register', response_class=HTMLResponse)
     def register_import_file_page(original_name: str = Form(...), file_size: int = Form(...), content_type: str = Form(''), user=Depends(current_user)):
