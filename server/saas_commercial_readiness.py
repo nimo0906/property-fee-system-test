@@ -49,6 +49,7 @@ ITEMS = [
     ('P0-45 首租户收费项目初始化交付入口', '首租户初始化向导和交付包直接提供推荐收费项目一键初始化入口，减少实施漏项。', '/backoffice/first-tenant-delivery-package'),
     ('P0-46 首租户收费项目复核验收', '首租户验收记录覆盖推荐收费项目初始化、单价复核、计费方式确认和业务模板匹配，避免金额配置漏项。', '/backoffice/first-tenant-acceptance'),
     ('P0-47 首租户验收风险提示', '首租户验收记录在完成项不足或金额配置复核未完成时提示上线风险，全部完成后显示风险解除。', '/backoffice/first-tenant-acceptance'),
+    ('P0-48 首租户验收风险总览', '首租户交付包和商业验收页展示验收风险状态，实施人员在入口页即可确认风险是否解除。', '/backoffice/first-tenant-delivery-package'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -107,6 +108,7 @@ GATES = [
     ('首租户收费项目初始化交付入口检查', 'scripts/saas_first_tenant_fee_init_delivery_check.py'),
     ('首租户收费项目复核验收检查', 'scripts/saas_first_tenant_acceptance_fee_review_check.py'),
     ('首租户验收风险提示检查', 'scripts/saas_first_tenant_acceptance_risk_warning_check.py'),
+    ('首租户验收风险总览检查', 'scripts/saas_first_tenant_acceptance_risk_overview_check.py'),
 ]
 
 

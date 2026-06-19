@@ -3,6 +3,7 @@
 """HTML acceptance checklist page for SaaS backoffice."""
 
 from server.saas_commercial_readiness import render_commercial_readiness
+from server.saas_first_tenant_acceptance_pages import _latest_record, _risk_summary
 from server.saas_password_policy import password_policy_summary
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page, _role_name
@@ -100,12 +101,21 @@ def _collect_status(user, service, repository, period):
     }
 
 
-def _render(user, status, period):
+def _render_risk_overview(user, service):
+    if not service:
+        return ''
+    record = _latest_record(service, user)
+    risk = _risk_summary(record)
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">首租户验收风险状态：{_h(risk['status'])}</div><div class="card-b"><p class="sub">{_h(risk['detail'])}</p><div class="actions"><a class="ghost-link" href="/backoffice/first-tenant-acceptance">进入首租户交付验收</a></div></div></section>'''
+
+
+def _render(user, status, period, service=None):
     role_label = _role_name(user.get('role_code'))
     readonly = '<span class="badge">只读验收清单</span>' if user.get('role_code') not in {'system_admin', 'platform_admin'} else '<span class="badge">管理员验收</span>'
     body = f'''
 <section class="hero"><div><h1>SaaS 商业后台验收</h1><div class="sub">用于正式商业版上线前，把员工后台完整闭环逐项走通：创建项目、导入/录入收费对象、配置收费项目、生成账单、审核账单、登记收款、对账报表、审计日志、备份恢复和租户隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-b"><strong>当前角色：</strong>{_h(role_label)} {readonly}<div class="hint">生产环境变量安全检查：先在服务器环境中设置强数据库密码和应用密钥，再执行 <code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_env_security_check.py</code></div><div class="hint">自动验收命令：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_acceptance_check.py</code></div><div class="hint">第一阶段收口：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_phase1_closure_check.py</code> · 文档 <code>docs/saas-phase-1-closure-report.md</code></div><div id="legacy-gap" class="hint">原桌面业务迁移差距：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_legacy_gap_check.py</code> · 文档 <code>docs/saas-legacy-business-migration-gap.md</code></div><div class="hint">样例客户验收演练：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_demo_tenant_drill.py</code> · 文档 <code>docs/saas-demo-tenant-drill.md</code></div><div class="hint">商业上线总门禁：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_gate.py</code></div><div class="hint">租户隔离证据明细：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_isolation_evidence.py</code></div><div class="hint">上线证据报告：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_evidence.py</code></div></div></section>
+{_render_risk_overview(user, service)}
 {render_commercial_readiness()}
 {_render_status(status, period)}
 <section class="card"><div class="card-h">验收步骤</div><div class="card-b"><table><thead><tr><th>验收项</th><th>入口</th><th>通过标准</th></tr></thead><tbody>{_step_rows()}</tbody></table></div></section>
@@ -122,6 +132,6 @@ def register_acceptance_pages(app, current_user, service=None, repository=None):
     def acceptance_page(period: str = '2026-12', user=Depends(current_user)):
         try:
             status = _collect_status(user, service, repository, period) if service else {'report': {}}
-            return HTMLResponse(_render(user, status, period))
+            return HTMLResponse(_render(user, status, period, service))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')

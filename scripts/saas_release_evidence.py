@@ -44,6 +44,7 @@ GATE_CHECKS = [
     "scripts/saas_first_tenant_fee_init_delivery_check.py",
     "scripts/saas_first_tenant_acceptance_fee_review_check.py",
     "scripts/saas_first_tenant_acceptance_risk_warning_check.py",
+    "scripts/saas_first_tenant_acceptance_risk_overview_check.py",
     "scripts/saas_isolation_evidence.py",
 ]
 POSTPONED = [

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """First tenant delivery package overview page."""
 
+from server.saas_first_tenant_acceptance_pages import _latest_record, _risk_summary
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 
@@ -27,15 +28,22 @@ def _entry_rows():
     )
 
 
-def _render(user):
+def _risk_overview(service, user):
+    record = _latest_record(service, user)
+    risk = _risk_summary(record)
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">{_h(risk['status'])}</div><div class="card-b"><p class="sub">{_h(risk['detail'])}</p><div class="actions"><a class="ghost-link" href="/backoffice/first-tenant-acceptance">查看并填写验收记录</a></div></div></section>'''
+
+
+def _render(user, service):
     body = f'''
 <section class="hero"><div><h1>首租户交付包总览</h1><div class="sub">实施人员统一入口：把登录、初始化向导、业务闭环、验收记录、打印导出、部署自检、备份恢复、授权绑定和租户隔离证据集中在一个页面，减少真实交付时漏项。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">交付边界</div><div class="card-b"><p class="sub">客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；平台管理员负责客户开通、授权绑定和交付证据，租户管理员负责本公司业务数据。</p><div class="actions"><a class="ghost-link" href="/backoffice/first-tenant-wizard">开始首租户初始化</a><form method="post" action="/backoffice/fee-types/init-from-template"><button class="primary">一键初始化推荐收费项目</button></form><a class="ghost-link" href="/backoffice/first-tenant-acceptance">填写验收记录</a><a class="ghost-link" href="/backoffice/deploy-checklist">查看部署自检</a></div></div></section>
+{_risk_overview(service, user)}
 <section class="card"><div class="card-h">实施人员统一入口</div><div class="card-b"><table><thead><tr><th>入口</th><th>用途</th><th>操作</th></tr></thead><tbody>{_entry_rows()}</tbody></table></div></section>'''
     return _page('首租户交付包总览', body)
 
 
-def register_first_tenant_delivery_package_pages(app, current_user):
+def register_first_tenant_delivery_package_pages(app, current_user, service):
     from fastapi import Depends, HTTPException
     from fastapi.responses import HTMLResponse
 
@@ -47,6 +55,6 @@ def register_first_tenant_delivery_package_pages(app, current_user):
     def delivery_package_page(user=Depends(current_user)):
         try:
             _require_admin(user)
-            return HTMLResponse(_render(user))
+            return HTMLResponse(_render(user, service))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
