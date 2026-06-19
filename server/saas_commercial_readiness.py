@@ -19,6 +19,7 @@ ITEMS = [
     ('P0-14 上线总报告', 'SaaS 云端商业版上线总报告，汇总 P0-1 到 P0-13、验证命令、部署资产、演示路径和签收路径。', '/backoffice/acceptance'),
     ('P0-15 正式报告文件', '正式 DOCX/PDF 交付版：release/saas-commercial-launch-report.docx 与 release/saas-commercial-launch-report.pdf。', '/backoffice/acceptance'),
     ('P0-16 一页式上线指引', '实施人员按执行顺序完成服务器、环境、门禁、演示、备份恢复、隔离、签收和报告留存。', '/backoffice/acceptance'),
+    ('P0-17 首日巡检清单', '上线后按 T+0、T+2、T+24 巡检服务健康、权限、隔离、收费抽查、备份、日志、审计和回退观察点。', '/backoffice/acceptance'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -39,6 +40,8 @@ GATES = [
     ('正式报告检查', 'scripts/saas_formal_launch_report_check.py'),
     ('一页式上线指引', 'docs/saas-operator-one-page-runbook.md'),
     ('一页式上线指引检查', 'scripts/saas_operator_one_page_runbook_check.py'),
+    ('首日巡检清单', 'docs/saas-day1-operations-checklist.md'),
+    ('首日巡检检查', 'scripts/saas_day1_operations_checklist_check.py'),
 ]
 
 
