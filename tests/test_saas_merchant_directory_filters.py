@@ -207,6 +207,18 @@ class TestSaasMerchantDirectoryFilters(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id']:
                 self.assertNotIn(hidden, content)
 
+    def test_payment_target_filter_form_preserves_target_id(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='KEEP-101', shop_name='保留范围目标店', tenant_name='保留范围商户')
+            page = client.get(f"/backoffice/payments?target_id={target['id']}")
+            self.assertEqual(page.status_code, 200)
+
+            hidden = f'name="target_id" value="{target["id"]}"'
+            self.assertIn(hidden, page.text)
+            for internal in ['tenant_id', 'project_id']:
+                self.assertNotIn(internal, page.text)
+
     def test_merchant_batch_billing_can_scope_by_building_and_unit(self):
         with tempfile.TemporaryDirectory() as td:
             client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
