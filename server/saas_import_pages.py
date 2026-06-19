@@ -11,7 +11,7 @@ from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
 
 STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
-TEMPLATE_CSV = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80\n商场,一层,A-001,商户,56.5\n'
+TEMPLATE_CSV = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80\n商场,一层,A-001,商户,56.5\n# 可选字段: owner_name,owner_phone；兼容中文旧表头: 楼栋/区域,房号/铺位号\n'
 
 
 def _parse_csv_rows(csv_text):
@@ -46,7 +46,7 @@ def _upload_form():
 
 
 def _preview_form():
-    sample = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80'
+    sample = 'owner_name,owner_phone,building,unit,room_number,category,area\n张三,13800000000,1栋,1单元,101,居民,80'
     return f'''<form method="post" action="/backoffice/imports/charge-targets/preview"><label>CSV 内容</label><textarea name="csv_text" rows="10" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:10px" placeholder="{_h(sample)}"></textarea><button class="primary">导入预览</button><div class="hint">预览阶段不会写入收费对象。</div></form>'''
 
 
@@ -72,20 +72,22 @@ def _tenant_import_batches(service, user):
 
 
 def _render_review_page(user, review):
-    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="5">暂无有效行</td></tr>'
+    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="7">暂无有效行</td></tr>'
     error_rows = ''.join(f'<tr><td>{_h(err.get("row"))}</td><td>{_h((err.get("error") or "").replace("不能为空", "必填"))}</td></tr>' for err in review['errors']) or '<tr><td colspan="2">暂无错误</td></tr>'
     status = '已确认' if review.get('confirmed') else '待确认'
     action = '<p class="sub">该批次已确认过，本次不会重复写入。</p>' if review.get('confirmed') else f"""<form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form>"""
     body = f"""
 <section class="hero"><div><h1>导入批次复核</h1><div class="sub">批次 {review['import_id']} · 状态：{status}。复核有效行和错误行后再确认写入。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">批次 {review['import_id']}</div><div class="card-b"><p><strong>状态：{status}</strong></p><p>有效 {review['valid_count']} 行，错误 {review['error_count']} 行。</p>{_error_download_link(review)}{action}</div></section>
-<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table></div></div>
+<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>业主</th><th>联系电话</th><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">错误行</div><div class="card-b"><table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>"""
     return _page('导入批次复核', body)
 
 
 def _template_rows():
     fields = [
+        ('owner_name', '业主姓名', '选填', '例如 张三、某某商户'),
+        ('owner_phone', '联系电话', '选填', '例如 13800000000'),
         ('building', '楼栋 / 区域', '必填', '例如 1栋、商场、A区'),
         ('unit', '单元 / 分区', '选填', '例如 1单元、二层、东区'),
         ('room_number', '房号 / 铺位号', '必填', '例如 101、A-001'),
@@ -102,7 +104,7 @@ def _template_rows():
 
 def _render_template_page(user):
     body = f'''
-<section class="hero"><div><h1>收费对象导入模板</h1><div class="sub">不同公司业务可以不同，但第一版 SaaS 收费对象导入统一使用楼栋 / 区域、单元 / 分区、房号 / 铺位号、类型、面积五个字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>收费对象导入模板</h1><div class="sub">不同公司业务可以不同，但第一版 SaaS 收费对象导入统一使用楼栋 / 区域、单元 / 分区、房号 / 铺位号、类型、面积七个字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>是否必填</th><th>填写说明</th></tr></thead><tbody>{_template_rows()}</tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>
 <section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>'''
     return _page('收费对象导入模板', body)
@@ -134,11 +136,11 @@ def _error_csv(review):
 
 
 def _render_preview(user, review):
-    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="5">暂无有效行</td></tr>'
+    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="7">暂无有效行</td></tr>'
     error_rows = ''.join(f'<tr><td>{_h(err.get("row"))}</td><td>{_h((err.get("error") or "").replace("不能为空", "必填"))}</td></tr>' for err in review['errors']) or '<tr><td colspan="2">暂无错误</td></tr>'
     body = f'''
 <section class="hero"><div><h1>导入预览</h1><div class="sub">有效 {review['valid_count']} 行，错误 {review['error_count']} 行。确认导入只会写入有效行。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table><form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form></div></div>
+<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>业主</th><th>联系电话</th><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table><form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form></div></div>
 <aside class="card"><div class="card-h">错误行</div><div class="card-b">{_error_download_link(review)}<table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>'''
     return _page('导入预览', body)
 
@@ -158,7 +160,7 @@ def _render_confirm_result(user, import_id, result, already_confirmed=False):
 
 
 def _valid_row(row):
-    return f'''<tr><td>{_h(row.get('building'))}</td><td>{_h(row.get('unit'))}</td><td>{_h(row.get('room_number'))}</td><td>{_h(row.get('category'))}</td><td>{_h(row.get('area'))}</td></tr>'''
+    return f'''<tr><td>{_h(row.get('owner_name'))}</td><td>{_h(row.get('owner_phone'))}</td><td>{_h(row.get('building'))}</td><td>{_h(row.get('unit'))}</td><td>{_h(row.get('room_number'))}</td><td>{_h(row.get('category'))}</td><td>{_h(row.get('area'))}</td></tr>'''
 
 
 def register_import_pages(app, service, repository, current_user):
@@ -244,7 +246,11 @@ def register_import_pages(app, service, repository, current_user):
                     result = {'created_count': 0, 'skipped_count': review['error_count']}
                 else:
                     for row in review['valid_rows']:
-                        item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'])
+                        owner_id = int(row.get('owner_id') or 0)
+                        if row.get('owner_name'):
+                            owner = repository.create_owner(user['tenant_id'], user['project_id'], row['owner_name'], row.get('owner_phone', ''), row.get('owner_type', '业主'))
+                            owner_id = owner['id']
+                        item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'], owner_id)
                         service.targets[item['id']] = item
                     service.imports[import_id]['confirmed'] = True
                     repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, {'created_count': review['valid_count'], 'skipped_count': review['error_count']})

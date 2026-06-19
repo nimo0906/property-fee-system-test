@@ -152,63 +152,6 @@ class SaasBackofficeService:
         self._log(user, project_id, 'fee_type.create', 'fee_type', fid, {'name': name, 'unit_price': float(unit_price)})
         return fee
 
-    def preview_charge_target_import(self, user, project_id, rows):
-        self._require(user, "import")
-        if not self._same_tenant_project(user, project_id):
-            raise PermissionDenied("cross tenant project")
-        valid, errors = [], []
-        for idx, row in enumerate(rows, start=1):
-            try:
-                building = str(row.get("building") or "").strip()
-                room_number = str(row.get("room_number") or "").strip()
-                if not building:
-                    raise ValueError("楼栋/区域不能为空")
-                if not room_number:
-                    raise ValueError("房号/铺位号不能为空")
-                area = float(row.get("area") or 0)
-                if area <= 0:
-                    raise ValueError("面积必须是数字且大于0")
-                valid.append({**row, "building": building, "room_number": room_number, "area": area})
-            except ValueError as exc:
-                errors.append({"row": idx, "error": str(exc), "data": dict(row)})
-        iid = self._id()
-        self.imports[iid] = {"id": iid, "tenant_id": user["tenant_id"], "project_id": project_id,
-                             "valid_rows": valid, "errors": errors, "confirmed": False}
-        self._log(user, project_id, 'import.preview', 'import', iid, {'valid_count': len(valid), 'error_count': len(errors)})
-        return {"import_id": iid, "valid_count": len(valid), "error_count": len(errors), "errors": errors}
-
-    def get_import_review(self, user, project_id, import_id):
-        self._require(user, "import")
-        imp = self.imports.get(import_id)
-        if not imp or imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
-            raise PermissionDenied("cross tenant import")
-        return {
-            "import_id": import_id,
-            "tenant_id": imp["tenant_id"],
-            "project_id": imp["project_id"],
-            "valid_count": len(imp["valid_rows"]),
-            "error_count": len(imp["errors"]),
-            "valid_rows": imp["valid_rows"],
-            "errors": imp["errors"],
-            "confirmed": imp["confirmed"],
-        }
-
-    def confirm_charge_target_import(self, user, project_id, import_id):
-        self._require(user, "import")
-        imp = self.imports.get(import_id)
-        if not imp or imp["tenant_id"] != user["tenant_id"] or imp["project_id"] != project_id:
-            raise PermissionDenied("cross tenant import")
-        if imp["confirmed"]:
-            return {"created_count": 0, "skipped_count": len(imp["errors"])}
-        created = 0
-        for row in imp["valid_rows"]:
-            self.create_charge_target(user, project_id, row["building"], row.get("unit", ""),
-                                      row["room_number"], row.get("category", "居民"), row["area"], row.get("owner_id", 0))
-            created += 1
-        imp["confirmed"] = True
-        self._log(user, project_id, 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': len(imp['errors'])})
-        return {"created_count": created, "skipped_count": len(imp["errors"])}
-
     def list_audit_logs(self, user, project_id):
         self._require(user, 'read')
         if not self._same_tenant_project(user, project_id):
@@ -271,6 +214,8 @@ class SaasBackofficeService:
 from server.saas_billing_service import attach_billing_methods
 from server.saas_fee_type_service import attach_fee_type_methods
 from server.saas_owner_service import attach_owner_methods
+from server.saas_import_mapping import attach_import_mapping_methods
 attach_billing_methods(SaasBackofficeService)
 attach_fee_type_methods(SaasBackofficeService)
 attach_owner_methods(SaasBackofficeService)
+attach_import_mapping_methods(SaasBackofficeService)

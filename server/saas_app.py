@@ -168,17 +168,27 @@ def create_app(database_url=None):
                 review = service.get_import_review(user, user["project_id"], data.import_id)
                 if review["confirmed"]:
                     return {"created_count": 0, "skipped_count": review["error_count"]}
-                created = 0
+                created = owner_created = 0
                 for row in review["valid_rows"]:
+                    owner_id = int(row.get("owner_id") or 0)
+                    if row.get("owner_name"):
+                        owner = repository.create_owner(user["tenant_id"], user["project_id"], row["owner_name"], row.get("owner_phone", ""), row.get("owner_type", "业主"))
+                        owner_id = owner["id"]
+                        owner_created += 1
                     item = repository.create_charge_target(
                         user["tenant_id"], user["project_id"], row["building"], row.get("unit", ""),
-                        row["room_number"], row.get("category", "居民"), row["area"], row.get("owner_id", 0)
+                        row["room_number"], row.get("category", "居民"), row["area"], owner_id
                     )
                     service.targets[item["id"]] = item
                     created += 1
                 service.imports[data.import_id]["confirmed"] = True
-                service._log(user, user["project_id"], 'import.confirm', 'import', data.import_id, {'created_count': created, 'skipped_count': review['error_count']})
-                return {"created_count": created, "skipped_count": review["error_count"]}
+                service.imports[data.import_id]["owner_created_count"] = owner_created
+                detail = {'created_count': created, 'skipped_count': review['error_count'], 'owner_created_count': owner_created}
+                service._log(user, user["project_id"], 'import.confirm', 'import', data.import_id, detail)
+                result = {"created_count": created, "skipped_count": review["error_count"]}
+                if owner_created:
+                    result["owner_created_count"] = owner_created
+                return result
             return service.confirm_charge_target_import(user, user["project_id"], data.import_id)
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
