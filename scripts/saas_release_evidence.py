@@ -65,6 +65,7 @@ GATE_CHECKS = [
     "scripts/saas_production_acceptance_signoff_history_check.py",
     "scripts/saas_production_acceptance_signoff_backup_check.py",
     "scripts/saas_production_acceptance_evidence_package_check.py",
+    "scripts/saas_production_acceptance_evidence_package_precheck.py",
     "scripts/saas_isolation_evidence.py",
 ]
 POSTPONED = [

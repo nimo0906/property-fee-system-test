@@ -23,6 +23,27 @@ def safe_text(value):
     return text
 
 
+def package_precheck(root):
+    root = Path(root)
+    rows = []
+    for rel, name in PACKAGE_FILES:
+        path = root / rel
+        exists = path.exists()
+        rows.append({
+            'package_name': name,
+            'source': rel,
+            'status': '存在' if exists else '缺失',
+            'included': '是' if exists else '占位进入总包',
+        })
+    rows.append({
+        'package_name': 'backup-coverage.md',
+        'source': '自动生成',
+        'status': '自动生成',
+        'included': '是',
+    })
+    return rows
+
+
 def build_evidence_package(root):
     root = Path(root)
     buffer = io.BytesIO()

@@ -6,7 +6,7 @@ import datetime as dt
 from pathlib import Path
 
 from server.saas_production_acceptance_history import append_history, get_history, history_rows
-from server.saas_production_acceptance_package import build_evidence_package
+from server.saas_production_acceptance_package import build_evidence_package, package_precheck
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 
@@ -48,11 +48,19 @@ def _summary_rows():
     return ''.join(rows)
 
 
+def _package_precheck_rows():
+    rows = []
+    for row in package_precheck(ROOT):
+        rows.append(f'<tr><td><code>{_h(row["package_name"])}</code></td><td>{_h(row["status"])}</td><td>{_h(row["included"])}</td><td><code>{_h(row["source"])}</code></td></tr>')
+    return ''.join(rows)
+
+
 def _render_production_acceptance(user):
     body = f'''
 <section class="hero"><div><h1>生产验收结果中心</h1><div class="sub">实施人员现场交付统一入口：一键验收总入口、验收结果留档文件、上线证据报告、租户隔离证据和首租户冒烟说明。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">证据文件摘要</div><div class="card-b"><table><thead><tr><th>状态</th><th>文件</th><th>最近生成时间</th><th>操作</th></tr></thead><tbody>{_summary_rows()}</tbody></table></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">交付证据包</div><div class="card-b"><p class="sub">下载脱敏后的正式交付证据包，包含验收留档、上线证据、租户隔离证据、签收历史和备份覆盖说明。</p><div class="actions"><a class="ghost-link" href="/backoffice/production-acceptance/evidence-package.zip">下载交付证据包</a></div><div class="hint">证据包不包含 生产环境文件、生产密钥、客户上传文件内容或真实服务器绝对路径。</div></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">证据包预检状态</div><div class="card-b"><table><thead><tr><th>总包文件</th><th>状态</th><th>进入总包</th><th>来源</th></tr></thead><tbody>{_package_precheck_rows()}</tbody></table><div class="hint">缺失文件会以占位说明进入总包，现场交付前应尽量补齐为“存在”。</div></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">生产验收签收</div><div class="card-b"><p class="sub">现场验收通过后填写执行人、服务器域名、客户签收人和实施人员，生成正式验收留档。</p><div class="actions"><a class="ghost-link" href="/backoffice/production-acceptance/signoff">填写生产验收签收信息</a><a class="ghost-link" href="/backoffice/production-acceptance/signoff/print">打印签收表</a><a class="ghost-link" href="/backoffice/production-acceptance/signoff/download.md">下载 Markdown</a></div></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">一键验收总入口</div><div class="card-b"><p><code>scripts/saas_production_acceptance_gate.py</code></p><p class="sub">串联 生产环境文件 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据和上线证据报告；失败即停止交付。</p></div></section>
 <section class="grid"><div class="card"><div class="card-h">验收结果留档文件</div><div class="card-b"><p><code>release/saas-production-acceptance-result.md</code></p><p class="sub">记录执行人、服务器域名、PASS/FAIL、客户签收人和实施人员签字。</p></div></div>
