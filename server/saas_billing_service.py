@@ -59,6 +59,12 @@ def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
         key = (user["tenant_id"], idempotency_key) if idempotency_key else None
         if key and key in self.payment_keys:
             return self.payments[self.payment_keys[key]]
+        paid_before = sum(p["amount_paid"] for p in self.payments.values() if p["bill_id"] == bill_id)
+        remaining = round(float(bill.get("amount") or 0) - float(paid_before or 0), 2)
+        if float(amount) <= 0:
+            raise PermissionDenied("payment amount must be positive")
+        if round(float(amount), 2) > remaining:
+            raise PermissionDenied(f"payment amount exceeds remaining arrears {remaining}")
         pid = self._id()
         receipt_number = f"RCPT-{user['tenant_id']}-{bill['project_id']}-{pid:06d}"
         payment = {"id": pid, "tenant_id": user["tenant_id"], "project_id": bill["project_id"],

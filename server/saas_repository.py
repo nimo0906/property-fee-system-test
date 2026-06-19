@@ -149,7 +149,7 @@ class SaasRepository:
 
     def create_payment(self, tenant_id, project_id, bill_id, amount, method, idempotency_key, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
-        bill = self._row("SELECT id,tenant_id,project_id,status FROM bills WHERE id=:id", {"id": bill_id})
+        bill = self._row("SELECT id,tenant_id,project_id,status,amount FROM bills WHERE id=:id", {"id": bill_id})
         if not bill or int(bill["tenant_id"]) != int(tenant_id) or int(bill["project_id"]) != int(project_id):
             raise TenantScopeError("bill does not belong to tenant")
         if bill["status"] == "pending_review":
@@ -158,6 +158,12 @@ class SaasRepository:
         if existing:
             return existing
         with self.engine.begin() as conn:
+            paid_before = conn.execute(text("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE tenant_id=:tenant_id AND project_id=:project_id AND bill_id=:bill_id"), {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id}).scalar_one()
+            remaining = round(float(bill.get("amount") or 0) - float(paid_before or 0), 2)
+            if float(amount) <= 0:
+                raise PermissionDenied("payment amount must be positive")
+            if round(float(amount), 2) > remaining:
+                raise PermissionDenied(f"payment amount exceeds remaining arrears {remaining}")
             seq = conn.execute(text("SELECT COALESCE(MAX(id),0)+1 FROM payments")).scalar_one()
             receipt_number = f"RCPT-{tenant_id}-{project_id}-{int(seq):06d}"
             result = conn.execute(text(insert_id_sql("""INSERT INTO payments(tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number)

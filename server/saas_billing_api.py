@@ -126,7 +126,12 @@ def register_billing_routes(app, service):
             else:
                 item = service.record_payment(user, data.bill_id, data.amount, data.method, data.idempotency_key or None)
             return {"item": item}
-        except (PermissionDenied, TenantScopeError):
+        except TenantScopeError:
+            raise HTTPException(status_code=403, detail="forbidden")
+        except PermissionDenied as exc:
+            detail = str(exc)
+            if "remaining arrears" in detail or "positive" in detail:
+                raise HTTPException(status_code=400, detail=detail)
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/exports/bills")

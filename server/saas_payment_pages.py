@@ -163,5 +163,10 @@ def register_payment_pages(app, service, repository, current_user):
             else:
                 service.record_payment(user, bill_id, amount, method, idempotency_key or None)
             return RedirectResponse('/backoffice/payments?message=收款已登记', status_code=303)
-        except (PermissionDenied, TenantScopeError):
+        except TenantScopeError:
+            raise HTTPException(status_code=403, detail='forbidden')
+        except PermissionDenied as exc:
+            detail = str(exc)
+            if 'remaining arrears' in detail or 'positive' in detail:
+                raise HTTPException(status_code=400, detail=detail)
             raise HTTPException(status_code=403, detail='forbidden')
