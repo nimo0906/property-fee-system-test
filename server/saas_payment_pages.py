@@ -90,14 +90,20 @@ def _render_payments(user, result, bills, params, message=''):
 
 
 def _render_receipt(user, payment):
+    target_label = ' '.join(str(payment.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
     body = f'''
 <section class="hero"><div><h1>收据详情</h1><div class="sub">当前收据只展示当前公司、当前项目下的收款业务信息，不展示内部数据字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card"><div class="card-h">收据详情</div><div class="card-b"><table><tbody>
+<tr><th>公司</th><td>{_h(user.get('tenant_name'))}</td></tr>
+<tr><th>项目</th><td>{_h(user.get('project_name'))}</td></tr>
 <tr><th>收据号</th><td>{_h(payment.get('receipt_number'))}</td></tr>
 <tr><th>账单号</th><td>{_h(payment.get('bill_number'))}</td></tr>
 <tr><th>账期</th><td>{_h(payment.get('billing_period'))}</td></tr>
+<tr><th>收费对象</th><td>{_h(target_label)}</td></tr>
+<tr><th>业主</th><td>{_h(payment.get('owner_name') or '未绑定')}</td></tr>
 <tr><th>金额</th><td>{_h(payment.get('amount_paid'))}</td></tr>
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>
+<tr><th>欠费余额</th><td>{_h(payment.get('unpaid_amount', 0))}</td></tr>
 </tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/payments">返回收款列表</a></div></div></section>'''
     return _page('收据详情', body)
 

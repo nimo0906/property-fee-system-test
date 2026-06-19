@@ -5,6 +5,7 @@
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
 from server.saas_bill_balances import attach_bill_balances, service_paid_by_bill
+from server.saas_csv_export import bill_export_rows, csv_content, payment_export_rows
 
 
 def generate_bill(self, user, project_id, target, fee, period, service_start, service_end):
@@ -71,24 +72,15 @@ def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
         self._log(user, bill['project_id'], 'payment.record', 'payment', pid, {'bill_id': bill_id, 'amount_paid': float(amount), 'method': method, 'idempotency_key': idempotency_key, 'receipt_number': receipt_number})
         return payment
 
-def _csv(lines):
-        return "\n".join(",".join(str(v) for v in row) for row in lines) + "\n"
-
 def export_bills(self, user, project_id, period=None, status=None):
-        rows = [["bill_number", "billing_period", "amount", "status"]]
-        for bill in self.list_bills(user, project_id, period, status):
-            rows.append([bill["bill_number"], bill["billing_period"], bill["amount"], bill["status"]])
-        return {"filename": f"bills-{period or 'all'}.csv", "content": _csv(rows)}
+        result = self.search_bills(user, project_id, "", period, status, 1, 10000)
+        headers, rows = bill_export_rows(result["items"])
+        return {"filename": f"bills-{period or 'all'}.csv", "content": csv_content(headers, rows)}
 
 def export_payments(self, user, project_id, period=None):
-        self._require(user, "read")
-        bills = {b["id"]: b for b in self.list_bills(user, project_id, period, None)}
-        rows = [["receipt_number", "bill_number", "amount_paid", "method"]]
-        for payment in sorted(self.payments.values(), key=lambda p: p["id"]):
-            bill = bills.get(payment["bill_id"])
-            if bill and payment["tenant_id"] == user["tenant_id"] and payment["project_id"] == project_id:
-                rows.append([payment.get("receipt_number", ""), bill["bill_number"], payment["amount_paid"], payment.get("method", "")])
-        return {"filename": f"payments-{period or 'all'}.csv", "content": _csv(rows)}
+        result = self.search_payments(user, project_id, "", period, 1, 10000)
+        headers, rows = payment_export_rows(result["items"])
+        return {"filename": f"payments-{period or 'all'}.csv", "content": csv_content(headers, rows)}
 
 
 def _paginate(rows, page, page_size):
@@ -102,7 +94,8 @@ def search_bills(self, user, project_id, keyword="", period=None, status=None, p
         keyword = str(keyword or "").lower()
         for bill in self.list_bills(user, project_id, period, status):
             target = self.targets.get(bill["charge_target_id"], {})
-            item = {**bill, "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", "")}
+            fee = self.fees.get(bill.get("fee_type_id"), {})
+            item = {**bill, "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", ""), "owner_name": target.get("owner_name", ""), "fee_name": fee.get("name", "")}
             haystack = " ".join(str(item.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number"]).lower()
             if not keyword or keyword in haystack:
                 rows.append(item)
@@ -117,7 +110,8 @@ def search_payments(self, user, project_id, keyword="", period=None, page=1, pag
             bill = bills.get(payment["bill_id"])
             if not bill or payment["tenant_id"] != user["tenant_id"] or payment["project_id"] != project_id:
                 continue
-            item = {**payment, "bill_number": bill["bill_number"], "billing_period": bill["billing_period"]}
+            target = self.targets.get(bill.get("charge_target_id"), {})
+            item = {**payment, "bill_number": bill["bill_number"], "billing_period": bill["billing_period"], "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", ""), "owner_name": target.get("owner_name", ""), "paid_amount": bill.get("paid_amount", 0), "unpaid_amount": bill.get("unpaid_amount", bill.get("amount", 0))}
             haystack = " ".join(str(item.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period"]).lower()
             if not keyword or keyword in haystack:
                 rows.append(item)

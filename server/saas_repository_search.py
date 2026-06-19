@@ -16,7 +16,10 @@ def _paged(self, rows, page, page_size):
 def search_bills(self, tenant_id, project_id, keyword="", period=None, status=None, page=1, page_size=20):
         self._require_project_scope(tenant_id, project_id)
         sql = """SELECT b.id,b.tenant_id,b.project_id,b.bill_number,b.billing_period,b.amount,b.status,
-            t.building,t.unit,t.room_number FROM bills b JOIN charge_targets t ON b.charge_target_id=t.id
+            b.charge_target_id,b.fee_type_id,t.building,t.unit,t.room_number,t.category,o.name owner_name,f.name fee_name
+            FROM bills b JOIN charge_targets t ON b.charge_target_id=t.id
+            LEFT JOIN owners o ON t.owner_id=o.id AND t.tenant_id=o.tenant_id AND t.project_id=o.project_id
+            LEFT JOIN fee_types f ON b.fee_type_id=f.id AND b.tenant_id=f.tenant_id AND b.project_id=f.project_id
             WHERE b.tenant_id=:tenant_id AND b.project_id=:project_id"""
         params = {"tenant_id": tenant_id, "project_id": project_id}
         if period:
@@ -39,8 +42,12 @@ def search_bills(self, tenant_id, project_id, keyword="", period=None, status=No
 
 def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1, page_size=20):
         self._require_project_scope(tenant_id, project_id)
-        sql = """SELECT p.id,p.tenant_id,p.project_id,p.receipt_number,p.amount_paid,p.method,
-            b.bill_number,b.billing_period FROM payments p JOIN bills b ON p.bill_id=b.id
+        sql = """SELECT p.id,p.tenant_id,p.project_id,p.receipt_number,p.amount_paid,p.method,p.bill_id,
+            b.bill_number,b.billing_period,b.amount bill_amount,
+            t.building,t.unit,t.room_number,t.category,o.name owner_name
+            FROM payments p JOIN bills b ON p.bill_id=b.id
+            JOIN charge_targets t ON b.charge_target_id=t.id
+            LEFT JOIN owners o ON t.owner_id=o.id AND t.tenant_id=o.tenant_id AND t.project_id=o.project_id
             WHERE p.tenant_id=:tenant_id AND p.project_id=:project_id"""
         params = {"tenant_id": tenant_id, "project_id": project_id}
         if period:
@@ -52,7 +59,11 @@ def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1
             paid_rows = conn.execute(text("""SELECT bill_id,COALESCE(SUM(amount_paid),0) paid FROM payments
                 WHERE tenant_id=:tenant_id AND project_id=:project_id GROUP BY bill_id"""),
                 {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
-        rows = attach_bill_balances(rows, {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows})
+        paid_map = {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows}
+        for row in rows:
+            total_paid = round(paid_map.get(int(row.get('bill_id') or 0), 0), 2)
+            row['paid_amount'] = total_paid
+            row['unpaid_amount'] = round(max(float(row.get('bill_amount') or 0) - total_paid, 0), 2)
         keyword = str(keyword or "").lower()
         if keyword:
             rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period"]).lower()]

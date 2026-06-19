@@ -5,6 +5,7 @@
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
+from server.saas_csv_export import bill_export_rows, csv_content, payment_export_rows
 
 
 def register_billing_routes(app, service):
@@ -131,11 +132,8 @@ def register_billing_routes(app, service):
         try:
             if repository:
                 result = repository.search_bills(user["tenant_id"], user["project_id"], "", period or None, status or None, 1, 10000)
-                rows = [["bill_number", "billing_period", "amount", "status"]] + [
-                    [b["bill_number"], b["billing_period"], b["amount"], b["status"]]
-                    for b in result["items"]
-                ]
-                content = "\n".join(",".join(str(v) for v in row) for row in rows) + "\n"
+                headers, rows = bill_export_rows(result["items"])
+                content = csv_content(headers, rows)
                 return {"filename": f"bills-{period or 'all'}.csv", "content": content}
             return service.export_bills(user, user["project_id"], period or None, status or None)
         except (PermissionDenied, TenantScopeError):
@@ -146,8 +144,8 @@ def register_billing_routes(app, service):
         try:
             if repository:
                 result = repository.search_payments(user["tenant_id"], user["project_id"], "", period or None, 1, 10000)
-                rows = [["receipt_number", "bill_number", "amount_paid", "method"]] + [[p["receipt_number"], p["bill_number"], p["amount_paid"], p["method"]] for p in result["items"]]
-                content = "\n".join(",".join(str(v) for v in row) for row in rows) + "\n"
+                headers, rows = payment_export_rows(result["items"])
+                content = csv_content(headers, rows)
                 return {"filename": f"payments-{period or 'all'}.csv", "content": content}
             return service.export_payments(user, user["project_id"], period or None)
         except (PermissionDenied, TenantScopeError):
