@@ -156,3 +156,11 @@ PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_first_
 ```
 
 该检查覆盖登录、收费对象、收费项目、出账、收款、报表、导出、租户隔离，只使用测试租户，不混入真实客户数据。
+
+## 生产一键验收总入口
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_acceptance_gate.py --env-file .env --base-url https://your-domain.example.com
+```
+
+该入口统一执行 `.env` 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据和上线证据报告。

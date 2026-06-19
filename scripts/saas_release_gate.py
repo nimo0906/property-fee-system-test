@@ -11,6 +11,7 @@ PYTHON = sys.executable
 CHECK_ARGS = {
     "scripts/saas_production_runtime_check.py": ["--dry-run"],
     "scripts/saas_production_first_tenant_smoke.py": ["--dry-run"],
+    "scripts/saas_production_acceptance_gate.py": ["--dry-run"],
 }
 
 CHECKS = [
@@ -72,6 +73,7 @@ CHECKS = [
     "scripts/saas_production_env_file_check.py",
     "scripts/saas_production_runtime_check.py",
     "scripts/saas_production_first_tenant_smoke.py",
+    "scripts/saas_production_acceptance_gate.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]
