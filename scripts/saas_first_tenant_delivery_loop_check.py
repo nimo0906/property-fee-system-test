@@ -20,7 +20,7 @@ def main():
         '首租户业务引导闭环', '创建完成后会显示可点击的业务交付路径',
         '1. 导入收费对象模板', '2. 配置收费项目', '3. 生成首批测试账单',
         '4. 登记测试收款', '5. 查看欠费/实收报表', '6. 生成交付验收记录',
-        '/backoffice/imports/templates/charge-targets', '/backoffice/imports', '/backoffice/fee-types',
+        '一键初始化推荐收费项目', '/backoffice/fee-types/init-from-template', '按业务模板生成推荐收费项目', '/backoffice/imports/templates/charge-targets', '/backoffice/imports', '/backoffice/fee-types',
         '/backoffice/bills', '/backoffice/payments', '/backoffice/reports', '/backoffice/acceptance',
         '租户隔离验收', '备份恢复演练', '客户上传数据与系统自身数据隔离',
     ]:

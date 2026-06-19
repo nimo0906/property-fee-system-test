@@ -20,7 +20,7 @@ def main():
     text = PAGE.read_text(encoding='utf-8')
     for item in [
         '首租户交付包总览', '实施人员统一入口', '登录入口', '客户首租户初始化向导',
-        '首租户业务引导闭环', '首租户交付验收记录', '验收记录打印版', 'HTML 导出',
+        '首租户业务引导闭环', '推荐收费项目初始化', '首租户交付验收记录', '验收记录打印版', 'HTML 导出',
         '生产部署一键自检', '备份恢复演练', '授权绑定', '租户隔离证据',
         '客户上传数据与系统自身数据隔离', '/login', '/backoffice/first-tenant-wizard',
         '/backoffice/first-tenant-acceptance', '/backoffice/first-tenant-acceptance/print',

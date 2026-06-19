@@ -9,6 +9,7 @@ ENTRIES = [
     ('登录入口', '/login', '实施人员和客户员工进入正式商业云端后台。'),
     ('客户首租户初始化向导', '/backoffice/first-tenant-wizard', '创建客户公司、默认项目、租户管理员并绑定授权。'),
     ('首租户业务引导闭环', '/backoffice/first-tenant-wizard', '导入模板、收费项目、测试账单、测试收款、报表和验收记录。'),
+    ('推荐收费项目初始化', '/backoffice/fee-types/init-from-template', '按当前业务模板一键创建推荐收费项目，重复项目自动跳过。'),
     ('首租户交付验收记录', '/backoffice/first-tenant-acceptance', '勾选上线交付项，留存实施人员和客户签收人。'),
     ('验收记录打印版', '/backoffice/first-tenant-acceptance/print', '打印客户签收材料。'),
     ('HTML 导出', '/backoffice/first-tenant-acceptance/export.html', '导出可归档的 HTML 验收记录。'),
@@ -29,7 +30,7 @@ def _entry_rows():
 def _render(user):
     body = f'''
 <section class="hero"><div><h1>首租户交付包总览</h1><div class="sub">实施人员统一入口：把登录、初始化向导、业务闭环、验收记录、打印导出、部署自检、备份恢复、授权绑定和租户隔离证据集中在一个页面，减少真实交付时漏项。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card" style="margin-bottom:18px"><div class="card-h">交付边界</div><div class="card-b"><p class="sub">客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；平台管理员负责客户开通、授权绑定和交付证据，租户管理员负责本公司业务数据。</p><div class="actions"><a class="ghost-link" href="/backoffice/first-tenant-wizard">开始首租户初始化</a><a class="ghost-link" href="/backoffice/first-tenant-acceptance">填写验收记录</a><a class="ghost-link" href="/backoffice/deploy-checklist">查看部署自检</a></div></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">交付边界</div><div class="card-b"><p class="sub">客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；平台管理员负责客户开通、授权绑定和交付证据，租户管理员负责本公司业务数据。</p><div class="actions"><a class="ghost-link" href="/backoffice/first-tenant-wizard">开始首租户初始化</a><form method="post" action="/backoffice/fee-types/init-from-template"><button class="primary">一键初始化推荐收费项目</button></form><a class="ghost-link" href="/backoffice/first-tenant-acceptance">填写验收记录</a><a class="ghost-link" href="/backoffice/deploy-checklist">查看部署自检</a></div></div></section>
 <section class="card"><div class="card-h">实施人员统一入口</div><div class="card-b"><table><thead><tr><th>入口</th><th>用途</th><th>操作</th></tr></thead><tbody>{_entry_rows()}</tbody></table></div></section>'''
     return _page('首租户交付包总览', body)
 

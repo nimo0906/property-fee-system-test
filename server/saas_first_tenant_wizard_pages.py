@@ -16,7 +16,7 @@ def _delivery_state(message='', tenant_name='', project_name='', license_custome
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     summary = ''
     if tenant_name or project_name or license_customer_code:
-        summary = f'''<section class="card" style="margin-bottom:18px"><div class="card-h">本次初始化结果</div><div class="card-b"><p class="sub">客户公司：{_h(tenant_name)} · 默认项目：{_h(project_name)} · 授权客户编号：{_h(license_customer_code)} · 已选择业务模板：{_h(business_template(business_template_code)['name'])}</p><div class="actions"><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下一步：导入收费对象模板</a><a class="ghost-link" href="/backoffice/fee-types">下一步：配置收费项目</a><a class="ghost-link" href="/backoffice/license-ops">查看授权绑定</a></div></div></section>'''
+        summary = f'''<section class="card" style="margin-bottom:18px"><div class="card-h">本次初始化结果</div><div class="card-b"><p class="sub">客户公司：{_h(tenant_name)} · 默认项目：{_h(project_name)} · 授权客户编号：{_h(license_customer_code)} · 已选择业务模板：{_h(business_template(business_template_code)['name'])}</p><div class="actions"><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下一步：导入收费对象模板</a><a class="ghost-link" href="/backoffice/fee-types">下一步：配置收费项目</a><form method="post" action="/backoffice/fee-types/init-from-template"><button class="primary">一键初始化推荐收费项目</button></form><a class="ghost-link" href="/backoffice/license-ops">查看授权绑定</a></div></div></section>'''
     steps = ['创建客户公司', '创建默认项目', '创建租户管理员', '绑定授权客户编号', '导入收费对象模板', '配置收费项目', '生成首批测试账单', '登记测试收款', '验收租户隔离', '执行备份恢复演练']
     rows = ''.join(f'<tr><td>{idx}</td><td><strong>{_h(step)}</strong></td><td>待实施人员按客户业务确认</td></tr>' for idx, step in enumerate(steps, 1))
     body = f'''
@@ -31,7 +31,7 @@ def _business_delivery_loop(created=False):
     intro = '创建完成后会显示可点击的业务交付路径' if not created else '按下面入口完成首租户从空库到可验收业务闭环'
     items = [
         ('1. 导入收费对象模板', '/backoffice/imports/templates/charge-targets', '下载模板并按客户楼栋/区域、单元/分区、房号/铺位号准备数据。'),
-        ('2. 配置收费项目', '/backoffice/fee-types', '配置物业费、水费、停车费等项目，确认单价、计费方式和服务期。'),
+        ('2. 配置收费项目', '/backoffice/fee-types', '按业务模板生成推荐收费项目，再确认单价、计费方式和服务期。'),
         ('3. 生成首批测试账单', '/backoffice/bills', '用少量对象生成测试账单，核对金额、账期、服务期。'),
         ('4. 登记测试收款', '/backoffice/payments', '登记一笔测试收款，验证部分收款、已收和欠费联动。'),
         ('5. 查看欠费/实收报表', '/backoffice/reports', '检查应收、实收、欠费汇总，确认数据只属于当前客户。'),
@@ -43,7 +43,7 @@ def _business_delivery_loop(created=False):
         )
         for title, href, desc in items
     )
-    return f"""<section class="card" style="margin-top:18px"><div class="card-h">首租户业务引导闭环</div><div class="card-b"><p class="sub">{_h(intro)}；必须覆盖租户隔离验收、备份恢复演练、客户上传数据与系统自身数据隔离。</p><div class="actions" style="margin-bottom:12px"><a class="ghost-link" href="/backoffice/imports">导入收费对象</a><a class="ghost-link" href="/backoffice/fee-types">配置收费项目</a><a class="ghost-link" href="/backoffice/bills">生成首批测试账单</a><a class="ghost-link" href="/backoffice/payments">登记测试收款</a><a class="ghost-link" href="/backoffice/reports">查看欠费/实收报表</a><a class="ghost-link" href="/backoffice/first-tenant-acceptance">生成交付验收记录</a><a class="ghost-link" href="/backoffice/acceptance">商业验收总览</a></div><table><thead><tr><th>步骤</th><th>交付说明</th><th>入口</th></tr></thead><tbody>{rows}</tbody></table></div></section>"""
+    return f"""<section class="card" style="margin-top:18px"><div class="card-h">首租户业务引导闭环</div><div class="card-b"><p class="sub">{_h(intro)}；必须覆盖租户隔离验收、备份恢复演练、客户上传数据与系统自身数据隔离。</p><div class="actions" style="margin-bottom:12px"><a class="ghost-link" href="/backoffice/imports">导入收费对象</a><a class="ghost-link" href="/backoffice/fee-types">配置收费项目</a><form method="post" action="/backoffice/fee-types/init-from-template"><button class="primary">一键初始化推荐收费项目</button></form><a class="ghost-link" href="/backoffice/bills">生成首批测试账单</a><a class="ghost-link" href="/backoffice/payments">登记测试收款</a><a class="ghost-link" href="/backoffice/reports">查看欠费/实收报表</a><a class="ghost-link" href="/backoffice/first-tenant-acceptance">生成交付验收记录</a><a class="ghost-link" href="/backoffice/acceptance">商业验收总览</a></div><table><thead><tr><th>步骤</th><th>交付说明</th><th>入口</th></tr></thead><tbody>{rows}</tbody></table></div></section>"""
 
 
 def _tenant_user_for_name(service, repository, tenant_name, actor):
