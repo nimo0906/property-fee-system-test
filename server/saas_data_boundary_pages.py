@@ -49,6 +49,8 @@ def _render(user):
     body = f'''
 <section class="hero"><div><h1>数据边界检查</h1><div class="sub">正式商业云端版用于演示和自查多公司隔离：公司业务数据、客户上传数据、系统自身数据、备份恢复数据必须分层保存，不能混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card"><div class="card-h">边界清单</div><div class="card-b"><table><thead><tr><th>边界</th><th>覆盖对象</th><th>隔离键 / 存储前缀</th><th>检查规则</th></tr></thead><tbody>{_rows()}</tbody></table></div></section>
+
+<section class="card" style="margin-top:18px"><div class="card-h">租户隔离自动自检</div><div class="card-b"><p class="sub">一键检查当前租户是否能越权读取其他租户数据，覆盖收费对象、账单、收款、导入文件、审计日志。</p><form method="post" action="/api/isolation/self-check"><button class="primary">运行隔离自检</button></form><div class="hint">接口返回 PASS/FAIL 摘要，不展示客户业务明细、真实路径、数据库密码或应用密钥。</div></div></section>
 <section class="card" style="margin-top:18px"><div class="card-h">上线验收口径</div><div class="card-b"><p class="sub">收费对象、账单、收款、导入文件、审计日志只能按当前租户和项目查询。</p><p class="sub">数据库备份和恢复演练记录只展示状态、范围和校验结果，不展示真实服务器目录、数据库密码或应用密钥。</p><p class="sub">平台管理员用于客户开通、跨租户账号处理和上线运维；平台租户不承载客户业务数据。</p><p><a class="ghost-link" href="/backoffice">返回后台首页</a></p></div></section>'''
     return _page('数据边界检查', body)
 

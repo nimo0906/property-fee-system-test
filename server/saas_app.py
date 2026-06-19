@@ -12,6 +12,7 @@ from server.saas_page_registry import register_saas_pages
 from server.passwords import verify_password
 from server.saas_password_policy import password_meets_policy, password_reset_error
 from server.saas_billing_api import register_billing_routes
+from server.saas_isolation_self_check import register_isolation_self_check_api
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
     PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
@@ -35,6 +36,7 @@ def create_app(database_url=None):
     app.state.current_user = current_user
     register_saas_pages(app, service, repository, current_user, sessions, session_user)
     register_billing_routes(app, service)
+    register_isolation_self_check_api(app, service, repository, current_user)
 
     @app.get("/health")
     def health():
