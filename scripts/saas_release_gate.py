@@ -22,6 +22,7 @@ CHECKS = [
     "scripts/saas_commercial_delivery_drill_check.py",
     "scripts/saas_minimal_launch_package_check.py",
     "scripts/saas_customer_acceptance_signoff_check.py",
+    "scripts/saas_commercial_launch_report_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]
