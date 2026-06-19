@@ -87,6 +87,20 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
             blocked = client_b.get('/backoffice/payments/1/receipt')
             self.assertEqual(blocked.status_code, 404)
 
+    def test_receipt_detail_has_browser_print_controls_without_internal_fields(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='打印收据物业', project_name='打印收据项目')
+            bill = self._create_paid_bill(client, '301', '2026-10', 66, 'cash', 'RECEIPT-PRINT-1')
+
+            receipt = client.get('/backoffice/payments/1/receipt')
+
+            self.assertEqual(receipt.status_code, 200)
+            for text in ['打印收据', 'window.print()', '@media print', 'receipt-print-area', '打印收据物业', '打印收据项目', bill['bill_number']]:
+                self.assertIn(text, receipt.text)
+            for hidden in ['tenant_id', 'project_id', 'idempotency_key', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
+                self.assertNotIn(hidden, receipt.text)
+
 
 if __name__ == '__main__':
     unittest.main()
