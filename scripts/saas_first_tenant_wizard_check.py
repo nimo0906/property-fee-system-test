@@ -22,8 +22,8 @@ def require_text(path, items):
 def main():
     login = require_text(ROOT / 'server/saas_login_pages.py', [
         '物业收费管理系统 SaaS', '商业版员工后台登录', '客户公司', '项目名称',
-        '登录账号', '角色', '进入员工后台', '客户数据隔离', '系统自身数据隔离',
-        'action="/login"', 'method="post"', 'set_cookie', 'session_id',
+        '登录账号', '登录密码', '角色', '进入员工后台', '正式账号密码登录', '客户数据隔离', '系统自身数据隔离',
+        'action="/login"', 'method="post"', 'set_cookie', 'session_id', 'verify_repository_login',
     ])
     wizard = require_text(ROOT / 'server/saas_first_tenant_wizard_pages.py', [
         '客户首租户初始化向导', '创建客户公司', '创建默认项目', '创建租户管理员',

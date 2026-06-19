@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """Visual login page for SaaS commercial backoffice."""
 
+import urllib.parse
+
 from server.saas_user_pages import _h
 
 
-def _login_page(message=''):
+def _login_page(message='', persistent=False):
     notice = f'<div class="notice">{_h(message)}</div>' if message else ''
     return f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -18,7 +20,7 @@ def _login_page(message=''):
 h1{{font-size:42px;line-height:1.08;margin:0 0 16px;letter-spacing:-.04em}}.lead{{font-size:17px;color:var(--muted);max-width:620px}}.points{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:30px}}.point{{border:1px solid var(--line);background:rgba(255,255,255,.72);border-radius:18px;padding:15px;font-weight:800}}.point span{{display:block;font-weight:500;color:var(--muted);font-size:13px;margin-top:3px}}
 .panel{{background:var(--paper);border:1px solid var(--line);border-radius:28px;box-shadow:0 28px 72px rgba(16,36,70,.16);padding:30px}}.panel-h{{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}}.badge{{border:1px solid #bfd1ea;border-radius:999px;padding:6px 11px;color:#174ea6;background:#eef5ff;font-weight:800;font-size:12px}}h2{{margin:0;font-size:25px}}label{{display:block;font-weight:850;margin-top:12px;color:#26364d}}input,select{{width:100%;border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-top:6px;background:#fbfdff;font:inherit}}button{{width:100%;border:0;border-radius:15px;background:linear-gradient(135deg,var(--brand),#0b2f83);color:#fff;font-weight:900;padding:13px;margin-top:18px;cursor:pointer}}.hint,.notice{{font-size:12px;color:var(--muted);margin-top:12px}}.notice{{border:1px solid #ffd79a;background:#fff8e8;color:#7a4d00;border-radius:12px;padding:9px}}.foot{{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}}.pill{{border:1px solid var(--line);border-radius:999px;padding:5px 9px;font-size:12px;color:#40546d;background:#fff}}
 @media(max-width:880px){{.wrap{{grid-template-columns:1fr;padding:24px}}h1{{font-size:32px}}.points{{grid-template-columns:1fr}}}}
-</style></head><body><main class="wrap"><section class="brand"><div class="mark">PM</div><h1>物业收费管理系统 SaaS</h1><p class="lead">正式商业云端后台。不同公司独立登录、独立项目、独立收费数据；客户数据隔离，系统自身数据隔离，授权和业务边界分开。</p><div class="points"><div class="point">客户数据隔离<span>收费对象、账单、收款、导入按公司隔离。</span></div><div class="point">系统自身数据隔离<span>部署、备份、授权绑定不混入客户上传数据。</span></div><div class="point">商业授权边界<span>授权云服务只管授权，不承载业务数据。</span></div><div class="point">云端交付闭环<span>Linux/VPS、腾讯云、阿里云部署检查。</span></div></div></section><section class="panel"><div class="panel-h"><div><h2>商业版员工后台登录</h2><div class="hint">演示/测试环境可直接填写公司、项目和角色进入；正式环境接 PostgreSQL 账号密码校验。</div></div><span class="badge">SaaS</span></div>{notice}<form method="post" action="/login"><label>客户公司</label><input name="tenant_name" required placeholder="例如 金桥物业"><label>项目名称</label><input name="project_name" required placeholder="例如 金桥一期"><label>登录账号</label><input name="username" required placeholder="例如 tenant_admin"><label>角色</label><select name="role_code"><option value="system_admin">租户管理员</option><option value="finance">财务</option><option value="cashier">收费员</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="platform_admin">平台管理员</option></select><button>进入员工后台</button></form><div class="foot"><span class="pill">正式商业云端后台</span><span class="pill">租户隔离</span><span class="pill">备份审计</span></div></section></main></body></html>'''
+</style></head><body><main class="wrap"><section class="brand"><div class="mark">PM</div><h1>物业收费管理系统 SaaS</h1><p class="lead">正式商业云端后台。不同公司独立登录、独立项目、独立收费数据；客户数据隔离，系统自身数据隔离，授权和业务边界分开。</p><div class="points"><div class="point">客户数据隔离<span>收费对象、账单、收款、导入按公司隔离。</span></div><div class="point">系统自身数据隔离<span>部署、备份、授权绑定不混入客户上传数据。</span></div><div class="point">商业授权边界<span>授权云服务只管授权，不承载业务数据。</span></div><div class="point">云端交付闭环<span>Linux/VPS、腾讯云、阿里云部署检查。</span></div></div></section><section class="panel"><div class="panel-h"><div><h2>商业版员工后台登录</h2><div class="hint">{('正式账号密码登录：请输入客户公司、项目、账号和登录密码。' if persistent else '演示/测试环境可直接填写公司、项目和角色进入；正式环境接 PostgreSQL 账号密码校验。')}</div></div><span class="badge">SaaS</span></div>{notice}<form method="post" action="/login"><label>客户公司</label><input name="tenant_name" required placeholder="例如 金桥物业"><label>项目名称</label><input name="project_name" required placeholder="例如 金桥一期"><label>登录账号</label><input name="username" required placeholder="例如 tenant_admin"><label>登录密码</label><input type="password" name="password" {'required' if persistent else ''} placeholder="正式环境必填"><label>角色</label><select name="role_code"><option value="system_admin">租户管理员</option><option value="finance">财务</option><option value="cashier">收费员</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="platform_admin">平台管理员</option></select><button>进入员工后台</button></form><div class="foot"><span class="pill">正式商业云端后台</span><span class="pill">正式账号密码登录</span><span class="pill">租户隔离</span><span class="pill">备份审计</span><div class="hint">密码不会写入页面、日志或审计明细。</div></div></section></main></body></html>'''
 
 
 def register_login_pages(app, service, repository, sessions):
@@ -28,16 +30,29 @@ def register_login_pages(app, service, repository, sessions):
 
     @app.get('/login', response_class=HTMLResponse)
     def login_page(message: str = ''):
-        return HTMLResponse(_login_page(message))
+        return HTMLResponse(_login_page(message, persistent=bool(repository)))
 
     @app.post('/login')
-    def login_submit(tenant_name: str = Form(...), project_name: str = Form(...), username: str = Form(...), role_code: str = Form(...)):
+    def login_submit(tenant_name: str = Form(...), project_name: str = Form(...), username: str = Form(...), role_code: str = Form(...), password: str = Form('')):
         tenant_name = tenant_name.strip()
         project_name = project_name.strip()
         username = username.strip()
         if repository:
-            from fastapi import HTTPException
-            raise HTTPException(status_code=400, detail='password login required in persistent mode')
+            from server.saas_api_models import LoginIn
+            from server.saas_login_helpers import repository_login_context, user_must_change_password, verify_repository_login
+            data = LoginIn(tenant_name=tenant_name, project_name=project_name, username=username, role_code=role_code, password=password)
+            tenant_row, project_row, user_row = repository_login_context(repository, data)
+            if tenant_row.get('status') != 'active' or not verify_repository_login(repository, user_row, password):
+                msg = urllib.parse.urlencode({'message': '账号或密码不正确'})
+                return RedirectResponse(f'/login?{msg}', status_code=303)
+            user = {'id': user_row['id'], 'tenant_id': tenant_row['id'], 'username': username, 'role_code': user_row.get('role_code') or role_code, 'is_active': user_row.get('is_active', 1), 'must_change_password': user_must_change_password(repository, user_row['id'])}
+            user.update({'tenant_name': tenant_name, 'project_name': project_name, 'project_id': project_row['id']})
+            sid = secrets.token_hex(16)
+            sessions[sid] = user
+            target = '/backoffice/change-password' if user.get('must_change_password') else '/backoffice'
+            response = RedirectResponse(target, status_code=303)
+            response.set_cookie('session_id', sid, httponly=True, samesite='lax')
+            return response
         tenant_id = service.create_tenant(tenant_name)
         project_id = service.create_project(tenant_id, project_name)
         user = service.create_user(tenant_id, username, role_code)
