@@ -12,6 +12,7 @@ from server.saas_page_registry import register_saas_pages
 from server.passwords import verify_password
 from server.saas_password_policy import password_meets_policy, password_reset_error
 from server.saas_billing_api import register_billing_routes
+from server.saas_owner_api import register_owner_routes
 from server.saas_isolation_self_check import register_isolation_self_check_api
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
@@ -36,6 +37,7 @@ def create_app(database_url=None):
     app.state.current_user = current_user
     register_saas_pages(app, service, repository, current_user, sessions, session_user)
     register_billing_routes(app, service)
+    register_owner_routes(app, service)
     register_isolation_self_check_api(app, service, repository, current_user)
 
     @app.get("/health")
@@ -126,10 +128,10 @@ def create_app(database_url=None):
         try:
             service._require(user, "write")
             if repository:
-                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area)
+                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id)
                 service._log(user, user["project_id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
             else:
-                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area)
+                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id)
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
@@ -170,7 +172,7 @@ def create_app(database_url=None):
                 for row in review["valid_rows"]:
                     item = repository.create_charge_target(
                         user["tenant_id"], user["project_id"], row["building"], row.get("unit", ""),
-                        row["room_number"], row.get("category", "居民"), row["area"]
+                        row["room_number"], row.get("category", "居民"), row["area"], row.get("owner_id", 0)
                     )
                     service.targets[item["id"]] = item
                     created += 1

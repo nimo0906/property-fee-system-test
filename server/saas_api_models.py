@@ -27,7 +27,14 @@ class FeeIn(BaseModel):
     unit_price: float
 
 
+class OwnerIn(BaseModel):
+    name: str
+    phone: str = ""
+    owner_type: str = "业主"
+
+
 class TargetIn(BaseModel):
+    owner_id: int = 0
     building: str
     unit: str = ""
     room_number: str

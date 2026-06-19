@@ -25,7 +25,8 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS permissions(code TEXT PRIMARY KEY,name TEXT NOT NULL)",
             "CREATE TABLE IF NOT EXISTS role_permissions(role_code TEXT NOT NULL,permission_code TEXT NOT NULL,PRIMARY KEY(role_code,permission_code))",
             "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,username TEXT NOT NULL,role_code TEXT NOT NULL,password_hash TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,username))",
-            "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,building,unit,room_number))",
+            "CREATE TABLE IF NOT EXISTS owners(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,phone TEXT,owner_type TEXT NOT NULL DEFAULT '业主')",
+            "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,building,unit,room_number))",
             "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,name))",
             "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending_review',UNIQUE(tenant_id,project_id,bill_number))",
             "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key))",
@@ -102,24 +103,6 @@ class SaasRepository:
 
     def get_user(self, user_id):
         return self._row("SELECT id,tenant_id,username,role_code,password_hash,is_active FROM users WHERE id=:id", {"id": user_id})
-
-    def create_charge_target(self, tenant_id, project_id, building, unit, room_number, category, area):
-        self._require_project_scope(tenant_id, project_id)
-        with self.engine.begin() as conn:
-            result = conn.execute(text("""INSERT INTO charge_targets(tenant_id,project_id,building,unit,room_number,category,area)
-                VALUES(:tenant_id,:project_id,:building,:unit,:room_number,:category,:area)"""),
-                {"tenant_id": tenant_id, "project_id": project_id, "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area)})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area)}
-
-    def get_charge_target(self, tenant_id, project_id, target_id):
-        return self._row("""SELECT id,tenant_id,project_id,building,unit,room_number,category,area FROM charge_targets
-            WHERE tenant_id=:tenant_id AND project_id=:project_id AND id=:id""", {"tenant_id": tenant_id, "project_id": project_id, "id": target_id})
-
-    def list_charge_targets(self, tenant_id, project_id):
-        with self.engine.begin() as conn:
-            rows = conn.execute(text("""SELECT id,tenant_id,project_id,building,unit,room_number,category,area FROM charge_targets
-                WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
-            return [dict(r) for r in rows]
 
     def create_fee_type(self, tenant_id, project_id, name, unit_price):
         self._require_project_scope(tenant_id, project_id)
@@ -289,6 +272,8 @@ def create_saas_repository(url):
 
 from server.saas_repository_projects import attach_project_methods
 from server.saas_repository_search import attach_repository_search
+from server.saas_repository_owners import attach_owner_repository_methods
 attach_project_methods(SaasRepository)
+attach_owner_repository_methods(SaasRepository)
 attach_repository_search(SaasRepository)
 attach_user_lifecycle_methods(SaasRepository)

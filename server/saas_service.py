@@ -30,6 +30,7 @@ class SaasBackofficeService:
         self.projects = {}
         self.users = {}
         self.targets = {}
+        self.owners = {}
         self.fees = {}
         self.bills = {}
         self.payments = {}
@@ -140,24 +141,6 @@ class SaasBackofficeService:
         self._log(user if not cross_tenant else target, target_project_id, action, 'user', target_user_id, detail)
         return {'user_id': target_user_id, 'is_active': active_value}
 
-    def create_charge_target(self, user, project_id, building, unit, room_number, category, area):
-        self._require(user, "write")
-        if not self._same_tenant_project(user, project_id):
-            raise PermissionDenied("cross tenant project")
-        tid = self._id()
-        target = {"id": tid, "tenant_id": user["tenant_id"], "project_id": project_id,
-                  "building": building, "unit": unit, "room_number": room_number,
-                  "category": category, "area": float(area)}
-        self.targets[tid] = target
-        self._log(user, project_id, 'charge_target.create', 'charge_target', tid, {'building': building, 'room_number': room_number})
-        return target
-
-    def list_charge_targets(self, user, project_id):
-        self._require(user, "read")
-        if not self._same_tenant_project(user, project_id):
-            return []
-        return [t for t in self.targets.values() if t["tenant_id"] == user["tenant_id"] and t["project_id"] == project_id]
-
     def create_fee_type(self, user, project_id, name, unit_price):
         self._require(user, "write")
         if not self._same_tenant_project(user, project_id):
@@ -220,7 +203,7 @@ class SaasBackofficeService:
         created = 0
         for row in imp["valid_rows"]:
             self.create_charge_target(user, project_id, row["building"], row.get("unit", ""),
-                                      row["room_number"], row.get("category", "居民"), row["area"])
+                                      row["room_number"], row.get("category", "居民"), row["area"], row.get("owner_id", 0))
             created += 1
         imp["confirmed"] = True
         self._log(user, project_id, 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': len(imp['errors'])})
@@ -287,5 +270,7 @@ class SaasBackofficeService:
 
 from server.saas_billing_service import attach_billing_methods
 from server.saas_fee_type_service import attach_fee_type_methods
+from server.saas_owner_service import attach_owner_methods
 attach_billing_methods(SaasBackofficeService)
 attach_fee_type_methods(SaasBackofficeService)
+attach_owner_methods(SaasBackofficeService)
