@@ -24,6 +24,13 @@ def register_billing_routes(app, service):
         method: str = ""
         idempotency_key: str = ""
 
+    class BatchBillGenerateIn(BaseModel):
+        fee_type_id: int
+        billing_period: str
+        service_start: str
+        service_end: str
+        category: str = ""
+
     current_user = app.state.current_user
     repository = getattr(app.state, "repository", None)
 
@@ -47,6 +54,24 @@ def register_billing_routes(app, service):
                 fee = service.fees[data.fee_type_id]
                 item = service.generate_bill(user, user["project_id"], target, fee, data.billing_period, data.service_start, data.service_end)
             return {"item": item}
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail="forbidden")
+
+
+    @app.post("/api/bills/batch-generate")
+    def batch_generate_bills(data: BatchBillGenerateIn, user=Depends(current_user)):
+        try:
+            service._require(user, "billing")
+            if repository:
+                result = repository.batch_generate_bills(
+                    user["tenant_id"], user["project_id"], data.fee_type_id,
+                    data.billing_period, data.service_start, data.service_end, data.category, actor_user_id=user["id"],
+                )
+            else:
+                result = service.batch_generate_bills(
+                    user, user["project_id"], data.fee_type_id, data.billing_period, data.service_start, data.service_end, data.category
+                )
+            return result
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 
