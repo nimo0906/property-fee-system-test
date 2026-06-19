@@ -267,6 +267,12 @@ class SaasRepository:
                 WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
             return [dict(r) for r in rows]
 
+    def list_restore_drills(self, tenant_id, project_id):
+        with self.engine.begin() as conn:
+            rows = conn.execute(text("""SELECT id,tenant_id,project_id,backup_id,scope,status,created_by,created_at FROM restore_drills
+                WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+            return [dict(r) for r in rows]
+
     def create_restore_drill(self, tenant_id, project_id, user_id, backup_id, scope):
         self._require_project_scope(tenant_id, project_id)
         if scope not in {'database', 'tenant-files', 'system-files'}:

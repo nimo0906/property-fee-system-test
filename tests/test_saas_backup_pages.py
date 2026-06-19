@@ -56,6 +56,36 @@ class TestSaasBackupPages(unittest.TestCase):
             self.assertIn('restore.drill', actions)
             repo.close()
 
+    def test_backup_page_shows_restore_drills_and_commercial_boundaries(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('system_admin', database_url=db_url)
+            client.post('/backoffice/backups/create', follow_redirects=False)
+            repo = create_saas_repository(db_url)
+            record = repo.list_backup_records(repo.list_tenants()[0]['id'], repo.list_projects()[0]['id'])[0]
+            repo.close()
+            drill = client.post('/backoffice/backups/restore-drills', data={
+                'backup_id': record['backup_id'],
+                'scope': 'tenant-files',
+            }, follow_redirects=False)
+            self.assertEqual(drill.status_code, 303)
+
+            page = client.get('/backoffice/backups')
+            self.assertEqual(page.status_code, 200)
+            html = page.text
+            self.assertIn('恢复演练记录', html)
+            self.assertIn(record['backup_id'], html)
+            self.assertIn('tenant-files', html)
+            self.assertIn('recorded', html)
+            self.assertIn('租户隔离', html)
+            self.assertIn('只显示当前公司和当前项目的备份与演练', html)
+            self.assertIn('客户业务备份与系统配置、日志、密钥分开保存', html)
+            self.assertIn('只有租户管理员或平台管理员可以执行备份和提交恢复演练', html)
+            self.assertIn('/backoffice/audit-logs', html)
+            self.assertNotIn('POSTGRES_PASSWORD=', html)
+            self.assertNotIn('APP_SECRET_KEY=', html)
+            self.assertNotIn('/var/lib/property-saas', html)
+
     def test_finance_can_view_but_cannot_create_backup_or_restore_drill(self):
         client = self._client('finance')
         page = client.get('/backoffice/backups')

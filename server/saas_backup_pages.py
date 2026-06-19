@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML backup and restore drill pages for SaaS backoffice."""
 
+from server.saas_backup_activity import render_backup_activity
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
@@ -24,12 +25,13 @@ def _forms(can_manage, records):
     return f'''<form method="post" action="/backoffice/backups/create"><button class="primary">创建备份</button></form><hr>{drill}'''
 
 
-def _render(user, records):
+def _render(user, records, drills=None):
     can_manage = user.get('role_code') in {'system_admin', 'platform_admin'}
     body = f'''
 <section class="hero"><div><h1>备份记录</h1><div class="sub">记录当前租户和项目的备份与恢复演练。页面不展示真实存储密钥或服务器路径。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="grid"><div class="card"><div class="card-h">备份记录</div><div class="card-b"><table><thead><tr><th>备份ID</th><th>状态</th><th>创建时间</th></tr></thead><tbody>{_backup_rows(records)}</tbody></table></div></div>
-<aside class="card"><div class="card-h">恢复演练</div><div class="card-b">{_forms(can_manage, records)}</div></aside></section>'''
+<aside class="card"><div class="card-h">恢复演练</div><div class="card-b">{_forms(can_manage, records)}</div></aside></section>
+{render_backup_activity(records, drills, can_manage)}'''
     return _page('备份记录', body)
 
 
@@ -43,10 +45,16 @@ def register_backup_pages(app, service, repository, current_user):
             return repository.list_backup_records(user['tenant_id'], user['project_id'])
         return [r for r in service.backup_records.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == user['project_id']]
 
+    def _drills(user):
+        service._require(user, 'read')
+        if repository:
+            return repository.list_restore_drills(user['tenant_id'], user['project_id'])
+        return [r for r in service.restore_drills.values() if r['tenant_id'] == user['tenant_id'] and r['project_id'] == user['project_id']]
+
     @app.get('/backoffice/backups', response_class=HTMLResponse)
     def backup_page(user=Depends(current_user)):
         try:
-            return HTMLResponse(_render(user, _records(user)))
+            return HTMLResponse(_render(user, _records(user), _drills(user)))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
