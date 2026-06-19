@@ -136,6 +136,33 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             self.assertNotIn('C-001', page.text)
             self.assertNotIn('C-005', page.text)
 
+    def test_merchant_directory_can_generate_bill_for_selected_merchant(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='D-101', shop_name='账单店', tenant_name='账单商户', area=50, unit_price_override=7.0)
+            fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 3.0}).json()['item']
+            page = client.get('/backoffice/merchants')
+            self.assertIn('生成商户账单', page.text)
+            self.assertIn('商户物业费', page.text)
+
+            response = client.post('/backoffice/merchants/generate-bill', data={
+                'target_id': str(target['id']),
+                'fee_type_id': str(fee['id']),
+                'billing_period': '2027-01',
+                'service_start': '2027-01-01',
+                'service_end': '2027-01-31',
+            }, follow_redirects=False)
+
+            self.assertEqual(response.status_code, 303)
+            bills = client.get('/api/bills?period=2027-01').json()['items']
+            self.assertEqual(len(bills), 1)
+            self.assertEqual(bills[0]['charge_target_id'], target['id'])
+            self.assertEqual(bills[0]['fee_type_id'], fee['id'])
+            self.assertEqual(bills[0]['amount'], 350.0)
+            result_page = client.get(response.headers['location'])
+            self.assertIn('商户账单已生成', result_page.text)
+            self.assertIn('D-101', result_page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -6,6 +6,7 @@ import urllib.parse
 
 from server.saas_repository_errors import TenantScopeError
 from server.saas_service import PermissionDenied
+from server.saas_fee_rules import calculate_bill_amount
 from server.saas_user_pages import _h, _page
 
 
@@ -82,7 +83,21 @@ def _pager(keyword, page, page_size, total):
     return f'<div class="pager"><span>共 {total} 个商户 · 第 {page} 页</span><span>{prev_link} {next_link}</span></div>'
 
 
-def _render_merchants(user, items, message='', keyword='', page=1, page_size=20, total=0):
+def _fee_options(fees):
+    return ''.join(f'<option value="{_h(fee.get("id"))}">{_h(fee.get("name"))} · {_h(fee.get("billing_mode", "area"))} · {_h(fee.get("unit_price"))}</option>' for fee in fees)
+
+
+def _target_options(items):
+    return ''.join(f'<option value="{_h(item.get("id"))}">{_h(item.get("space_no"))} · {_h(item.get("shop_name") or item.get("merchant_name"))}</option>' for item in items)
+
+
+def _bill_form(items, fees):
+    if not items or not fees:
+        return '<div class="hint">请先维护商户档案和收费项目后再生成账单。</div>'
+    return f'''<form method="post" action="/backoffice/merchants/generate-bill"><label>商户 / 铺位</label><select name="target_id">{_target_options(items)}</select><label>收费项目</label><select name="fee_type_id">{_fee_options(fees)}</select><label>账期</label><input name="billing_period" required placeholder="例如 2027-01"><label>服务开始</label><input name="service_start" required placeholder="2027-01-01"><label>服务结束</label><input name="service_end" required placeholder="2027-01-31"><button class="primary">生成商户账单</button><div class="hint">金额按收费项目规则计算；商户独立单价优先于收费项目单价。</div></form>'''
+
+
+def _render_merchants(user, items, message='', keyword='', page=1, page_size=20, total=0, fees=None):
     rows = ''.join(_merchant_row(item) for item in items) or '<tr><td colspan="12">暂无商户档案</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     body = f'''
@@ -90,7 +105,7 @@ def _render_merchants(user, items, message='', keyword='', page=1, page_size=20,
 {notice}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
 {_filter_form(keyword, page_size)}
-<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
+<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
 
 
@@ -102,6 +117,10 @@ def register_merchant_directory(app, service, repository, current_user):
         service._require(user, 'read')
         targets = repository.list_charge_targets(user['tenant_id'], user['project_id']) if repository else service.list_charge_targets(user, user['project_id'])
         return merchant_items_from_targets(targets)
+
+    def _fees(user):
+        service._require(user, 'read')
+        return repository.list_fee_types(user['tenant_id'], user['project_id']) if repository else service.list_fee_types(user, user['project_id'])
 
     @app.get('/api/merchants')
     def merchant_api(keyword: str = '', page: int = 1, page_size: int = 20, user=Depends(current_user)):
@@ -115,7 +134,27 @@ def register_merchant_directory(app, service, repository, current_user):
     def merchant_page(user=Depends(current_user), message: str = '', keyword: str = '', page: int = 1, page_size: int = 20):
         try:
             visible, total, page, page_size, keyword = _paged_items(_items(user), keyword, page, page_size)
-            return HTMLResponse(_render_merchants(user, visible, message, keyword, page, page_size, total))
+            return HTMLResponse(_render_merchants(user, visible, message, keyword, page, page_size, total, _fees(user)))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/merchants/generate-bill')
+    def generate_merchant_bill_page(target_id: int = Form(...), fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(...), user=Depends(current_user)):
+        try:
+            service._require(user, 'billing')
+            if repository:
+                target = repository.get_charge_target(user['tenant_id'], user['project_id'], target_id)
+                fee = repository.get_fee_type(user['tenant_id'], user['project_id'], fee_type_id)
+                if not target or target.get('category') not in MERCHANT_CATEGORIES or not fee:
+                    raise TenantScopeError('merchant target or fee type not found')
+                repository.create_bill(user['tenant_id'], user['project_id'], target_id, fee_type_id, billing_period, service_start, service_end, calculate_bill_amount(target, fee, service_start, service_end), actor_user_id=user['id'])
+            else:
+                target = service.targets.get(target_id)
+                fee = service.fees.get(fee_type_id)
+                if not target or target.get('category') not in MERCHANT_CATEGORIES or not fee:
+                    raise PermissionDenied('merchant target or fee type not found')
+                service.generate_bill(user, user['project_id'], target, fee, billing_period, service_start, service_end)
+            return RedirectResponse('/backoffice/merchants?message=商户账单已生成', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
