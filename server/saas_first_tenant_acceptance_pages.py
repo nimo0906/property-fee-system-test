@@ -26,17 +26,21 @@ def _append_record(service, user, checked, operator_name, customer_signer, notes
         records = []
         setattr(service, 'first_tenant_acceptance_records', records)
     record = {
-        'tenant_name': user.get('tenant_name'),
-        'project_name': user.get('project_name'),
-        'operator_name': operator_name,
-        'customer_signer': customer_signer,
-        'notes': notes,
-        'checked': list(checked),
-        'checked_count': len(checked),
-        'total_count': len(ITEMS),
+        'tenant_name': user.get('tenant_name'), 'project_name': user.get('project_name'),
+        'operator_name': operator_name, 'customer_signer': customer_signer, 'notes': notes,
+        'checked': list(checked), 'checked_count': len(checked), 'total_count': len(ITEMS),
     }
     records.append(record)
     return record
+
+
+def _latest_record(service, user):
+    rows = _records(service, user)
+    return rows[-1] if rows else {
+        'tenant_name': user.get('tenant_name'), 'project_name': user.get('project_name'),
+        'operator_name': '', 'customer_signer': '', 'notes': '', 'checked': [],
+        'checked_count': 0, 'total_count': len(ITEMS),
+    }
 
 
 def _item_inputs(selected=None):
@@ -55,13 +59,27 @@ def _record_rows(records):
     return rows or '<tr><td colspan="4">暂无验收记录</td></tr>'
 
 
+def _print_item_rows(record):
+    checked = set(record.get('checked') or [])
+    return ''.join(
+        f'<tr><td>{_h(item)}</td><td>{"已完成" if item in checked else "未确认"}</td></tr>'
+        for item in ITEMS
+    )
+
+
+def _printable_html(user, service):
+    record = _latest_record(service, user)
+    item_rows = _print_item_rows(record)
+    return f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>首租户交付验收记录（打印版）</title><style>body{{font:14px/1.7 "Songti SC","SimSun",serif;color:#111;margin:32px}}h1{{text-align:center;font-size:24px}}table{{width:100%;border-collapse:collapse;margin:14px 0}}td,th{{border:1px solid #333;padding:8px;text-align:left}}.meta{{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}}.sign{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-top:42px}}.line{{border-bottom:1px solid #111;height:34px}}.toolbar{{margin-bottom:16px}}button{{padding:8px 14px}}@media print{{.toolbar{{display:none}}body{{margin:18mm}}}}</style></head><body><div class="toolbar"><button onclick="window.print()">打印验收记录</button></div><h1>首租户交付验收记录（打印版）</h1><div class="meta"><div>客户公司：{_h(user.get('tenant_name'))}</div><div>项目名称：{_h(user.get('project_name'))}</div><div>实施人员：{_h(record.get('operator_name'))}</div><div>客户签收人：{_h(record.get('customer_signer'))}</div><div>完成项：{_h(record.get('checked_count'))} / {len(ITEMS)}</div><div>备注：{_h(record.get('notes'))}</div></div><table><thead><tr><th>验收项</th><th>状态</th></tr></thead><tbody>{item_rows}</tbody></table><p>客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；租户隔离、备份恢复和报表核对完成后签收。</p><div class="sign"><div>客户签字<div class="line"></div></div><div>实施人员签字<div class="line"></div></div><div>签收日期<div class="line"></div></div></div></body></html>'''
+
+
 def _render(user, service, message=''):
     records = _records(service, user)
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     body = f'''
 <section class="hero"><div><h1>首租户交付验收记录</h1><div class="sub">用于正式商业版首租户上线签收：实施人员勾选核心交付项，留存客户签收人、备注和当前客户范围记录。客户上传数据与系统自身数据隔离，验收记录不展示内部编号或生产密钥。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>{notice}
 <section class="grid"><div class="card"><div class="card-h">验收表单</div><div class="card-b"><form method="post" action="/backoffice/first-tenant-acceptance"><div class="sub" style="margin-bottom:10px">请逐项确认首租户上线交付内容。</div>{_item_inputs(ITEMS)}<label>实施人员</label><input name="operator_name" required placeholder="例如 实施顾问A"><label>客户签收人</label><input name="customer_signer" required placeholder="例如 客户负责人B"><label>备注</label><input name="notes" placeholder="例如 首租户上线验收完成"><button class="primary">保存验收记录</button><div class="hint">记录只保存验收摘要，不保存密码、密钥、内部租户编号或客户上传文件内容。</div></form></div></div>
-<aside class="card"><div class="card-h">验收边界</div><div class="card-b"><p class="sub">客户上传数据与系统自身数据隔离。</p><p class="sub">业务数据不进入授权云服务。</p><p class="sub">租户隔离、备份恢复和报表核对必须完成后再签收。</p><a class="ghost-link" href="/backoffice/first-tenant-wizard">返回首租户向导</a></div></aside></section>
+<aside class="card"><div class="card-h">验收边界</div><div class="card-b"><p class="sub">客户上传数据与系统自身数据隔离。</p><p class="sub">业务数据不进入授权云服务。</p><p class="sub">租户隔离、备份恢复和报表核对必须完成后再签收。</p><div class="actions"><a class="ghost-link" href="/backoffice/first-tenant-wizard">返回首租户向导</a><a class="ghost-link" href="/backoffice/first-tenant-acceptance/print">打印验收记录</a><a class="ghost-link" href="/backoffice/first-tenant-acceptance/export.html">导出 HTML 验收记录</a></div></div></aside></section>
 <section class="card" style="margin-top:18px"><div class="card-h">已保存记录</div><div class="card-b"><table><thead><tr><th>实施人员</th><th>客户签收人</th><th>完成项</th><th>备注</th></tr></thead><tbody>{_record_rows(records)}</tbody></table></div></section>'''
     return _page('首租户交付验收记录', body)
 
@@ -81,6 +99,24 @@ def register_first_tenant_acceptance_pages(app, service, current_user):
         try:
             _require_admin(user)
             return HTMLResponse(_render(user, service, message))
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.get('/backoffice/first-tenant-acceptance/print', response_class=HTMLResponse)
+    def acceptance_record_print(user=Depends(current_user)):
+        try:
+            _require_admin(user)
+            return HTMLResponse(_printable_html(user, service))
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.get('/backoffice/first-tenant-acceptance/export.html')
+    def acceptance_record_export(user=Depends(current_user)):
+        try:
+            _require_admin(user)
+            response = HTMLResponse(_printable_html(user, service))
+            response.headers['content-disposition'] = 'attachment; filename="first-tenant-acceptance.html"'
+            return response
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 
