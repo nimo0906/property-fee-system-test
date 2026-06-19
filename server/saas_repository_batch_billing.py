@@ -3,6 +3,7 @@
 """Batch billing repository methods."""
 
 from sqlalchemy import text
+from server.saas_repository_schema import insert_id_sql, inserted_id
 
 from server.saas_batch_billing import build_batch_bill_rows
 
@@ -27,10 +28,10 @@ def attach_batch_billing_repository_methods(cls):
                 if self._bill_exists(tenant_id, project_id, row['bill_number']):
                     skipped += 1
                     continue
-                result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
-                    VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:billing_period,:service_start,:service_end,:amount,'pending_review')"""), row)
+                result = conn.execute(text(insert_id_sql("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
+                    VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:billing_period,:service_start,:service_end,:amount,'pending_review')""", self.engine.dialect.name)), row)
                 created += 1
-                created_ids.append(result.lastrowid)
+                created_ids.append(inserted_id(result, self.engine.dialect.name))
         if actor_user_id:
             self.create_audit_log(tenant_id, project_id, actor_user_id, 'bill.batch_generate', 'bill', 0, {
                 'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'created_count': created, 'skipped_count': skipped,

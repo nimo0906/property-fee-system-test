@@ -52,3 +52,16 @@ def grant_permission_sql(dialect):
     if is_postgres(dialect):
         return "INSERT INTO role_permissions(role_code,permission_code) VALUES(:role_code,:permission_code) ON CONFLICT(role_code,permission_code) DO NOTHING"
     return "INSERT OR IGNORE INTO role_permissions(role_code,permission_code) VALUES(:role_code,:permission_code)"
+
+
+def insert_id_sql(sql, dialect):
+    clean = str(sql).rstrip()
+    if is_postgres(dialect) and 'RETURNING id' not in clean.upper():
+        return clean + ' RETURNING id'
+    return clean
+
+
+def inserted_id(result, dialect):
+    if is_postgres(dialect):
+        return int(result.scalar_one())
+    return int(result.lastrowid)

@@ -3,6 +3,7 @@
 """Owner and charge target repository methods."""
 
 from sqlalchemy import text
+from server.saas_repository_schema import insert_id_sql, inserted_id
 
 from server.saas_repository_errors import TenantScopeError
 
@@ -11,9 +12,10 @@ def attach_owner_repository_methods(cls):
     def create_owner(self, tenant_id, project_id, name, phone="", owner_type="业主"):
         self._require_project_scope(tenant_id, project_id)
         with self.engine.begin() as conn:
-            result = conn.execute(text("INSERT INTO owners(tenant_id,project_id,name,phone,owner_type) VALUES(:tenant_id,:project_id,:name,:phone,:owner_type)"),
+            result = conn.execute(text(insert_id_sql("INSERT INTO owners(tenant_id,project_id,name,phone,owner_type) VALUES(:tenant_id,:project_id,:name,:phone,:owner_type)", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "name": name, "phone": phone, "owner_type": owner_type})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "name": name, "phone": phone, "owner_type": owner_type}
+            owner_row_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": owner_row_id, "tenant_id": tenant_id, "project_id": project_id, "name": name, "phone": phone, "owner_type": owner_type}
 
     def get_owner(self, tenant_id, project_id, owner_id):
         return self._row("SELECT id,tenant_id,project_id,name,phone,owner_type FROM owners WHERE tenant_id=:tenant_id AND project_id=:project_id AND id=:id", {"tenant_id": tenant_id, "project_id": project_id, "id": owner_id})
@@ -32,10 +34,11 @@ def attach_owner_repository_methods(cls):
             raise TenantScopeError("owner does not belong to tenant")
         with self.engine.begin() as conn:
             price_override = float(unit_price_override) if unit_price_override not in (None, "") else None
-            result = conn.execute(text("""INSERT INTO charge_targets(tenant_id,project_id,owner_id,building,unit,room_number,category,area,unit_price_override)
-                VALUES(:tenant_id,:project_id,:owner_id,:building,:unit,:room_number,:category,:area,:unit_price_override)"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO charge_targets(tenant_id,project_id,owner_id,building,unit,room_number,category,area,unit_price_override)
+                VALUES(:tenant_id,:project_id,:owner_id,:building,:unit,:room_number,:category,:area,:unit_price_override)""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "owner_id": owner_id or None, "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area), "unit_price_override": price_override})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "owner_id": owner_id or None, "owner_name": owner.get("name") if owner else "", "owner_phone": owner.get("phone") if owner else "", "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area), "unit_price_override": price_override}
+            target_row_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": target_row_id, "tenant_id": tenant_id, "project_id": project_id, "owner_id": owner_id or None, "owner_name": owner.get("name") if owner else "", "owner_phone": owner.get("phone") if owner else "", "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area), "unit_price_override": price_override}
 
     def get_charge_target(self, tenant_id, project_id, target_id):
         return self._row("""SELECT ct.id,ct.tenant_id,ct.project_id,ct.owner_id,o.name owner_name,o.phone owner_phone,ct.building,ct.unit,ct.room_number,ct.category,ct.area,ct.unit_price_override FROM charge_targets ct LEFT JOIN owners o ON ct.owner_id=o.id AND ct.tenant_id=o.tenant_id AND ct.project_id=o.project_id

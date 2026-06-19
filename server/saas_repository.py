@@ -3,7 +3,7 @@
 """SQLAlchemy-backed repository for SaaS tenant/project/RBAC seed data."""
 
 from sqlalchemy import create_engine, text
-from server.saas_repository_schema import alter_statements, grant_permission_sql, schema_statements, upsert_named_sql
+from server.saas_repository_schema import alter_statements, grant_permission_sql, insert_id_sql, inserted_id, schema_statements, upsert_named_sql
 
 from server.saas_repository_errors import TenantScopeError
 from server.saas_repository_guards import validate_bill_scope, validate_import_storage_key
@@ -38,16 +38,18 @@ class SaasRepository:
 
     def create_tenant(self, name):
         with self.engine.begin() as conn:
-            result = conn.execute(text("INSERT INTO tenants(name) VALUES(:name)"), {"name": name})
-            return {"id": result.lastrowid, "name": name, "status": "active"}
+            result = conn.execute(text(insert_id_sql("INSERT INTO tenants(name) VALUES(:name)", self.engine.dialect.name)), {"name": name})
+            tenant_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": tenant_id, "name": name, "status": "active"}
 
     def get_tenant(self, tenant_id):
         return self._row("SELECT id,name,status FROM tenants WHERE id=:id", {"id": tenant_id})
 
     def create_project(self, tenant_id, name, code=None):
         with self.engine.begin() as conn:
-            result = conn.execute(text("INSERT INTO projects(tenant_id,name,code) VALUES(:tenant_id,:name,:code)"), {"tenant_id": tenant_id, "name": name, "code": code})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "name": name, "code": code}
+            result = conn.execute(text(insert_id_sql("INSERT INTO projects(tenant_id,name,code) VALUES(:tenant_id,:name,:code)", self.engine.dialect.name)), {"tenant_id": tenant_id, "name": name, "code": code})
+            project_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": project_id, "tenant_id": tenant_id, "name": name, "code": code}
 
     def get_project(self, project_id):
         return self._row("SELECT id,tenant_id,name,code,is_active FROM projects WHERE id=:id", {"id": project_id})
@@ -84,8 +86,9 @@ class SaasRepository:
     def create_user(self, tenant_id, username, role_code, password_hash=None):
         self._validate_role(role_code)
         with self.engine.begin() as conn:
-            result = conn.execute(text("INSERT INTO users(tenant_id,username,role_code,password_hash) VALUES(:tenant_id,:username,:role_code,:password_hash)"), {"tenant_id": tenant_id, "username": username, "role_code": role_code, "password_hash": password_hash})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "username": username, "role_code": role_code}
+            result = conn.execute(text(insert_id_sql("INSERT INTO users(tenant_id,username,role_code,password_hash) VALUES(:tenant_id,:username,:role_code,:password_hash)", self.engine.dialect.name)), {"tenant_id": tenant_id, "username": username, "role_code": role_code, "password_hash": password_hash})
+            user_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": user_id, "tenant_id": tenant_id, "username": username, "role_code": role_code}
 
     def create_staff_user(self, tenant_id, project_id, username, role_code):
         self._require_project_scope(tenant_id, project_id)
@@ -105,10 +108,11 @@ class SaasRepository:
             amount = calculate_bill_amount(target, fee, service_start, service_end)
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
-            result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
-                VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:period,:service_start,:service_end,:amount,'pending_review')"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
+                VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:period,:service_start,:service_end,:amount,'pending_review')""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "period": period, "service_start": service_start, "service_end": service_end, "amount": float(amount)})
-            item = {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "pending_review"}
+            bill_id = inserted_id(result, self.engine.dialect.name)
+            item = {"id": bill_id, "tenant_id": tenant_id, "project_id": project_id, "charge_target_id": target_id, "fee_type_id": fee_type_id, "bill_number": bill_number, "billing_period": period, "amount": float(amount), "status": "pending_review"}
         if actor_user_id:
             self.create_audit_log(tenant_id, project_id, actor_user_id, 'bill.generate', 'bill', item['id'], {'bill_number': bill_number, 'amount': float(amount), 'billing_period': period})
         return item
@@ -156,10 +160,11 @@ class SaasRepository:
         with self.engine.begin() as conn:
             seq = conn.execute(text("SELECT COALESCE(MAX(id),0)+1 FROM payments")).scalar_one()
             receipt_number = f"RCPT-{tenant_id}-{project_id}-{int(seq):06d}"
-            result = conn.execute(text("""INSERT INTO payments(tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number)
-                VALUES(:tenant_id,:project_id,:bill_id,:amount,:method,:key,:receipt_number)"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO payments(tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number)
+                VALUES(:tenant_id,:project_id,:bill_id,:amount,:method,:key,:receipt_number)""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount": float(amount), "method": method, "key": idempotency_key, "receipt_number": receipt_number})
-            item = {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount_paid": float(amount), "method": method, "idempotency_key": idempotency_key, "receipt_number": receipt_number}
+            payment_id = inserted_id(result, self.engine.dialect.name)
+            item = {"id": payment_id, "tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "amount_paid": float(amount), "method": method, "idempotency_key": idempotency_key, "receipt_number": receipt_number}
             paid = conn.execute(text("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE tenant_id=:tenant_id AND project_id=:project_id AND bill_id=:bill_id"), {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id}).scalar_one()
             bill_amount = conn.execute(text("SELECT amount FROM bills WHERE id=:bill_id AND tenant_id=:tenant_id AND project_id=:project_id"), {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id}).scalar_one()
             status = "paid" if float(paid or 0) >= float(bill_amount or 0) else "partial"
@@ -182,10 +187,11 @@ class SaasRepository:
         self._require_project_scope(tenant_id, project_id)
         import json
         with self.engine.begin() as conn:
-            result = conn.execute(text("""INSERT INTO audit_logs(tenant_id,project_id,user_id,action,entity_type,entity_id,detail_json)
-                VALUES(:tenant_id,:project_id,:user_id,:action,:entity_type,:entity_id,:detail)"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO audit_logs(tenant_id,project_id,user_id,action,entity_type,entity_id,detail_json)
+                VALUES(:tenant_id,:project_id,:user_id,:action,:entity_type,:entity_id,:detail)""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "user_id": user_id, "action": action, "entity_type": entity_type, "entity_id": entity_id, "detail": json.dumps(detail, ensure_ascii=False)})
-            return {"id": result.lastrowid, "action": action, "detail": detail}
+            audit_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": audit_id, "action": action, "detail": detail}
 
     def list_audit_logs(self, tenant_id, project_id):
         import json
@@ -198,10 +204,11 @@ class SaasRepository:
         self._require_project_scope(tenant_id, project_id)
         validate_import_storage_key(tenant_id, project_id, storage_key)
         with self.engine.begin() as conn:
-            result = conn.execute(text("""INSERT INTO imports(tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type)
-                VALUES(:tenant_id,:project_id,:import_type,'uploaded',:original_name,:storage_key,:file_size,:content_type)"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO imports(tenant_id,project_id,import_type,status,original_name,storage_key,file_size,content_type)
+                VALUES(:tenant_id,:project_id,:import_type,'uploaded',:original_name,:storage_key,:file_size,:content_type)""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "import_type": import_type, "original_name": original_name, "storage_key": storage_key, "file_size": int(file_size), "content_type": content_type})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "import_type": import_type, "status": "uploaded", "original_name": original_name, "storage_key": storage_key, "file_size": int(file_size), "content_type": content_type}
+            import_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": import_id, "tenant_id": tenant_id, "project_id": project_id, "import_type": import_type, "status": "uploaded", "original_name": original_name, "storage_key": storage_key, "file_size": int(file_size), "content_type": content_type}
 
     def list_import_files(self, tenant_id, project_id):
         with self.engine.begin() as conn:
@@ -230,11 +237,12 @@ class SaasRepository:
         with self.engine.begin() as conn:
             seq = conn.execute(text("SELECT COALESCE(MAX(id),0)+1 FROM backup_records")).scalar_one()
             backup_id = f"backup-{int(seq):06d}"
-            result = conn.execute(text("""INSERT INTO backup_records(tenant_id,project_id,backup_id,status,created_by)
-                VALUES(:tenant_id,:project_id,:backup_id,'created',:user_id)"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO backup_records(tenant_id,project_id,backup_id,status,created_by)
+                VALUES(:tenant_id,:project_id,:backup_id,'created',:user_id)""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "user_id": user_id})
-        self.create_audit_log(tenant_id, project_id, user_id, 'backup.create', 'backup', result.lastrowid, {'backup_id': backup_id, 'kind': 'manual'})
-        return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "status": "created"}
+        backup_row_id = inserted_id(result, self.engine.dialect.name)
+        self.create_audit_log(tenant_id, project_id, user_id, 'backup.create', 'backup', backup_row_id, {'backup_id': backup_id, 'kind': 'manual'})
+        return {"id": backup_row_id, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "status": "created"}
 
     def list_backup_records(self, tenant_id, project_id):
         with self.engine.begin() as conn:
@@ -253,11 +261,12 @@ class SaasRepository:
         if scope not in {'database', 'tenant-files', 'system-files'}:
             raise ValueError('invalid restore drill scope')
         with self.engine.begin() as conn:
-            result = conn.execute(text("""INSERT INTO restore_drills(tenant_id,project_id,backup_id,scope,status,created_by)
-                VALUES(:tenant_id,:project_id,:backup_id,:scope,'recorded',:user_id)"""),
+            result = conn.execute(text(insert_id_sql("""INSERT INTO restore_drills(tenant_id,project_id,backup_id,scope,status,created_by)
+                VALUES(:tenant_id,:project_id,:backup_id,:scope,'recorded',:user_id)""", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "scope": scope, "user_id": user_id})
-        self.create_audit_log(tenant_id, project_id, user_id, 'restore.drill', 'restore_drill', result.lastrowid, {'backup_id': backup_id, 'scope': scope})
-        return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "scope": scope, "status": "recorded"}
+        drill_id = inserted_id(result, self.engine.dialect.name)
+        self.create_audit_log(tenant_id, project_id, user_id, 'restore.drill', 'restore_drill', drill_id, {'backup_id': backup_id, 'scope': scope})
+        return {"id": drill_id, "tenant_id": tenant_id, "project_id": project_id, "backup_id": backup_id, "scope": scope, "status": "recorded"}
 
 def create_saas_repository(url):
     return SaasRepository(url)

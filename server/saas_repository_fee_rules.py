@@ -3,6 +3,7 @@
 """Fee rule repository methods."""
 
 from sqlalchemy import text
+from server.saas_repository_schema import insert_id_sql, inserted_id
 
 from server.saas_fee_rules import normalize_billing_mode
 
@@ -12,9 +13,10 @@ def attach_fee_rule_repository_methods(cls):
         self._require_project_scope(tenant_id, project_id)
         mode = normalize_billing_mode(billing_mode)
         with self.engine.begin() as conn:
-            result = conn.execute(text("INSERT INTO fee_types(tenant_id,project_id,name,unit_price,billing_mode) VALUES(:tenant_id,:project_id,:name,:unit_price,:billing_mode)"),
+            result = conn.execute(text(insert_id_sql("INSERT INTO fee_types(tenant_id,project_id,name,unit_price,billing_mode) VALUES(:tenant_id,:project_id,:name,:unit_price,:billing_mode)", self.engine.dialect.name)),
                 {"tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price), "billing_mode": mode})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price), "billing_mode": mode}
+            fee_type_id = inserted_id(result, self.engine.dialect.name)
+            return {"id": fee_type_id, "tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price), "billing_mode": mode}
 
     def get_fee_type(self, tenant_id, project_id, fee_type_id):
         return self._row("""SELECT id,tenant_id,project_id,name,unit_price,billing_mode FROM fee_types

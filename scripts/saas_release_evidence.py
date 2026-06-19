@@ -50,6 +50,7 @@ GATE_CHECKS = [
     "scripts/saas_first_tenant_acceptance_backup_page_check.py",
     "scripts/saas_production_database_env_check.py",
     "scripts/saas_postgres_repository_compat_check.py",
+    "scripts/saas_postgres_insert_id_check.py",
     "scripts/saas_isolation_evidence.py",
 ]
 POSTPONED = [
