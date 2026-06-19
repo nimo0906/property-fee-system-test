@@ -72,6 +72,7 @@ ITEMS = [
     ('P0-68 生产验收证据总包', '生产验收结果中心可一键下载脱敏交付证据包，包含留档、上线证据、隔离证据、签收历史和备份覆盖说明。', '/backoffice/production-acceptance'),
     ('P0-69 生产验收证据包预检', '生产验收结果中心在下载证据包前显示每个证据项存在、缺失、自动生成和是否进入总包，避免现场漏材料。', '/backoffice/production-acceptance'),
     ('P0-70 生产交付总览', '把部署自检、首租户冒烟、生产验收、证据包、签收历史和备份恢复覆盖核验整合为现场实施统一入口。', '/backoffice/production-delivery'),
+    ('P0-71 生产交付状态汇总', '生产交付总览顶部显示部署资产、证据缺失、签收历史、最近留档、备份覆盖和当前是否可签收。', '/backoffice/production-delivery'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -153,6 +154,7 @@ GATES = [
     ('生产验收证据总包检查', 'scripts/saas_production_acceptance_evidence_package_check.py'),
     ('生产验收证据包预检检查', 'scripts/saas_production_acceptance_evidence_package_precheck.py'),
     ('生产交付总览检查', 'scripts/saas_production_delivery_overview_check.py'),
+    ('生产交付状态汇总检查', 'scripts/saas_production_delivery_status_summary_check.py'),
 ]
 
 
