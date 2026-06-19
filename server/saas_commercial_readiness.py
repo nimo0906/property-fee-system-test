@@ -24,6 +24,7 @@ ITEMS = [
     ('P0-19 下一阶段立项决策', '7 日稳定后评估业主端 H5、微信/支付宝真实支付、授权云服务后台、更多桌面业务迁移的进入条件和边界。', '/backoffice/acceptance'),
     ('P0-20 下一阶段工单清单', '把业主端 H5 工单包、支付工单包、授权云服务后台工单包和桌面版存量业务迁移工单包拆成可执行项。', '/backoffice/acceptance'),
     ('P0-21 授权云服务边界', '建立授权云服务后台的独立服务、独立数据库、独立表结构和授权校验边界，不与 SaaS 业务主库混用。', '/backoffice/acceptance'),
+    ('P0-22 授权管理后台', '授权云服务支持客户、产品、授权、授权审计的 API 和管理页面；只展示授权数据，不展示业务数据。', '/backoffice/acceptance'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -54,6 +55,7 @@ GATES = [
     ('下一阶段工单检查', 'scripts/saas_next_phase_issue_backlog_check.py'),
     ('授权云服务边界设计', 'docs/saas-license-cloud-service-boundary.md'),
     ('授权云服务边界检查', 'scripts/saas_license_cloud_boundary_check.py'),
+    ('授权管理后台检查', 'scripts/saas_license_cloud_management_check.py'),
 ]
 
 
