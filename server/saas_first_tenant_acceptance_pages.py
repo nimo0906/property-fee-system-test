@@ -39,25 +39,35 @@ def _risk_panel(record):
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">{_h(risk['status'])}</div><div class="card-b"><p class="sub">{_h(risk['detail'])}</p></div></section>'''
 
 
-def _records(service, user):
+def _all_records(service):
     records = getattr(service, 'first_tenant_acceptance_records', None)
     if records is None:
-        records = []
+        store = getattr(service, 'first_tenant_acceptance_store', None)
+        records = store.load() if store else []
         setattr(service, 'first_tenant_acceptance_records', records)
+    return records
+
+
+def _save_records(service, records):
+    store = getattr(service, 'first_tenant_acceptance_store', None)
+    if store:
+        store.save(records)
+
+
+def _records(service, user):
+    records = _all_records(service)
     return [r for r in records if r.get('tenant_name') == user.get('tenant_name') and r.get('project_name') == user.get('project_name')]
 
 
 def _append_record(service, user, checked, operator_name, customer_signer, notes):
-    records = getattr(service, 'first_tenant_acceptance_records', None)
-    if records is None:
-        records = []
-        setattr(service, 'first_tenant_acceptance_records', records)
+    records = _all_records(service)
     record = {
         'tenant_name': user.get('tenant_name'), 'project_name': user.get('project_name'),
         'operator_name': operator_name, 'customer_signer': customer_signer, 'notes': notes,
         'checked': list(checked), 'checked_count': len(checked), 'total_count': len(ITEMS),
     }
     records.append(record)
+    _save_records(service, records)
     return record
 
 

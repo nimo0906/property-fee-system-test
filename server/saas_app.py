@@ -10,6 +10,7 @@ from server.saas_storage import SaasStorage
 from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_auth_api import build_auth_dependencies, register_auth_routes
 from server.saas_page_registry import register_saas_pages
+from server.saas_first_tenant_acceptance_store import acceptance_store_from_env
 from server.passwords import verify_password
 from server.saas_password_policy import password_meets_policy, password_reset_error
 from server.saas_billing_api import register_billing_routes
@@ -19,13 +20,10 @@ from server.saas_audit_api import register_audit_api
 from server.saas_backup_api import register_backup_api
 from server.saas_license_enforcement import LicenseRequired, require_license_or_audit
 from server.saas_license_seats import LicenseSeatsExceeded, require_seat_available
-from server.saas_api_models import (
-    FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
-    PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
-)
+from server.saas_api_models import FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn, PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn
 
 
-def create_app(database_url=None):
+def create_app(database_url=None, acceptance_store=None):
     try:
         from fastapi import Cookie, FastAPI, HTTPException, Response
     except ImportError as exc:
@@ -35,6 +33,10 @@ def create_app(database_url=None):
     service = SaasBackofficeService.in_memory()
     repository = create_saas_repository(database_url) if database_url else None
     app.state.repository = repository
+    if acceptance_store is None:
+        acceptance_store = acceptance_store_from_env()
+    if acceptance_store is not None:
+        service.first_tenant_acceptance_store = acceptance_store
     app.state.saas_service = service
     sessions = {}
     storage = SaasStorage(root_dir="/var/lib/property-saas")
@@ -88,7 +90,6 @@ def create_app(database_url=None):
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
-
     @app.get("/api/users")
     def list_users(user=__import__('fastapi').Depends(current_user)):
         try:
@@ -136,7 +137,6 @@ def create_app(database_url=None):
             return {"item": item}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
-
     @app.post("/api/fee-types")
     def create_fee(data: FeeIn, user=__import__('fastapi').Depends(current_user)):
         try:
