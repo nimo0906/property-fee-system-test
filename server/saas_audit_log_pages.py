@@ -2,59 +2,21 @@
 # -*- coding: utf-8 -*-
 """HTML audit log pages for SaaS backoffice."""
 
-import json
 from urllib.parse import urlencode
 
 from server.saas_audit_summary import render_audit_summary
+from server.saas_audit_tools import detail_text as _detail_text, filter_audit_items, risk_level
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page, _role_name
 
-RISK_ACTIONS = ('password', 'reset', 'import', 'bill.', 'payment.', 'backup', 'restore', 'disable', 'active')
-MASK_KEYS = {'tenant_id', 'project_id', 'password', 'password_hash', 'old_password', 'new_password', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD'}
-
-
-def _clean_detail(value):
-    if isinstance(value, dict):
-        return {k: _clean_detail(v) for k, v in value.items() if k not in MASK_KEYS and 'password' not in str(k).lower()}
-    if isinstance(value, list):
-        return [_clean_detail(v) for v in value]
-    text = str(value)
-    for marker in ['POSTGRES_PASSWORD=', 'APP_SECRET_KEY=']:
-        if marker in text:
-            return '[masked]'
-    return value
-
-
-def _detail_text(detail):
-    return json.dumps(_clean_detail(detail or {}), ensure_ascii=False, sort_keys=True)
-
 
 def _is_risk(item):
-    action = str(item.get('action') or '').lower()
-    return any(token in action for token in RISK_ACTIONS)
+    return risk_level(item) == 'high'
 
 
 def _filter_items(items, params):
-    action = str(params.get('action') or '').strip().lower()
-    entity_type = str(params.get('entity_type') or '').strip().lower()
-    keyword = str(params.get('keyword') or '').strip().lower()
-    risk = str(params.get('risk') or '').strip().lower()
-    rows = []
-    for item in items:
-        if action and action not in str(item.get('action') or '').lower():
-            continue
-        if entity_type and entity_type != str(item.get('entity_type') or '').lower():
-            continue
-        if risk == 'high' and not _is_risk(item):
-            continue
-        haystack = ' '.join([str(item.get(k, '')) for k in ['id', 'action', 'entity_type', 'entity_id', 'user_id']])
-        haystack += ' ' + _detail_text(item.get('detail'))
-        if keyword and keyword not in haystack.lower():
-            continue
-        rows.append(item)
-    return rows
-
+    return filter_audit_items(items, params.get('action'), params.get('entity_type'), params.get('keyword'), params.get('risk'))
 
 def _paginate(items, page, page_size):
     page = max(int(page or 1), 1)

@@ -15,6 +15,7 @@ from server.saas_password_policy import password_meets_policy, password_reset_er
 from server.saas_billing_api import register_billing_routes
 from server.saas_owner_api import register_owner_routes
 from server.saas_isolation_self_check import register_isolation_self_check_api
+from server.saas_audit_api import register_audit_api
 from server.saas_api_models import (
     FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn,
     PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn,
@@ -40,6 +41,7 @@ def create_app(database_url=None):
     register_billing_routes(app, service)
     register_owner_routes(app, service)
     register_isolation_self_check_api(app, service, repository, current_user)
+    register_audit_api(app, service, repository)
 
     @app.get("/health")
     def health():
@@ -240,16 +242,6 @@ def create_app(database_url=None):
                 }
                 service.imports[upload_id] = item
             return {"item": item}
-        except PermissionDenied:
-            raise HTTPException(status_code=403, detail="forbidden")
-
-    @app.get("/api/audit-logs")
-    def audit_logs(user=__import__('fastapi').Depends(current_user)):
-        try:
-            service._require(user, "read")
-            if repository:
-                return {"items": repository.list_audit_logs(user["tenant_id"], user["project_id"])}
-            return {"items": service.list_audit_logs(user, user["project_id"])}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
