@@ -3,6 +3,7 @@
 """SQLAlchemy-backed repository for SaaS tenant/project/RBAC seed data."""
 
 from sqlalchemy import create_engine, text
+from server.saas_repository_schema import alter_statements, grant_permission_sql, schema_statements, upsert_named_sql
 
 from server.saas_repository_errors import TenantScopeError
 from server.saas_repository_guards import validate_bill_scope, validate_import_storage_key
@@ -20,30 +21,11 @@ class SaasRepository:
         self.engine.dispose()
 
     def _init_schema(self):
-        stmts = [
-            "CREATE TABLE IF NOT EXISTS tenants(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'active')",
-            "CREATE TABLE IF NOT EXISTS projects(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,name TEXT NOT NULL,code TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,name))",
-            "CREATE TABLE IF NOT EXISTS roles(code TEXT PRIMARY KEY,name TEXT NOT NULL)",
-            "CREATE TABLE IF NOT EXISTS permissions(code TEXT PRIMARY KEY,name TEXT NOT NULL)",
-            "CREATE TABLE IF NOT EXISTS role_permissions(role_code TEXT NOT NULL,permission_code TEXT NOT NULL,PRIMARY KEY(role_code,permission_code))",
-            "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,username TEXT NOT NULL,role_code TEXT NOT NULL,password_hash TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,username))",
-            "CREATE TABLE IF NOT EXISTS owners(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,phone TEXT,owner_type TEXT NOT NULL DEFAULT '业主')",
-            "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,unit_price_override REAL,UNIQUE(tenant_id,project_id,building,unit,room_number))",
-            "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,billing_mode TEXT NOT NULL DEFAULT 'area',UNIQUE(tenant_id,project_id,name))",
-            "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending_review',UNIQUE(tenant_id,project_id,bill_number))",
-            "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key))",
-            "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT '{}')",
-            "CREATE TABLE IF NOT EXISTS backup_records(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,backup_id))",
-            "CREATE TABLE IF NOT EXISTS restore_drills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,scope TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)",
-            "CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,user_id INTEGER,action TEXT NOT NULL,entity_type TEXT,entity_id INTEGER,detail_json TEXT NOT NULL DEFAULT '{}')",
-        ]
+        dialect = self.engine.dialect.name
         with self.engine.begin() as conn:
-            for stmt in stmts:
+            for stmt in schema_statements(dialect):
                 conn.execute(text(stmt))
-            for alter in [
-                "ALTER TABLE fee_types ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'area'",
-                "ALTER TABLE charge_targets ADD COLUMN unit_price_override REAL",
-            ]:
+            for alter in alter_statements(dialect):
                 try:
                     conn.execute(text(alter))
                 except Exception:
@@ -77,17 +59,17 @@ class SaasRepository:
 
     def upsert_role(self, code, name):
         with self.engine.begin() as conn:
-            conn.execute(text("INSERT OR REPLACE INTO roles(code,name) VALUES(:code,:name)"), {"code": code, "name": name})
+            conn.execute(text(upsert_named_sql("roles", self.engine.dialect.name)), {"code": code, "name": name})
         return {"code": code, "name": name}
 
     def upsert_permission(self, code, name):
         with self.engine.begin() as conn:
-            conn.execute(text("INSERT OR REPLACE INTO permissions(code,name) VALUES(:code,:name)"), {"code": code, "name": name})
+            conn.execute(text(upsert_named_sql("permissions", self.engine.dialect.name)), {"code": code, "name": name})
         return {"code": code, "name": name}
 
     def grant_permission(self, role_code, permission_code):
         with self.engine.begin() as conn:
-            conn.execute(text("INSERT OR IGNORE INTO role_permissions(role_code,permission_code) VALUES(:role_code,:permission_code)"), {"role_code": role_code, "permission_code": permission_code})
+            conn.execute(text(grant_permission_sql(self.engine.dialect.name)), {"role_code": role_code, "permission_code": permission_code})
         return {"role_code": role_code, "permission_code": permission_code}
 
     def list_permissions_for_role(self, role_code):
