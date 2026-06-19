@@ -92,3 +92,13 @@ python3 scripts/saas_production_precheck.py
 - 授权绑定文件无法纳入系统侧备份恢复。
 - 上线证据文件缺失。
 - 页面、日志或输出泄露生产密钥、本机路径或内部字段。
+
+## 生产 .env 现场校验
+
+服务器部署时执行：
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_env_file_check.py --env-file .env
+```
+
+该检查确认真实 `.env` 存在、权限建议为 `chmod 600 .env`、必填项齐全、密钥不是占位值，并且不打印密钥原文。

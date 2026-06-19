@@ -126,3 +126,13 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_g
 ## 生产环境变量安全检查
 
 执行 `scripts/saas_env_security_check.py` 时只读取当前进程环境变量，不读取、不打印、不提交真实 `.env`。输出只显示变量名和长度，不显示 `POSTGRES_PASSWORD` 或 `APP_SECRET_KEY` 的真实值。
+
+## 生产 .env 现场校验
+
+服务器部署时执行：
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_env_file_check.py --env-file .env
+```
+
+该检查确认真实 `.env` 存在、权限建议为 `chmod 600 .env`、必填项齐全、密钥不是占位值，并且不打印密钥原文。

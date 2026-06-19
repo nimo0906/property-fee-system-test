@@ -68,6 +68,7 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_postgres_insert_id_check.py",
     "scripts/saas_systemd_env_file_check.py",
     "scripts/saas_production_deployment_commands_check.py",
+    "scripts/saas_production_env_file_check.py",
     "scripts/build_saas_formal_launch_report.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",

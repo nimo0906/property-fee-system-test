@@ -68,6 +68,7 @@ curl -fsS https://your-domain.example.com/login
 ## 7. 上线门禁和证据
 
 ```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_env_file_check.py --env-file .env
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_precheck.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_release_gate.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_isolation_evidence.py
