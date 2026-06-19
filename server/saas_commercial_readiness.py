@@ -74,6 +74,7 @@ ITEMS = [
     ('P0-70 生产交付总览', '把部署自检、首租户冒烟、生产验收、证据包、签收历史和备份恢复覆盖核验整合为现场实施统一入口。', '/backoffice/production-delivery'),
     ('P0-71 生产交付状态汇总', '生产交付总览顶部显示部署资产、证据缺失、签收历史、最近留档、备份覆盖和当前是否可签收。', '/backoffice/production-delivery'),
     ('P0-72 生产交付修复入口', '生产交付总览在暂缓签收时列出具体原因，并给出部署自检、验收证据、签收表和备份恢复等修复入口。', '/backoffice/production-delivery'),
+    ('P0-73 生产交付证据刷新动作', '生产交付总览显示租户隔离证据、上线证据、生产验收留档和生产总门禁的现场刷新命令。', '/backoffice/production-delivery'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -157,6 +158,7 @@ GATES = [
     ('生产交付总览检查', 'scripts/saas_production_delivery_overview_check.py'),
     ('生产交付状态汇总检查', 'scripts/saas_production_delivery_status_summary_check.py'),
     ('生产交付修复入口检查', 'scripts/saas_production_delivery_action_links_check.py'),
+    ('生产交付证据刷新动作检查', 'scripts/saas_production_delivery_refresh_actions_check.py'),
 ]
 
 

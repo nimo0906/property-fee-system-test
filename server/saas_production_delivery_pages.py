@@ -98,6 +98,30 @@ def _blocker_rows(blockers):
     )
 
 
+def evidence_refresh_actions():
+    return [
+        {'label': '刷新租户隔离证据', 'command': 'python3 scripts/saas_isolation_evidence.py'},
+        {'label': '刷新上线证据报告', 'command': 'python3 scripts/saas_release_evidence.py'},
+        {'label': '刷新生产验收留档', 'command': 'python3 scripts/saas_production_acceptance_result.py'},
+        {'label': '运行生产总门禁', 'command': 'python3 scripts/saas_release_gate.py'},
+    ]
+
+
+def _refresh_actions_card():
+    rows = ''.join(
+        f'<tr><td>{_h(item["label"])}</td><td><code>{_h(item["command"])}</code></td></tr>'
+        for item in evidence_refresh_actions()
+    )
+    return f'''
+<section class="card" style="margin-bottom:18px">
+  <div class="card-h">证据刷新动作</div>
+  <div class="card-b">
+    <table><thead><tr><th>动作</th><th>现场执行命令</th></tr></thead><tbody>{rows}</tbody></table>
+    <div class="hint">这些命令只展示脚本入口，不展示生产密钥、真实环境文件路径或客户上传数据。</div>
+  </div>
+</section>'''
+
+
 def _step_rows():
     return ''.join(
         f'<tr><td>{_h(name)}</td><td>{_h(desc)}</td><td><a class="ghost-link" href="{_h(href)}">进入</a></td><td><code>{_h(asset)}</code></td></tr>'
@@ -109,6 +133,7 @@ def _render(user):
     body = f'''
 <section class="hero"><div><h1>生产交付总览</h1><div class="sub">现场实施人员统一入口：按顺序完成部署自检、首租户冒烟、生产验收、证据包、签收、历史追溯和备份恢复覆盖核验。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {_status_summary_card()}
+{_refresh_actions_card()}
 <section class="card" style="margin-bottom:18px"><div class="card-h">现场实施顺序</div><div class="card-b"><table><thead><tr><th>步骤</th><th>通过口径</th><th>入口</th><th>关键资产</th></tr></thead><tbody>{_step_rows()}</tbody></table><div class="hint">客户上传数据与系统自身数据隔离；业务数据不进入授权云服务；本页不展示生产密钥、数据库密码、内部字段或真实服务器路径。</div></div></section>
 <section class="grid"><div class="card"><div class="card-h">上线门禁</div><div class="card-b"><p><code>scripts/saas_release_gate.py</code></p><p class="sub">所有生产交付检查必须通过后再签收。</p><a class="ghost-link" href="/backoffice/deploy-checklist">查看部署自检</a></div></div>
 <div class="card"><div class="card-h">证据留存</div><div class="card-b"><p class="sub">下载证据包前先查看预检状态，缺失项会占位进入总包但应在交付前补齐。</p><a class="ghost-link" href="/backoffice/production-acceptance">进入生产验收结果中心</a></div></div>

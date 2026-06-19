@@ -84,6 +84,7 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_production_delivery_overview_check.py",
     "scripts/saas_production_delivery_status_summary_check.py",
     "scripts/saas_production_delivery_action_links_check.py",
+    "scripts/saas_production_delivery_refresh_actions_check.py",
     "scripts/build_saas_formal_launch_report.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
