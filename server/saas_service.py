@@ -187,7 +187,7 @@ class SaasBackofficeService:
                     raise ValueError("面积必须是数字且大于0")
                 valid.append({**row, "building": building, "room_number": room_number, "area": area})
             except ValueError as exc:
-                errors.append({"row": idx, "error": str(exc)})
+                errors.append({"row": idx, "error": str(exc), "data": dict(row)})
         iid = self._id()
         self.imports[iid] = {"id": iid, "tenant_id": user["tenant_id"], "project_id": project_id,
                              "valid_rows": valid, "errors": errors, "confirmed": False}

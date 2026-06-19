@@ -73,13 +73,38 @@ def _render_template_page(user):
     return _page('收费对象导入模板', body)
 
 
+def _error_download_link(review):
+    if not review.get('error_count'):
+        return ''
+    import_id = _h(review.get('import_id'))
+    return f'<div class="actions" style="margin-bottom:12px"><a class="ghost-link" href="/api/imports/{import_id}/errors.csv">下载错误行 CSV</a></div><div class="hint">修正后可重新复制到导入预览；错误行下载不包含 tenant_id 或 project_id。</div>'
+
+
+def _error_csv(review):
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=['row', 'error', 'building', 'unit', 'room_number', 'category', 'area'])
+    writer.writeheader()
+    for err in review.get('errors', []):
+        data = err.get('data') or {}
+        writer.writerow({
+            'row': err.get('row'),
+            'error': err.get('error'),
+            'building': data.get('building', ''),
+            'unit': data.get('unit', ''),
+            'room_number': data.get('room_number', ''),
+            'category': data.get('category', ''),
+            'area': data.get('area', ''),
+        })
+    return output.getvalue()
+
+
 def _render_preview(user, review):
     valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="5">暂无有效行</td></tr>'
     error_rows = ''.join(f'<tr><td>{_h(err.get("row"))}</td><td>{_h(err.get("error"))}</td></tr>' for err in review['errors']) or '<tr><td colspan="2">暂无错误</td></tr>'
     body = f'''
 <section class="hero"><div><h1>导入预览</h1><div class="sub">有效 {review['valid_count']} 行，错误 {review['error_count']} 行。确认导入只会写入有效行。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table><form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form></div></div>
-<aside class="card"><div class="card-h">错误行</div><div class="card-b"><table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>'''
+<aside class="card"><div class="card-h">错误行</div><div class="card-b">{_error_download_link(review)}<table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>'''
     return _page('导入预览', body)
 
 
@@ -112,6 +137,19 @@ def register_import_pages(app, service, repository, current_user):
     @app.get('/api/imports/templates/charge-targets.csv')
     def import_template_csv(user=Depends(current_user)):
         return PlainTextResponse(TEMPLATE_CSV, media_type='text/csv; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="charge_targets_template.csv"'})
+
+
+    @app.get('/api/imports/{import_id}/errors.csv')
+    def import_errors_csv(import_id: int, user=Depends(current_user)):
+        try:
+            review = service.get_import_review(user, user['project_id'], import_id)
+            return PlainTextResponse(
+                _error_csv(review),
+                media_type='text/csv; charset=utf-8',
+                headers={'Content-Disposition': 'attachment; filename="charge_targets_errors.csv"'},
+            )
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/imports/files/register', response_class=HTMLResponse)
     def register_import_file_page(original_name: str = Form(...), file_size: int = Form(...), content_type: str = Form(''), user=Depends(current_user)):
