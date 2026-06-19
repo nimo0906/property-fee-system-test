@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""Sanitized license status adapter for SaaS staff backoffice."""
+
+PRODUCT_CODE = 'property-saas-backoffice'
+_ALLOWED_FIELDS = {'allowed', 'status', 'customer_code', 'product_code', 'seats', 'expires_at'}
+
+
+def build_saas_license_status(license_service, customer_code, product_code=PRODUCT_CODE):
+    if not license_service:
+        return {
+            'allowed': False,
+            'status': 'not_configured',
+            'customer_code': customer_code,
+            'product_code': product_code,
+            'seats': 0,
+            'expires_at': '',
+        }
+    raw = license_service.check_license(customer_code, product_code)
+    return {key: raw.get(key) for key in _ALLOWED_FIELDS}
+
+
+def render_saas_license_status(user, license_service=None):
+    status = build_saas_license_status(license_service, user.get('tenant_name') or '')
+    label = '已授权' if status.get('allowed') else _status_label(status.get('status'))
+    seats = int(status.get('seats') or 0)
+    expires = status.get('expires_at') or '未配置'
+    badge = 'ok' if status.get('allowed') else 'warn'
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">授权状态</div><div class="card-b"><div class="actions"><span class="badge {badge}">{_h(label)}</span><span class="badge">席位 {seats}</span><span class="badge">到期 {_h(expires)}</span></div><div class="hint">本区域只读取授权云服务返回结果，不展示授权库、业务库、内部租户编号或客户上传数据。</div></div></section>'''
+
+
+def _status_label(value):
+    return {'missing': '未授权', 'not_configured': '未接入授权服务', 'inactive': '已停用'}.get(str(value or ''), str(value or '未知'))
+
+
+def _h(value):
+    return str(value or '').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')

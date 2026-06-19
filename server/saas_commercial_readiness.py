@@ -25,6 +25,7 @@ ITEMS = [
     ('P0-20 下一阶段工单清单', '把业主端 H5 工单包、支付工单包、授权云服务后台工单包和桌面版存量业务迁移工单包拆成可执行项。', '/backoffice/acceptance'),
     ('P0-21 授权云服务边界', '建立授权云服务后台的独立服务、独立数据库、独立表结构和授权校验边界，不与 SaaS 业务主库混用。', '/backoffice/acceptance'),
     ('P0-22 授权管理后台', '授权云服务支持客户、产品、授权、授权审计的 API 和管理页面；只展示授权数据，不展示业务数据。', '/backoffice/acceptance'),
+    ('P0-23 授权状态展示', 'SaaS 员工后台只读取授权云服务返回结果，展示授权状态、席位和到期时间，不暴露授权库或业务库内部字段。', '/backoffice'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -56,6 +57,7 @@ GATES = [
     ('授权云服务边界设计', 'docs/saas-license-cloud-service-boundary.md'),
     ('授权云服务边界检查', 'scripts/saas_license_cloud_boundary_check.py'),
     ('授权管理后台检查', 'scripts/saas_license_cloud_management_check.py'),
+    ('授权状态展示检查', 'scripts/saas_license_status_integration_check.py'),
 ]
 
 
