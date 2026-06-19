@@ -26,6 +26,7 @@ CHECKS = [
     "scripts/saas_formal_launch_report_check.py",
     "scripts/saas_operator_one_page_runbook_check.py",
     "scripts/saas_day1_operations_checklist_check.py",
+    "scripts/saas_day7_stability_review_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]
