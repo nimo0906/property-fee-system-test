@@ -11,6 +11,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 REPORT = ROOT / "release" / "saas-release-evidence.md"
 GATE_CHECKS = [
+    "scripts/saas_env_security_check.py",
     "scripts/saas_preflight_check.py",
     "scripts/saas_ops_check.py",
     "scripts/saas_acceptance_check.py",
@@ -88,6 +89,11 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_g
 ## 后置范围
 
 {postponed_rows}
+
+## 生产环境变量安全检查
+
+- `scripts/saas_env_security_check.py` 只读取运行时环境变量。
+- 报告和日志只允许显示变量名与长度，不允许显示密钥原文。
 
 ## 安全说明
 

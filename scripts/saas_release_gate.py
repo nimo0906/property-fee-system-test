@@ -9,6 +9,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
 CHECKS = [
+    "scripts/saas_env_security_check.py",
     "scripts/saas_preflight_check.py",
     "scripts/saas_ops_check.py",
     "scripts/saas_acceptance_check.py",

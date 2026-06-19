@@ -13,6 +13,7 @@ REQUIRED_DEPLOY_FILES = (
     "deploy/logrotate/property-saas",
     "scripts/saas_backup.sh",
     "scripts/saas_restore.sh",
+    "scripts/saas_env_security_check.py",
     "scripts/saas_acceptance_check.py",
     "scripts/saas_preflight_check.py",
     "scripts/saas_ops_check.py",

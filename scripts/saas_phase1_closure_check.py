@@ -51,6 +51,7 @@ def main():
         "server/saas_import_pages.py",
         "server/saas_backup_pages.py",
         "server/saas_audit_log_pages.py",
+        "scripts/saas_env_security_check.py",
         "scripts/saas_preflight_check.py",
         "scripts/saas_acceptance_check.py",
         "scripts/saas_ops_check.py",

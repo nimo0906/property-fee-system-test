@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """SaaS commercial release gate assets."""
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -13,11 +14,17 @@ RUNBOOK = ROOT / "docs" / "saas-cloud-ops-runbook.md"
 
 def test_release_gate_script_passes_and_runs_all_required_checks():
     assert SCRIPT.exists()
+    env = os.environ.copy()
+    env.update({
+        "POSTGRES_PASSWORD": "P@ssw0rd-2026-tenant-safe-9c5f1e7b",
+        "APP_SECRET_KEY": "0123456789abcdef0123456789abcdef0123456789abcdef",
+    })
     result = subprocess.run(
-        [sys.executable, str(SCRIPT)], cwd=ROOT, text=True, capture_output=True, check=False, timeout=180
+        [sys.executable, str(SCRIPT)], cwd=ROOT, text=True, capture_output=True, check=False, timeout=180, env=env
     )
     assert result.returncode == 0, result.stdout + result.stderr
     for item in [
+        "RUN scripts/saas_env_security_check.py",
         "RUN scripts/saas_preflight_check.py",
         "RUN scripts/saas_ops_check.py",
         "RUN scripts/saas_acceptance_check.py",

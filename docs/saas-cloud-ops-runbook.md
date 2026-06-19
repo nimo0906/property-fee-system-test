@@ -16,6 +16,8 @@
 在服务器项目目录执行：
 
 ```bash
+# 先在 shell 环境中设置 POSTGRES_PASSWORD 和 APP_SECRET_KEY
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_env_security_check.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_preflight_check.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_acceptance_check.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_ops_check.py
@@ -79,16 +81,17 @@ bash scripts/saas_restore.sh --system-files /var/backups/property-saas/<backup-d
 ## 7. 正式上线顺序
 
 1. 准备 `.env`，不得提交真实密钥。
-2. 执行 `scripts/saas_preflight_check.py`。
-3. 执行 `scripts/saas_ops_check.py`。
-4. 执行 `docker compose up -d`。
-5. 确认 app 仅监听 `127.0.0.1:8000`。
-6. 配置 `deploy/nginx/property-saas.conf` 并完成 HTTPS。
-7. 安装 `deploy/systemd/property-saas.service`。
-8. 安装 `deploy/logrotate/property-saas`。
-9. 执行 `scripts/saas_backup.sh` 和 `scripts/saas_restore.sh --verify-metadata`。
-10. 执行 `scripts/saas_acceptance_check.py`。
-11. 登录 `/backoffice/acceptance`，检查商业后台闭环状态。
+2. 执行 `scripts/saas_env_security_check.py` 做生产环境变量安全检查。
+3. 执行 `scripts/saas_preflight_check.py`。
+4. 执行 `scripts/saas_ops_check.py`。
+5. 执行 `docker compose up -d`。
+6. 确认 app 仅监听 `127.0.0.1:8000`。
+7. 配置 `deploy/nginx/property-saas.conf` 并完成 HTTPS。
+8. 安装 `deploy/systemd/property-saas.service`。
+9. 安装 `deploy/logrotate/property-saas`。
+10. 执行 `scripts/saas_backup.sh` 和 `scripts/saas_restore.sh --verify-metadata`。
+11. 执行 `scripts/saas_acceptance_check.py`。
+12. 登录 `/backoffice/acceptance`，检查商业后台闭环状态。
 
 ## 8. 禁止事项
 
@@ -107,6 +110,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_g
 
 该门禁会顺序执行：
 
+- `scripts/saas_env_security_check.py`
 - `scripts/saas_preflight_check.py`
 - `scripts/saas_ops_check.py`
 - `scripts/saas_acceptance_check.py`
@@ -118,3 +122,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_g
 ## 上线证据报告
 
 商业上线总门禁通过后，执行 `scripts/saas_release_evidence.py` 生成脱敏上线证据报告，报告输出到 `release/saas-release-evidence.md`，用于交付留档。
+
+## 生产环境变量安全检查
+
+执行 `scripts/saas_env_security_check.py` 时只读取当前进程环境变量，不读取、不打印、不提交真实 `.env`。输出只显示变量名和长度，不显示 `POSTGRES_PASSWORD` 或 `APP_SECRET_KEY` 的真实值。
