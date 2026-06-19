@@ -14,6 +14,7 @@ ITEMS = [
     ('P0-7 高风险审计', '审计风险分级、详情脱敏、租户隔离查询。', '/backoffice/audit-logs'),
     ('P0-8 备份恢复', '备份和恢复演练显示操作人、审计链路、隐藏系统路径。', '/backoffice/backups'),
     ('P0-11 商业交付演示', '新租户从空库开始，完成创建项目、收费对象、收费项目、出账、审核、收款、报表、导出、备份恢复演练。', '/backoffice/acceptance'),
+    ('P0-12 最小上线包', '整理部署配置、验收演示、运维备份、上线证据；不提交真实 .env，客户上传数据与系统自身数据隔离。', '/backoffice/deploy-checklist'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -23,6 +24,8 @@ GATES = [
     ('商业交付演示手册', 'docs/saas-commercial-delivery-drill.md'),
     ('商业交付演示脚本', 'scripts/saas_commercial_delivery_drill.py'),
     ('商业交付演示检查', 'scripts/saas_commercial_delivery_drill_check.py'),
+    ('最小上线包清单', 'docs/saas-minimal-launch-package.md'),
+    ('最小上线包检查', 'scripts/saas_minimal_launch_package_check.py'),
 ]
 
 
