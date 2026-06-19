@@ -6,6 +6,7 @@ import csv
 import io
 
 from server.saas_import_activity import display_filename, render_import_activity
+from server.saas_business_templates import render_template_summary, template_csv
 from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
@@ -103,11 +104,11 @@ def _template_rows():
     )
 
 
-def _render_template_page(user):
+def _render_template_page(user, business_template='residential'):
     body = f'''
 <section class="hero"><div><h1>收费对象导入模板</h1><div class="sub">不同公司业务可以不同，但第一版 SaaS 收费对象导入统一使用楼栋 / 区域、单元 / 分区、房号 / 铺位号、类型、面积七个字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>是否必填</th><th>填写说明</th></tr></thead><tbody>{_template_rows()}</tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>
-<section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>'''
+<section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>是否必填</th><th>填写说明</th></tr></thead><tbody>{_template_rows()}</tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/charge-targets.csv?business_template={_h(business_template)}">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>
+<section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>{render_template_summary(business_template)}'''
     return _page('收费对象导入模板', body)
 
 
@@ -192,12 +193,13 @@ def register_import_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/backoffice/imports/templates/charge-targets', response_class=HTMLResponse)
-    def import_template_page(user=Depends(current_user)):
-        return HTMLResponse(_render_template_page(user))
+    def import_template_page(user=Depends(current_user), business_template: str = 'residential'):
+        return HTMLResponse(_render_template_page(user, business_template))
 
     @app.get('/api/imports/templates/charge-targets.csv')
-    def import_template_csv(user=Depends(current_user)):
-        return PlainTextResponse(TEMPLATE_CSV, media_type='text/csv; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="charge_targets_template.csv"'})
+    def import_template_csv(user=Depends(current_user), business_template: str = ''):
+        csv_text = template_csv(business_template) if business_template else TEMPLATE_CSV
+        return PlainTextResponse(csv_text, media_type='text/csv; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="charge_targets_template.csv"'})
 
 
     @app.get('/api/imports/{import_id}/errors.csv')

@@ -42,6 +42,7 @@ ITEMS = [
     ('P0-38 首租户交付验收记录', '实施人员在系统内勾选首租户上线交付项，留存实施人员、客户签收人、备注和完成项摘要。', '/backoffice/first-tenant-acceptance'),
     ('P0-39 首租户验收导出打印', '首租户交付验收记录支持打印版和 HTML 导出，作为客户签收材料留存。', '/backoffice/first-tenant-acceptance'),
     ('P0-40 首租户交付包总览', '把登录、初始化向导、业务闭环、验收记录、打印导出、部署自检、备份恢复、授权绑定集中到实施人员统一入口。', '/backoffice/first-tenant-delivery-package'),
+    ('P0-41 租户业务配置模板', '首租户初始化可选择住宅物业、商业/商铺、园区/办公、混合项目模板，提示字段、收费项目、账单周期和导入样例。', '/backoffice/first-tenant-wizard'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -93,6 +94,7 @@ GATES = [
     ('首租户交付验收记录检查', 'scripts/saas_first_tenant_acceptance_record_check.py'),
     ('首租户验收导出打印检查', 'scripts/saas_first_tenant_acceptance_export_check.py'),
     ('首租户交付包总览检查', 'scripts/saas_first_tenant_delivery_package_check.py'),
+    ('租户业务配置模板检查', 'scripts/saas_tenant_business_template_check.py'),
 ]
 
 
