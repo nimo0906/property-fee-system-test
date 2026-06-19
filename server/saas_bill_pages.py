@@ -6,6 +6,7 @@ import urllib.parse
 
 from server.saas_business_closure import render_business_closure
 from server.saas_repository import TenantScopeError
+from server.saas_fee_rules import calculate_bill_amount
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 
@@ -185,7 +186,7 @@ def register_bill_pages(app, service, repository, current_user):
                 fee = repository.get_fee_type(user['tenant_id'], user['project_id'], fee_type_id)
                 if not target or not fee:
                     raise HTTPException(status_code=404, detail='target or fee type not found')
-                amount = round(float(target['area']) * float(fee['unit_price']), 2)
+                amount = calculate_bill_amount(target, fee)
                 repository.create_bill(user['tenant_id'], user['project_id'], target_id, fee_type_id, billing_period, service_start, service_end, amount, actor_user_id=user['id'])
             else:
                 service.generate_bill(user, user['project_id'], service.targets[target_id], service.fees[fee_type_id], billing_period, service_start, service_end)

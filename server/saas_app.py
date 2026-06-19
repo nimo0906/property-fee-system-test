@@ -115,10 +115,10 @@ def create_app(database_url=None):
         try:
             service._require(user, "write")
             if repository:
-                item = repository.create_fee_type(user["tenant_id"], user["project_id"], data.name, data.unit_price)
-                service._log(user, user["project_id"], 'fee_type.create', 'fee_type', item['id'], {'name': data.name, 'unit_price': float(data.unit_price)})
+                item = repository.create_fee_type(user["tenant_id"], user["project_id"], data.name, data.unit_price, data.billing_mode)
+                service._log(user, user["project_id"], 'fee_type.create', 'fee_type', item['id'], {'name': data.name, 'unit_price': float(data.unit_price), 'billing_mode': item.get('billing_mode')})
             else:
-                item = service.create_fee_type(user, user["project_id"], data.name, data.unit_price)
+                item = service.create_fee_type(user, user["project_id"], data.name, data.unit_price, data.billing_mode)
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")

@@ -4,6 +4,7 @@
 
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
+from server.saas_fee_rules import calculate_bill_amount
 
 
 def register_billing_routes(app, service):
@@ -38,7 +39,7 @@ def register_billing_routes(app, service):
                 item = repository.create_bill(
                     user["tenant_id"], user["project_id"], target["id"], fee["id"],
                     data.billing_period, data.service_start, data.service_end,
-                    round(float(target["area"]) * float(fee["unit_price"]), 2),
+                    calculate_bill_amount(target, fee),
                     actor_user_id=user["id"],
                 )
             else:

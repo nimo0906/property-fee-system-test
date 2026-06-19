@@ -11,7 +11,7 @@ from server.saas_user_pages import _h, _page
 
 def _render_fee_types(user, items, message='', filters=None, page=1, page_size=20, total=0):
     filters = filters or {}
-    rows = ''.join(_row(item) for item in items) or '<tr><td colspan="4">暂无收费项目</td></tr>'
+    rows = ''.join(_row(item) for item in items) or '<tr><td colspan="5">暂无收费项目</td></tr>'
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     can_write = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'frontdesk'}
     form = _create_form() if can_write else '<div class="hint">当前角色只能查看收费项目，不能新增或修改价格规则。</div>'
@@ -21,7 +21,7 @@ def _render_fee_types(user, items, message='', filters=None, page=1, page_size=2
 {notice}
 {render_business_closure('fee_types')}
 {_filter_form(filters, page_size)}
-<section class="grid"><div class="card"><div class="card-h">收费项目列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>收费项目</th><th>单价</th><th>价格配置</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
+<section class="grid"><div class="card"><div class="card-h">收费项目列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>收费项目</th><th>单价</th><th>计费方式</th><th>价格配置</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
 <aside class="card"><div class="card-h">新增收费项目</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收费项目管理', body)
 
@@ -33,8 +33,14 @@ def _money(value):
         return '¥0.00'
 
 
+def _billing_mode_label(mode):
+    return '固定金额' if mode == 'fixed' else '按面积'
+
+
 def _row(item):
-    return f'''<tr><td>{_h(item.get('id'))}</td><td><strong>{_h(item.get('name'))}</strong></td><td>{_h(_money(item.get('unit_price')))}</td><td><span class="badge">基础单价</span><div class="hint">按当前项目统一单价出账</div></td></tr>'''
+    label = _billing_mode_label(item.get('billing_mode'))
+    hint = '每个房间/铺位按固定金额出账' if item.get('billing_mode') == 'fixed' else '按面积 × 单价出账'
+    return f'''<tr><td>{_h(item.get('id'))}</td><td><strong>{_h(item.get('name'))}</strong></td><td>{_h(_money(item.get('unit_price')))}</td><td>{_h(label)}</td><td><span class="badge">{_h(label)}</span><div class="hint">{_h(hint)}</div></td></tr>'''
 
 
 def _filter_form(filters, page_size):
@@ -46,7 +52,7 @@ def _filter_form(filters, page_size):
 
 
 def _create_form():
-    return '''<form method="post" action="/backoffice/fee-types/create"><label>收费项目名称</label><input name="name" required placeholder="例如 物业费 / 水费 / 停车费"><label>单价</label><input name="unit_price" required type="number" step="0.01" min="0" placeholder="例如 2.50"><button class="primary">新增收费项目</button><div class="hint">第一版先按项目维护基础单价，后续再扩展阶梯价和行业差异规则。</div></form>'''
+    return '''<form method="post" action="/backoffice/fee-types/create"><label>收费项目名称</label><input name="name" required placeholder="例如 物业费 / 水费 / 停车费"><label>单价 / 固定金额</label><input name="unit_price" required type="number" step="0.01" min="0" placeholder="例如 2.50"><label>计费方式</label><select name="billing_mode"><option value="area">按面积</option><option value="fixed">固定金额</option></select><button class="primary">新增收费项目</button><div class="hint">基础单价支持两种计费方式：按面积表示 面积 × 单价；固定金额表示每个房间/铺位直接按该金额出账。</div></form>'''
 
 
 def _to_int(value, default):
@@ -131,14 +137,14 @@ def register_fee_type_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/fee-types/create')
-    def create_fee_type_page(name: str = Form(...), unit_price: float = Form(...), user=Depends(current_user)):
+    def create_fee_type_page(name: str = Form(...), unit_price: float = Form(...), billing_mode: str = Form('area'), user=Depends(current_user)):
         try:
             service._require(user, 'write')
             if repository:
-                item = repository.create_fee_type(user['tenant_id'], user['project_id'], name, unit_price)
-                service._log(user, user['project_id'], 'fee_type.create', 'fee_type', item['id'], {'name': name, 'unit_price': float(unit_price)})
+                item = repository.create_fee_type(user['tenant_id'], user['project_id'], name, unit_price, billing_mode)
+                service._log(user, user['project_id'], 'fee_type.create', 'fee_type', item['id'], {'name': name, 'unit_price': float(unit_price), 'billing_mode': item.get('billing_mode')})
             else:
-                service.create_fee_type(user, user['project_id'], name, unit_price)
+                service.create_fee_type(user, user['project_id'], name, unit_price, billing_mode)
             return RedirectResponse('/backoffice/fee-types?message=收费项目已新增', status_code=303)
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')

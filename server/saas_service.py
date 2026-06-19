@@ -3,6 +3,7 @@
 """In-memory SaaS backoffice domain service for first cloud slice tests."""
 
 from server.passwords import hash_password
+from server.saas_fee_rules import normalize_billing_mode
 
 
 class PermissionDenied(Exception):
@@ -141,15 +142,15 @@ class SaasBackofficeService:
         self._log(user if not cross_tenant else target, target_project_id, action, 'user', target_user_id, detail)
         return {'user_id': target_user_id, 'is_active': active_value}
 
-    def create_fee_type(self, user, project_id, name, unit_price):
+    def create_fee_type(self, user, project_id, name, unit_price, billing_mode="area"):
         self._require(user, "write")
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
         fid = self._id()
         fee = {"id": fid, "tenant_id": user["tenant_id"], "project_id": project_id,
-               "name": name, "unit_price": float(unit_price)}
+               "name": name, "unit_price": float(unit_price), "billing_mode": normalize_billing_mode(billing_mode)}
         self.fees[fid] = fee
-        self._log(user, project_id, 'fee_type.create', 'fee_type', fid, {'name': name, 'unit_price': float(unit_price)})
+        self._log(user, project_id, 'fee_type.create', 'fee_type', fid, {'name': name, 'unit_price': float(unit_price), 'billing_mode': fee['billing_mode']})
         return fee
 
     def list_audit_logs(self, user, project_id):

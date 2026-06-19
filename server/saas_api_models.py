@@ -25,6 +25,7 @@ class ProjectSwitchIn(BaseModel):
 class FeeIn(BaseModel):
     name: str
     unit_price: float
+    billing_mode: str = "area"
 
 
 class OwnerIn(BaseModel):

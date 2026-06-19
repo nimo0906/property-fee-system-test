@@ -8,6 +8,7 @@ from server.saas_repository_errors import TenantScopeError
 from server.saas_repository_guards import validate_bill_scope, validate_import_storage_key
 from server.saas_repository_passwords import attach_user_lifecycle_methods
 from server.saas_service import PermissionDenied
+from server.saas_fee_rules import calculate_bill_amount
 
 class SaasRepository:
     def __init__(self, url):
@@ -27,7 +28,7 @@ class SaasRepository:
             "CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,username TEXT NOT NULL,role_code TEXT NOT NULL,password_hash TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,username))",
             "CREATE TABLE IF NOT EXISTS owners(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,phone TEXT,owner_type TEXT NOT NULL DEFAULT '业主')",
             "CREATE TABLE IF NOT EXISTS charge_targets(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,building,unit,room_number))",
-            "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,UNIQUE(tenant_id,project_id,name))",
+            "CREATE TABLE IF NOT EXISTS fee_types(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,billing_mode TEXT NOT NULL DEFAULT 'area',UNIQUE(tenant_id,project_id,name))",
             "CREATE TABLE IF NOT EXISTS bills(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT 'pending_review',UNIQUE(tenant_id,project_id,bill_number))",
             "CREATE TABLE IF NOT EXISTS payments(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key))",
             "CREATE TABLE IF NOT EXISTS imports(id INTEGER PRIMARY KEY AUTOINCREMENT,tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT '{}')",
@@ -38,6 +39,10 @@ class SaasRepository:
         with self.engine.begin() as conn:
             for stmt in stmts:
                 conn.execute(text(stmt))
+            try:
+                conn.execute(text("ALTER TABLE fee_types ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'area'"))
+            except Exception:
+                pass
 
     def _row(self, sql, params):
         with self.engine.begin() as conn:
@@ -104,27 +109,13 @@ class SaasRepository:
     def get_user(self, user_id):
         return self._row("SELECT id,tenant_id,username,role_code,password_hash,is_active FROM users WHERE id=:id", {"id": user_id})
 
-    def create_fee_type(self, tenant_id, project_id, name, unit_price):
-        self._require_project_scope(tenant_id, project_id)
-        with self.engine.begin() as conn:
-            result = conn.execute(text("INSERT INTO fee_types(tenant_id,project_id,name,unit_price) VALUES(:tenant_id,:project_id,:name,:unit_price)"),
-                {"tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price)})
-            return {"id": result.lastrowid, "tenant_id": tenant_id, "project_id": project_id, "name": name, "unit_price": float(unit_price)}
-
-    def get_fee_type(self, tenant_id, project_id, fee_type_id):
-        return self._row("""SELECT id,tenant_id,project_id,name,unit_price FROM fee_types
-            WHERE tenant_id=:tenant_id AND project_id=:project_id AND id=:id""", {"tenant_id": tenant_id, "project_id": project_id, "id": fee_type_id})
-
-    def list_fee_types(self, tenant_id, project_id):
-        self._require_project_scope(tenant_id, project_id)
-        with self.engine.begin() as conn:
-            rows = conn.execute(text("""SELECT id,tenant_id,project_id,name,unit_price FROM fee_types
-                WHERE tenant_id=:tenant_id AND project_id=:project_id ORDER BY id"""), {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
-            return [dict(r) for r in rows]
-
     def create_bill(self, tenant_id, project_id, target_id, fee_type_id, period, service_start, service_end, amount, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
         validate_bill_scope(self, tenant_id, project_id, target_id, fee_type_id)
+        if amount is None:
+            target = self.get_charge_target(tenant_id, project_id, target_id)
+            fee = self.get_fee_type(tenant_id, project_id, fee_type_id)
+            amount = calculate_bill_amount(target, fee)
         with self.engine.begin() as conn:
             bill_number = f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
             result = conn.execute(text("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
@@ -273,7 +264,9 @@ def create_saas_repository(url):
 from server.saas_repository_projects import attach_project_methods
 from server.saas_repository_search import attach_repository_search
 from server.saas_repository_owners import attach_owner_repository_methods
+from server.saas_repository_fee_rules import attach_fee_rule_repository_methods
 attach_project_methods(SaasRepository)
 attach_owner_repository_methods(SaasRepository)
+attach_fee_rule_repository_methods(SaasRepository)
 attach_repository_search(SaasRepository)
 attach_user_lifecycle_methods(SaasRepository)
