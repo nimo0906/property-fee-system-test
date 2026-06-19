@@ -77,7 +77,7 @@ def _render_users(user, items, message='', filters=None, total=0, page=1, page_s
 
 def _render_side_panel(user):
     if user.get('role_code') == 'platform_admin':
-        return '''<aside class="card"><div class="card-h">客户开通</div><div class="card-b"><p class="sub">平台管理员不在这里直接新建客户员工，避免把客户员工建到平台租户。</p><p class="sub">请通过客户开通创建客户公司、默认项目和首个租户管理员，再由租户管理员维护本公司员工。</p><a class="ghost-link" href="/backoffice/tenant-onboarding">进入客户开通</a></div></aside>'''
+        return '''<aside class="card"><div class="card-h">客户开通</div><div class="card-b"><p class="sub">平台账号不承载客户业务数据，不能把客户上传数据放入平台租户。</p><p class="sub">客户员工必须归属具体客户公司；平台管理员不在这里直接新建客户员工，避免把客户员工建到平台租户。</p><p class="sub">跨租户账号操作写入目标租户审计；请通过客户开通创建客户公司、默认项目和首个租户管理员，再由租户管理员维护本公司员工。</p><a class="ghost-link" href="/backoffice/tenant-onboarding">进入客户开通</a></div></aside>'''
     return '''<aside class="card"><div class="card-h">新建员工账号</div><div class="card-b"><form method="post" action="/backoffice/users/create"><label>登录账号</label><input name="username" required placeholder="例如 cashier_01"><label>角色</label><select name="role_code"><option value="cashier">收费员</option><option value="finance">财务</option><option value="frontdesk">客服业务编辑</option><option value="executive">管理层只读</option><option value="system_admin">租户管理员</option></select><button class="primary">创建账号</button><div class="hint">创建后请立即通过左侧“重置密码”设置临时密码，并要求员工首次登录后修改。</div></form></div></aside>'''
 
 

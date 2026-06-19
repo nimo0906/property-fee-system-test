@@ -12,7 +12,7 @@ def _render_onboarding(message=''):
     body = f'''
 <section class="hero"><div><h1>平台客户开通</h1><div class="sub">平台管理员为新客户公司开通租户、默认项目和首个租户管理员。客户业务数据会写入新租户，不与平台自身数据混放。</div></div><div class="badge tenant-scope">平台管理员</div></section>{notice}
 <section class="grid"><div class="card"><div class="card-h">新客户资料</div><div class="card-b"><form method="post" action="/backoffice/tenant-onboarding/create"><label>客户公司 / 租户名称</label><input name="tenant_name" required placeholder="例如 金桥物业"><label>默认项目名称</label><input name="project_name" required placeholder="例如 金桥一期"><label>项目编码</label><input name="project_code" placeholder="例如 JQ-001"><label>租户管理员账号</label><input name="admin_username" required placeholder="例如 tenant_admin_jq"><label>临时密码</label><input type="password" name="admin_password" required minlength="8"><button class="primary">开通客户</button><div class="hint">密码只保存哈希；页面和审计不展示明文。开通后请让客户管理员登录并及时修改密码。</div></form></div></div>
-<aside class="card"><div class="card-h">隔离说明</div><div class="card-b"><p class="sub">开通动作会创建独立 tenant_id、project_id 和 system_admin 账号。</p><p class="sub">后续收费对象、账单、收款、导入和报表都按新租户/项目隔离。</p><a class="ghost-link" href="/backoffice/tenant-projects">查看租户项目</a></div></aside></section>'''
+<aside class="card"><div class="card-h">隔离说明</div><div class="card-b"><p class="sub">新客户必须创建独立 tenant_id，默认项目使用独立 project_id，首个账号只能是该客户的租户管理员。</p><p class="sub">客户上传文件进入租户目录，平台系统配置、日志和备份进入系统目录。</p><p class="sub">后续收费对象、账单、收款、导入和报表都按新租户/项目隔离。</p><a class="ghost-link" href="/backoffice/tenant-projects">查看租户项目</a></div></aside></section>'''
     return _page('平台客户开通', body)
 
 
