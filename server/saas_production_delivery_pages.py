@@ -43,13 +43,18 @@ def delivery_status_summary(root=ROOT):
         and row.get('status') == '自动生成'
         for row in precheck
     )
-    ready = (
-        deploy.get('ok')
-        and not missing
-        and history_count > 0
-        and result_path.exists()
-        and backup_ok
-    )
+    blockers = []
+    if not deploy.get('ok'):
+        blockers.append({'label': '部署资产未通过', 'href': '/backoffice/deploy-checklist'})
+    if missing:
+        blockers.append({'label': '验收证据未补齐', 'href': '/backoffice/production-acceptance'})
+    if history_count == 0:
+        blockers.append({'label': '尚无签收历史', 'href': '/backoffice/production-acceptance/signoff'})
+    if not result_path.exists():
+        blockers.append({'label': '验收留档未生成', 'href': '/backoffice/production-acceptance/signoff'})
+    if not backup_ok:
+        blockers.append({'label': '备份覆盖说明异常', 'href': '/backoffice/backups'})
+    ready = not blockers
     return {
         'deploy_assets': 'PASS' if deploy.get('ok') else 'WARN',
         'evidence_missing_count': len(missing),
@@ -57,11 +62,13 @@ def delivery_status_summary(root=ROOT):
         'acceptance_result_updated_at': updated,
         'backup_coverage': 'PASS' if backup_ok else 'WARN',
         'decision': '可以进入客户签收' if ready else '暂缓客户签收',
+        'blockers': blockers,
     }
 
 
 def _status_summary_card():
     status = delivery_status_summary(ROOT)
+    blocker_rows = _blocker_rows(status['blockers'])
     return f'''
 <section class="card" style="margin-bottom:18px">
   <div class="card-h">交付状态汇总</div>
@@ -74,9 +81,21 @@ def _status_summary_card():
       <tr><th>备份覆盖说明</th><td>{_h(status['backup_coverage'])}</td></tr>
       <tr><th>当前签收建议</th><td>{_h(status['decision'])}</td></tr>
     </tbody></table>
-    <div class="hint">如果显示“暂缓客户签收”，请先补齐缺失证据、生成验收留档、完成签收历史或修复部署资产。</div>
+    <h3>暂缓原因和修复入口</h3>
+    <table><tbody>{blocker_rows}</tbody></table>
+    <div class="hint">如果显示“暂缓客户签收”，请按上方入口补齐证据、生成验收留档、完成签收历史或修复部署资产。</div>
   </div>
 </section>'''
+
+
+def _blocker_rows(blockers):
+    if not blockers:
+        return '<tr><td>无暂缓原因</td><td>可进入客户签收</td></tr>'
+    return ''.join(
+        f'<tr><td>{_h(item.get("label"))}</td>'
+        f'<td><a class="ghost-link" href="{_h(item.get("href"))}">去处理</a></td></tr>'
+        for item in blockers
+    )
 
 
 def _step_rows():
