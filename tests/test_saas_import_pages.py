@@ -90,6 +90,34 @@ class TestSaasImportPages(unittest.TestCase):
             self.assertNotIn('..', files[0]['storage_key'])
             repo.close()
 
+    def test_import_page_shows_recent_uploads_and_import_audit(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            registered = client.post('/backoffice/imports/files/register', data={
+                'original_name': '房间导入.xlsx',
+                'file_size': '4096',
+                'content_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            })
+            self.assertEqual(registered.status_code, 200)
+            preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': CSV_ROWS})
+            import_id = preview.text.split('name="import_id" value="')[1].split('"')[0]
+            confirmed = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id}, follow_redirects=False)
+            self.assertEqual(confirmed.status_code, 303)
+
+            page = client.get('/backoffice/imports')
+            self.assertEqual(page.status_code, 200)
+            html = page.text
+            self.assertIn('最近上传文件', html)
+            self.assertIn('房间导入.xlsx', html)
+            self.assertIn('uploaded', html)
+            self.assertIn('tenants/', html)
+            self.assertIn('最近导入审计', html)
+            self.assertIn('import.confirm', html)
+            self.assertIn('写入 1 行', html)
+            self.assertIn('跳过 2 行', html)
+            self.assertIn('/backoffice/audit-logs', html)
+
     def test_executive_cannot_preview_import(self):
         client = self._client('executive')
         page = client.get('/backoffice/imports')

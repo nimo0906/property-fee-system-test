@@ -4,7 +4,7 @@
 
 import csv
 import io
-from pathlib import PurePosixPath
+from server.saas_import_activity import display_filename, render_import_activity
 
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
@@ -18,25 +18,22 @@ def _parse_csv_rows(csv_text):
     return [dict(row) for row in reader]
 
 
-def _display_filename(value):
-    return PurePosixPath(str(value or '').replace('\\', '/')).name
-
-
 def _render_file_notice(item):
     if not item:
         return ''
-    display_name = _display_filename(item.get('original_name'))
+    display_name = display_filename(item.get('original_name'))
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">文件已登记</div><div class="card-b"><p class="sub">原始文件：{_h(display_name)}</p><p class="sub">存储位置：{_h(item.get('storage_key'))}</p><div class="hint">文件登记只保存租户内存储元数据；后续预览仍需人工确认，不会自动写库。</div></div></section>'''
 
 
-def _render_import_home(user, file_item=None):
+def _render_import_home(user, file_item=None, files=None, logs=None):
     can_import = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'frontdesk'}
     form = _preview_form() if can_import else '<div class="hint">当前角色不能导入，只能查看业务数据。</div>'
     body = f'''
 <section class="hero"><div><h1>数据导入</h1><div class="sub">先预览校验，不直接写库；确认后只导入有效行，错误行不会污染正式数据。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {_render_file_notice(file_item)}
 <section class="grid"><div class="card"><div class="card-h">收费对象导入</div><div class="card-b">{form}</div></div>
-<aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{_upload_form() if can_import else '<div class="hint">当前角色不能登记上传文件。</div>'}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>'''
+<aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{_upload_form() if can_import else '<div class="hint">当前角色不能登记上传文件。</div>'}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>
+{render_import_activity(files, logs)}'''
     return _page('数据导入', body)
 
 
@@ -67,9 +64,19 @@ def register_import_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
     from fastapi.responses import HTMLResponse, RedirectResponse
 
+    def _activity(user):
+        if repository:
+            files = repository.list_import_files(user['tenant_id'], user['project_id'])
+            logs = repository.list_audit_logs(user['tenant_id'], user['project_id'])
+        else:
+            files = []
+            logs = service.list_audit_logs(user, user['project_id'])
+        return files, logs
+
     @app.get('/backoffice/imports', response_class=HTMLResponse)
     def import_page(user=Depends(current_user)):
-        return HTMLResponse(_render_import_home(user))
+        files, logs = _activity(user)
+        return HTMLResponse(_render_import_home(user, files=files, logs=logs))
 
     @app.post('/backoffice/imports/files/register', response_class=HTMLResponse)
     def register_import_file_page(original_name: str = Form(...), file_size: int = Form(...), content_type: str = Form(''), user=Depends(current_user)):
@@ -80,7 +87,8 @@ def register_import_pages(app, service, repository, current_user):
                 item = repository.create_import_file(user['tenant_id'], user['project_id'], 'charge_targets', original_name, storage_key, file_size, content_type)
             else:
                 item = {'id': 1_000_000 + user['id'], 'original_name': original_name, 'storage_key': storage_key}
-            return HTMLResponse(_render_import_home(user, item))
+            files, logs = _activity(user)
+            return HTMLResponse(_render_import_home(user, item, files, logs))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 
@@ -105,7 +113,7 @@ def register_import_pages(app, service, repository, current_user):
                         item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'])
                         service.targets[item['id']] = item
                     service.imports[import_id]['confirmed'] = True
-                    service._log(user, user['project_id'], 'import.confirm', 'import', import_id, {'created_count': review['valid_count'], 'skipped_count': review['error_count']})
+                    repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, {'created_count': review['valid_count'], 'skipped_count': review['error_count']})
             else:
                 service.confirm_charge_target_import(user, user['project_id'], import_id)
             return RedirectResponse('/backoffice/charge-targets?message=导入已确认', status_code=303)
