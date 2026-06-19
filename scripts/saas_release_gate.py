@@ -17,6 +17,7 @@ CHECKS = [
     "scripts/saas_legacy_gap_check.py",
     "scripts/saas_demo_tenant_drill.py",
     "scripts/saas_commercial_readiness_check.py",
+    "scripts/saas_deployment_drill_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]
