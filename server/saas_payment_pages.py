@@ -42,11 +42,12 @@ def _paginate(items, page, page_size):
     return {'total': total, 'page': page, 'page_size': page_size, 'items': items[start:start + page_size]}
 
 
-def _payment_rows(payments):
+def _payment_rows(payments, target_id=''):
     rows = []
     for payment in payments:
         receipt = _h(payment.get('receipt_number'))
-        href = f"/backoffice/payments/{_h(payment.get('id'))}/receipt"
+        suffix = '?' + urlencode({'target_id': target_id}) if target_id else ''
+        href = f"/backoffice/payments/{_h(payment.get('id'))}/receipt{suffix}"
         rows.append(f'''<tr><td><a class="ghost-link" href="{href}">{receipt}</a></td><td>{_h(payment.get('bill_number'))}</td><td>{_h(payment.get('billing_period'))}</td><td>{_h(payment.get('amount_paid'))}</td><td>{_h(payment.get('method'))}</td></tr>''')
     return ''.join(rows) or '<tr><td colspan="5">暂无收款</td></tr>'
 
@@ -79,7 +80,7 @@ def _render_payments(user, result, bills, params, message=''):
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     can_write = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'cashier'}
     form = _create_form(bills, params.get('target_id')) if can_write else '<div class="hint">当前角色只能查看收款，不能登记收款。</div>'
-    rows = _payment_rows(result['items'])
+    rows = _payment_rows(result['items'], params.get('target_id'))
     body = f'''
 <section class="hero"><div><h1>收款登记</h1><div class="sub">登记已审核账单的收款记录，按当前租户和项目隔离。现金、转账、微信/支付宝线下记录都可在这里留痕。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
@@ -90,8 +91,9 @@ def _render_payments(user, result, bills, params, message=''):
     return _page('收款登记', body)
 
 
-def _render_receipt(user, payment):
+def _render_receipt(user, payment, target_id=''):
     target_label = ' '.join(str(payment.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
+    return_href = '/backoffice/payments?' + urlencode({'target_id': target_id}) if target_id else '/backoffice/payments'
     body = f'''
 <style>@media print{{body{{background:#fff}}.shell{{max-width:none;padding:0}}.no-print,.hero{{display:none!important}}.receipt-print-area{{border:0;box-shadow:none}}}}</style>
 <section class="hero"><div><h1>收据详情</h1><div class="sub">当前收据只展示当前公司、当前项目下的收款业务信息，不展示内部数据字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
@@ -106,7 +108,7 @@ def _render_receipt(user, payment):
 <tr><th>金额</th><td>{_h(payment.get('amount_paid'))}</td></tr>
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>
 <tr><th>欠费余额</th><td>{_h(payment.get('unpaid_amount', 0))}</td></tr>
-</tbody></table><div class="actions no-print" style="margin-top:16px"><button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="/backoffice/payments">返回收款列表</a></div></div></section>'''
+</tbody></table><div class="actions no-print" style="margin-top:16px"><button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="{_h(return_href)}">返回收款列表</a></div></div></section>'''
     return _page('收据详情', body)
 
 
@@ -175,13 +177,13 @@ def register_payment_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/backoffice/payments/{payment_id}/receipt', response_class=HTMLResponse)
-    def receipt_page(payment_id: int, user=Depends(current_user)):
+    def receipt_page(payment_id: int, target_id: str = '', user=Depends(current_user)):
         try:
             service._require(user, 'read')
             item = _find_payment(user, payment_id)
             if not item:
                 raise HTTPException(status_code=404, detail='receipt not found')
-            return HTMLResponse(_render_receipt(user, item))
+            return HTMLResponse(_render_receipt(user, item, target_id))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 

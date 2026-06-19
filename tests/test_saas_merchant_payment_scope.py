@@ -80,5 +80,40 @@ class TestSaasMerchantPaymentScope(unittest.TestCase):
             self.assertNotIn(other_bill['bill_number'], result_page.text)
 
 
+    def test_payment_receipt_return_link_preserves_target_scope(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='RECEIPT-101', shop_name='收据目标店', tenant_name='收据目标商户', area=60, unit_price_override=5.0)
+            other = self._create_target(client, room_number='RECEIPT-102', shop_name='收据其他店', tenant_name='收据其他商户', area=30, unit_price_override=2.0)
+            fee = client.post('/api/fee-types', json={'name': '收据范围物业费', 'unit_price': 1.0}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2028-01',
+                'service_start': '2028-01-01', 'service_end': '2028-01-31',
+            }).json()['item']
+            other_bill = client.post('/api/bills/generate', json={
+                'target_id': other['id'], 'fee_type_id': fee['id'], 'billing_period': '2028-01',
+                'service_start': '2028-01-01', 'service_end': '2028-01-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            client.post(f"/api/bills/{other_bill['id']}/approve", json={})
+            payment = client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 100, 'method': 'cash',
+                'idempotency_key': 'MERCHANT-RECEIPT-RETURN-TARGET',
+            }).json()['item']
+
+            list_page = client.get(f"/backoffice/payments?target_id={target['id']}")
+            self.assertEqual(list_page.status_code, 200)
+            receipt_href = f"/backoffice/payments/{payment['id']}/receipt?target_id={target['id']}"
+            self.assertIn(receipt_href, list_page.text)
+
+            receipt_page = client.get(receipt_href)
+            self.assertEqual(receipt_page.status_code, 200)
+            return_href = f"/backoffice/payments?target_id={target['id']}"
+            self.assertIn(return_href, receipt_page.text)
+            result_page = client.get(return_href)
+            self.assertIn(bill['bill_number'], result_page.text)
+            self.assertNotIn(other_bill['bill_number'], result_page.text)
+
+
 if __name__ == '__main__':
     unittest.main()
