@@ -2,6 +2,7 @@ import unittest
 
 from server.saas_password_policy import (
     PASSWORD_MIN_LENGTH,
+    password_policy_summary,
     password_change_error,
     password_length_error,
     password_meets_policy,
@@ -26,6 +27,17 @@ class TestSaasPasswordPolicy(unittest.TestCase):
     def test_password_policy_rejects_same_reset_password(self):
         self.assertEqual(password_reset_error(True), '临时密码不能与当前密码相同')
         self.assertIsNone(password_reset_error(False))
+
+    def test_password_policy_summary_documents_commercial_rules(self):
+        summary = password_policy_summary()
+        self.assertIn('密码策略', summary[0])
+        for text in [
+            '最少 8 位',
+            '个人改密不能与原密码相同',
+            '管理员重置临时密码不能与当前密码相同',
+            '密码不展示在页面、日志或审计明细',
+        ]:
+            self.assertIn(text, summary)
 
 
 if __name__ == '__main__':

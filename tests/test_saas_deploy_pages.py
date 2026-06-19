@@ -55,6 +55,19 @@ class TestSaasDeployPages(unittest.TestCase):
         page = client.get('/backoffice/deploy-checklist')
         self.assertEqual(page.status_code, 401)
 
+    def test_deploy_checklist_shows_password_policy(self):
+        client = self._client('system_admin')
+        page = client.get('/backoffice/deploy-checklist')
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '密码策略',
+            '最少 8 位',
+            '个人改密不能与原密码相同',
+            '管理员重置临时密码不能与当前密码相同',
+            '密码不展示在页面、日志或审计明细',
+        ]:
+            self.assertIn(text, page.text)
+
 
 if __name__ == '__main__':
     unittest.main()
