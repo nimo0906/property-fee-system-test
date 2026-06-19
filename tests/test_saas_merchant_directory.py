@@ -163,6 +163,29 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             self.assertIn('商户账单已生成', result_page.text)
             self.assertIn('D-101', result_page.text)
 
+    def test_merchant_directory_skips_duplicate_bill_generation(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='E-101', shop_name='防重店', tenant_name='防重商户', area=40, unit_price_override=5.0)
+            fee = client.post('/api/fee-types', json={'name': '商户管理费', 'unit_price': 2.0}).json()['item']
+            payload = {
+                'target_id': str(target['id']),
+                'fee_type_id': str(fee['id']),
+                'billing_period': '2027-02',
+                'service_start': '2027-02-01',
+                'service_end': '2027-02-28',
+            }
+
+            first = client.post('/backoffice/merchants/generate-bill', data=payload, follow_redirects=False)
+            second = client.post('/backoffice/merchants/generate-bill', data=payload, follow_redirects=False)
+
+            self.assertEqual(first.status_code, 303)
+            self.assertEqual(second.status_code, 303)
+            bills = client.get('/api/bills?period=2027-02').json()['items']
+            self.assertEqual(len(bills), 1)
+            page = client.get(second.headers['location'])
+            self.assertIn('商户账单已存在，已跳过', page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

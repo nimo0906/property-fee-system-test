@@ -91,6 +91,19 @@ def _target_options(items):
     return ''.join(f'<option value="{_h(item.get("id"))}">{_h(item.get("space_no"))} · {_h(item.get("shop_name") or item.get("merchant_name"))}</option>' for item in items)
 
 
+def _bill_number(tenant_id, project_id, period, target_id, fee_type_id):
+    return f'SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}'
+
+
+def _repository_bill_exists(repository, tenant_id, project_id, period, target_id, fee_type_id):
+    return repository._bill_exists(tenant_id, project_id, _bill_number(tenant_id, project_id, period, target_id, fee_type_id))
+
+
+def _service_bill_exists(service, user, project_id, period, target_id, fee_type_id):
+    bill_number = _bill_number(user['tenant_id'], project_id, period, target_id, fee_type_id)
+    return any(bill.get('bill_number') == bill_number for bill in service.bills.values())
+
+
 def _bill_form(items, fees):
     if not items or not fees:
         return '<div class="hint">请先维护商户档案和收费项目后再生成账单。</div>'
@@ -147,12 +160,16 @@ def register_merchant_directory(app, service, repository, current_user):
                 fee = repository.get_fee_type(user['tenant_id'], user['project_id'], fee_type_id)
                 if not target or target.get('category') not in MERCHANT_CATEGORIES or not fee:
                     raise TenantScopeError('merchant target or fee type not found')
+                if _repository_bill_exists(repository, user['tenant_id'], user['project_id'], billing_period, target_id, fee_type_id):
+                    return RedirectResponse('/backoffice/merchants?message=商户账单已存在，已跳过', status_code=303)
                 repository.create_bill(user['tenant_id'], user['project_id'], target_id, fee_type_id, billing_period, service_start, service_end, calculate_bill_amount(target, fee, service_start, service_end), actor_user_id=user['id'])
             else:
                 target = service.targets.get(target_id)
                 fee = service.fees.get(fee_type_id)
                 if not target or target.get('category') not in MERCHANT_CATEGORIES or not fee:
                     raise PermissionDenied('merchant target or fee type not found')
+                if _service_bill_exists(service, user, user['project_id'], billing_period, target_id, fee_type_id):
+                    return RedirectResponse('/backoffice/merchants?message=商户账单已存在，已跳过', status_code=303)
                 service.generate_bill(user, user['project_id'], target, fee, billing_period, service_start, service_end)
             return RedirectResponse('/backoffice/merchants?message=商户账单已生成', status_code=303)
         except (PermissionDenied, TenantScopeError):
