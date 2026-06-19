@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML payment recording, search, receipt pages for SaaS backoffice."""
 
-from urllib.parse import urlencode
+from urllib.parse import urlencode, quote
 
 from server.saas_business_closure import render_business_closure
 from server.saas_repository import TenantScopeError
@@ -78,7 +78,7 @@ def _pager(result, params):
 def _render_payments(user, result, bills, params, message=''):
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     can_write = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'cashier'}
-    form = _create_form(bills) if can_write else '<div class="hint">当前角色只能查看收款，不能登记收款。</div>'
+    form = _create_form(bills, params.get('target_id')) if can_write else '<div class="hint">当前角色只能查看收款，不能登记收款。</div>'
     rows = _payment_rows(result['items'])
     body = f'''
 <section class="hero"><div><h1>收款登记</h1><div class="sub">登记已审核账单的收款记录，按当前租户和项目隔离。现金、转账、微信/支付宝线下记录都可在这里留痕。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
@@ -132,12 +132,13 @@ def _bill_label(bill):
     return target
 
 
-def _create_form(bills):
+def _create_form(bills, target_id=''):
     unpaid_bills = [bill for bill in bills if bill.get('status') in {'unpaid', 'partial'}]
     if not unpaid_bills:
         return '<div class="hint">请先把账单审核为未收款/部分收款，再登记收款。</div>'
     options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(_bill_label(b))} · {_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(b.get("status"))} · 应收 {_h(b.get("amount"))} · 已收 {_h(b.get("paid_amount", 0))} · 欠费 {_h(b.get("unpaid_amount", b.get("amount")))}</option>' for b in unpaid_bills)
-    return f'''<form method="post" action="/backoffice/payments/create"><label>账单</label><select name="bill_id" required>{options}</select><label>收款金额</label><input name="amount" required type="number" step="0.01" min="0.01" placeholder="例如 100"><label>收款方式</label><input name="method" placeholder="cash / transfer / wechat / alipay"><label>幂等键</label><input name="idempotency_key" placeholder="可选，防重复提交"><button class="primary">登记收款</button><div class="hint">幂等键用于防止重复入账；收款后账单状态会自动变为 partial 或 paid。</div></form>'''
+    target_hidden = f'<input type="hidden" name="target_id" value="{_h(target_id)}">' if target_id else ''
+    return f'''<form method="post" action="/backoffice/payments/create">{target_hidden}<label>账单</label><select name="bill_id" required>{options}</select><label>收款金额</label><input name="amount" required type="number" step="0.01" min="0.01" placeholder="例如 100"><label>收款方式</label><input name="method" placeholder="cash / transfer / wechat / alipay"><label>幂等键</label><input name="idempotency_key" placeholder="可选，防重复提交"><button class="primary">登记收款</button><div class="hint">幂等键用于防止重复入账；收款后账单状态会自动变为 partial 或 paid。</div></form>'''
 
 
 def register_payment_pages(app, service, repository, current_user):
@@ -185,14 +186,15 @@ def register_payment_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/payments/create')
-    def create_payment_page(bill_id: int = Form(...), amount: float = Form(...), method: str = Form(''), idempotency_key: str = Form(''), user=Depends(current_user)):
+    def create_payment_page(bill_id: int = Form(...), amount: float = Form(...), method: str = Form(''), idempotency_key: str = Form(''), target_id: str = Form(''), user=Depends(current_user)):
         try:
             service._require(user, 'payment')
             if repository:
                 repository.create_payment(user['tenant_id'], user['project_id'], bill_id, amount, method, idempotency_key or None, actor_user_id=user['id'])
             else:
                 service.record_payment(user, bill_id, amount, method, idempotency_key or None)
-            return RedirectResponse('/backoffice/payments?message=收款已登记', status_code=303)
+            suffix = f'&target_id={quote(str(target_id))}' if str(target_id or '').strip() else ''
+            return RedirectResponse('/backoffice/payments?message=收款已登记' + suffix, status_code=303)
         except TenantScopeError:
             raise HTTPException(status_code=403, detail='forbidden')
         except PermissionDenied as exc:
