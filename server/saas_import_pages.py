@@ -6,6 +6,7 @@ import csv
 import io
 
 from server.saas_import_activity import display_filename, render_import_activity
+from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
@@ -153,7 +154,8 @@ def _render_confirm_result(user, import_id, result, already_confirmed=False):
             f'<section class="card"><div class="card-h">导入批次摘要</div><div class="card-b">'
             f'<p><strong>批次 ID：{_h(import_id)}</strong></p>'
             f'<p>成功导入：{str(result.get("created_count", 0))}</p>'
-            f'<p>跳过错误：{str(result.get("skipped_count", 0))}</p>{note}'
+            f'<p>跳过错误：{str(result.get("skipped_count", 0))}</p>'
+            f'<p>重复跳过：{str(result.get("duplicate_skipped_count", 0))}</p>{note}'
             f'<div class="actions"><a class="ghost-link" href="/backoffice/charge-targets">查看收费对象</a>'
             f'<a class="ghost-link" href="/backoffice/imports">继续导入</a></div></div></section>')
     return _page('导入结果', body)
@@ -243,18 +245,25 @@ def register_import_pages(app, service, repository, current_user):
                 review = service.get_import_review(user, user['project_id'], import_id)
                 already_confirmed = bool(review['confirmed'])
                 if already_confirmed:
-                    result = {'created_count': 0, 'skipped_count': review['error_count']}
+                    result = {'created_count': 0, 'skipped_count': review['error_count'], 'duplicate_skipped_count': 0}
                 else:
-                    for row in review['valid_rows']:
+                    rows_to_create, duplicate_rows = split_new_and_duplicates(
+                        review['valid_rows'], repository.list_charge_targets(user['tenant_id'], user['project_id'])
+                    )
+                    duplicate_skipped = len(duplicate_rows)
+                    created = owner_created = 0
+                    for row in rows_to_create:
                         owner_id = int(row.get('owner_id') or 0)
                         if row.get('owner_name'):
                             owner = repository.create_owner(user['tenant_id'], user['project_id'], row['owner_name'], row.get('owner_phone', ''), row.get('owner_type', '业主'))
                             owner_id = owner['id']
-                        item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'], owner_id)
+                        item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'], owner_id, row.get('unit_price_override'))
                         service.targets[item['id']] = item
+                        created += 1
                     service.imports[import_id]['confirmed'] = True
-                    repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, {'created_count': review['valid_count'], 'skipped_count': review['error_count']})
-                    result = {'created_count': review['valid_count'], 'skipped_count': review['error_count']}
+                    skipped_total = review['error_count'] + duplicate_skipped
+                    repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped})
+                    result = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped}
             else:
                 before = service.get_import_review(user, user['project_id'], import_id)
                 already_confirmed = bool(before['confirmed'])

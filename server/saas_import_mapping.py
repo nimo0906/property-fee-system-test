@@ -3,6 +3,7 @@
 """Legacy rooms/owners import mapping for SaaS charge targets."""
 
 from server.saas_service import PermissionDenied
+from server.saas_import_duplicates import split_new_and_duplicates
 
 FIELD_ALIASES = {
     "building": ("building", "楼栋/区域", "楼栋", "区域"),
@@ -96,8 +97,10 @@ def attach_import_mapping_methods(cls):
             if imp.get("owner_created_count"):
                 result["owner_created_count"] = 0
             return result
-        created = owner_created = 0
-        for row in imp["valid_rows"]:
+        created = owner_created = duplicate_skipped = 0
+        rows_to_create, duplicate_rows = split_new_and_duplicates(imp["valid_rows"], self.list_charge_targets(user, project_id))
+        duplicate_skipped = len(duplicate_rows)
+        for row in rows_to_create:
             owner_id = int(row.get("owner_id") or 0)
             if row.get("owner_name"):
                 owner = self.create_owner(user, project_id, row["owner_name"], row.get("owner_phone", ""), row.get("owner_type", "业主"))
@@ -107,8 +110,11 @@ def attach_import_mapping_methods(cls):
             created += 1
         imp["confirmed"] = True
         imp["owner_created_count"] = owner_created
-        self._log(user, project_id, 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': len(imp['errors']), 'owner_created_count': owner_created})
-        result = {"created_count": created, "skipped_count": len(imp["errors"])}
+        skipped_total = len(imp["errors"]) + duplicate_skipped
+        self._log(user, project_id, 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created})
+        result = {"created_count": created, "skipped_count": skipped_total}
+        if duplicate_skipped:
+            result["duplicate_skipped_count"] = duplicate_skipped
         if owner_created:
             result["owner_created_count"] = owner_created
         return result

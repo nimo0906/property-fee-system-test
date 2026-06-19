@@ -7,6 +7,7 @@ from server.saas_service import PermissionDenied, SaasBackofficeService
 from server.saas_repository import create_saas_repository
 from server.saas_repository_errors import TenantScopeError
 from server.saas_storage import SaasStorage
+from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_auth_api import build_auth_dependencies, register_auth_routes
 from server.saas_page_registry import register_saas_pages
 from server.passwords import verify_password
@@ -167,9 +168,13 @@ def create_app(database_url=None):
                 service._require(user, "import")
                 review = service.get_import_review(user, user["project_id"], data.import_id)
                 if review["confirmed"]:
-                    return {"created_count": 0, "skipped_count": review["error_count"]}
+                    return {"created_count": 0, "skipped_count": review["error_count"], "duplicate_skipped_count": 0}
                 created = owner_created = 0
-                for row in review["valid_rows"]:
+                rows_to_create, duplicate_rows = split_new_and_duplicates(
+                    review["valid_rows"], repository.list_charge_targets(user["tenant_id"], user["project_id"])
+                )
+                duplicate_skipped = len(duplicate_rows)
+                for row in rows_to_create:
                     owner_id = int(row.get("owner_id") or 0)
                     if row.get("owner_name"):
                         owner = repository.create_owner(user["tenant_id"], user["project_id"], row["owner_name"], row.get("owner_phone", ""), row.get("owner_type", "业主"))
@@ -177,19 +182,22 @@ def create_app(database_url=None):
                         owner_created += 1
                     item = repository.create_charge_target(
                         user["tenant_id"], user["project_id"], row["building"], row.get("unit", ""),
-                        row["room_number"], row.get("category", "居民"), row["area"], owner_id
+                        row["room_number"], row.get("category", "居民"), row["area"], owner_id, row.get("unit_price_override")
                     )
                     service.targets[item["id"]] = item
                     created += 1
                 service.imports[data.import_id]["confirmed"] = True
                 service.imports[data.import_id]["owner_created_count"] = owner_created
-                detail = {'created_count': created, 'skipped_count': review['error_count'], 'owner_created_count': owner_created}
+                skipped_total = review['error_count'] + duplicate_skipped
+                detail = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created}
                 service._log(user, user["project_id"], 'import.confirm', 'import', data.import_id, detail)
-                result = {"created_count": created, "skipped_count": review["error_count"]}
+                result = {"created_count": created, "skipped_count": skipped_total, "duplicate_skipped_count": duplicate_skipped}
                 if owner_created:
                     result["owner_created_count"] = owner_created
                 return result
-            return service.confirm_charge_target_import(user, user["project_id"], data.import_id)
+            result = service.confirm_charge_target_import(user, user["project_id"], data.import_id)
+            result.setdefault("duplicate_skipped_count", 0)
+            return result
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
@@ -289,6 +297,4 @@ def create_app(database_url=None):
         return build_saas_migration_plan(tenant_name, project_name)
 
     return app
-
-
 app = create_app()
