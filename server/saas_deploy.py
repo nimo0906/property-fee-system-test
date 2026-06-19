@@ -72,6 +72,7 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_production_runtime_check.py",
     "scripts/saas_production_first_tenant_smoke.py",
     "scripts/saas_production_acceptance_gate.py",
+    "scripts/saas_production_acceptance_result.py",
     "scripts/build_saas_formal_launch_report.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",

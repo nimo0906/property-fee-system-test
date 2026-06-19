@@ -62,6 +62,7 @@ ITEMS = [
     ('P0-58 生产运行状态自检', '服务启动后检查 Docker Compose、systemd、健康接口、登录页、本机端口、Nginx 和日志目录可写。', '/backoffice/deploy-checklist'),
     ('P0-59 首租户业务冒烟', '生产启动后用首租户跑登录、收费对象、收费项目、出账、收款、报表、导出和租户隔离最小业务闭环。', '/backoffice/deploy-checklist'),
     ('P0-60 生产一键验收总入口', '串联 .env 现场校验、生产预检、运行状态、首租户业务冒烟、隔离证据和上线证据报告，减少现场漏跑。', '/backoffice/deploy-checklist'),
+    ('P0-61 生产验收结果留档', '生成脱敏生产验收结果文件，记录执行人、服务器域名、检查项结果、首租户冒烟、租户隔离和签收位置。', '/backoffice/deploy-checklist'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -133,6 +134,7 @@ GATES = [
     ('生产运行状态自检', 'scripts/saas_production_runtime_check.py'),
     ('首租户业务冒烟检查', 'scripts/saas_production_first_tenant_smoke.py'),
     ('生产一键验收总入口', 'scripts/saas_production_acceptance_gate.py'),
+    ('生产验收结果留档', 'scripts/saas_production_acceptance_result.py'),
 ]
 
 

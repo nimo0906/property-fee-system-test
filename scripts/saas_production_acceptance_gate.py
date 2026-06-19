@@ -42,6 +42,7 @@ def plan(dry_run, local_testclient, env_file, base_url):
         ('saas_production_first_tenant_smoke.py', smoke_args),
         ('saas_isolation_evidence.py', []),
         ('saas_release_evidence.py', []),
+        ('saas_production_acceptance_result.py', []),
     ]
 
 

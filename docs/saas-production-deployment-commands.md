@@ -115,3 +115,13 @@ PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_accept
 ```
 
 该入口串联 `.env` 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据和上线证据报告。失败即停止交付。
+
+## 生产验收结果留档
+
+一键验收完成后生成：`release/saas-production-acceptance-result.md`。该文件记录执行人、服务器域名、检查项 PASS/FAIL、首租户业务冒烟、租户隔离、备份/证据文件位置、客户签收人和实施人员签字，不包含生产密钥或客户真实数据。
+
+可单独执行：
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_acceptance_result.py --operator "实施人员手填" --domain your-domain.example.com
+```
