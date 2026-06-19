@@ -29,7 +29,7 @@ def register_saas_pages(app, service, repository, current_user, sessions, sessio
     register_tenant_onboarding_pages(app, service, repository, current_user)
     register_deploy_pages(app, current_user)
     register_data_boundary_pages(app, current_user, service, repository)
-    register_acceptance_pages(app, current_user)
+    register_acceptance_pages(app, current_user, service, repository)
     register_change_password_pages(app, service, repository, session_user or current_user)
     register_user_pages(app, service, repository, current_user, sessions)
     register_charge_target_pages(app, service, repository, current_user)
