@@ -6,6 +6,7 @@ from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
 from server.saas_csv_export import bill_export_rows, csv_content, payment_export_rows
+from server.saas_payment_pages import _filter_payments
 
 
 def register_billing_routes(app, service):
@@ -147,24 +148,24 @@ def register_billing_routes(app, service):
             raise HTTPException(status_code=403, detail="forbidden")
 
     @app.get("/api/exports/payments")
-    def export_payments(period: str = "", target_id: str = "", user=Depends(current_user)):
+    def export_payments(keyword: str = "", period: str = "", method: str = "", amount_min: str = "", amount_max: str = "", target_id: str = "", user=Depends(current_user)):
         try:
             if repository:
-                result = repository.search_payments(user["tenant_id"], user["project_id"], "", period or None, 1, 10000)
-                items = result["items"]
+                result = repository.search_payments(user["tenant_id"], user["project_id"], keyword or "", period or None, 1, 10000)
+                items = _filter_payments(result["items"], method, amount_min, amount_max)
                 if str(target_id or '').strip():
                     bill_ids = {int(bill.get('id')) for bill in repository.list_bills(user["tenant_id"], user["project_id"]) if int(bill.get('charge_target_id') or 0) == int(target_id)}
                     items = [item for item in items if int(item.get('bill_id') or 0) in bill_ids]
                 headers, rows = payment_export_rows(items)
                 content = csv_content(headers, rows)
                 return {"filename": f"payments-{period or 'all'}.csv", "content": content}
-            result = service.export_payments(user, user["project_id"], period or None)
+            payments = service.search_payments(user, user["project_id"], keyword or "", period or None, 1, 10000)["items"]
+            items = _filter_payments(payments, method, amount_min, amount_max)
             if str(target_id or '').strip():
                 bill_ids = {int(bill.get('id')) for bill in service.list_bills(user, user["project_id"]) if int(bill.get('charge_target_id') or 0) == int(target_id)}
-                payments = service.search_payments(user, user["project_id"], "", period or None, 1, 10000)["items"]
-                headers, rows = payment_export_rows([item for item in payments if int(item.get('bill_id') or 0) in bill_ids])
-                result = {"filename": f"payments-{period or 'all'}.csv", "content": csv_content(headers, rows)}
-            return result
+                items = [item for item in items if int(item.get('bill_id') or 0) in bill_ids]
+            headers, rows = payment_export_rows(items)
+            return {"filename": f"payments-{period or 'all'}.csv", "content": csv_content(headers, rows)}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
 

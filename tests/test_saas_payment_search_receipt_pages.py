@@ -1,3 +1,4 @@
+import html
 import tempfile
 import unittest
 from pathlib import Path
@@ -66,6 +67,31 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
             self.assertIn('cash', filtered.text)
             self.assertNotIn('transfer', filtered.text)
             self.assertNotIn('2026-09', filtered.text)
+
+
+    def test_payment_export_preserves_and_applies_current_filters(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            bill_101 = self._create_paid_bill(client, '101', '2026-08', 100, 'cash', 'PAY-EXPORT-FILTER-1')
+            bill_102 = self._create_paid_bill(client, '102', '2026-08', 200, 'transfer', 'PAY-EXPORT-FILTER-2')
+            bill_103 = self._create_paid_bill(client, '103', '2026-09', 100, 'cash', 'PAY-EXPORT-FILTER-3')
+
+            page = client.get(
+                f"/backoffice/payments?keyword={quote(bill_101['bill_number'])}&period=2026-08&method=cash&amount_min=90&amount_max=120"
+            )
+            self.assertEqual(page.status_code, 200)
+            expected_href = (
+                f"/api/exports/payments?keyword={quote(bill_101['bill_number'])}"
+                "&period=2026-08&method=cash&amount_min=90&amount_max=120"
+            )
+            self.assertIn(html.escape(expected_href, quote=True), page.text)
+
+            exported = client.get(expected_href)
+            self.assertEqual(exported.status_code, 200)
+            content = exported.json()['content']
+            self.assertIn(bill_101['bill_number'], content)
+            self.assertNotIn(bill_102['bill_number'], content)
+            self.assertNotIn(bill_103['bill_number'], content)
 
     def test_receipt_detail_is_tenant_scoped_and_hides_internal_ids_and_secrets(self):
         with tempfile.TemporaryDirectory() as td:
