@@ -58,6 +58,8 @@ def delivery_status_summary(root=ROOT):
         'backup_coverage': 'PASS' if backup_ok else 'WARN',
         'decision': '可以进入客户签收' if ready else '暂缓客户签收',
         'blockers': blockers,
+        'ready_message': '可签收检查清单已满足' if ready else '',
+        'primary_action': {'label': '进入客户签收', 'href': '/backoffice/production-acceptance/signoff'} if ready else {},
     }
 
 
@@ -78,6 +80,8 @@ def _missing_evidence_blockers(missing):
 def _status_summary_card():
     status = delivery_status_summary(ROOT)
     blocker_rows = _blocker_rows(status['blockers'])
+    ready_cta = _ready_cta(status)
+    blocker_hint = _blocker_hint(status['blockers'])
     return f'''
 <section class="card" style="margin-bottom:18px">
   <div class="card-h">交付状态汇总</div>
@@ -90,11 +94,28 @@ def _status_summary_card():
       <tr><th>备份覆盖说明</th><td>{_h(status['backup_coverage'])}</td></tr>
       <tr><th>当前签收建议</th><td>{_h(status['decision'])}</td></tr>
     </tbody></table>
+    {ready_cta}
     <h3>暂缓原因和修复入口</h3>
     <table><tbody>{blocker_rows}</tbody></table>
-    <div class="hint">如果显示“暂缓客户签收”，请按上方入口补齐证据、生成验收留档、完成签收历史或修复部署资产。</div>
+    {blocker_hint}
   </div>
 </section>'''
+
+
+def _blocker_hint(blockers):
+    if not blockers:
+        return '<div class="hint">当前没有暂缓原因，可进入客户签收并留档。</div>'
+    return '<div class="hint">如果显示“暂缓客户签收”，请按上方入口补齐证据、生成验收留档、完成签收历史或修复部署资产。</div>'
+
+
+def _ready_cta(status):
+    action = status.get('primary_action') or {}
+    if not action:
+        return ''
+    return (
+        f'<div class="success-box"><strong>{_h(status.get("ready_message"))}</strong>'
+        f'<p><a class="ghost-link" href="{_h(action.get("href"))}">{_h(action.get("label"))}</a></p></div>'
+    )
 
 
 def _blocker_rows(blockers):

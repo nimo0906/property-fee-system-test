@@ -76,6 +76,7 @@ ITEMS = [
     ('P0-72 生产交付修复入口', '生产交付总览在暂缓签收时列出具体原因，并给出部署自检、验收证据、签收表和备份恢复等修复入口。', '/backoffice/production-delivery'),
     ('P0-73 生产交付证据刷新动作', '生产交付总览显示租户隔离证据、上线证据、生产验收留档和生产总门禁的现场刷新命令。', '/backoffice/production-delivery'),
     ('P0-74 生产交付缺失证据明细', '生产交付总览在暂缓签收时逐项列出缺少的验收留档、上线证据、隔离证据和签收历史。', '/backoffice/production-delivery'),
+    ('P0-75 生产交付可签收主入口', '生产交付总览在全部检查满足时显示可签收检查清单已满足，并提供进入客户签收主入口。', '/backoffice/production-delivery'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -161,6 +162,7 @@ GATES = [
     ('生产交付修复入口检查', 'scripts/saas_production_delivery_action_links_check.py'),
     ('生产交付证据刷新动作检查', 'scripts/saas_production_delivery_refresh_actions_check.py'),
     ('生产交付缺失证据明细检查', 'scripts/saas_production_delivery_missing_evidence_details_check.py'),
+    ('生产交付可签收主入口检查', 'scripts/saas_production_delivery_ready_cta_check.py'),
 ]
 
 
