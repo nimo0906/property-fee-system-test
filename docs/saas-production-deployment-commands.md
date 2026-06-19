@@ -73,6 +73,7 @@ PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_env_fi
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_precheck.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_release_gate.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_runtime_check.py --dry-run
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_first_tenant_smoke.py --dry-run
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_isolation_evidence.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_release_evidence.py
 ```
@@ -98,3 +99,11 @@ bash scripts/saas_restore.sh --verify-metadata /var/backups/property-saas/<backu
 - `/login` 不可达或 HTTPS 未完成。
 - 客户上传数据与系统自身数据隔离不符合约定。
 - 上线门禁、隔离证据、备份恢复任一检查失败。
+
+## 10. 首租户业务冒烟
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_first_tenant_smoke.py --base-url https://your-domain.example.com
+```
+
+该冒烟只使用测试租户和测试账期，覆盖登录、收费对象、收费项目、出账、收款、报表、导出、租户隔离，不导入真实客户数据。

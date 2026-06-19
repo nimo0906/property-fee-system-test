@@ -112,3 +112,13 @@ PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_runtim
 ```
 
 该检查覆盖 `docker compose ps`、`systemctl is-active property-saas`、`curl -fsS http://127.0.0.1:8000/health`、公网登录页、Nginx 配置、本机端口绑定和日志目录可写。
+
+## 首租户业务冒烟
+
+生产服务启动并通过运行状态自检后执行：
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_first_tenant_smoke.py --base-url https://your-domain.example.com
+```
+
+该检查覆盖登录、收费对象、收费项目、出账、收款、报表、导出、租户隔离，只使用测试租户，不混入真实客户数据。

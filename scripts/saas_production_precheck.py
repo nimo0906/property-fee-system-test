@@ -21,6 +21,7 @@ REQUIRED_ASSETS = [
     'scripts/saas_production_deployment_commands_check.py',
     'scripts/saas_production_env_file_check.py',
     'scripts/saas_production_runtime_check.py',
+    'scripts/saas_production_first_tenant_smoke.py',
     'scripts/saas_isolation_evidence.py', 'scripts/saas_license_binding_backup_check.py',
     'docs/saas-production-precheck.md', 'docs/saas-production-deployment-commands.md',
     'release/saas-release-evidence.md',

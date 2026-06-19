@@ -60,6 +60,7 @@ ITEMS = [
     ('P0-56 生产部署实施命令', '面向通用 Linux/VPS 补齐 .env、Docker Compose、systemd、Nginx、健康检查、登录检查和上线门禁的实施命令清单。', '/backoffice/deploy-checklist'),
     ('P0-57 生产.env现场校验', '服务器部署时校验真实 .env 文件存在、权限安全、必填项齐全、密钥非占位值，并且不打印密钥原文。', '/backoffice/deploy-checklist'),
     ('P0-58 生产运行状态自检', '服务启动后检查 Docker Compose、systemd、健康接口、登录页、本机端口、Nginx 和日志目录可写。', '/backoffice/deploy-checklist'),
+    ('P0-59 首租户业务冒烟', '生产启动后用首租户跑登录、收费对象、收费项目、出账、收款、报表、导出和租户隔离最小业务闭环。', '/backoffice/deploy-checklist'),
 ]
 GATES = [
     ('租户隔离证据', 'scripts/saas_isolation_evidence.py'),
@@ -129,6 +130,7 @@ GATES = [
     ('生产部署实施命令检查', 'scripts/saas_production_deployment_commands_check.py'),
     ('生产.env现场校验检查', 'scripts/saas_production_env_file_check.py'),
     ('生产运行状态自检', 'scripts/saas_production_runtime_check.py'),
+    ('首租户业务冒烟检查', 'scripts/saas_production_first_tenant_smoke.py'),
 ]
 
 
