@@ -13,7 +13,9 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_acceptance_check.py",
     "scripts/saas_preflight_check.py",
     "scripts/saas_ops_check.py",
+    "scripts/saas_phase1_closure_check.py",
     "docs/saas-cloud-ops-runbook.md",
+    "docs/saas-phase-1-closure-report.md",
 )
 
 

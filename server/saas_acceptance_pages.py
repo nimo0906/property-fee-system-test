@@ -104,7 +104,7 @@ def _render(user, status, period):
     readonly = '<span class="badge">只读验收清单</span>' if user.get('role_code') not in {'system_admin', 'platform_admin'} else '<span class="badge">管理员验收</span>'
     body = f'''
 <section class="hero"><div><h1>SaaS 商业后台验收</h1><div class="sub">用于正式商业版上线前，把员工后台完整闭环逐项走通：创建项目、导入/录入收费对象、配置收费项目、生成账单、审核账单、登记收款、对账报表、审计日志、备份恢复和租户隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card" style="margin-bottom:18px"><div class="card-b"><strong>当前角色：</strong>{_h(role_label)} {readonly}<div class="hint">自动验收命令：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_acceptance_check.py</code></div></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-b"><strong>当前角色：</strong>{_h(role_label)} {readonly}<div class="hint">自动验收命令：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_acceptance_check.py</code></div><div class="hint">第一阶段收口：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_phase1_closure_check.py</code> · 文档 <code>docs/saas-phase-1-closure-report.md</code></div></div></section>
 {_render_status(status, period)}
 <section class="card"><div class="card-h">验收步骤</div><div class="card-b"><table><thead><tr><th>验收项</th><th>入口</th><th>通过标准</th></tr></thead><tbody>{_step_rows()}</tbody></table></div></section>
 <section class="card" style="margin-top:18px"><div class="card-h">密码策略</div><div class="card-b"><ul>{_policy_items()}</ul></div></section>
