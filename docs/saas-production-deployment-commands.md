@@ -61,6 +61,7 @@ sudo logrotate -d /etc/logrotate.d/property-saas
 ```bash
 curl -fsS http://127.0.0.1:8000/health
 curl -fsS https://your-domain.example.com/login
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_runtime_check.py
 ```
 
 第一条检查本机 app 健康状态；第二条检查公网域名、HTTPS、Nginx 反向代理和登录页可达性。
@@ -71,6 +72,7 @@ curl -fsS https://your-domain.example.com/login
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_env_file_check.py --env-file .env
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_precheck.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_release_gate.py
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_runtime_check.py --dry-run
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_isolation_evidence.py
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_release_evidence.py
 ```

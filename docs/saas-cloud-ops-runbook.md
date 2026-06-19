@@ -136,3 +136,13 @@ PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_env_fi
 ```
 
 该检查确认真实 `.env` 存在、权限建议为 `chmod 600 .env`、必填项齐全、密钥不是占位值，并且不打印密钥原文。
+
+## 生产运行状态自检
+
+服务启动后执行：
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_runtime_check.py
+```
+
+该检查覆盖 `docker compose ps`、`systemctl is-active property-saas`、`curl -fsS http://127.0.0.1:8000/health`、公网登录页、Nginx 配置、本机端口绑定和日志目录可写。

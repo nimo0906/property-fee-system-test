@@ -8,6 +8,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
+CHECK_ARGS = {"scripts/saas_production_runtime_check.py": ["--dry-run"]}
+
 CHECKS = [
     "scripts/saas_env_security_check.py",
     "scripts/saas_preflight_check.py",
@@ -65,6 +67,7 @@ CHECKS = [
     "scripts/saas_systemd_env_file_check.py",
     "scripts/saas_production_deployment_commands_check.py",
     "scripts/saas_production_env_file_check.py",
+    "scripts/saas_production_runtime_check.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
 ]
@@ -73,7 +76,7 @@ CHECKS = [
 def run_check(script):
     print(f"RUN {script}")
     result = subprocess.run(
-        [PYTHON, str(ROOT / script)],
+        [PYTHON, str(ROOT / script), *CHECK_ARGS.get(script, [])],
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,
