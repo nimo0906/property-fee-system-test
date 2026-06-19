@@ -30,6 +30,6 @@ if [ -f "$backup_dir/system-files/system_files.tar.gz" ]; then
 fi
 
 cat > "$backup_dir/metadata.json" <<JSON
-{"kind":"property-saas-backup","created_at":"$ts","database":"db/property_saas.sql","tenant_files":"tenant-files/customer_files.tar.gz","system_files":"system-files/system_files.tar.gz","checksums":"checksums.sha256"}
+{"kind":"property-saas-backup","created_at":"$ts","database":"db/property_saas.sql","tenant_files":"tenant-files/customer_files.tar.gz","system_files":"system-files/system_files.tar.gz","acceptance_records":"first_tenant_acceptance/records.json","checksums":"checksums.sha256"}
 JSON
 printf 'backup created: %s\n' "$backup_dir"
