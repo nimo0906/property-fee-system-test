@@ -57,7 +57,7 @@ def test_printable_acceptance_record_contains_signature_blocks_and_print_css():
         '实施顾问A',
         '客户负责人B',
         '打印版验收记录',
-        '11 / 11',
+        '11 / 15',
         '客户签字',
         '实施人员签字',
         '签收日期',

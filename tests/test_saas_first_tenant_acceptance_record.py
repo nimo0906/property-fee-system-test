@@ -61,7 +61,7 @@ def test_acceptance_record_submit_persists_in_memory_page_without_sensitive_valu
         ],
     }, follow_redirects=True)
     assert response.status_code == 200
-    for text in ['验收记录已保存', '实施顾问A', '客户负责人B', '首租户上线验收完成', '11 / 11']:
+    for text in ['验收记录已保存', '实施顾问A', '客户负责人B', '首租户上线验收完成', '11 / 15']:
         assert text in response.text
     for hidden in ['tenant_id', 'project_id', 'POSTGRES_PASSWORD', 'APP_SECRET_KEY']:
         assert hidden not in response.text

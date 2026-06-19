@@ -57,6 +57,7 @@ REQUIRED_DEPLOY_FILES = (
     "scripts/saas_tenant_business_config_page_check.py",
     "scripts/saas_fee_type_template_init_check.py",
     "scripts/saas_first_tenant_fee_init_delivery_check.py",
+    "scripts/saas_first_tenant_acceptance_fee_review_check.py",
     "scripts/build_saas_formal_launch_report.py",
     "scripts/saas_isolation_evidence.py",
     "scripts/saas_release_evidence.py",
