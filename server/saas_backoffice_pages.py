@@ -40,6 +40,7 @@ def _backoffice_home(user, license_service=None, service=None, repository=None):
         tenant_admin_card, onboarding_card, first_wizard_card, delivery_package_card, tenant_project_card, business_config_card, user_card,
         _module_card('授权运维', '平台管理员查看租户授权状态、席位使用、到期时间和超限风险。', '/backoffice/license-ops' if user.get('role_code') == 'platform_admin' else None, '授权运维仅平台管理员可用'),
         _module_card('收费对象', '维护楼栋/区域、单元/分区、房号/铺位号等收费对象。', '/backoffice/charge-targets'),
+        _module_card('商户档案', '维护商户/商业铺位的铺位号、店名、承租人、电话、面积、独立单价和缴费周期。', '/backoffice/merchants'),
         _module_card('收费项目', '配置物业费、水费、停车费等收费项目和价格规则。', '/backoffice/fee-types'),
         _module_card('出账收款 / 出账审核', '生成账单、审核账单、按账期和状态查询应收。', '/backoffice/bills'),
         _module_card('收款登记', '登记收款、查看收据号和收款流水。', '/backoffice/payments'),
