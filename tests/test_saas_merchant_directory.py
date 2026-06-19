@@ -213,6 +213,38 @@ class TestSaasMerchantDirectory(unittest.TestCase):
             page_again = client.get(second.headers['location'])
             self.assertIn('商户批量出账：新增 0 笔，跳过 2 笔', page_again.text)
 
+    def test_merchant_directory_shows_bill_count_and_arrears_balance(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='AR-101', shop_name='欠费店', tenant_name='欠费商户', area=80, unit_price_override=4.0)
+            fee = client.post('/api/fee-types', json={'name': '欠费物业费', 'unit_price': 2.0}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'],
+                'fee_type_id': fee['id'],
+                'billing_period': '2027-04',
+                'service_start': '2027-04-01',
+                'service_end': '2027-04-30',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            client.post('/api/payments', json={
+                'bill_id': bill['id'],
+                'amount': 120,
+                'method': 'cash',
+                'idempotency_key': 'MERCHANT-ARREARS-1',
+            })
+
+            response = client.get('/api/merchants')
+            self.assertEqual(response.status_code, 200)
+            merchant = response.json()['items'][0]
+            self.assertEqual(merchant['bill_count'], 1)
+            self.assertEqual(merchant['bill_amount_total'], 320.0)
+            self.assertEqual(merchant['paid_amount_total'], 120.0)
+            self.assertEqual(merchant['arrears_amount_total'], 200.0)
+
+            page = client.get('/backoffice/merchants')
+            for text in ['账单数', '应收合计', '已收合计', '欠费余额', '320.0', '120.0', '200.0']:
+                self.assertIn(text, page.text)
+
 
 if __name__ == '__main__':
     unittest.main()

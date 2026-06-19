@@ -38,7 +38,21 @@ def merchant_items_from_targets(targets):
 
 def _merchant_row(item):
     price = '-' if item.get('unit_price_override') in (None, '') else item.get('unit_price_override')
-    return f'''<tr><td>{_h(item.get('space_no'))}</td><td>{_h(item.get('building'))}</td><td>{_h(item.get('unit'))}</td><td>{_h(item.get('floor') or '')}</td><td>{_h(item.get('shop_name'))}</td><td>{_h(item.get('merchant_name'))}</td><td>{_h(item.get('phone'))}</td><td>{_h(item.get('category'))}</td><td>{_h(item.get('area'))}</td><td>{_h(price)}</td><td>{_h(item.get('payment_cycle'))}</td><td>{_h(item.get('notes'))}</td></tr>'''
+    return f'''<tr><td>{_h(item.get('space_no'))}</td><td>{_h(item.get('building'))}</td><td>{_h(item.get('unit'))}</td><td>{_h(item.get('floor') or '')}</td><td>{_h(item.get('shop_name'))}</td><td>{_h(item.get('merchant_name'))}</td><td>{_h(item.get('phone'))}</td><td>{_h(item.get('category'))}</td><td>{_h(item.get('area'))}</td><td>{_h(price)}</td><td>{_h(item.get('payment_cycle'))}</td><td>{_h(item.get('bill_count', 0))}</td><td>{_h(item.get('bill_amount_total', 0.0))}</td><td>{_h(item.get('paid_amount_total', 0.0))}</td><td>{_h(item.get('arrears_amount_total', 0.0))}</td><td>{_h(item.get('notes'))}</td></tr>'''
+
+
+def _attach_bill_totals(items, bills):
+    totals = {int(item['id']): {'bill_count': 0, 'bill_amount_total': 0.0, 'paid_amount_total': 0.0, 'arrears_amount_total': 0.0} for item in items}
+    for bill in bills:
+        target_id = int(bill.get('charge_target_id') or 0)
+        if target_id not in totals:
+            continue
+        row = totals[target_id]
+        row['bill_count'] += 1
+        row['bill_amount_total'] = round(row['bill_amount_total'] + float(bill.get('amount') or 0), 2)
+        row['paid_amount_total'] = round(row['paid_amount_total'] + float(bill.get('paid_amount') or 0), 2)
+        row['arrears_amount_total'] = round(row['arrears_amount_total'] + float(bill.get('unpaid_amount') or 0), 2)
+    return [{**item, **totals.get(int(item['id']), {})} for item in items]
 
 
 def _create_form():
@@ -124,7 +138,7 @@ def _render_merchants(user, items, message='', keyword='', page=1, page_size=20,
 {notice}
 <section class="card" style="margin-bottom:18px"><div class="card-b"><div class="actions"><a class="ghost-link" href="/backoffice/charge-targets?category=商户">维护商户收费对象</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a></div><div class="hint">商户档案只读取当前租户和项目数据，不展示内部租户编号或项目编号。</div></div></section>
 {_filter_form(keyword, page_size)}
-<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
+<section class="grid"><div class="card"><div class="card-h">商户 / 铺位列表</div><div class="card-b">{_pager(keyword, page, page_size, total)}<table><thead><tr><th>铺位号</th><th>楼栋 / 区域</th><th>分区</th><th>楼层</th><th>店名</th><th>承租人</th><th>电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>账单数</th><th>应收合计</th><th>已收合计</th><th>欠费余额</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{_pager(keyword, page, page_size, total)}</div></div><aside class="card"><div class="card-h">批量生成商户账单</div><div class="card-b">{_batch_bill_form(fees or [])}</div></aside><aside class="card"><div class="card-h">生成商户账单</div><div class="card-b">{_bill_form(items, fees or [])}</div></aside><aside class="card"><div class="card-h">新增商户</div><div class="card-b">{_create_form()}</div></aside></section>'''
     return _page('商户档案', body)
 
 
@@ -135,7 +149,9 @@ def register_merchant_directory(app, service, repository, current_user):
     def _items(user):
         service._require(user, 'read')
         targets = repository.list_charge_targets(user['tenant_id'], user['project_id']) if repository else service.list_charge_targets(user, user['project_id'])
-        return merchant_items_from_targets(targets)
+        items = merchant_items_from_targets(targets)
+        bills = repository.list_bills(user['tenant_id'], user['project_id']) if repository else service.list_bills(user, user['project_id'])
+        return _attach_bill_totals(items, bills)
 
     def _fees(user):
         service._require(user, 'read')
