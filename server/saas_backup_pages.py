@@ -36,6 +36,10 @@ def _forms(can_manage, records):
     return f'''<form method="post" action="/backoffice/backups/create"><button class="primary">创建备份</button></form><hr>{drill}'''
 
 
+
+def _acceptance_backup_notice():
+    return '''<section class="card" style="margin-top:18px"><div class="card-h">首租户验收记录备份范围</div><div class="card-b"><p class="sub">system-files 包含首租户验收记录和系统侧签收证据；恢复演练选择 system-files 时应核对 <code>first_tenant_acceptance/records.json</code> 已随系统侧文件归档。</p></div></section>'''
+
 def _filter_records(records, drills, params):
     keyword = str(params.get('keyword') or '').strip().lower()
     status = str(params.get('status') or '').strip().lower()
@@ -109,6 +113,7 @@ def _render(user, records, drills=None, params=None):
 <section class="grid"><div class="card"><div class="card-h">备份记录</div><div class="card-b">{_pager(backup_result, params)}<table><thead><tr><th>备份ID</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{_backup_rows(backup_result['items'])}</tbody></table></div></div>
 <aside class="card"><div class="card-h">恢复演练</div><div class="card-b">{_forms(can_manage, records)}</div></aside></section>
 <section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b">{_pager(drill_result, params)}<table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{_drill_rows(drill_result['items'])}</tbody></table></div></section>
+{_acceptance_backup_notice()}
 {_render_boundary_card(can_manage)}'''
     return _page('备份记录', body)
 
@@ -118,14 +123,16 @@ def _render_backup_detail(user, record, drills):
     body = f'''
 <section class="hero"><div><h1>备份详情</h1><div class="sub">只展示备份编号、状态和恢复演练结果，不展示真实服务器路径或密钥。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card"><div class="card-h">备份详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(record.get('backup_id'))}</td></tr><tr><th>状态</th><td>{_h(record.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(record.get('created_at', ''))}</td></tr><tr><th>操作人</th><td>{_h(record.get('created_by_username', ''))}</td></tr><tr><th>审计日志</th><td><a class="ghost-link" href="/backoffice/audit-logs/{_h(record.get('audit_log_id'))}">查看审计日志</a></td></tr></tbody></table></div></section>
-<section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b"><table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{related_rows}</tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>'''
+<section class="card" style="margin-top:18px"><div class="card-h">恢复演练记录</div><div class="card-b"><table><thead><tr><th>备份ID</th><th>范围</th><th>状态</th><th>创建时间</th><th>操作人</th><th>入口</th></tr></thead><tbody>{related_rows}</tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>
+{_acceptance_backup_notice()}'''
     return _page('备份详情', body)
 
 
 def _render_drill_detail(user, drill):
     body = f'''
 <section class="hero"><div><h1>恢复演练详情</h1><div class="sub">恢复演练只记录范围、状态和备份编号，不执行真实恢复，不展示服务器路径或密钥。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card"><div class="card-h">恢复演练详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(drill.get('backup_id'))}</td></tr><tr><th>范围</th><td>{_h(drill.get('scope'))}</td></tr><tr><th>状态</th><td>{_h(drill.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(drill.get('created_at', ''))}</td></tr><tr><th>操作人</th><td>{_h(drill.get('created_by_username', ''))}</td></tr><tr><th>审计日志</th><td><a class="ghost-link" href="/backoffice/audit-logs/{_h(drill.get('audit_log_id'))}">查看审计日志</a></td></tr></tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>'''
+<section class="card"><div class="card-h">恢复演练详情</div><div class="card-b"><table><tbody><tr><th>备份ID</th><td>{_h(drill.get('backup_id'))}</td></tr><tr><th>范围</th><td>{_h(drill.get('scope'))}</td></tr><tr><th>状态</th><td>{_h(drill.get('status'))}</td></tr><tr><th>创建时间</th><td>{_h(drill.get('created_at', ''))}</td></tr><tr><th>操作人</th><td>{_h(drill.get('created_by_username', ''))}</td></tr><tr><th>审计日志</th><td><a class="ghost-link" href="/backoffice/audit-logs/{_h(drill.get('audit_log_id'))}">查看审计日志</a></td></tr></tbody></table><div class="actions" style="margin-top:16px"><a class="ghost-link" href="/backoffice/backups">返回备份记录</a></div></div></section>
+{_acceptance_backup_notice()}'''
     return _page('恢复演练详情', body)
 
 
@@ -176,9 +183,9 @@ def register_backup_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/backoffice/backups/restore-drills/{drill_id}', response_class=HTMLResponse)
-    def restore_drill_detail_page(drill_id: int, user=Depends(current_user)):
+    def restore_drill_detail_page(drill_id: str, user=Depends(current_user)):
         try:
-            drill = next((r for r in _drills(user) if int(r.get('id')) == int(drill_id)), None)
+            drill = next((r for r in _drills(user) if str(r.get('id')) == str(drill_id)), None)
             if not drill:
                 raise HTTPException(status_code=404, detail='restore drill not found')
             return HTMLResponse(_render_drill_detail(user, drill))
