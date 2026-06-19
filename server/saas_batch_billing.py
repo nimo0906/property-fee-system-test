@@ -9,14 +9,24 @@ def target_matches_category(target, category):
     return not category or target.get('category') == category
 
 
+def target_matches_scope(target, building='', unit=''):
+    if building and target.get('building') != building:
+        return False
+    if unit and target.get('unit') != unit:
+        return False
+    return True
+
+
 def bill_key(tenant_id, project_id, period, target_id, fee_type_id):
     return f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
 
 
-def build_batch_bill_rows(targets, fee, tenant_id, project_id, period, service_start, service_end, category=''):
+def build_batch_bill_rows(targets, fee, tenant_id, project_id, period, service_start, service_end, category='', building='', unit=''):
     rows = []
     for target in targets:
         if not target_matches_category(target, category):
+            continue
+        if not target_matches_scope(target, building, unit):
             continue
         rows.append({
             'tenant_id': tenant_id,

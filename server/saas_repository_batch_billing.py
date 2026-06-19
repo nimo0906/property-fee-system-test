@@ -16,11 +16,11 @@ def attach_batch_billing_repository_methods(cls):
         )
         return bool(row)
 
-    def batch_generate_bills(self, tenant_id, project_id, fee_type_id, period, service_start, service_end, category='', actor_user_id=None):
+    def batch_generate_bills(self, tenant_id, project_id, fee_type_id, period, service_start, service_end, category='', building='', unit='', actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
         fee = self.get_fee_type(tenant_id, project_id, fee_type_id)
         targets = self.list_charge_targets(tenant_id, project_id)
-        rows = build_batch_bill_rows(targets, fee, tenant_id, project_id, period, service_start, service_end, category)
+        rows = build_batch_bill_rows(targets, fee, tenant_id, project_id, period, service_start, service_end, category, building, unit)
         created = skipped = 0
         created_ids = []
         with self.engine.begin() as conn:
@@ -34,7 +34,7 @@ def attach_batch_billing_repository_methods(cls):
                 created_ids.append(inserted_id(result, self.engine.dialect.name))
         if actor_user_id:
             self.create_audit_log(tenant_id, project_id, actor_user_id, 'bill.batch_generate', 'bill', 0, {
-                'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'created_count': created, 'skipped_count': skipped,
+                'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'created_count': created, 'skipped_count': skipped,
             })
         return {'created_count': created, 'skipped_count': skipped, 'bill_ids': created_ids}
 

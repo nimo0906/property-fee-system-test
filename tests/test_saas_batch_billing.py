@@ -85,3 +85,64 @@ def test_api_and_backoffice_batch_generate_bills_for_selected_category():
         assert page.status_code == 200
         for text in ['批量出账', '全部类型', '仅居民', '仅商户']:
             assert text in page.text
+
+
+def test_repository_batch_generate_filters_by_building_and_unit_scope():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('楼栋批量物业')
+        project = repo.create_project(tenant['id'], '楼栋批量项目')
+        other_tenant = repo.create_tenant('其他物业')
+        other_project = repo.create_project(other_tenant['id'], '其他项目')
+        repo.create_charge_target(tenant['id'], project['id'], '1栋', '1单元', '101', '居民', 80)
+        repo.create_charge_target(tenant['id'], project['id'], '1栋', '2单元', '201', '居民', 90)
+        repo.create_charge_target(tenant['id'], project['id'], '2栋', '1单元', '101', '居民', 100)
+        repo.create_charge_target(other_tenant['id'], other_project['id'], '1栋', '1单元', '999', '居民', 999)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '物业费', 2, 'area')
+
+        result = repo.batch_generate_bills(
+            tenant['id'], project['id'], fee['id'], '2027-06', '2027-06-01', '2027-06-30',
+            building='1栋', unit='1单元', actor_user_id=None,
+        )
+
+        assert result['created_count'] == 1
+        assert result['skipped_count'] == 0
+        bills = repo.list_bills(tenant['id'], project['id'], '2027-06')
+        assert len(bills) == 1
+        assert bills[0]['amount'] == 160.0
+        assert repo.list_bills(other_tenant['id'], other_project['id'], '2027-06') == []
+        repo.close()
+
+
+def test_api_and_backoffice_batch_generate_bills_for_building_scope():
+    with tempfile.TemporaryDirectory() as td:
+        client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        client.post('/api/charge-targets', json={'building': 'A区', 'unit': '一层', 'room_number': 'A-101', 'category': '商户', 'area': 40})
+        client.post('/api/charge-targets', json={'building': 'A区', 'unit': '二层', 'room_number': 'A-201', 'category': '商户', 'area': 50})
+        client.post('/api/charge-targets', json={'building': 'B区', 'unit': '一层', 'room_number': 'B-101', 'category': '商户', 'area': 60})
+        fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+
+        response = client.post('/api/bills/batch-generate', json={
+            'fee_type_id': fee['id'], 'billing_period': '2027-07',
+            'service_start': '2027-07-01', 'service_end': '2027-07-31', 'category': '商户',
+            'building': 'A区', 'unit': '一层',
+        })
+        assert response.status_code == 200, response.text
+        assert response.json()['created_count'] == 1
+        bills = client.get('/api/bills', params={'period': '2027-07'}).json()['items']
+        assert len(bills) == 1
+        assert bills[0]['amount'] == 80.0
+
+        page = client.get('/backoffice/bills')
+        assert page.status_code == 200
+        for text in ['楼栋 / 区域范围', '单元 / 分区范围']:
+            assert text in page.text
+        page_response = client.post('/backoffice/bills/batch-generate', data={
+            'fee_type_id': str(fee['id']), 'billing_period': '2027-08',
+            'service_start': '2027-08-01', 'service_end': '2027-08-31', 'category': '商户',
+            'building': 'B区', 'unit': '一层',
+        }, follow_redirects=False)
+        assert page_response.status_code == 303
+        bills = client.get('/api/bills', params={'period': '2027-08'}).json()['items']
+        assert len(bills) == 1
+        assert bills[0]['amount'] == 120.0

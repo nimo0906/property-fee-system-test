@@ -129,7 +129,7 @@ def report(self, user, project_id, period):
 
 
 
-def batch_generate_bills(self, user, project_id, fee_type_id, period, service_start, service_end, category=''):
+def batch_generate_bills(self, user, project_id, fee_type_id, period, service_start, service_end, category='', building='', unit=''):
         self._require(user, "billing")
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
@@ -138,6 +138,10 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
         bill_ids = []
         for target in self.list_charge_targets(user, project_id):
             if category and target.get('category') != category:
+                continue
+            if building and target.get('building') != building:
+                continue
+            if unit and target.get('unit') != unit:
                 continue
             exists = any(
                 b['tenant_id'] == user['tenant_id'] and b['project_id'] == project_id and
@@ -150,7 +154,7 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
             bill = self.generate_bill(user, project_id, target, fee, period, service_start, service_end)
             bill_ids.append(bill['id'])
             created += 1
-        self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'created_count': created, 'skipped_count': skipped})
+        self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'created_count': created, 'skipped_count': skipped})
         return {'created_count': created, 'skipped_count': skipped, 'bill_ids': bill_ids}
 
 def attach_billing_methods(cls):
