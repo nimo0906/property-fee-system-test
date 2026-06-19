@@ -41,6 +41,56 @@ class TestSaasAuditLogPages(unittest.TestCase):
             self.assertIn('cashier_audit', page.text)
             self.assertNotIn('secret-temp-password', page.text)
 
+    def test_audit_log_page_groups_high_risk_actions_and_documents_security_boundary(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            admin = self._client('system_admin', database_url=db_url)
+            created = admin.post('/api/users', json={'username': 'audit_cashier', 'role_code': 'cashier'})
+            admin.post(f"/api/users/{created.json()['item']['id']}/reset-password", json={'new_password': 'NoPlaintext-2026'})
+            csv_text = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80'
+            preview = admin.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+            import_id = preview.text.split('name="import_id" value="')[1].split('"')[0]
+            admin.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id}, follow_redirects=False)
+            fee = admin.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2.0}).json()['item']
+            target = admin.get('/api/charge-targets').json()['items'][0]
+            bill = admin.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'],
+                'billing_period': '2026-06', 'service_start': '2026-06-01', 'service_end': '2026-06-30',
+            }).json()['item']
+            admin.post(f"/api/bills/{bill['id']}/approve", json={})
+            admin.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 50, 'method': 'cash', 'idempotency_key': 'AUDIT-PAY-1',
+            })
+            backup = admin.post('/api/backups/create', json={}).json()['item']
+            admin.post('/api/restore-drills', json={'backup_id': backup['backup_id'], 'scope': 'database'})
+
+            page = admin.get('/backoffice/audit-logs')
+            self.assertEqual(page.status_code, 200)
+            html = page.text
+            for text in [
+                '高风险操作分类',
+                '账号操作',
+                '密码操作',
+                '导入操作',
+                '出账操作',
+                '收款操作',
+                '备份操作',
+                '恢复操作',
+                '只显示当前租户和当前项目的审计日志',
+                '密码不展示在页面、日志或审计明细',
+                '审计日志只读展示，不提供页面删除',
+            ]:
+                self.assertIn(text, html)
+            self.assertIn('user.password_reset', html)
+            self.assertIn('import.confirm', html)
+            self.assertIn('bill.generate', html)
+            self.assertIn('payment.record', html)
+            self.assertIn('backup.create', html)
+            self.assertIn('restore.drill', html)
+            self.assertNotIn('NoPlaintext-2026', html)
+            self.assertNotIn('POSTGRES_PASSWORD=', html)
+            self.assertNotIn('APP_SECRET_KEY=', html)
+
     def test_executive_can_view_audit_logs_readonly(self):
         client = self._client('executive')
         page = client.get('/backoffice/audit-logs')

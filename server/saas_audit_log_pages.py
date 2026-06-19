@@ -4,6 +4,7 @@
 
 import json
 
+from server.saas_audit_summary import render_audit_summary
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page, _role_name
@@ -25,6 +26,7 @@ def _render(user, items):
     body = f'''
 <section class="hero"><div><h1>审计日志</h1><div class="sub">查看当前租户和项目内的账号、导入、出账、审核、收款等关键操作记录。审计日志只读展示，不提供页面删除。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-b"><strong>当前角色：</strong>{_h(_role_name(user.get('role_code')))} {readonly}</div></section>
+{render_audit_summary(items)}
 <section class="card"><div class="card-h">操作记录</div><div class="card-b"><table><thead><tr><th>ID</th><th>动作</th><th>对象类型</th><th>对象ID</th><th>用户ID</th><th>详情</th></tr></thead><tbody>{_rows(items)}</tbody></table></div></section>'''
     return _page('审计日志', body)
 
