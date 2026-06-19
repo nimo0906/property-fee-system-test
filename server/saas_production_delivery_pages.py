@@ -46,12 +46,7 @@ def delivery_status_summary(root=ROOT):
     blockers = []
     if not deploy.get('ok'):
         blockers.append({'label': '部署资产未通过', 'href': '/backoffice/deploy-checklist'})
-    if missing:
-        blockers.append({'label': '验收证据未补齐', 'href': '/backoffice/production-acceptance'})
-    if history_count == 0:
-        blockers.append({'label': '尚无签收历史', 'href': '/backoffice/production-acceptance/signoff'})
-    if not result_path.exists():
-        blockers.append({'label': '验收留档未生成', 'href': '/backoffice/production-acceptance/signoff'})
+    blockers.extend(_missing_evidence_blockers(missing))
     if not backup_ok:
         blockers.append({'label': '备份覆盖说明异常', 'href': '/backoffice/backups'})
     ready = not blockers
@@ -64,6 +59,20 @@ def delivery_status_summary(root=ROOT):
         'decision': '可以进入客户签收' if ready else '暂缓客户签收',
         'blockers': blockers,
     }
+
+
+def _missing_evidence_blockers(missing):
+    labels = {
+        'saas-production-acceptance-result.md': ('缺少生产验收留档', '/backoffice/production-acceptance/signoff'),
+        'saas-release-evidence.md': ('缺少上线证据报告', '/backoffice/production-acceptance'),
+        'saas-isolation-evidence.md': ('缺少租户隔离证据', '/backoffice/production-acceptance'),
+        'production_acceptance_signoffs/history.json': ('缺少签收历史', '/backoffice/production-acceptance/signoff'),
+    }
+    blockers = []
+    for row in missing:
+        label, href = labels.get(row.get('package_name'), (f"缺少{row.get('package_name')}", '/backoffice/production-acceptance'))
+        blockers.append({'label': label, 'href': href})
+    return blockers
 
 
 def _status_summary_card():

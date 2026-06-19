@@ -30,9 +30,10 @@ def main():
         require(summary['decision'] == '暂缓客户签收', 'blocked decision wrong')
         labels = {item['label']: item['href'] for item in summary['blockers']}
         require(labels.get('部署资产未通过') == '/backoffice/deploy-checklist', 'missing deploy repair link')
-        require(labels.get('验收证据未补齐') == '/backoffice/production-acceptance', 'missing evidence repair link')
-        require(labels.get('尚无签收历史') == '/backoffice/production-acceptance/signoff', 'missing signoff repair link')
-        require(labels.get('验收留档未生成') == '/backoffice/production-acceptance/signoff', 'missing result repair link')
+        require(labels.get('缺少上线证据报告') == '/backoffice/production-acceptance', 'missing release evidence repair link')
+        require(labels.get('缺少租户隔离证据') == '/backoffice/production-acceptance', 'missing isolation evidence repair link')
+        require(labels.get('缺少签收历史') == '/backoffice/production-acceptance/signoff', 'missing signoff repair link')
+        require(labels.get('缺少生产验收留档') == '/backoffice/production-acceptance/signoff', 'missing result repair link')
         delivery_pages.ROOT = root
         client = TestClient(create_app())
         login = client.post('/api/auth/login', json={

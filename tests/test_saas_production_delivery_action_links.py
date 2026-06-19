@@ -31,9 +31,10 @@ def test_delivery_status_summary_explains_blockers_with_action_links(tmp_path):
     assert summary['decision'] == '暂缓客户签收'
     blockers = summary['blockers']
     assert {'label': '部署资产未通过', 'href': '/backoffice/deploy-checklist'} in blockers
-    assert {'label': '验收证据未补齐', 'href': '/backoffice/production-acceptance'} in blockers
-    assert {'label': '尚无签收历史', 'href': '/backoffice/production-acceptance/signoff'} in blockers
-    assert {'label': '验收留档未生成', 'href': '/backoffice/production-acceptance/signoff'} in blockers
+    assert {'label': '缺少上线证据报告', 'href': '/backoffice/production-acceptance'} in blockers
+    assert {'label': '缺少租户隔离证据', 'href': '/backoffice/production-acceptance'} in blockers
+    assert {'label': '缺少签收历史', 'href': '/backoffice/production-acceptance/signoff'} in blockers
+    assert {'label': '缺少生产验收留档', 'href': '/backoffice/production-acceptance/signoff'} in blockers
 
 
 def test_production_delivery_page_shows_blocked_repair_links(tmp_path, monkeypatch):
@@ -42,7 +43,7 @@ def test_production_delivery_page_shows_blocked_repair_links(tmp_path, monkeypat
     _login(client)
     page = client.get('/backoffice/production-delivery')
     assert page.status_code == 200
-    for item in ['暂缓原因和修复入口', '部署资产未通过', '验收证据未补齐', '尚无签收历史', '验收留档未生成']:
+    for item in ['暂缓原因和修复入口', '部署资产未通过', '缺少上线证据报告', '缺少租户隔离证据', '缺少签收历史', '缺少生产验收留档']:
         assert item in page.text
     for href in ['/backoffice/deploy-checklist', '/backoffice/production-acceptance', '/backoffice/production-acceptance/signoff']:
         assert f'href="{href}"' in page.text
