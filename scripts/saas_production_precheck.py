@@ -18,8 +18,10 @@ REQUIRED_ASSETS = [
     'scripts/saas_backup.sh', 'scripts/saas_restore.sh',
     'scripts/saas_release_gate.py', 'scripts/saas_release_evidence.py',
     'scripts/saas_systemd_env_file_check.py',
+    'scripts/saas_production_deployment_commands_check.py',
     'scripts/saas_isolation_evidence.py', 'scripts/saas_license_binding_backup_check.py',
-    'docs/saas-production-precheck.md', 'release/saas-release-evidence.md',
+    'docs/saas-production-precheck.md', 'docs/saas-production-deployment-commands.md',
+    'release/saas-release-evidence.md',
     'release/saas-isolation-evidence.md',
 ]
 
