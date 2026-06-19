@@ -31,8 +31,8 @@ def _bill_rows(bills, targets, fees):
         if bill.get('status') == 'pending_review':
             checkbox = f'<input type="checkbox" name="bill_ids" value="{_h(bill.get("id"))}">'
             approve_action = f'<form method="post" action="/backoffice/bills/{_h(bill.get("id"))}/approve" class="inline"><button class="primary">审核通过</button></form>'
-        rows.append(f'''<tr><td>{checkbox}</td><td>{_h(bill.get('bill_number'))}</td><td>{_h(bill.get('billing_period'))}</td><td>{_h(_target_label(target))}</td><td>{_h(fee.get('name'))}</td><td>{_h(bill.get('amount'))}</td><td>{_h(bill.get('status'))}</td><td>{approve_action}</td></tr>''')
-    return ''.join(rows) or '<tr><td colspan="8">暂无账单</td></tr>'
+        rows.append(f'''<tr><td>{checkbox}</td><td>{_h(bill.get('bill_number'))}</td><td>{_h(bill.get('billing_period'))}</td><td>{_h(_target_label(target))}</td><td>{_h(fee.get('name'))}</td><td>{_h(bill.get('amount'))}</td><td>{_h(bill.get('paid_amount', 0))}</td><td>{_h(bill.get('unpaid_amount', bill.get('amount')))}</td><td>{_h(bill.get('status'))}</td><td>{approve_action}</td></tr>''')
+    return ''.join(rows) or '<tr><td colspan="10">暂无账单</td></tr>'
 
 
 def _render_bills(user, bills, targets, fees, filters=None, message='', page=1, page_size=20, total=0):
@@ -49,7 +49,7 @@ def _render_bills(user, bills, targets, fees, filters=None, message='', page=1, 
 {notice}
 {render_business_closure('bills')}
 {_filter_form(filters, page_size)}
-<section class="grid"><div class="card"><div class="card-h">账单列表</div><div class="card-b"><form method="post" action="/backoffice/bills/batch-approve">{batch}{pager}<table><thead><tr><th>批量审核</th><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table>{pager}</form></div></div>
+<section class="grid"><div class="card"><div class="card-h">账单列表</div><div class="card-b"><form method="post" action="/backoffice/bills/batch-approve">{batch}{pager}<table><thead><tr><th>批量审核</th><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>已收</th><th>欠费</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table>{pager}</form></div></div>
 <aside class="card"><div class="card-h">生成账单</div><div class="card-b">{form}</div></aside></section>
 <section class="card" style="margin-top:18px"><div class="card-h">批量出账</div><div class="card-b">{batch_form}</div></section>'''
     return _page('账单生成', body)

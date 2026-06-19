@@ -106,7 +106,7 @@ def _create_form(bills):
     unpaid_bills = [bill for bill in bills if bill.get('status') in {'unpaid', 'partial'}]
     if not unpaid_bills:
         return '<div class="hint">请先把账单审核为未收款/部分收款，再登记收款。</div>'
-    options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(b.get("status"))} · {_h(b.get("amount"))}</option>' for b in unpaid_bills)
+    options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(b.get("status"))} · 应收 {_h(b.get("amount"))} · 已收 {_h(b.get("paid_amount", 0))} · 欠费 {_h(b.get("unpaid_amount", b.get("amount")))}</option>' for b in unpaid_bills)
     return f'''<form method="post" action="/backoffice/payments/create"><label>账单</label><select name="bill_id" required>{options}</select><label>收款金额</label><input name="amount" required type="number" step="0.01" min="0.01" placeholder="例如 100"><label>收款方式</label><input name="method" placeholder="cash / transfer / wechat / alipay"><label>幂等键</label><input name="idempotency_key" placeholder="可选，防重复提交"><button class="primary">登记收款</button><div class="hint">幂等键用于防止重复入账；收款后账单状态会自动变为 partial 或 paid。</div></form>'''
 
 

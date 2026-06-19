@@ -4,6 +4,7 @@
 
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
+from server.saas_bill_balances import attach_bill_balances, service_paid_by_bill
 
 
 def generate_bill(self, user, project_id, target, fee, period, service_start, service_end):
@@ -33,7 +34,9 @@ def list_bills(self, user, project_id, period=None, status=None):
             rows = [b for b in rows if b["billing_period"] == period]
         if status:
             rows = [b for b in rows if b["status"] == status]
-        return sorted(rows, key=lambda b: b["id"])
+        rows = sorted(rows, key=lambda b: b["id"])
+        paid = service_paid_by_bill(self.payments.values(), user["tenant_id"], project_id)
+        return attach_bill_balances(rows, paid)
 
 def approve_bill(self, user, project_id, bill_id):
         self._require(user, "billing")

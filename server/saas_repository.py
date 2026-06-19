@@ -9,6 +9,7 @@ from server.saas_repository_guards import validate_bill_scope, validate_import_s
 from server.saas_repository_passwords import attach_user_lifecycle_methods
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
+from server.saas_bill_balances import attach_bill_balances
 
 class SaasRepository:
     def __init__(self, url):
@@ -154,8 +155,11 @@ class SaasRepository:
             params["status"] = status
         sql += " ORDER BY id"
         with self.engine.begin() as conn:
-            rows = conn.execute(text(sql), params).mappings().all()
-            return [dict(r) for r in rows]
+            rows = [dict(r) for r in conn.execute(text(sql), params).mappings().all()]
+            paid_rows = conn.execute(text("""SELECT bill_id,COALESCE(SUM(amount_paid),0) paid FROM payments
+                WHERE tenant_id=:tenant_id AND project_id=:project_id GROUP BY bill_id"""),
+                {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+        return attach_bill_balances(rows, {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows})
 
     def create_payment(self, tenant_id, project_id, bill_id, amount, method, idempotency_key, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)

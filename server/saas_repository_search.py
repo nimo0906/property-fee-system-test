@@ -4,6 +4,8 @@
 
 from sqlalchemy import text
 
+from server.saas_bill_balances import attach_bill_balances
+
 
 def _paged(self, rows, page, page_size):
         page = max(int(page or 1), 1)
@@ -26,6 +28,10 @@ def search_bills(self, tenant_id, project_id, keyword="", period=None, status=No
         sql += " ORDER BY b.id"
         with self.engine.begin() as conn:
             rows = [dict(r) for r in conn.execute(text(sql), params).mappings().all()]
+            paid_rows = conn.execute(text("""SELECT bill_id,COALESCE(SUM(amount_paid),0) paid FROM payments
+                WHERE tenant_id=:tenant_id AND project_id=:project_id GROUP BY bill_id"""),
+                {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+        rows = attach_bill_balances(rows, {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows})
         keyword = str(keyword or "").lower()
         if keyword:
             rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number"]).lower()]
@@ -43,6 +49,10 @@ def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1
         sql += " ORDER BY p.id"
         with self.engine.begin() as conn:
             rows = [dict(r) for r in conn.execute(text(sql), params).mappings().all()]
+            paid_rows = conn.execute(text("""SELECT bill_id,COALESCE(SUM(amount_paid),0) paid FROM payments
+                WHERE tenant_id=:tenant_id AND project_id=:project_id GROUP BY bill_id"""),
+                {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
+        rows = attach_bill_balances(rows, {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows})
         keyword = str(keyword or "").lower()
         if keyword:
             rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period"]).lower()]
