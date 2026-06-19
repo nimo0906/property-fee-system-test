@@ -6,6 +6,7 @@ import datetime as dt
 from pathlib import Path
 
 from server.saas_production_acceptance_history import append_history, get_history, history_rows
+from server.saas_production_acceptance_package import build_evidence_package
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 
@@ -51,8 +52,9 @@ def _render_production_acceptance(user):
     body = f'''
 <section class="hero"><div><h1>生产验收结果中心</h1><div class="sub">实施人员现场交付统一入口：一键验收总入口、验收结果留档文件、上线证据报告、租户隔离证据和首租户冒烟说明。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">证据文件摘要</div><div class="card-b"><table><thead><tr><th>状态</th><th>文件</th><th>最近生成时间</th><th>操作</th></tr></thead><tbody>{_summary_rows()}</tbody></table></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">交付证据包</div><div class="card-b"><p class="sub">下载脱敏后的正式交付证据包，包含验收留档、上线证据、租户隔离证据、签收历史和备份覆盖说明。</p><div class="actions"><a class="ghost-link" href="/backoffice/production-acceptance/evidence-package.zip">下载交付证据包</a></div><div class="hint">证据包不包含 生产环境文件、生产密钥、客户上传文件内容或真实服务器绝对路径。</div></div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">生产验收签收</div><div class="card-b"><p class="sub">现场验收通过后填写执行人、服务器域名、客户签收人和实施人员，生成正式验收留档。</p><div class="actions"><a class="ghost-link" href="/backoffice/production-acceptance/signoff">填写生产验收签收信息</a><a class="ghost-link" href="/backoffice/production-acceptance/signoff/print">打印签收表</a><a class="ghost-link" href="/backoffice/production-acceptance/signoff/download.md">下载 Markdown</a></div></div></section>
-<section class="card" style="margin-bottom:18px"><div class="card-h">一键验收总入口</div><div class="card-b"><p><code>scripts/saas_production_acceptance_gate.py</code></p><p class="sub">串联 .env 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据和上线证据报告；失败即停止交付。</p></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">一键验收总入口</div><div class="card-b"><p><code>scripts/saas_production_acceptance_gate.py</code></p><p class="sub">串联 生产环境文件 现场校验、生产预检、运行状态、首租户业务冒烟、租户隔离证据和上线证据报告；失败即停止交付。</p></div></section>
 <section class="grid"><div class="card"><div class="card-h">验收结果留档文件</div><div class="card-b"><p><code>release/saas-production-acceptance-result.md</code></p><p class="sub">记录执行人、服务器域名、PASS/FAIL、客户签收人和实施人员签字。</p></div></div>
 <div class="card"><div class="card-h">上线证据报告</div><div class="card-b"><p><code>release/saas-release-evidence.md</code></p><p class="sub">上线门禁和部署资产的脱敏证据汇总。</p></div></div>
 <div class="card"><div class="card-h">租户隔离证据</div><div class="card-b"><p><code>release/saas-isolation-evidence.md</code></p><p class="sub">证明租户隔离、客户上传数据与系统自身数据隔离。</p></div></div>
@@ -165,6 +167,16 @@ def register_production_acceptance_pages(app, current_user):
                 raise HTTPException(status_code=404, detail='not_found')
             filename = f'saas-production-acceptance-signoff-{record_id}.md'
             return Response(record.get('markdown') or '', media_type='text/markdown; charset=utf-8', headers={'Content-Disposition': f'attachment; filename="{filename}"'})
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
+
+
+    @app.get('/backoffice/production-acceptance/evidence-package.zip')
+    def production_evidence_package(user=Depends(current_user)):
+        try:
+            _require_admin(user)
+            content = build_evidence_package(ROOT)
+            return Response(content, media_type='application/zip', headers={'Content-Disposition': 'attachment; filename="saas-production-acceptance-evidence.zip"'})
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 
