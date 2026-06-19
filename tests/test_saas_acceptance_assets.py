@@ -20,6 +20,9 @@ class TestSaasAcceptanceAssets(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn('PASS saas acceptance workflow', result.stdout)
+        self.assertIn('PASS saas acceptance isolation', result.stdout)
+        self.assertIn('PASS saas acceptance account boundary', result.stdout)
+        self.assertIn('PASS saas acceptance storage boundary', result.stdout)
 
     def test_deploy_validator_includes_acceptance_script(self):
         result = validate_deployment_assets(Path.cwd())

@@ -13,6 +13,11 @@ if str(ROOT) not in sys.path:
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_acceptance_boundary import (
+    run_account_boundary_acceptance,
+    run_isolation_acceptance,
+    run_storage_boundary_acceptance,
+)
 
 
 def expect(condition, message):
@@ -82,8 +87,15 @@ def run_acceptance(label, database_url=None):
 
 def main():
     run_acceptance('memory')
+    run_isolation_acceptance('memory')
+    run_account_boundary_acceptance('memory')
+    run_storage_boundary_acceptance('memory')
     with tempfile.TemporaryDirectory() as td:
-        run_acceptance('persistent', f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+        run_acceptance('persistent', db_url)
+        run_isolation_acceptance('persistent', db_url)
+        run_account_boundary_acceptance('persistent', db_url)
+        run_storage_boundary_acceptance('persistent')
 
 
 if __name__ == '__main__':
