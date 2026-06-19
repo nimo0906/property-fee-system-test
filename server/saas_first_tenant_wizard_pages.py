@@ -5,6 +5,7 @@
 import urllib.parse
 
 from server.saas_license_binding import bind_tenant_license_customer
+from server.saas_tenant_business_config import save_tenant_business_template
 from server.saas_business_templates import business_template, render_template_summary, template_options
 from server.saas_repository_errors import TenantScopeError
 from server.saas_service import PermissionDenied
@@ -93,6 +94,7 @@ def register_first_tenant_wizard_pages(app, service, repository, current_user):
             if not tenant_user:
                 raise HTTPException(status_code=404, detail='tenant not found')
             bind_tenant_license_customer(service, repository, tenant_user, customer_code)
+            save_tenant_business_template(service, repository, tenant_user, business_template)
             query = urllib.parse.urlencode({'message': '首租户已创建并绑定授权', 'tenant_name': tenant_name, 'project_name': project_name, 'license_customer_code': customer_code, 'business_template': business_template})
             return RedirectResponse(f'/backoffice/first-tenant-wizard?{query}', status_code=303)
         except (PermissionDenied, TenantScopeError):

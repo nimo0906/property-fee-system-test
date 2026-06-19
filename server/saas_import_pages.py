@@ -7,6 +7,7 @@ import io
 
 from server.saas_import_activity import display_filename, render_import_activity
 from server.saas_business_templates import render_template_summary, template_csv
+from server.saas_tenant_business_config import template_code_for_user
 from server.saas_import_duplicates import split_new_and_duplicates
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
@@ -193,12 +194,14 @@ def register_import_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/backoffice/imports/templates/charge-targets', response_class=HTMLResponse)
-    def import_template_page(user=Depends(current_user), business_template: str = 'residential'):
-        return HTMLResponse(_render_template_page(user, business_template))
+    def import_template_page(user=Depends(current_user), business_template: str = ''):
+        selected = business_template or template_code_for_user(service, repository, user)
+        return HTMLResponse(_render_template_page(user, selected))
 
     @app.get('/api/imports/templates/charge-targets.csv')
-    def import_template_csv(user=Depends(current_user), business_template: str = ''):
-        csv_text = template_csv(business_template) if business_template else TEMPLATE_CSV
+    def import_template_csv(user=Depends(current_user), business_template: str = '', current_tenant: str = ''):
+        selected = template_code_for_user(service, repository, user) if current_tenant else business_template
+        csv_text = template_csv(selected) if selected else TEMPLATE_CSV
         return PlainTextResponse(csv_text, media_type='text/csv; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="charge_targets_template.csv"'})
 
 
