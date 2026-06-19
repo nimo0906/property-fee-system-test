@@ -61,3 +61,53 @@ def test_import_template_mentions_owner_mapping_fields():
     assert csv.status_code == 200
     for text in ['owner_name', 'owner_phone', '楼栋/区域', '房号/铺位号']:
         assert text in csv.text
+
+
+def test_import_maps_room_like_fields_and_keeps_preview_side_effect_free():
+    service = SaasBackofficeService.in_memory()
+    tenant = service.create_tenant('字段导入物业')
+    project = service.create_project(tenant, '字段导入项目')
+    user = service.create_user(tenant, 'finance', 'finance')
+
+    preview = service.preview_charge_target_import(user, project, [{
+        '楼栋/区域': '商场', '单元/分区': '一层', '房号/铺位号': 'A-108', '类型': '商户', '面积': '33.5',
+        '楼层': '1', '店名': '导入花店', '承租人': '孙承租', '承租人电话': '13300000000',
+        '缴费周期': 'monthly', '备注': '导入备注', '独立单价': '9.5', '业主姓名': '孙业主',
+    }])
+
+    assert preview['valid_count'] == 1
+    assert service.list_charge_targets(user, project) == []
+    review = service.get_import_review(user, project, preview['import_id'])
+    row = review['valid_rows'][0]
+    assert row['floor'] == 1
+    assert row['shop_name'] == '导入花店'
+    assert row['tenant_name'] == '孙承租'
+    assert row['tenant_phone'] == '13300000000'
+    assert row['payment_cycle'] == 'monthly'
+    assert row['notes'] == '导入备注'
+
+    result = service.confirm_charge_target_import(user, project, preview['import_id'])
+    assert result['created_count'] == 1
+    target = service.list_charge_targets(user, project)[0]
+    assert target['shop_name'] == '导入花店'
+    assert target['notes'] == '导入备注'
+
+
+def test_import_rejects_invalid_floor_without_polluting_valid_rows():
+    service = SaasBackofficeService.in_memory()
+    tenant = service.create_tenant('错误导入物业')
+    project = service.create_project(tenant, '错误导入项目')
+    user = service.create_user(tenant, 'finance', 'finance')
+
+    preview = service.preview_charge_target_import(user, project, [
+        {'楼栋/区域': '1栋', '房号/铺位号': '101', '面积': '80', '楼层': 'not-a-number'},
+        {'楼栋/区域': '1栋', '房号/铺位号': '102', '面积': '90', '楼层': '2'},
+    ])
+
+    assert preview['valid_count'] == 1
+    assert preview['error_count'] == 1
+    result = service.confirm_charge_target_import(user, project, preview['import_id'])
+    assert result['created_count'] == 1
+    targets = service.list_charge_targets(user, project)
+    assert targets[0]['room_number'] == '102'
+    assert targets[0]['floor'] == 2

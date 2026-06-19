@@ -10,7 +10,7 @@ TABLES = [
     ('role_permissions', 'role_code TEXT NOT NULL,permission_code TEXT NOT NULL,PRIMARY KEY(role_code,permission_code)'),
     ('users', 'id {pk},tenant_id INTEGER NOT NULL,username TEXT NOT NULL,role_code TEXT NOT NULL,password_hash TEXT,is_active INTEGER NOT NULL DEFAULT 1,UNIQUE(tenant_id,username)'),
     ('owners', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,phone TEXT,owner_type TEXT NOT NULL DEFAULT \'业主\''),
-    ('charge_targets', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,unit_price_override REAL,UNIQUE(tenant_id,project_id,building,unit,room_number)'),
+    ('charge_targets', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,unit_price_override REAL,floor INTEGER,shop_name TEXT,tenant_name TEXT,tenant_phone TEXT,payment_cycle TEXT,notes TEXT,UNIQUE(tenant_id,project_id,building,unit,room_number)'),
     ('fee_types', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,billing_mode TEXT NOT NULL DEFAULT \'area\',UNIQUE(tenant_id,project_id,name)'),
     ('bills', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT \'pending_review\',UNIQUE(tenant_id,project_id,bill_number)'),
     ('payments', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key)'),
@@ -34,11 +34,25 @@ def alter_statements(dialect):
     if is_postgres(dialect):
         return [
             "ALTER TABLE fee_types ADD COLUMN IF NOT EXISTS billing_mode TEXT NOT NULL DEFAULT 'area'",
+            "ALTER TABLE owners ADD COLUMN IF NOT EXISTS owner_type TEXT NOT NULL DEFAULT '业主'",
             "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS unit_price_override REAL",
+            "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS floor INTEGER",
+            "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS shop_name TEXT",
+            "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS tenant_name TEXT",
+            "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS tenant_phone TEXT",
+            "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS payment_cycle TEXT",
+            "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS notes TEXT",
         ]
     return [
         "ALTER TABLE fee_types ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'area'",
+        "ALTER TABLE owners ADD COLUMN owner_type TEXT NOT NULL DEFAULT '业主'",
         "ALTER TABLE charge_targets ADD COLUMN unit_price_override REAL",
+        "ALTER TABLE charge_targets ADD COLUMN floor INTEGER",
+        "ALTER TABLE charge_targets ADD COLUMN shop_name TEXT",
+        "ALTER TABLE charge_targets ADD COLUMN tenant_name TEXT",
+        "ALTER TABLE charge_targets ADD COLUMN tenant_phone TEXT",
+        "ALTER TABLE charge_targets ADD COLUMN payment_cycle TEXT",
+        "ALTER TABLE charge_targets ADD COLUMN notes TEXT",
     ]
 
 

@@ -157,10 +157,10 @@ def create_app(database_url=None, acceptance_store=None):
             service._require(user, "write")
             require_active_license(user, 'charge_target.create')
             if repository:
-                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override)
+                item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override, floor=data.floor, shop_name=data.shop_name, tenant_name=data.tenant_name, tenant_phone=data.tenant_phone, payment_cycle=data.payment_cycle, notes=data.notes)
                 service._log(user, user["project_id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
             else:
-                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override)
+                item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override, floor=data.floor, shop_name=data.shop_name, tenant_name=data.tenant_name, tenant_phone=data.tenant_phone, payment_cycle=data.payment_cycle, notes=data.notes)
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
@@ -211,7 +211,9 @@ def create_app(database_url=None, acceptance_store=None):
                         owner_created += 1
                     item = repository.create_charge_target(
                         user["tenant_id"], user["project_id"], row["building"], row.get("unit", ""),
-                        row["room_number"], row.get("category", "居民"), row["area"], owner_id, row.get("unit_price_override")
+                        row["room_number"], row.get("category", "居民"), row["area"], owner_id, row.get("unit_price_override"),
+                        floor=row.get("floor"), shop_name=row.get("shop_name", ""), tenant_name=row.get("tenant_name", ""),
+                        tenant_phone=row.get("tenant_phone", ""), payment_cycle=row.get("payment_cycle", ""), notes=row.get("notes", "")
                     )
                     service.targets[item["id"]] = item
                     created += 1
@@ -229,7 +231,6 @@ def create_app(database_url=None, acceptance_store=None):
             return result
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
-
     @app.post("/api/imports/files/register")
     def register_import_file(data: ImportFileRegisterIn, user=__import__('fastapi').Depends(current_user)):
         try:
@@ -271,7 +272,6 @@ def create_app(database_url=None, acceptance_store=None):
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
-
     @app.post("/api/backups/create")
     def create_backup(user=__import__('fastapi').Depends(current_user)):
         try:
@@ -281,17 +281,14 @@ def create_app(database_url=None, acceptance_store=None):
             return {"item": item}
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
-
     @app.get("/api/admin/bootstrap-state")
     def bootstrap_state():
         if not repository:
             return {"tenants": [], "projects": [], "users": []}
         return {"tenants": repository.list_tenants(), "projects": repository.list_projects(), "users": repository.list_users()}
-
     @app.get("/cloud/schema.sql")
     def schema_sql():
         return {"sql": build_saas_postgres_schema()}
-
     @app.get("/cloud/migration-plan")
     def migration_plan(tenant_name: str = "示例物业", project_name: str = "默认项目"):
         return build_saas_migration_plan(tenant_name, project_name)

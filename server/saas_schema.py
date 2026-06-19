@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS owners (
     project_id BIGINT NOT NULL REFERENCES projects(id),
     name TEXT NOT NULL,
     phone TEXT,
+    owner_type TEXT NOT NULL DEFAULT '业主',
     id_card_masked TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
@@ -73,6 +74,13 @@ CREATE TABLE IF NOT EXISTS charge_targets (
     room_number TEXT NOT NULL,
     category TEXT NOT NULL,
     area NUMERIC(12,2) NOT NULL DEFAULT 0,
+    unit_price_override NUMERIC(12,4),
+    floor INTEGER,
+    shop_name TEXT,
+    tenant_name TEXT,
+    tenant_phone TEXT,
+    payment_cycle TEXT,
+    notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(tenant_id, project_id, building, unit, room_number),
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
@@ -84,6 +92,7 @@ CREATE TABLE IF NOT EXISTS fee_types (
     project_id BIGINT NOT NULL REFERENCES projects(id),
     name TEXT NOT NULL,
     unit_price NUMERIC(12,4) NOT NULL DEFAULT 0,
+    billing_mode TEXT NOT NULL DEFAULT 'area',
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     UNIQUE(tenant_id, project_id, name),
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)

@@ -15,6 +15,12 @@ FIELD_ALIASES = {
     "owner_phone": ("owner_phone", "联系电话", "手机号", "业主电话", "电话"),
     "owner_type": ("owner_type", "业主类型", "客户类型"),
     "unit_price_override": ("unit_price_override", "独立单价", "覆盖单价", "商户单价"),
+    "floor": ("floor", "楼层", "层数"),
+    "shop_name": ("shop_name", "店名", "商户店名", "铺位名称"),
+    "tenant_name": ("tenant_name", "租户", "承租人", "承租方"),
+    "tenant_phone": ("tenant_phone", "租户电话", "承租人电话", "承租电话"),
+    "payment_cycle": ("payment_cycle", "缴费周期", "收费周期"),
+    "notes": ("notes", "备注", "说明"),
 }
 
 
@@ -38,6 +44,12 @@ def normalize_import_row(row):
         "owner_phone": _pick(row, "owner_phone"),
         "owner_type": _pick(row, "owner_type", "业主") or "业主",
         "unit_price_override": _pick(row, "unit_price_override"),
+        "floor": _pick(row, "floor"),
+        "shop_name": _pick(row, "shop_name"),
+        "tenant_name": _pick(row, "tenant_name"),
+        "tenant_phone": _pick(row, "tenant_phone"),
+        "payment_cycle": _pick(row, "payment_cycle"),
+        "notes": _pick(row, "notes"),
     }
 
 
@@ -62,6 +74,10 @@ def attach_import_mapping_methods(cls):
                     row["unit_price_override"] = float(row["unit_price_override"])
                 else:
                     row["unit_price_override"] = None
+                if row.get("floor") not in (None, ""):
+                    row["floor"] = int(float(row["floor"]))
+                else:
+                    row["floor"] = None
                 valid.append(row)
             except ValueError as exc:
                 errors.append({"row": idx, "error": str(exc), "data": dict(raw)})
@@ -106,7 +122,9 @@ def attach_import_mapping_methods(cls):
                 owner = self.create_owner(user, project_id, row["owner_name"], row.get("owner_phone", ""), row.get("owner_type", "业主"))
                 owner_id = owner["id"]
                 owner_created += 1
-            self.create_charge_target(user, project_id, row["building"], row.get("unit", ""), row["room_number"], row.get("category", "居民"), row["area"], owner_id, row.get("unit_price_override"))
+            self.create_charge_target(user, project_id, row["building"], row.get("unit", ""), row["room_number"], row.get("category", "居民"), row["area"], owner_id, row.get("unit_price_override"),
+                floor=row.get("floor"), shop_name=row.get("shop_name", ""), tenant_name=row.get("tenant_name", ""),
+                tenant_phone=row.get("tenant_phone", ""), payment_cycle=row.get("payment_cycle", ""), notes=row.get("notes", ""))
             created += 1
         imp["confirmed"] = True
         imp["owner_created_count"] = owner_created

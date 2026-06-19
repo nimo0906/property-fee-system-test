@@ -44,6 +44,12 @@ class TargetIn(BaseModel):
     category: str = "居民"
     area: float
     unit_price_override: Optional[float] = None
+    floor: Optional[int] = None
+    shop_name: str = ""
+    tenant_name: str = ""
+    tenant_phone: str = ""
+    payment_cycle: str = ""
+    notes: str = ""
 
 
 class ImportPreviewIn(BaseModel):

@@ -4,6 +4,12 @@
 
 from server.saas_service import PermissionDenied
 
+TARGET_EXTRA_FIELDS = ("floor", "shop_name", "tenant_name", "tenant_phone", "payment_cycle", "notes")
+
+
+def _target_extras(kwargs):
+    return {key: kwargs.get(key, "" if key != "floor" else None) for key in TARGET_EXTRA_FIELDS}
+
 
 def attach_owner_methods(cls):
     def create_owner(self, user, project_id, name, phone="", owner_type="业主"):
@@ -22,7 +28,7 @@ def attach_owner_methods(cls):
             return []
         return [o for o in self.owners.values() if o["tenant_id"] == user["tenant_id"] and o["project_id"] == project_id]
 
-    def create_charge_target(self, user, project_id, building, unit, room_number, category, area, owner_id=0, unit_price_override=None):
+    def create_charge_target(self, user, project_id, building, unit, room_number, category, area, owner_id=0, unit_price_override=None, **kwargs):
         self._require(user, "write")
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
@@ -35,7 +41,7 @@ def attach_owner_methods(cls):
         target = {"id": tid, "tenant_id": user["tenant_id"], "project_id": project_id,
                   "owner_id": owner_id or None, "owner_name": owner.get("name") if owner else "", "owner_phone": owner.get("phone") if owner else "",
                   "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area),
-                  "unit_price_override": price_override}
+                  "unit_price_override": price_override, **_target_extras(kwargs)}
         self.targets[tid] = target
         self._log(user, project_id, 'charge_target.create', 'charge_target', tid, {'building': building, 'room_number': room_number})
         return target

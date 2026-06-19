@@ -262,7 +262,7 @@ def register_import_pages(app, service, repository, current_user):
                         if row.get('owner_name'):
                             owner = repository.create_owner(user['tenant_id'], user['project_id'], row['owner_name'], row.get('owner_phone', ''), row.get('owner_type', '业主'))
                             owner_id = owner['id']
-                        item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'], owner_id, row.get('unit_price_override'))
+                        item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'], owner_id, row.get('unit_price_override'), floor=row.get('floor'), shop_name=row.get('shop_name', ''), tenant_name=row.get('tenant_name', ''), tenant_phone=row.get('tenant_phone', ''), payment_cycle=row.get('payment_cycle', ''), notes=row.get('notes', ''))
                         service.targets[item['id']] = item
                         created += 1
                     service.imports[import_id]['confirmed'] = True

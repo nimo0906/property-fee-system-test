@@ -92,3 +92,54 @@ def test_backoffice_charge_target_page_shows_owner_fields_and_owner_list():
     listed = client.get('/backoffice/charge-targets')
     assert '王五' in listed.text
     assert '3栋' in listed.text
+
+
+def test_repository_persists_room_like_charge_target_fields_with_tenant_scope():
+    with tempfile.TemporaryDirectory() as td:
+        db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+        repo = create_saas_repository(db_url)
+        tenant = repo.create_tenant('字段物业')
+        project = repo.create_project(tenant['id'], '字段项目')
+        target = repo.create_charge_target(
+            tenant['id'], project['id'], '商场', '一层', 'A-101', '商户', 66.5,
+            floor=1, shop_name='云端便利店', tenant_name='王租户', tenant_phone='13600000000',
+            payment_cycle='quarterly', notes='靠近东门', unit_price_override=8.5,
+        )
+
+        assert target['floor'] == 1
+        assert target['shop_name'] == '云端便利店'
+        listed = repo.list_charge_targets(tenant['id'], project['id'])
+        assert listed[0]['tenant_name'] == '王租户'
+        assert listed[0]['tenant_phone'] == '13600000000'
+        assert listed[0]['payment_cycle'] == 'quarterly'
+        assert listed[0]['notes'] == '靠近东门'
+        repo.close()
+
+
+def test_api_and_page_accept_room_like_charge_target_fields():
+    client = login_client()
+    target = client.post('/api/charge-targets', json={
+        'building': '商业区', 'unit': '二层', 'room_number': 'B-201', 'category': '商户', 'area': 45,
+        'floor': 2, 'shop_name': '云端咖啡', 'tenant_name': '赵承租', 'tenant_phone': '13500000000',
+        'payment_cycle': 'monthly', 'notes': '测试备注', 'unit_price_override': 6,
+    })
+    assert target.status_code == 200, target.text
+    item = target.json()['item']
+    assert item['shop_name'] == '云端咖啡'
+    assert item['tenant_name'] == '赵承租'
+    assert item['payment_cycle'] == 'monthly'
+
+    page = client.get('/backoffice/charge-targets')
+    assert page.status_code == 200
+    for text in ['楼层', '店名', '承租人', '承租电话', '缴费周期', '备注', '云端咖啡', '赵承租']:
+        assert text in page.text
+
+    created = client.post('/backoffice/charge-targets/create', data={
+        'building': '商业区', 'unit': '三层', 'room_number': 'C-301', 'category': '商户', 'area': '55',
+        'floor': '3', 'shop_name': '云端书店', 'tenant_name': '钱承租', 'tenant_phone': '13400000000',
+        'payment_cycle': 'quarterly', 'notes': '页面创建', 'unit_price_override': '7',
+    }, follow_redirects=False)
+    assert created.status_code == 303
+    listed = client.get('/backoffice/charge-targets')
+    assert '云端书店' in listed.text
+    assert '钱承租' in listed.text
