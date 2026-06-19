@@ -114,3 +114,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_release_g
 - `scripts/saas_demo_tenant_drill.py`
 
 任一子检查失败都不能进入正式商业云端部署。
+
+## 上线证据报告
+
+商业上线总门禁通过后，执行 `scripts/saas_release_evidence.py` 生成脱敏上线证据报告，报告输出到 `release/saas-release-evidence.md`，用于交付留档。

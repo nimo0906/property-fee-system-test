@@ -14,6 +14,7 @@ CHECKS = [
     "scripts/saas_acceptance_check.py",
     "scripts/saas_phase1_closure_check.py",
     "scripts/saas_demo_tenant_drill.py",
+    "scripts/saas_release_evidence.py",
 ]
 
 

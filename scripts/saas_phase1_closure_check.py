@@ -56,6 +56,7 @@ def main():
         "scripts/saas_ops_check.py",
         "scripts/saas_demo_tenant_drill.py",
         "scripts/saas_release_gate.py",
+        "scripts/saas_release_evidence.py",
         "docs/saas-cloud-ops-runbook.md",
         "docs/saas-demo-tenant-drill.md",
     ]:
