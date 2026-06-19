@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from server.saas_app import create_app
 from server.saas_acceptance_boundary import (
     run_account_boundary_acceptance,
+    run_import_upload_acceptance,
     run_isolation_acceptance,
     run_storage_boundary_acceptance,
 )
@@ -90,12 +91,14 @@ def main():
     run_isolation_acceptance('memory')
     run_account_boundary_acceptance('memory')
     run_storage_boundary_acceptance('memory')
+    run_import_upload_acceptance('memory')
     with tempfile.TemporaryDirectory() as td:
         db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
         run_acceptance('persistent', db_url)
         run_isolation_acceptance('persistent', db_url)
         run_account_boundary_acceptance('persistent', db_url)
         run_storage_boundary_acceptance('persistent')
+        run_import_upload_acceptance('persistent', db_url)
 
 
 if __name__ == '__main__':

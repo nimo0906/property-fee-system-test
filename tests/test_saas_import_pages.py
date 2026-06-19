@@ -58,6 +58,38 @@ class TestSaasImportPages(unittest.TestCase):
             self.assertEqual(targets[0]['room_number'], '101')
             repo.close()
 
+    def test_import_page_registers_upload_file_under_tenant_scope(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            page = client.get('/backoffice/imports')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('上传文件登记', page.text)
+            self.assertIn('/backoffice/imports/files/register', page.text)
+            self.assertIn('客户上传文件进入当前租户目录', page.text)
+            self.assertIn('预览不会写库', page.text)
+
+            registered = client.post('/backoffice/imports/files/register', data={
+                'original_name': '../../业主房间.xlsx',
+                'file_size': '2048',
+                'content_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            }, follow_redirects=False)
+            self.assertEqual(registered.status_code, 200)
+            html = registered.text
+            self.assertIn('文件已登记', html)
+            self.assertIn('tenants/', html)
+            self.assertIn('/imports/', html)
+            self.assertNotIn('..', html)
+
+            repo = create_saas_repository(db_url)
+            tenant = repo.list_tenants()[0]
+            project = repo.list_projects(tenant['id'])[0]
+            files = repo.list_import_files(tenant['id'], project['id'])
+            self.assertEqual(len(files), 1)
+            self.assertTrue(files[0]['storage_key'].startswith(f"tenants/{tenant['id']}/projects/{project['id']}/imports/"))
+            self.assertNotIn('..', files[0]['storage_key'])
+            repo.close()
+
     def test_executive_cannot_preview_import(self):
         client = self._client('executive')
         page = client.get('/backoffice/imports')

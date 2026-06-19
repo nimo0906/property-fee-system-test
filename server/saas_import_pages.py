@@ -4,9 +4,13 @@
 
 import csv
 import io
+from pathlib import PurePosixPath
 
 from server.saas_service import PermissionDenied
+from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
+
+STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
 
 
 def _parse_csv_rows(csv_text):
@@ -14,14 +18,30 @@ def _parse_csv_rows(csv_text):
     return [dict(row) for row in reader]
 
 
-def _render_import_home(user):
+def _display_filename(value):
+    return PurePosixPath(str(value or '').replace('\\', '/')).name
+
+
+def _render_file_notice(item):
+    if not item:
+        return ''
+    display_name = _display_filename(item.get('original_name'))
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">文件已登记</div><div class="card-b"><p class="sub">原始文件：{_h(display_name)}</p><p class="sub">存储位置：{_h(item.get('storage_key'))}</p><div class="hint">文件登记只保存租户内存储元数据；后续预览仍需人工确认，不会自动写库。</div></div></section>'''
+
+
+def _render_import_home(user, file_item=None):
     can_import = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'frontdesk'}
     form = _preview_form() if can_import else '<div class="hint">当前角色不能导入，只能查看业务数据。</div>'
     body = f'''
 <section class="hero"><div><h1>数据导入</h1><div class="sub">先预览校验，不直接写库；确认后只导入有效行，错误行不会污染正式数据。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+{_render_file_notice(file_item)}
 <section class="grid"><div class="card"><div class="card-h">收费对象导入</div><div class="card-b">{form}</div></div>
-<aside class="card"><div class="card-h">格式说明</div><div class="card-b"><p class="sub">CSV 表头：building,unit,room_number,category,area</p><div class="hint">后续再接 Excel 文件上传；当前入口先支持复制 CSV 内容。</div></div></aside></section>'''
+<aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{_upload_form() if can_import else '<div class="hint">当前角色不能登记上传文件。</div>'}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>'''
     return _page('数据导入', body)
+
+
+def _upload_form():
+    return '''<form method="post" action="/backoffice/imports/files/register"><label>文件名</label><input name="original_name" required placeholder="例如 业主房间.xlsx"><label>文件大小 Byte</label><input name="file_size" type="number" min="1" required value="1"><label>内容类型</label><input name="content_type" placeholder="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><button class="primary">登记上传文件</button></form>'''
 
 
 def _preview_form():
@@ -50,6 +70,19 @@ def register_import_pages(app, service, repository, current_user):
     @app.get('/backoffice/imports', response_class=HTMLResponse)
     def import_page(user=Depends(current_user)):
         return HTMLResponse(_render_import_home(user))
+
+    @app.post('/backoffice/imports/files/register', response_class=HTMLResponse)
+    def register_import_file_page(original_name: str = Form(...), file_size: int = Form(...), content_type: str = Form(''), user=Depends(current_user)):
+        try:
+            service._require(user, 'import')
+            storage_key = STORAGE.upload_path(user['tenant_id'], user['project_id'], 1_000_000 + user['id'], 'imports', original_name)
+            if repository:
+                item = repository.create_import_file(user['tenant_id'], user['project_id'], 'charge_targets', original_name, storage_key, file_size, content_type)
+            else:
+                item = {'id': 1_000_000 + user['id'], 'original_name': original_name, 'storage_key': storage_key}
+            return HTMLResponse(_render_import_home(user, item))
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/imports/charge-targets/preview', response_class=HTMLResponse)
     def preview_import_page(csv_text: str = Form(''), user=Depends(current_user)):

@@ -25,6 +25,7 @@ class TestSaasAcceptancePersistentMode(unittest.TestCase):
         self.assertIn('PASS saas acceptance workflow persistent', result.stdout)
         self.assertIn('PASS saas acceptance isolation persistent', result.stdout)
         self.assertIn('PASS saas acceptance account boundary persistent', result.stdout)
+        self.assertIn('PASS saas acceptance import upload persistent', result.stdout)
 
     def test_persistent_billing_payment_report_records_survive_reopen(self):
         with tempfile.TemporaryDirectory() as td:

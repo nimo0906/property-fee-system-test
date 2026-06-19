@@ -79,3 +79,22 @@ def run_storage_boundary_acceptance(label):
     expect(system_key.split('/')[0] != tenant_key.split('/')[0], 'system and tenant storage prefixes overlap')
     expect('..' not in tenant_key and not tenant_key.startswith('/'), 'tenant upload key allows traversal')
     print(f'PASS saas acceptance storage boundary {label}')
+
+
+def run_import_upload_acceptance(label, database_url=None):
+    app = create_app(database_url=database_url)
+    client = TestClient(app)
+    _login(client, f'导入验收物业-{label}', f'导入验收项目-{label}', 'finance_import', 'finance')
+    registered = client.post('/api/imports/files/register', json={
+        'import_type': 'charge_targets',
+        'original_name': '../../业主房间.xlsx',
+        'file_size': 2048,
+        'content_type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    expect(registered.status_code == 200, f'import file register failed: {registered.text}')
+    item = registered.json()['item']
+    expect(item['tenant_id'] > 0 and item['project_id'] > 0, 'import file missing tenant/project scope')
+    expect(item['storage_key'].startswith(f"tenants/{item['tenant_id']}/projects/{item['project_id']}/imports/"), 'import file storage key not tenant scoped')
+    expect('..' not in item['storage_key'], 'import file storage key allows traversal')
+    expect('/system/' not in item['storage_key'] and not item['storage_key'].startswith('system/'), 'customer upload stored in system prefix')
+    print(f'PASS saas acceptance import upload {label}')
