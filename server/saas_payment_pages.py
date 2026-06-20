@@ -4,6 +4,8 @@
 
 from urllib.parse import urlencode, quote
 
+from server.saas_csv_export import csv_content
+
 from server.saas_business_closure import render_business_closure
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
@@ -91,6 +93,11 @@ def _render_payments(user, result, bills, params, message=''):
     return _page('收款登记', body)
 
 
+def _receipt_export_rows(payment):
+    headers = ['receipt_number', 'bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'unpaid_amount']
+    return headers, [{key: payment.get(key, '') for key in headers}]
+
+
 def _render_receipt(user, payment, target_id=''):
     target_label = ' '.join(str(payment.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
     return_href = '/backoffice/payments?' + urlencode({'target_id': target_id}) if target_id else '/backoffice/payments'
@@ -108,7 +115,7 @@ def _render_receipt(user, payment, target_id=''):
 <tr><th>金额</th><td>{_h(payment.get('amount_paid'))}</td></tr>
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>
 <tr><th>欠费余额</th><td>{_h(payment.get('unpaid_amount', 0))}</td></tr>
-</tbody></table><div class="actions no-print" style="margin-top:16px"><button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="{_h(return_href)}">返回收款列表</a></div></div></section>'''
+</tbody></table><div class="actions no-print" style="margin-top:16px"><button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="/api/exports/receipts/{_h(payment.get('id'))}.csv">导出收据</a><a class="ghost-link" href="{_h(return_href)}">返回收款列表</a></div></div></section>'''
     return _page('收据详情', body)
 
 
@@ -185,6 +192,19 @@ def register_payment_pages(app, service, repository, current_user):
             if not item:
                 raise HTTPException(status_code=404, detail='receipt not found')
             return HTMLResponse(_render_receipt(user, item, target_id))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+
+    @app.get('/api/exports/receipts/{payment_id}.csv')
+    def export_receipt(payment_id: int, user=Depends(current_user)):
+        try:
+            service._require(user, 'read')
+            item = _find_payment(user, payment_id)
+            if not item:
+                raise HTTPException(status_code=404, detail='receipt not found')
+            headers, rows = _receipt_export_rows(item)
+            return {'filename': f'receipt-{payment_id}.csv', 'content': csv_content(headers, rows)}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 

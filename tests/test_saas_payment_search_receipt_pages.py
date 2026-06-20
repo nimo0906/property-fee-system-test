@@ -113,6 +113,31 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
             blocked = client_b.get('/backoffice/payments/1/receipt')
             self.assertEqual(blocked.status_code, 404)
 
+    def test_receipt_detail_can_export_current_receipt_csv_with_tenant_scope(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client_a = self._client(db_url, tenant_name='A收据导出物业', project_name='A收据导出项目')
+            bill = self._create_paid_bill(client_a, '401', '2026-11', 77, 'cash', 'RECEIPT-EXPORT-A')
+            receipt = client_a.get('/backoffice/payments/1/receipt')
+            self.assertEqual(receipt.status_code, 200)
+            self.assertIn('/api/exports/receipts/1.csv', receipt.text)
+
+            exported = client_a.get('/api/exports/receipts/1.csv')
+            self.assertEqual(exported.status_code, 200)
+            data = exported.json()
+            self.assertEqual(data['filename'], 'receipt-1.csv')
+            content = data['content']
+            self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,unpaid_amount', content)
+            self.assertIn('RCPT-', content)
+            self.assertIn(bill['bill_number'], content)
+            self.assertIn('77.0', content)
+            for hidden in ['tenant_id', 'project_id', 'idempotency_key', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
+                self.assertNotIn(hidden, content)
+
+            client_b = self._client(db_url, tenant_name='B收据导出物业', project_name='B收据导出项目')
+            blocked = client_b.get('/api/exports/receipts/1.csv')
+            self.assertEqual(blocked.status_code, 404)
+
     def test_receipt_detail_has_browser_print_controls_without_internal_fields(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
