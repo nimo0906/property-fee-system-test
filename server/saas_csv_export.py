@@ -36,14 +36,27 @@ def report_breakdown_export_rows(breakdown):
     rows = []
     for group_type, items in group_map:
         for item in items:
-            rows.append({
-                'group_type': group_type,
-                'name': item.get('name', ''),
-                'bill_count': item.get('bill_count', 0),
-                'bill_amount_total': item.get('bill_amount_total', 0.0),
-                'payment_amount_total': item.get('payment_amount_total', 0.0),
-                'unpaid_amount_total': item.get('unpaid_amount_total', 0.0),
-                'collection_rate': item.get('collection_rate', '0.00%'),
-                'arrears_rate': item.get('arrears_rate', '0.00%'),
-            })
+            rows.append(_report_breakdown_row(group_type, item))
+    for group_type, items in group_map:
+        top = _top_arrears_item(items)
+        if top:
+            rows.append(_report_breakdown_row(f'summary_{group_type}', top))
     return headers, rows
+
+
+def _report_breakdown_row(group_type, item):
+    return {
+        'group_type': group_type,
+        'name': item.get('name', ''),
+        'bill_count': item.get('bill_count', 0),
+        'bill_amount_total': item.get('bill_amount_total', 0.0),
+        'payment_amount_total': item.get('payment_amount_total', 0.0),
+        'unpaid_amount_total': item.get('unpaid_amount_total', 0.0),
+        'collection_rate': item.get('collection_rate', '0.00%'),
+        'arrears_rate': item.get('arrears_rate', '0.00%'),
+    }
+
+
+def _top_arrears_item(items):
+    candidates = [item for item in items if float(item.get('unpaid_amount_total') or 0) > 0]
+    return max(candidates, key=lambda item: float(item.get('unpaid_amount_total') or 0), default=None)

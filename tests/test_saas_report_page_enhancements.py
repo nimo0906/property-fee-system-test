@@ -162,6 +162,10 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             self.assertIn('group_type,name,bill_count,bill_amount_total,payment_amount_total,unpaid_amount_total,collection_rate,arrears_rate', content)
             for text in ['building,A座,1,200.0,80.0,120.0,40.00%,60.00%', 'unit,一层,1,200.0,80.0,120.0,40.00%,60.00%', 'fee_type,物业费,1,200.0,80.0,120.0,40.00%,60.00%', 'category,商户,1,200.0,80.0,120.0,40.00%,60.00%']:
                 self.assertIn(text, content)
+            self.assertIn('summary_building,A座,1,200.0,80.0,120.0,40.00%,60.00%', content)
+            self.assertIn('summary_unit,一层,1,200.0,80.0,120.0,40.00%,60.00%', content)
+            self.assertIn('summary_fee_type,物业费,1,200.0,80.0,120.0,40.00%,60.00%', content)
+            self.assertIn('summary_category,商户,1,200.0,80.0,120.0,40.00%,60.00%', content)
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
                 self.assertNotIn(hidden, content)
 
