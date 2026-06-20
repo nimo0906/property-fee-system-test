@@ -58,10 +58,27 @@ class TestSaasHttpWorkflow(unittest.TestCase):
             'tenant_name': 'HTTP分组报表物业', 'project_name': 'HTTP分组报表项目', 'username': 'finance', 'role_code': 'finance'
         })
 
-        response = client.get('/reports/breakdown?period=2099-01')
+        fee = client.post('/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+        target = client.post('/charge-targets', json={
+            'building': 'A座', 'unit': '一层', 'room_number': 'A101', 'category': '商户', 'area': 100,
+        }).json()['item']
+        bill = client.post('/bills/generate', json={
+            'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2026-08',
+            'service_start': '2026-08-01', 'service_end': '2026-08-31',
+        }).json()['item']
+        client.post(f"/bills/{bill['id']}/approve", json={})
+        client.post('/payments', json={
+            'bill_id': bill['id'], 'amount': 80, 'method': 'cash', 'idempotency_key': 'HTTP-BREAKDOWN-1'
+        })
+
+        response = client.get('/reports/breakdown?period=2026-08')
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})
+        expected = {'name': 'A座', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 80.0, 'unpaid_amount_total': 120.0, 'collection_rate': '40.00%', 'arrears_rate': '60.00%'}
+        self.assertEqual(response.json()['by_building'], [expected])
+        self.assertEqual(response.json()['by_unit'], [{**expected, 'name': '一层'}])
+        self.assertEqual(response.json()['by_fee_type'], [{**expected, 'name': '物业费'}])
+        self.assertEqual(response.json()['by_category'], [{**expected, 'name': '商户'}])
 
     def test_cashier_can_pay_but_cannot_generate_bill(self):
         client = create_saas_http_app()

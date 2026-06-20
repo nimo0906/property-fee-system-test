@@ -21,6 +21,44 @@ def _report_summary_with_rates(report):
     return result
 
 
+def _empty_breakdown():
+    return {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []}
+
+
+def _report_breakdown(service, user, period):
+    rows = _empty_breakdown()
+    bills = service.list_bills(user, user['project_id'], period, None)
+    paid_by_bill = {bill['id']: float(bill.get('paid_amount') or 0) for bill in bills}
+    groups = {
+        'by_building': lambda bill: service.targets.get(bill.get('charge_target_id'), {}).get('building', ''),
+        'by_unit': lambda bill: service.targets.get(bill.get('charge_target_id'), {}).get('unit', ''),
+        'by_fee_type': lambda bill: service.fees.get(bill.get('fee_type_id'), {}).get('name', ''),
+        'by_category': lambda bill: service.targets.get(bill.get('charge_target_id'), {}).get('category', ''),
+    }
+    for key, name_for in groups.items():
+        buckets = {}
+        for bill in bills:
+            name = name_for(bill) or '未分类'
+            row = buckets.setdefault(name, {'name': name, 'bill_count': 0, 'bill_amount_total': 0.0, 'payment_amount_total': 0.0})
+            row['bill_count'] += 1
+            row['bill_amount_total'] = round(row['bill_amount_total'] + float(bill.get('amount') or 0), 2)
+            row['payment_amount_total'] = round(row['payment_amount_total'] + paid_by_bill.get(bill.get('id'), 0.0), 2)
+        rows[key] = [_breakdown_row(row) for row in buckets.values()]
+    return rows
+
+
+def _breakdown_row(row):
+    due = float(row.get('bill_amount_total') or 0)
+    paid = float(row.get('payment_amount_total') or 0)
+    unpaid = round(due - paid, 2)
+    return {
+        **row,
+        'unpaid_amount_total': unpaid,
+        'collection_rate': _percent(paid, due),
+        'arrears_rate': _percent(unpaid, due),
+    }
+
+
 
 class SimpleResponse:
     def __init__(self, status_code=200, json_body=None, cookies=None):
@@ -166,7 +204,12 @@ class SimpleSaasHttpApp:
             report = self.service.report(user, user['project_id'], period)
             return self._json_response(200, _report_summary_with_rates(report))
         if path.startswith('/reports/breakdown'):
-            return self._json_response(200, {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})
+            period = ''
+            if '?' in path:
+                for part in path.split('?', 1)[1].split('&'):
+                    if part.startswith('period='):
+                        period = part.split('=', 1)[1]
+            return self._json_response(200, _report_breakdown(self.service, user, period))
         return self._json_response(404, {'detail': 'not found'})
 
 
