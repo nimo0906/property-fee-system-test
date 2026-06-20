@@ -153,6 +153,35 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
                 self.assertNotIn(hidden, receipt.text)
 
 
+    def test_payment_list_shows_balance_after_each_partial_payment(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='列表分次收款物业', project_name='列表分次收款项目')
+            target = client.post('/api/charge-targets', json={
+                'building': '5栋', 'unit': '2单元', 'room_number': '502', 'category': '居民', 'area': 100,
+            }).json()['item']
+            fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-02',
+                'service_start': '2027-02-01', 'service_end': '2027-02-28',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 60, 'method': 'cash', 'idempotency_key': 'PAYMENT-LIST-PARTIAL-1',
+            })
+            client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 140, 'method': 'cash', 'idempotency_key': 'PAYMENT-LIST-PARTIAL-2',
+            })
+
+            page = client.get('/backoffice/payments?period=2027-02')
+
+            self.assertEqual(page.status_code, 200)
+            for text in ['本次收款', '收后累计已收', '收后欠费余额']:
+                self.assertIn(text, page.text)
+            self.assertIn('<td>60.0</td><td>60.0</td><td>140.0</td><td>cash</td>', page.text)
+            self.assertIn('<td>140.0</td><td>200.0</td><td>0.0</td><td>cash</td>', page.text)
+
+
     def test_receipt_detail_shows_balance_after_each_partial_payment(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

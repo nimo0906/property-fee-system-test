@@ -54,8 +54,8 @@ def _payment_rows(payments, target_id=''):
         receipt = _h(payment.get('receipt_number'))
         suffix = '?' + urlencode({'target_id': target_id}) if target_id else ''
         href = f"/backoffice/payments/{_h(payment.get('id'))}/receipt{suffix}"
-        rows.append(f'''<tr><td><a class="ghost-link" href="{href}">{receipt}</a></td><td>{_h(payment.get('bill_number'))}</td><td>{_h(payment.get('billing_period'))}</td><td>{_h(payment.get('room_number'))}</td><td>{_h(payment.get('shop_name') or '')}</td><td>{_h(payment.get('tenant_name') or '')}</td><td>{_h(payment.get('amount_paid'))}</td><td>{_h(payment.get('method'))}</td></tr>''')
-    return ''.join(rows) or '<tr><td colspan="8">暂无收款</td></tr>'
+        rows.append(f'''<tr><td><a class="ghost-link" href="{href}">{receipt}</a></td><td>{_h(payment.get('bill_number'))}</td><td>{_h(payment.get('billing_period'))}</td><td>{_h(payment.get('room_number'))}</td><td>{_h(payment.get('shop_name') or '')}</td><td>{_h(payment.get('tenant_name') or '')}</td><td>{_amount_text(payment.get('amount_paid'))}</td><td>{_amount_text(payment.get('paid_amount', payment.get('amount_paid')))}</td><td>{_amount_text(payment.get('unpaid_amount', 0))}</td><td>{_h(payment.get('method'))}</td></tr>''')
+    return ''.join(rows) or '<tr><td colspan="10">暂无收款</td></tr>'
 
 
 def _query(params, **changes):
@@ -92,7 +92,7 @@ def _render_payments(user, result, bills, params, message=''):
 {notice}
 {render_business_closure('payments')}
 {_filter_card(params)}
-<section class="grid"><div class="card"><div class="card-h">收款列表</div><div class="card-b">{_pager(result, params)}<table><thead><tr><th>收据号</th><th>账单号</th><th>账期</th><th>房号 / 铺位号</th><th>店名</th><th>承租人</th><th>金额</th><th>方式</th></tr></thead><tbody>{rows}</tbody></table>{_pager(result, params)}</div></div>
+<section class="grid"><div class="card"><div class="card-h">收款列表</div><div class="card-b">{_pager(result, params)}<table><thead><tr><th>收据号</th><th>账单号</th><th>账期</th><th>房号 / 铺位号</th><th>店名</th><th>承租人</th><th>本次收款</th><th>收后累计已收</th><th>收后欠费余额</th><th>方式</th></tr></thead><tbody>{rows}</tbody></table>{_pager(result, params)}</div></div>
 <aside class="card"><div class="card-h">登记收款</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收款登记', body)
 
