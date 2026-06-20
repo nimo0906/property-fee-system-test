@@ -59,11 +59,16 @@ def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1
             paid_rows = conn.execute(text("""SELECT bill_id,COALESCE(SUM(amount_paid),0) paid FROM payments
                 WHERE tenant_id=:tenant_id AND project_id=:project_id GROUP BY bill_id"""),
                 {"tenant_id": tenant_id, "project_id": project_id}).mappings().all()
-        paid_map = {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows}
-        for row in rows:
-            total_paid = round(paid_map.get(int(row.get('bill_id') or 0), 0), 2)
-            row['paid_amount'] = total_paid
-            row['unpaid_amount'] = round(max(float(row.get('bill_amount') or 0) - total_paid, 0), 2)
+            paid_map = {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows}
+            for row in rows:
+                bill_id = int(row.get('bill_id') or 0)
+                current_paid = round(paid_map.get(bill_id, 0), 2)
+                paid_after = conn.execute(text("""SELECT COALESCE(SUM(amount_paid),0) FROM payments
+                    WHERE tenant_id=:tenant_id AND project_id=:project_id AND bill_id=:bill_id AND id<=:payment_id"""),
+                    {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id, "payment_id": row.get('id')}).scalar_one()
+                row['current_paid_amount'] = current_paid
+                row['paid_amount'] = round(float(paid_after or 0), 2)
+                row['unpaid_amount'] = round(max(float(row.get('bill_amount') or 0) - float(paid_after or 0), 0), 2)
         keyword = str(keyword or "").lower()
         if keyword:
             rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period", "shop_name", "tenant_name"]).lower()]

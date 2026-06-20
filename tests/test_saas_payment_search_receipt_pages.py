@@ -127,7 +127,7 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
             data = exported.json()
             self.assertEqual(data['filename'], 'receipt-1.csv')
             content = data['content']
-            self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,unpaid_amount', content)
+            self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,paid_amount,unpaid_amount', content)
             self.assertIn('RCPT-', content)
             self.assertIn(bill['bill_number'], content)
             self.assertIn('77.0', content)
@@ -151,6 +151,45 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
                 self.assertIn(text, receipt.text)
             for hidden in ['tenant_id', 'project_id', 'idempotency_key', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
                 self.assertNotIn(hidden, receipt.text)
+
+
+    def test_receipt_detail_shows_balance_after_each_partial_payment(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='分次收款物业', project_name='分次收款项目')
+            target = client.post('/api/charge-targets', json={
+                'building': '2栋', 'unit': '1单元', 'room_number': '201', 'category': '居民', 'area': 100,
+            }).json()['item']
+            fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-01',
+                'service_start': '2027-01-01', 'service_end': '2027-01-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            first = client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 80, 'method': 'cash', 'idempotency_key': 'RECEIPT-PARTIAL-1',
+            }).json()['item']
+            second = client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 120, 'method': 'cash', 'idempotency_key': 'RECEIPT-PARTIAL-2',
+            }).json()['item']
+
+            first_receipt = client.get(f"/backoffice/payments/{first['id']}/receipt")
+            self.assertEqual(first_receipt.status_code, 200)
+            self.assertIn('<th>本次收款</th><td>80.0</td>', first_receipt.text)
+            self.assertIn('<th>收后累计已收</th><td>80.0</td>', first_receipt.text)
+            self.assertIn('<th>收后欠费余额</th><td>120.0</td>', first_receipt.text)
+
+            second_receipt = client.get(f"/backoffice/payments/{second['id']}/receipt")
+            self.assertEqual(second_receipt.status_code, 200)
+            self.assertIn('<th>本次收款</th><td>120.0</td>', second_receipt.text)
+            self.assertIn('<th>收后累计已收</th><td>200.0</td>', second_receipt.text)
+            self.assertIn('<th>收后欠费余额</th><td>0.0</td>', second_receipt.text)
+
+            exported = client.get(f"/api/exports/receipts/{first['id']}.csv")
+            self.assertEqual(exported.status_code, 200)
+            content = exported.json()['content']
+            self.assertIn('amount_paid,method,paid_amount,unpaid_amount', content)
+            self.assertIn('80.0,cash,80.0,120.0', content)
 
 
 if __name__ == '__main__':

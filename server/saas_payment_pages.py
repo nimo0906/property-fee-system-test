@@ -19,6 +19,10 @@ def _to_float(value):
         return None
 
 
+def _amount_text(value):
+    return _h('0.0' if value == 0 else value)
+
+
 def _filter_payments(payments, method='', amount_min='', amount_max=''):
     low = _to_float(amount_min)
     high = _to_float(amount_max)
@@ -94,7 +98,7 @@ def _render_payments(user, result, bills, params, message=''):
 
 
 def _receipt_export_rows(payment):
-    headers = ['receipt_number', 'bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'unpaid_amount']
+    headers = ['receipt_number', 'bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'paid_amount', 'unpaid_amount']
     return headers, [{key: payment.get(key, '') for key in headers}]
 
 
@@ -112,9 +116,10 @@ def _render_receipt(user, payment, target_id=''):
 <tr><th>账期</th><td>{_h(payment.get('billing_period'))}</td></tr>
 <tr><th>收费对象</th><td>{_h(target_label)}</td></tr>
 <tr><th>业主</th><td>{_h(payment.get('owner_name') or '未绑定')}</td></tr>
-<tr><th>金额</th><td>{_h(payment.get('amount_paid'))}</td></tr>
+<tr><th>本次收款</th><td>{_amount_text(payment.get('amount_paid'))}</td></tr>
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>
-<tr><th>欠费余额</th><td>{_h(payment.get('unpaid_amount', 0))}</td></tr>
+<tr><th>收后累计已收</th><td>{_amount_text(payment.get('paid_amount', payment.get('amount_paid')))}</td></tr>
+<tr><th>收后欠费余额</th><td>{_amount_text(payment.get('unpaid_amount', 0))}</td></tr>
 </tbody></table><div class="actions no-print" style="margin-top:16px"><button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="/api/exports/receipts/{_h(payment.get('id'))}.csv">导出收据</a><a class="ghost-link" href="{_h(return_href)}">返回收款列表</a></div></div></section>'''
     return _page('收据详情', body)
 
