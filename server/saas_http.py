@@ -165,6 +165,8 @@ class SimpleSaasHttpApp:
                         period = part.split('=', 1)[1]
             report = self.service.report(user, user['project_id'], period)
             return self._json_response(200, _report_summary_with_rates(report))
+        if path.startswith('/reports/breakdown'):
+            return self._json_response(200, {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})
         return self._json_response(404, {'detail': 'not found'})
 
 

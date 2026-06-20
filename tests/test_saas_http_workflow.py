@@ -52,6 +52,17 @@ class TestSaasHttpWorkflow(unittest.TestCase):
         self.assertEqual(report.json()['collection_rate'], '25.00%')
         self.assertEqual(report.json()['arrears_rate'], '75.00%')
 
+    def test_report_breakdown_returns_all_group_keys(self):
+        client = create_saas_http_app()
+        client.post('/auth/login', json={
+            'tenant_name': 'HTTP分组报表物业', 'project_name': 'HTTP分组报表项目', 'username': 'finance', 'role_code': 'finance'
+        })
+
+        response = client.get('/reports/breakdown?period=2099-01')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})
+
     def test_cashier_can_pay_but_cannot_generate_bill(self):
         client = create_saas_http_app()
         client.post('/auth/login', json={
