@@ -4,6 +4,7 @@
 
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
+from server.saas_batch_billing import service_end_for_cycle
 from server.saas_bill_balances import attach_bill_balances, service_paid_by_bill
 from server.saas_csv_export import bill_export_rows, csv_content, payment_export_rows
 
@@ -135,7 +136,7 @@ def report(self, user, project_id, period):
 
 
 
-def batch_generate_bills(self, user, project_id, fee_type_id, period, service_start, service_end, category='', building='', unit=''):
+def batch_generate_bills(self, user, project_id, fee_type_id, period, service_start, service_end, category='', building='', unit='', use_payment_cycle=False):
         self._require(user, "billing")
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
@@ -157,10 +158,11 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
             if exists:
                 skipped += 1
                 continue
-            bill = self.generate_bill(user, project_id, target, fee, period, service_start, service_end)
+            target_service_end = service_end_for_cycle(service_start, target.get('payment_cycle')) if use_payment_cycle and service_start else service_end
+            bill = self.generate_bill(user, project_id, target, fee, period, service_start, target_service_end)
             bill_ids.append(bill['id'])
             created += 1
-        self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'created_count': created, 'skipped_count': skipped})
+        self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'use_payment_cycle': use_payment_cycle, 'created_count': created, 'skipped_count': skipped})
         return {'created_count': created, 'skipped_count': skipped, 'bill_ids': bill_ids}
 
 def attach_billing_methods(cls):

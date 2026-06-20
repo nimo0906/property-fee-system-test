@@ -55,6 +55,7 @@ def register_billing_routes(app, service):
         category: str = ""
         building: str = ""
         unit: str = ""
+        use_payment_cycle: bool = False
 
     current_user = app.state.current_user
     repository = getattr(app.state, "repository", None)
@@ -90,11 +91,11 @@ def register_billing_routes(app, service):
             if repository:
                 result = repository.batch_generate_bills(
                     user["tenant_id"], user["project_id"], data.fee_type_id,
-                    data.billing_period, data.service_start, data.service_end, data.category, data.building, data.unit, actor_user_id=user["id"],
+                    data.billing_period, data.service_start, data.service_end, data.category, data.building, data.unit, actor_user_id=user["id"], use_payment_cycle=data.use_payment_cycle,
                 )
             else:
                 result = service.batch_generate_bills(
-                    user, user["project_id"], data.fee_type_id, data.billing_period, data.service_start, data.service_end, data.category, data.building, data.unit
+                    user, user["project_id"], data.fee_type_id, data.billing_period, data.service_start, data.service_end, data.category, data.building, data.unit, data.use_payment_cycle
                 )
             return result
         except (PermissionDenied, TenantScopeError):

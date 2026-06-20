@@ -95,7 +95,7 @@ def _batch_generate_form(fees):
         return '<div class="hint">请先维护收费项目，再批量出账。</div>'
     fee_options = _options(fees, lambda item: f"{item.get('name')} · {item.get('unit_price')}")
     category_options = '<option value="">全部类型</option><option value="居民">仅居民</option><option value="商户">仅商户</option><option value="办公">仅办公</option><option value="其他">仅其他</option>'
-    return f'''<form method="post" action="/backoffice/bills/batch-generate"><label>收费项目</label><select name="fee_type_id" required>{fee_options}</select><label>对象范围</label><select name="category">{category_options}</select><label>楼栋 / 区域范围</label><input name="building" placeholder="选填，精确匹配楼栋/区域"><label>单元 / 分区范围</label><input name="unit" placeholder="选填，精确匹配单元/分区"><label>账期</label><input name="billing_period" required placeholder="例如 2026-06"><label>服务开始日期</label><input name="service_start" required type="date"><label>服务结束日期</label><input name="service_end" required type="date"><button class="primary">批量出账</button><div class="hint">按当前租户和项目内收费对象批量生成；同一账期、收费项目、收费对象已存在账单会自动跳过。</div></form>'''
+    return f'''<form method="post" action="/backoffice/bills/batch-generate"><label>收费项目</label><select name="fee_type_id" required>{fee_options}</select><label>对象范围</label><select name="category">{category_options}</select><label>楼栋 / 区域范围</label><input name="building" placeholder="选填，精确匹配楼栋/区域"><label>单元 / 分区范围</label><input name="unit" placeholder="选填，精确匹配单元/分区"><label>账期</label><input name="billing_period" required placeholder="例如 2026-06"><label>服务开始日期</label><input name="service_start" required type="date"><label>服务结束日期</label><input name="service_end" type="date"><label><input type="checkbox" name="use_payment_cycle" value="1"> 按收费对象缴费周期自动计算服务结束</label><button class="primary">批量出账</button><div class="hint">按当前租户和项目内收费对象批量生成；同一账期、收费项目、收费对象已存在账单会自动跳过。</div></form>'''
 
 
 def _to_int(value, default):
@@ -213,13 +213,13 @@ def register_bill_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
 
     @app.post('/backoffice/bills/batch-generate')
-    def batch_generate_bill_page(fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(...), category: str = Form(''), building: str = Form(''), unit: str = Form(''), user=Depends(current_user)):
+    def batch_generate_bill_page(fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(''), category: str = Form(''), building: str = Form(''), unit: str = Form(''), use_payment_cycle: str = Form(''), user=Depends(current_user)):
         try:
             service._require(user, 'billing')
             if repository:
-                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category, building, unit, actor_user_id=user['id'])
+                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category, building, unit, actor_user_id=user['id'], use_payment_cycle=bool(use_payment_cycle))
             else:
-                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category, building, unit)
+                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category, building, unit, bool(use_payment_cycle))
             msg = f"批量出账{result['created_count']}张，跳过{result['skipped_count']}张"
             return RedirectResponse(f'/backoffice/bills?period={_h(billing_period)}&message={_h(msg)}', status_code=303)
         except (PermissionDenied, TenantScopeError):

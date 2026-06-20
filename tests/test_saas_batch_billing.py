@@ -83,7 +83,7 @@ def test_api_and_backoffice_batch_generate_bills_for_selected_category():
 
         page = client.get('/backoffice/bills')
         assert page.status_code == 200
-        for text in ['批量出账', '全部类型', '仅居民', '仅商户']:
+        for text in ['批量出账', '全部类型', '仅居民', '仅商户', '按收费对象缴费周期自动计算服务结束']:
             assert text in page.text
 
 
@@ -146,3 +146,49 @@ def test_api_and_backoffice_batch_generate_bills_for_building_scope():
         bills = client.get('/api/bills', params={'period': '2027-08'}).json()['items']
         assert len(bills) == 1
         assert bills[0]['amount'] == 120.0
+
+
+def test_repository_batch_generate_can_use_target_payment_cycle_for_service_period():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('周期批量物业')
+        project = repo.create_project(tenant['id'], '周期批量项目')
+        repo.create_charge_target(
+            tenant['id'], project['id'], '商场', '一层', 'Q-101', '商户', 50,
+            unit_price_override=4, payment_cycle='quarterly',
+        )
+        fee = repo.create_fee_type(tenant['id'], project['id'], '商户物业费', 2, 'area')
+
+        result = repo.batch_generate_bills(
+            tenant['id'], project['id'], fee['id'], '2027-09', '2027-09-01', '', use_payment_cycle=True,
+        )
+
+        assert result['created_count'] == 1
+        bill = repo.list_bills(tenant['id'], project['id'], '2027-09')[0]
+        assert bill['service_start'] == '2027-09-01'
+        assert bill['service_end'] == '2027-11-30'
+        assert bill['amount'] == 600.0
+        repo.close()
+
+
+def test_api_batch_generate_can_use_target_payment_cycle_for_service_period():
+    with tempfile.TemporaryDirectory() as td:
+        client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        client.post('/api/charge-targets', json={
+            'building': '商场', 'unit': '二层', 'room_number': 'S-201', 'category': '商户',
+            'area': 40, 'unit_price_override': 5, 'payment_cycle': 'semiannual',
+        })
+        fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+
+        response = client.post('/api/bills/batch-generate', json={
+            'fee_type_id': fee['id'], 'billing_period': '2027-10',
+            'service_start': '2027-10-01', 'service_end': '', 'category': '商户',
+            'use_payment_cycle': True,
+        })
+
+        assert response.status_code == 200, response.text
+        assert response.json()['created_count'] == 1
+        bill = client.get('/api/bills', params={'period': '2027-10'}).json()['items'][0]
+        assert bill['service_start'] == '2027-10-01'
+        assert bill['service_end'] == '2028-03-31'
+        assert bill['amount'] == 1200.0
