@@ -49,6 +49,8 @@ class TestSaasHttpWorkflow(unittest.TestCase):
         self.assertEqual(report.json()['bill_amount_total'], 200.0)
         self.assertEqual(report.json()['payment_amount_total'], 50.0)
         self.assertEqual(report.json()['unpaid_amount_total'], 150.0)
+        self.assertEqual(report.json()['collection_rate'], '25.00%')
+        self.assertEqual(report.json()['arrears_rate'], '75.00%')
 
     def test_cashier_can_pay_but_cannot_generate_bill(self):
         client = create_saas_http_app()

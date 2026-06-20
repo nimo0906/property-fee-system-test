@@ -7,6 +7,20 @@ import secrets
 
 from server.saas_service import PermissionDenied, SaasBackofficeService
 
+def _percent(numerator, denominator):
+    if not denominator:
+        return '0.00%'
+    return f'{(float(numerator or 0) / float(denominator) * 100):.2f}%'
+
+
+def _report_summary_with_rates(report):
+    due = float(report.get('bill_amount_total') or 0)
+    result = dict(report)
+    result['collection_rate'] = _percent(result.get('payment_amount_total'), due)
+    result['arrears_rate'] = _percent(result.get('unpaid_amount_total'), due)
+    return result
+
+
 
 class SimpleResponse:
     def __init__(self, status_code=200, json_body=None, cookies=None):
@@ -150,7 +164,7 @@ class SimpleSaasHttpApp:
                     if part.startswith('period='):
                         period = part.split('=', 1)[1]
             report = self.service.report(user, user['project_id'], period)
-            return self._json_response(200, report)
+            return self._json_response(200, _report_summary_with_rates(report))
         return self._json_response(404, {'detail': 'not found'})
 
 
