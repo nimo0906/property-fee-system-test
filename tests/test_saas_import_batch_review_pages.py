@@ -47,6 +47,27 @@ class TestSaasImportBatchReviewPages(unittest.TestCase):
             self.assertNotIn('tenant_id', page.text)
             self.assertNotIn('project_id', page.text)
 
+
+    def test_import_home_batch_list_shows_auto_created_owner_count_after_confirm(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            csv_text = 'owner_name,owner_phone,building,unit,room_number,category,area\n张业主,13800000000,1栋,1单元,101,居民,80\n李业主,13900000000,商场,一层,A-01,商户,45\n'
+            preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+            self.assertEqual(preview.status_code, 200)
+            marker = 'name="import_id" value="'
+            import_id = preview.text.split(marker)[1].split('"')[0]
+            confirmed = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id})
+            self.assertEqual(confirmed.status_code, 200)
+
+            page = client.get('/backoffice/imports')
+
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('自动创建业主', page.text)
+            self.assertIn('业主 2 个', page.text)
+            self.assertIn(f'批次 {import_id}', page.text)
+            self.assertNotIn('tenant_id', page.text)
+            self.assertNotIn('project_id', page.text)
+
     def test_import_batch_review_page_is_tenant_scoped_and_updates_after_confirm(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

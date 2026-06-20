@@ -55,15 +55,17 @@ def _preview_form():
 
 
 def _render_import_batches(batches):
-    rows = ''.join(_batch_row(row) for row in batches[-8:]) or '<tr><td colspan="6">暂无导入批次</td></tr>'
-    return f"""<section class="card" style="margin-top:18px"><div class="card-h">导入批次记录</div><div class="card-b"><table><thead><tr><th>批次</th><th>状态</th><th>有效</th><th>错误</th><th>错误行</th><th>入口</th></tr></thead><tbody>{rows}</tbody></table><div class="hint">批次记录来自当前租户和项目的预览缓存；客户上传文件记录与系统审计、系统模板分开展示。</div></div></section>"""
+    rows = ''.join(_batch_row(row) for row in batches[-8:]) or '<tr><td colspan="7">暂无导入批次</td></tr>'
+    return f"""<section class="card" style="margin-top:18px"><div class="card-h">导入批次记录</div><div class="card-b"><table><thead><tr><th>批次</th><th>状态</th><th>有效</th><th>错误</th><th>自动创建业主</th><th>错误行</th><th>入口</th></tr></thead><tbody>{rows}</tbody></table><div class="hint">批次记录来自当前租户和项目的预览缓存；客户上传文件记录与系统审计、系统模板分开展示。</div></div></section>"""
 
 
 def _batch_row(row):
     import_id = row.get('import_id')
     status = '已确认' if row.get('confirmed') else '待确认'
-    error_link = f'<a class="ghost-link" href="/api/imports/{_h(import_id)}/errors.csv">下载错误行</a>' if row.get('error_count') else '-'
-    return f"""<tr><td>批次 {_h(import_id)}</td><td>{status}</td><td>有效 {_h(row.get('valid_count'))} 行</td><td>错误 {_h(row.get('error_count'))} 行</td><td>{error_link}</td><td><a class="ghost-link" href="/backoffice/imports/{_h(import_id)}/review">复核批次</a></td></tr>"""
+    error_count = row.get('error_count') or 0
+    owner_created = row.get('owner_created_count') or 0
+    error_link = f'<a class="ghost-link" href="/api/imports/{_h(import_id)}/errors.csv">下载错误行</a>' if error_count else '-'
+    return f"""<tr><td>批次 {_h(import_id)}</td><td>{status}</td><td>有效 {_h(row.get('valid_count') or 0)} 行</td><td>错误 {_h(error_count)} 行</td><td>业主 {_h(owner_created)} 个</td><td>{error_link}</td><td><a class="ghost-link" href="/backoffice/imports/{_h(import_id)}/review">复核批次</a></td></tr>"""
 
 
 def _tenant_import_batches(service, user):
@@ -71,7 +73,7 @@ def _tenant_import_batches(service, user):
     for import_id, item in sorted(service.imports.items()):
         if int(item.get('tenant_id')) != int(user.get('tenant_id')) or int(item.get('project_id')) != int(user.get('project_id')):
             continue
-        rows.append({'import_id': import_id, 'valid_count': len(item.get('valid_rows') or []), 'error_count': len(item.get('errors') or []), 'confirmed': bool(item.get('confirmed'))})
+        rows.append({'import_id': import_id, 'valid_count': len(item.get('valid_rows') or []), 'error_count': len(item.get('errors') or []), 'confirmed': bool(item.get('confirmed')), 'owner_created_count': item.get('owner_created_count') or 0})
     return rows
 
 
@@ -106,12 +108,7 @@ def _template_rows():
         ('payment_cycle', '缴费周期', '选填', '例如 monthly、quarterly'),
         ('notes', '备注', '选填', '补充说明'),
     ]
-    return ''.join(
-        '<tr>'
-        f'<td>{_h(code)}</td><td>{_h(label)}</td><td>{_h(required)}</td><td>{_h(note)}</td>'
-        '</tr>'
-        for code, label, required, note in fields
-    )
+    return ''.join('<tr>' f'<td>{_h(code)}</td><td>{_h(label)}</td><td>{_h(required)}</td><td>{_h(note)}</td>' '</tr>' for code, label, required, note in fields)
 
 
 def _render_template_page(user, business_template='residential'):
@@ -222,7 +219,6 @@ def register_import_pages(app, service, repository, current_user):
         selected = template_code_for_user(service, repository, user) if current_tenant else business_template
         csv_text = template_csv(selected) if selected else TEMPLATE_CSV
         return PlainTextResponse(csv_text, media_type='text/csv; charset=utf-8', headers={'Content-Disposition': 'attachment; filename="charge_targets_template.csv"'})
-
 
     @app.get('/api/imports/{import_id}/errors.csv')
     def import_errors_csv(import_id: int, user=Depends(current_user)):
