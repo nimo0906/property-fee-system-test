@@ -12,7 +12,9 @@ from server.saas_user_pages import _h, _page
 
 
 def _target_label(item):
-    return f"{item.get('building', '')} {item.get('unit', '')} {item.get('room_number', '')}".strip()
+    base = f"{item.get('building', '')} {item.get('unit', '')} {item.get('room_number', '')}".strip()
+    extra = ' / '.join(str(item.get(k) or '').strip() for k in ['shop_name', 'tenant_name'] if str(item.get(k) or '').strip())
+    return f"{base} / {extra}" if extra else base
 
 
 def _options(items, label_func):

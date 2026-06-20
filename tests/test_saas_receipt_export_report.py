@@ -34,7 +34,7 @@ class TestSaasReceiptExportReport(unittest.TestCase):
         bills = self.service.export_bills(self.finance, self.project, period='2026-06')
         payments = self.service.export_payments(self.finance, self.project, period='2026-06')
         self.assertEqual(bills['filename'], 'bills-2026-06.csv')
-        self.assertIn('bill_number,billing_period,building,unit,room_number,owner_name,fee_name,amount,paid_amount,unpaid_amount,status', bills['content'])
+        self.assertIn('bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,fee_name,amount,paid_amount,unpaid_amount,status', bills['content'])
         self.assertIn(self.bill['bill_number'], bills['content'])
         self.assertEqual(payments['filename'], 'payments-2026-06.csv')
         self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,owner_name,amount_paid,method', payments['content'])

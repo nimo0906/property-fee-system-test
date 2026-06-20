@@ -16,7 +16,7 @@ def csv_content(headers, rows):
 
 
 def bill_export_rows(items):
-    headers = ['bill_number', 'billing_period', 'building', 'unit', 'room_number', 'owner_name', 'fee_name', 'amount', 'paid_amount', 'unpaid_amount', 'status']
+    headers = ['bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'fee_name', 'amount', 'paid_amount', 'unpaid_amount', 'status']
     return headers, [{key: item.get(key, '') for key in headers} for item in items]
 
 

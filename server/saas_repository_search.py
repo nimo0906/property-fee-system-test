@@ -16,7 +16,7 @@ def _paged(self, rows, page, page_size):
 def search_bills(self, tenant_id, project_id, keyword="", period=None, status=None, page=1, page_size=20):
         self._require_project_scope(tenant_id, project_id)
         sql = """SELECT b.id,b.tenant_id,b.project_id,b.bill_number,b.billing_period,b.amount,b.status,
-            b.charge_target_id,b.fee_type_id,t.building,t.unit,t.room_number,t.category,o.name owner_name,f.name fee_name
+            b.charge_target_id,b.fee_type_id,t.building,t.unit,t.room_number,t.category,t.shop_name,t.tenant_name,o.name owner_name,f.name fee_name
             FROM bills b JOIN charge_targets t ON b.charge_target_id=t.id
             LEFT JOIN owners o ON t.owner_id=o.id AND t.tenant_id=o.tenant_id AND t.project_id=o.project_id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id AND b.tenant_id=f.tenant_id AND b.project_id=f.project_id
@@ -37,7 +37,7 @@ def search_bills(self, tenant_id, project_id, keyword="", period=None, status=No
         rows = attach_bill_balances(rows, {int(r['bill_id']): float(r['paid'] or 0) for r in paid_rows})
         keyword = str(keyword or "").lower()
         if keyword:
-            rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number"]).lower()]
+            rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number", "shop_name", "tenant_name"]).lower()]
         return self._paged(rows, page, page_size)
 
 def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1, page_size=20):

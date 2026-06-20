@@ -96,6 +96,33 @@ class TestSaasBillSearchBatchPages(unittest.TestCase):
             self.assertNotIn('101', content)
             self.assertNotIn('201', content)
 
+
+    def test_merchant_bill_page_and_export_include_shop_and_tenant_names(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(database_url=db_url)
+            target = client.post('/api/charge-targets', json={
+                'building': '商场账单区', 'unit': '二层', 'room_number': 'M-201',
+                'category': '商户', 'area': 100, 'shop_name': '账单咖啡店',
+                'tenant_name': '账单承租人', 'tenant_phone': '13900000000',
+            }).json()['item']
+            fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 3}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2028-02',
+                'service_start': '2028-02-01', 'service_end': '2028-02-29',
+            }).json()['item']
+
+            page = client.get('/backoffice/bills?period=2028-02')
+            self.assertEqual(page.status_code, 200)
+            for text in ['M-201', '账单咖啡店', '账单承租人', bill['bill_number']]:
+                self.assertIn(text, page.text)
+
+            exported = client.get('/api/exports/bills?period=2028-02')
+            self.assertEqual(exported.status_code, 200)
+            content = exported.json()['content']
+            for text in ['shop_name', 'tenant_name', '账单咖啡店', '账单承租人', bill['bill_number']]:
+                self.assertIn(text, content)
+
     def test_bill_page_paginates_and_batch_approves_selected_pending_bills(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
