@@ -8,7 +8,7 @@ CATEGORIES = [
     ('账号操作', ('user.',)),
     ('密码操作', ('user.password_', 'user.password_change')),
     ('导入操作', ('import.',)),
-    ('出账操作', ('bill.generate', 'bill.approve')),
+    ('出账操作', ('bill.generate', 'bill.batch_generate', 'bill.approve')),
     ('收款操作', ('payment.',)),
     ('备份操作', ('backup.',)),
     ('恢复操作', ('restore.',)),

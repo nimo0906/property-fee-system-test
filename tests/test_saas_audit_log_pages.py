@@ -114,5 +114,40 @@ class TestSaasAuditLogPages(unittest.TestCase):
             self.assertNotIn('user.disable', page_b.text)
 
 
+    def test_batch_billing_audit_page_shows_created_amount_total(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            client.post('/api/charge-targets', json={
+                'building': '审计金额区', 'unit': '一层', 'room_number': 'A-101', 'category': '商户', 'area': 40,
+            })
+            client.post('/api/charge-targets', json={
+                'building': '审计金额区', 'unit': '一层', 'room_number': 'A-102', 'category': '商户', 'area': 60,
+            })
+            fee = client.post('/api/fee-types', json={
+                'name': '商户物业费', 'unit_price': 2, 'billing_mode': 'area',
+            }).json()['item']
+
+            response = client.post('/api/bills/batch-generate', json={
+                'fee_type_id': fee['id'], 'billing_period': '2028-02',
+                'service_start': '2028-02-01', 'service_end': '2028-02-29',
+                'category': '商户', 'building': '审计金额区',
+            })
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json()['amount_total'], 200.0)
+
+            page = client.get('/backoffice/audit-logs?action=bill.batch_generate')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('bill.batch_generate', page.text)
+            self.assertIn('出账操作</strong><div class="sub">1 条', page.text)
+            self.assertIn('生成2张，跳过0张，金额合计200.0元', page.text)
+
+            logs = client.get('/api/audit-logs').json()['items']
+            batch_log = next(item for item in logs if item['action'] == 'bill.batch_generate')
+            detail = client.get(f"/backoffice/audit-logs/{batch_log['id']}")
+            self.assertEqual(detail.status_code, 200)
+            self.assertIn('生成2张，跳过0张，金额合计200.0元', detail.text)
+
+
 if __name__ == '__main__':
     unittest.main()

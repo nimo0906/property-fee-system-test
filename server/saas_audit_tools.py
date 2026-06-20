@@ -20,7 +20,18 @@ def clean_detail(value):
 
 
 def detail_text(detail):
-    return json.dumps(clean_detail(detail or {}), ensure_ascii=False, sort_keys=True)
+    safe = clean_detail(detail or {})
+    summary = business_detail_summary(safe)
+    raw = json.dumps(safe, ensure_ascii=False, sort_keys=True)
+    return f"{summary}\n{raw}" if summary else raw
+
+
+def business_detail_summary(detail):
+    if not isinstance(detail, dict):
+        return ''
+    if {'created_count', 'skipped_count', 'amount_total'} <= set(detail):
+        return f"生成{detail.get('created_count')}张，跳过{detail.get('skipped_count')}张，金额合计{detail.get('amount_total')}元"
+    return ''
 
 
 def risk_level(item):
