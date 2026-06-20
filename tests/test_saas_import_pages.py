@@ -61,6 +61,29 @@ class TestSaasImportPages(unittest.TestCase):
             self.assertEqual(targets[0]['room_number'], '101')
             repo.close()
 
+
+    def test_preview_and_review_show_full_commercial_target_fields(self):
+        csv_rows = """owner_name,owner_phone,owner_type,building,unit,room_number,floor,shop_name,tenant_name,tenant_phone,category,area,unit_price_override,payment_cycle,notes
+孙业主,13800000000,商户,商场,一层,A-108,1,导入花店,孙承租,13300000000,商户,33.5,9.5,monthly,导入备注
+"""
+        client = self._client('finance')
+        preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_rows})
+        self.assertEqual(preview.status_code, 200)
+        html = preview.text
+        for text in ['店名', '承租人', '承租电话', '独立单价', '缴费周期', '备注']:
+            self.assertIn(text, html)
+        for text in ['导入花店', '孙承租', '13300000000', '9.5', 'monthly', '导入备注']:
+            self.assertIn(text, html)
+
+        import_id = preview.text.split('name="import_id" value="')[1].split('"')[0]
+        review = client.get(f'/backoffice/imports/{import_id}/review')
+        self.assertEqual(review.status_code, 200)
+        review_html = review.text
+        for text in ['店名', '承租人', '承租电话', '独立单价', '缴费周期', '备注']:
+            self.assertIn(text, review_html)
+        for text in ['导入花店', '孙承租', '13300000000', '9.5', 'monthly', '导入备注']:
+            self.assertIn(text, review_html)
+
     def test_import_page_registers_upload_file_under_tenant_scope(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

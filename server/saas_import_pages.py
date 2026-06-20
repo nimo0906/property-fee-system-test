@@ -76,14 +76,14 @@ def _tenant_import_batches(service, user):
 
 
 def _render_review_page(user, review):
-    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="7">暂无有效行</td></tr>'
+    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or f'<tr><td colspan="{len(_valid_headers())}">暂无有效行</td></tr>'
     error_rows = ''.join(f'<tr><td>{_h(err.get("row"))}</td><td>{_h((err.get("error") or "").replace("不能为空", "必填"))}</td></tr>' for err in review['errors']) or '<tr><td colspan="2">暂无错误</td></tr>'
     status = '已确认' if review.get('confirmed') else '待确认'
     action = '<p class="sub">该批次已确认过，本次不会重复写入。</p>' if review.get('confirmed') else f"""<form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form>"""
     body = f"""
 <section class="hero"><div><h1>导入批次复核</h1><div class="sub">批次 {review['import_id']} · 状态：{status}。复核有效行和错误行后再确认写入。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">批次 {review['import_id']}</div><div class="card-b"><p><strong>状态：{status}</strong></p><p>有效 {review['valid_count']} 行，错误 {review['error_count']} 行。</p>{_error_download_link(review)}{action}</div></section>
-<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>业主</th><th>联系电话</th><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table></div></div>
+<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr>{_valid_header_cells()}</tr></thead><tbody>{valid_rows}</tbody></table></div></div>
 <aside class="card"><div class="card-h">错误行</div><div class="card-b"><table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>"""
     return _page('导入批次复核', body)
 
@@ -141,11 +141,11 @@ def _error_csv(review):
 
 
 def _render_preview(user, review):
-    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or '<tr><td colspan="7">暂无有效行</td></tr>'
+    valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or f'<tr><td colspan="{len(_valid_headers())}">暂无有效行</td></tr>'
     error_rows = ''.join(f'<tr><td>{_h(err.get("row"))}</td><td>{_h((err.get("error") or "").replace("不能为空", "必填"))}</td></tr>' for err in review['errors']) or '<tr><td colspan="2">暂无错误</td></tr>'
     body = f'''
 <section class="hero"><div><h1>导入预览</h1><div class="sub">有效 {review['valid_count']} 行，错误 {review['error_count']} 行。确认导入只会写入有效行。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr><th>业主</th><th>联系电话</th><th>楼栋/区域</th><th>单元/分区</th><th>房号/铺位号</th><th>类型</th><th>面积</th></tr></thead><tbody>{valid_rows}</tbody></table><form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form></div></div>
+<section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr>{_valid_header_cells()}</tr></thead><tbody>{valid_rows}</tbody></table><form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form></div></div>
 <aside class="card"><div class="card-h">错误行</div><div class="card-b">{_error_download_link(review)}<table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>'''
     return _page('导入预览', body)
 
@@ -165,8 +165,23 @@ def _render_confirm_result(user, import_id, result, already_confirmed=False):
     return _page('导入结果', body)
 
 
+def _valid_headers():
+    return [
+        ('owner_name', '业主'), ('owner_phone', '联系电话'), ('building', '楼栋/区域'),
+        ('unit', '单元/分区'), ('room_number', '房号/铺位号'), ('floor', '楼层'),
+        ('shop_name', '店名'), ('tenant_name', '承租人'), ('tenant_phone', '承租电话'),
+        ('category', '类型'), ('area', '面积'), ('unit_price_override', '独立单价'),
+        ('payment_cycle', '缴费周期'), ('notes', '备注'),
+    ]
+
+
+def _valid_header_cells():
+    return ''.join(f'<th>{_h(label)}</th>' for _, label in _valid_headers())
+
+
 def _valid_row(row):
-    return f'''<tr><td>{_h(row.get('owner_name'))}</td><td>{_h(row.get('owner_phone'))}</td><td>{_h(row.get('building'))}</td><td>{_h(row.get('unit'))}</td><td>{_h(row.get('room_number'))}</td><td>{_h(row.get('category'))}</td><td>{_h(row.get('area'))}</td></tr>'''
+    cells = ''.join(f'<td>{_h(row.get(key))}</td>' for key, _ in _valid_headers())
+    return f'<tr>{cells}</tr>'
 
 
 def register_import_pages(app, service, repository, current_user):
