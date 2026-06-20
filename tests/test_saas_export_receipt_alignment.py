@@ -64,3 +64,32 @@ def test_receipt_page_shows_project_target_owner_and_remaining_arrears():
             assert text in page.text
         for text in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
             assert text not in page.text
+
+
+def test_payment_export_includes_balance_after_each_partial_payment():
+    with tempfile.TemporaryDirectory() as td:
+        client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        owner = client.post('/api/owners', json={'name': '李四', 'phone': '13900000000', 'owner_type': '业主'}).json()['item']
+        target = client.post('/api/charge-targets', json={
+            'owner_id': owner['id'], 'building': '2栋', 'unit': '1单元', 'room_number': '201',
+            'category': '居民', 'area': 100,
+        }).json()['item']
+        fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+        bill = client.post('/api/bills/generate', json={
+            'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-07',
+            'service_start': '2027-07-01', 'service_end': '2027-07-31',
+        }).json()['item']
+        client.post(f"/api/bills/{bill['id']}/approve")
+        client.post('/api/payments', json={
+            'bill_id': bill['id'], 'amount': 80, 'method': 'cash', 'idempotency_key': 'export-balance-1',
+        })
+        client.post('/api/payments', json={
+            'bill_id': bill['id'], 'amount': 120, 'method': 'cash', 'idempotency_key': 'export-balance-2',
+        })
+
+        payments = client.get('/api/exports/payments', params={'period': '2027-07'}).json()['content']
+
+        assert 'receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,paid_amount,unpaid_amount' in payments
+        assert '80.0,cash,80.0,120.0' in payments
+        assert '120.0,cash,200.0,0.0' in payments
+        assert 'tenant_id' not in payments and 'project_id' not in payments

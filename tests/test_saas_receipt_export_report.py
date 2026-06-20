@@ -37,8 +37,9 @@ class TestSaasReceiptExportReport(unittest.TestCase):
         self.assertIn('bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,fee_name,amount,paid_amount,unpaid_amount,status', bills['content'])
         self.assertIn(self.bill['bill_number'], bills['content'])
         self.assertEqual(payments['filename'], 'payments-2026-06.csv')
-        self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method', payments['content'])
+        self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,paid_amount,unpaid_amount', payments['content'])
         self.assertIn(payment['receipt_number'], payments['content'])
+        self.assertIn('50.0,cash,50.0,150.0', payments['content'])
 
 
 class TestSaasFastApiReceiptExportReport(unittest.TestCase):
