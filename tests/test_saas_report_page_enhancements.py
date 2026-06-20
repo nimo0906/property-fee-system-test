@@ -105,24 +105,24 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             self.assertEqual(api.status_code, 200)
             data = api.json()
             self.assertEqual(data['by_building'], [
-                {'name': 'A座', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 50.0, 'unpaid_amount_total': 150.0, 'collection_rate': '25.00%'},
-                {'name': 'B座', 'bill_count': 2, 'bill_amount_total': 680.0, 'payment_amount_total': 600.0, 'unpaid_amount_total': 80.0, 'collection_rate': '88.24%'},
+                {'name': 'A座', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 50.0, 'unpaid_amount_total': 150.0, 'collection_rate': '25.00%', 'arrears_rate': '75.00%'},
+                {'name': 'B座', 'bill_count': 2, 'bill_amount_total': 680.0, 'payment_amount_total': 600.0, 'unpaid_amount_total': 80.0, 'collection_rate': '88.24%', 'arrears_rate': '11.76%'},
             ])
             self.assertEqual(data['by_fee_type'], [
-                {'name': '物业费', 'bill_count': 2, 'bill_amount_total': 800.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 150.0, 'collection_rate': '81.25%'},
-                {'name': '车位费', 'bill_count': 1, 'bill_amount_total': 80.0, 'payment_amount_total': 0.0, 'unpaid_amount_total': 80.0, 'collection_rate': '0.00%'},
+                {'name': '物业费', 'bill_count': 2, 'bill_amount_total': 800.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 150.0, 'collection_rate': '81.25%', 'arrears_rate': '18.75%'},
+                {'name': '车位费', 'bill_count': 1, 'bill_amount_total': 80.0, 'payment_amount_total': 0.0, 'unpaid_amount_total': 80.0, 'collection_rate': '0.00%', 'arrears_rate': '100.00%'},
             ])
             self.assertEqual(data['by_category'], [
-                {'name': '商户', 'bill_count': 3, 'bill_amount_total': 880.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 230.0, 'collection_rate': '73.86%'},
+                {'name': '商户', 'bill_count': 3, 'bill_amount_total': 880.0, 'payment_amount_total': 650.0, 'unpaid_amount_total': 230.0, 'collection_rate': '73.86%', 'arrears_rate': '26.14%'},
             ])
             self.assertEqual(data['by_unit'], [
-                {'name': '一层', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 50.0, 'unpaid_amount_total': 150.0, 'collection_rate': '25.00%'},
-                {'name': '二层', 'bill_count': 2, 'bill_amount_total': 680.0, 'payment_amount_total': 600.0, 'unpaid_amount_total': 80.0, 'collection_rate': '88.24%'},
+                {'name': '一层', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 50.0, 'unpaid_amount_total': 150.0, 'collection_rate': '25.00%', 'arrears_rate': '75.00%'},
+                {'name': '二层', 'bill_count': 2, 'bill_amount_total': 680.0, 'payment_amount_total': 600.0, 'unpaid_amount_total': 80.0, 'collection_rate': '88.24%', 'arrears_rate': '11.76%'},
             ])
 
             page = client.get('/backoffice/reports?period=2026-12')
             self.assertEqual(page.status_code, 200)
-            for text in ['按楼栋 / 区域汇总', '按单元 / 分区汇总', '按收费项目汇总', '按收费对象分类汇总', 'A座', 'B座', '一层', '二层', '物业费', '车位费', '商户', '680.0', '650.0', '88.24%', '25.00%']:
+            for text in ['按楼栋 / 区域汇总', '按单元 / 分区汇总', '按收费项目汇总', '按收费对象分类汇总', 'A座', 'B座', '一层', '二层', '物业费', '车位费', '商户', '680.0', '650.0', '88.24%', '25.00%', '欠费率', '75.00%', '11.76%']:
                 self.assertIn(text, page.text)
 
     def test_report_breakdown_can_export_grouped_summary_csv(self):
@@ -151,8 +151,8 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             data = exported.json()
             self.assertEqual(data['filename'], 'report-breakdown-2027-01.csv')
             content = data['content']
-            self.assertIn('group_type,name,bill_count,bill_amount_total,payment_amount_total,unpaid_amount_total,collection_rate', content)
-            for text in ['building,A座,1,200.0,80.0,120.0,40.00%', 'unit,一层,1,200.0,80.0,120.0,40.00%', 'fee_type,物业费,1,200.0,80.0,120.0,40.00%', 'category,商户,1,200.0,80.0,120.0,40.00%']:
+            self.assertIn('group_type,name,bill_count,bill_amount_total,payment_amount_total,unpaid_amount_total,collection_rate,arrears_rate', content)
+            for text in ['building,A座,1,200.0,80.0,120.0,40.00%,60.00%', 'unit,一层,1,200.0,80.0,120.0,40.00%,60.00%', 'fee_type,物业费,1,200.0,80.0,120.0,40.00%,60.00%', 'category,商户,1,200.0,80.0,120.0,40.00%,60.00%']:
                 self.assertIn(text, content)
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
                 self.assertNotIn(hidden, content)

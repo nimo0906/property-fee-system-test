@@ -21,6 +21,7 @@ def _summary_rows(rows):
             "payment_amount_total": paid,
             "unpaid_amount_total": round(due - paid, 2),
             "collection_rate": f"{(paid / due * 100):.2f}%" if due else "0.00%",
+            "arrears_rate": f"{((due - paid) / due * 100):.2f}%" if due else "0.00%",
         })
     return items
 
