@@ -133,6 +133,17 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             self.assertIn('欠费最高对象分类', page.text)
             self.assertIn('商户：欠费230.0，欠费率26.14%', page.text)
 
+    def test_report_breakdown_api_fallback_returns_all_group_keys(self):
+        client = TestClient(create_app())
+        client.post('/api/auth/login', json={
+            'tenant_name': '内存报表物业', 'project_name': '内存报表项目', 'username': 'finance', 'role_code': 'finance'
+        })
+
+        response = client.get('/api/reports/breakdown?period=2099-01')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})
+
     def test_report_breakdown_can_export_grouped_summary_csv(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
