@@ -22,6 +22,7 @@ def attach_batch_billing_repository_methods(cls):
         targets = self.list_charge_targets(tenant_id, project_id)
         rows = build_batch_bill_rows(targets, fee, tenant_id, project_id, period, service_start, service_end, category, building, unit, use_payment_cycle)
         created = skipped = 0
+        amount_total = 0.0
         created_ids = []
         with self.engine.begin() as conn:
             for row in rows:
@@ -31,12 +32,13 @@ def attach_batch_billing_repository_methods(cls):
                 result = conn.execute(text(insert_id_sql("""INSERT INTO bills(tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status)
                     VALUES(:tenant_id,:project_id,:target_id,:fee_type_id,:bill_number,:billing_period,:service_start,:service_end,:amount,'pending_review')""", self.engine.dialect.name)), row)
                 created += 1
+                amount_total = round(amount_total + float(row.get('amount') or 0), 2)
                 created_ids.append(inserted_id(result, self.engine.dialect.name))
         if actor_user_id:
             self.create_audit_log(tenant_id, project_id, actor_user_id, 'bill.batch_generate', 'bill', 0, {
-                'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'use_payment_cycle': use_payment_cycle, 'created_count': created, 'skipped_count': skipped,
+                'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'use_payment_cycle': use_payment_cycle, 'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total,
             })
-        return {'created_count': created, 'skipped_count': skipped, 'bill_ids': created_ids}
+        return {'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total, 'bill_ids': created_ids}
 
     cls._bill_exists = _bill_exists
     cls.batch_generate_bills = batch_generate_bills

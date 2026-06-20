@@ -142,6 +142,7 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
             raise PermissionDenied("cross tenant project")
         fee = self.fees[fee_type_id]
         created = skipped = 0
+        amount_total = 0.0
         bill_ids = []
         for target in self.list_charge_targets(user, project_id):
             if category and target.get('category') != category:
@@ -161,9 +162,10 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
             target_service_end = service_end_for_cycle(service_start, target.get('payment_cycle')) if use_payment_cycle and service_start else service_end
             bill = self.generate_bill(user, project_id, target, fee, period, service_start, target_service_end)
             bill_ids.append(bill['id'])
+            amount_total = round(amount_total + float(bill.get('amount') or 0), 2)
             created += 1
-        self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'use_payment_cycle': use_payment_cycle, 'created_count': created, 'skipped_count': skipped})
-        return {'created_count': created, 'skipped_count': skipped, 'bill_ids': bill_ids}
+        self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'use_payment_cycle': use_payment_cycle, 'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total})
+        return {'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total, 'bill_ids': bill_ids}
 
 def attach_billing_methods(cls):
     cls.generate_bill = generate_bill

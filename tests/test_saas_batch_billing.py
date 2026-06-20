@@ -63,6 +63,47 @@ def test_repository_batch_generate_is_idempotent_for_same_period_and_fee():
         repo.close()
 
 
+
+def test_batch_generate_returns_created_amount_total_for_amount_verification():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('金额批量物业')
+        project = repo.create_project(tenant['id'], '金额批量项目')
+        repo.create_charge_target(tenant['id'], project['id'], '1栋', '1单元', '101', '居民', 80)
+        repo.create_charge_target(tenant['id'], project['id'], '1栋', '1单元', '102', '居民', 90)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '物业费', 2, 'area')
+
+        result = repo.batch_generate_bills(tenant['id'], project['id'], fee['id'], '2027-11', '2027-11-01', '2027-11-30')
+
+        assert result['created_count'] == 2
+        assert result['amount_total'] == 340.0
+        repo.close()
+
+
+def test_api_and_backoffice_batch_generate_show_created_amount_total():
+    with tempfile.TemporaryDirectory() as td:
+        client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        client.post('/api/charge-targets', json={'building': '金额区', 'unit': '一层', 'room_number': 'A-101', 'category': '商户', 'area': 40})
+        client.post('/api/charge-targets', json={'building': '金额区', 'unit': '一层', 'room_number': 'A-102', 'category': '商户', 'area': 60})
+        fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+
+        api_response = client.post('/api/bills/batch-generate', json={
+            'fee_type_id': fee['id'], 'billing_period': '2027-12',
+            'service_start': '2027-12-01', 'service_end': '2027-12-31', 'category': '商户', 'building': '金额区',
+        })
+        assert api_response.status_code == 200, api_response.text
+        assert api_response.json()['amount_total'] == 200.0
+
+        page_response = client.post('/backoffice/bills/batch-generate', data={
+            'fee_type_id': str(fee['id']), 'billing_period': '2028-01',
+            'service_start': '2028-01-01', 'service_end': '2028-01-31', 'category': '商户', 'building': '金额区',
+        }, follow_redirects=False)
+        assert page_response.status_code == 303
+        page = client.get(page_response.headers['location'])
+        assert page.status_code == 200
+        assert '批量出账2张' in page.text
+        assert '金额合计200.0元' in page.text
+
 def test_api_and_backoffice_batch_generate_bills_for_selected_category():
     with tempfile.TemporaryDirectory() as td:
         client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
