@@ -34,7 +34,7 @@ def _log_row(row):
     detail = row.get('detail') or {}
     result = ''
     if row.get('action') == 'import.confirm':
-        result = f"写入 {detail.get('created_count', 0)} 行，跳过 {detail.get('skipped_count', 0)} 行"
+        result = f"写入 {detail.get('created_count', 0)} 行，跳过 {detail.get('skipped_count', 0)} 行，创建业主 {detail.get('owner_created_count', 0)} 个"
     elif row.get('action') == 'import.preview':
         result = f"有效 {detail.get('valid_count', 0)} 行，错误 {detail.get('error_count', 0)} 行"
     else:

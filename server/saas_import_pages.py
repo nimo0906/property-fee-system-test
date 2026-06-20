@@ -65,7 +65,7 @@ def _batch_row(row):
     error_count = row.get('error_count') or 0
     owner_created = row.get('owner_created_count') or 0
     error_link = f'<a class="ghost-link" href="/api/imports/{_h(import_id)}/errors.csv">下载错误行</a>' if error_count else '-'
-    return f"""<tr><td>批次 {_h(import_id)}</td><td>{status}</td><td>有效 {_h(row.get('valid_count') or 0)} 行</td><td>错误 {_h(error_count)} 行</td><td>业主 {_h(owner_created)} 个</td><td>{error_link}</td><td><a class="ghost-link" href="/backoffice/imports/{_h(import_id)}/review">复核批次</a></td></tr>"""
+    return f"""<tr><td>批次 {_h(import_id)}</td><td>{status}</td><td>有效 {row.get('valid_count') or 0} 行</td><td>错误 {error_count} 行</td><td>业主 {owner_created} 个</td><td>{error_link}</td><td><a class="ghost-link" href="/backoffice/imports/{_h(import_id)}/review">复核批次</a></td></tr>"""
 
 
 def _tenant_import_batches(service, user):

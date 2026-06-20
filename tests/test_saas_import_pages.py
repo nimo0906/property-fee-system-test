@@ -145,6 +145,28 @@ class TestSaasImportPages(unittest.TestCase):
             self.assertIn('跳过 2 行', html)
             self.assertIn('/backoffice/audit-logs', html)
 
+
+    def test_import_audit_shows_auto_created_owner_count(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            csv_text = 'owner_name,owner_phone,building,unit,room_number,category,area\n张业主,13800000000,1栋,1单元,101,居民,80\n李业主,13900000000,商场,一层,A-01,商户,45\n'
+            preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+            self.assertEqual(preview.status_code, 200)
+            import_id = preview.text.split('name="import_id" value="')[1].split('"')[0]
+            confirmed = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id})
+            self.assertEqual(confirmed.status_code, 200)
+
+            page = client.get('/backoffice/imports')
+
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('最近导入审计', page.text)
+            self.assertIn('写入 2 行', page.text)
+            self.assertIn('创建业主 2 个', page.text)
+            self.assertIn('错误 0 行', page.text)
+            self.assertNotIn('tenant_id', page.text)
+            self.assertNotIn('project_id', page.text)
+
     def test_executive_cannot_preview_import(self):
         client = self._client('executive')
         page = client.get('/backoffice/imports')
