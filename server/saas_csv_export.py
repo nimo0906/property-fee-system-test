@@ -21,5 +21,5 @@ def bill_export_rows(items):
 
 
 def payment_export_rows(items):
-    headers = ['receipt_number', 'bill_number', 'billing_period', 'building', 'unit', 'room_number', 'owner_name', 'amount_paid', 'method']
+    headers = ['receipt_number', 'bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method']
     return headers, [{key: item.get(key, '') for key in headers} for item in items]

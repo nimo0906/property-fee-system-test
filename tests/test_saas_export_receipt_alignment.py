@@ -48,7 +48,7 @@ def test_bill_and_payment_exports_include_business_fields_without_internal_ids()
         assert 'bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,fee_name,amount,paid_amount,unpaid_amount,status' in bills
         assert 'SaaS-' in bills and '张三' in bills and '101' in bills and ',80.0,120.0,' in bills
         assert 'tenant_id' not in bills and 'project_id' not in bills
-        assert 'receipt_number,bill_number,billing_period,building,unit,room_number,owner_name,amount_paid,method' in payments
+        assert 'receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method' in payments
         assert payment['receipt_number'] in payments and '张三' in payments and '101' in payments
         assert 'tenant_id' not in payments and 'project_id' not in payments
 

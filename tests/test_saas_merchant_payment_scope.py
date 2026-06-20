@@ -115,5 +115,32 @@ class TestSaasMerchantPaymentScope(unittest.TestCase):
             self.assertNotIn(other_bill['bill_number'], result_page.text)
 
 
+
+    def test_payment_page_and_export_include_shop_and_tenant_names(self):
+        with tempfile.TemporaryDirectory() as td:
+            client = self._client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+            target = self._create_target(client, room_number='PAY-SHOP-101', shop_name='收款店A', tenant_name='承租人A')
+            fee = client.post('/api/fee-types', json={'name': '收款物业费', 'unit_price': 1.0}).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2028-03',
+                'service_start': '2028-03-01', 'service_end': '2028-03-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            payment = client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 100, 'method': 'cash',
+                'idempotency_key': 'MERCHANT-PAY-SHOP-101',
+            }).json()['item']
+
+            page = client.get('/backoffice/payments?period=2028-03')
+            self.assertEqual(page.status_code, 200)
+            for text in ['收款店A', '承租人A', payment['receipt_number']]:
+                self.assertIn(text, page.text)
+
+            exported = client.get('/api/exports/payments?period=2028-03')
+            self.assertEqual(exported.status_code, 200)
+            content = exported.json()['content']
+            for text in ['shop_name', 'tenant_name', '收款店A', '承租人A', payment['receipt_number']]:
+                self.assertIn(text, content)
+
 if __name__ == '__main__':
     unittest.main()

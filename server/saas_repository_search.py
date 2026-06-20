@@ -44,7 +44,7 @@ def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1
         self._require_project_scope(tenant_id, project_id)
         sql = """SELECT p.id,p.tenant_id,p.project_id,p.receipt_number,p.amount_paid,p.method,p.bill_id,
             b.bill_number,b.billing_period,b.amount bill_amount,
-            t.building,t.unit,t.room_number,t.category,o.name owner_name
+            t.building,t.unit,t.room_number,t.category,t.shop_name,t.tenant_name,o.name owner_name
             FROM payments p JOIN bills b ON p.bill_id=b.id
             JOIN charge_targets t ON b.charge_target_id=t.id
             LEFT JOIN owners o ON t.owner_id=o.id AND t.tenant_id=o.tenant_id AND t.project_id=o.project_id
