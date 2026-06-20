@@ -66,7 +66,7 @@ def search_payments(self, tenant_id, project_id, keyword="", period=None, page=1
             row['unpaid_amount'] = round(max(float(row.get('bill_amount') or 0) - total_paid, 0), 2)
         keyword = str(keyword or "").lower()
         if keyword:
-            rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period"]).lower()]
+            rows = [r for r in rows if keyword in " ".join(str(r.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period", "shop_name", "tenant_name"]).lower()]
         return self._paged(rows, page, page_size)
 
 
