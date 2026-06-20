@@ -125,6 +125,43 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             for text in ['按楼栋 / 区域汇总', '按单元 / 分区汇总', '按收费项目汇总', '按收费对象分类汇总', 'A座', 'B座', '一层', '二层', '物业费', '车位费', '商户', '680.0', '650.0']:
                 self.assertIn(text, page.text)
 
+    def test_report_breakdown_can_export_grouped_summary_csv(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='A汇总导出物业', project_name='A汇总导出项目')
+            fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+            target = client.post('/api/charge-targets', json={
+                'building': 'A座', 'unit': '一层', 'room_number': 'A101', 'category': '商户', 'area': 100,
+            }).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-01',
+                'service_start': '2027-01-01', 'service_end': '2027-01-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 80, 'method': 'cash', 'idempotency_key': 'REPORT-BREAKDOWN-EXPORT-A',
+            })
+
+            page = client.get('/backoffice/reports?period=2027-01')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('/api/exports/reports/breakdown.csv?period=2027-01', page.text)
+
+            exported = client.get('/api/exports/reports/breakdown.csv?period=2027-01')
+            self.assertEqual(exported.status_code, 200)
+            data = exported.json()
+            self.assertEqual(data['filename'], 'report-breakdown-2027-01.csv')
+            content = data['content']
+            self.assertIn('group_type,name,bill_count,bill_amount_total,payment_amount_total,unpaid_amount_total', content)
+            for text in ['building,A座,1,200.0,80.0,120.0', 'unit,一层,1,200.0,80.0,120.0', 'fee_type,物业费,1,200.0,80.0,120.0', 'category,商户,1,200.0,80.0,120.0']:
+                self.assertIn(text, content)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
+                self.assertNotIn(hidden, content)
+
+            client_b = self._client(db_url, tenant_name='B汇总导出物业', project_name='B汇总导出项目')
+            other = client_b.get('/api/exports/reports/breakdown.csv?period=2027-01')
+            self.assertEqual(other.status_code, 200)
+            self.assertNotIn('A座', other.json()['content'])
+
 
 if __name__ == '__main__':
     unittest.main()
