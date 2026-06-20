@@ -51,6 +51,8 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
                 self.assertIn(text, page.text)
             self.assertIn('37.50%', page.text)
             self.assertIn('62.50%', page.text)
+            self.assertIn('欠费最高区域', page.text)
+            self.assertIn('5栋：欠费250.0，欠费率62.50%', page.text)
             self.assertIn('/api/exports/bills?period=2026-10', page.text)
             self.assertIn('/api/exports/payments?period=2026-10', page.text)
             self.assertIn('400.0', page.text)
