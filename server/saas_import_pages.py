@@ -152,12 +152,14 @@ def _render_preview(user, review):
 
 def _render_confirm_result(user, import_id, result, already_confirmed=False):
     note = '<p class="sub">该批次已确认过，本次不会重复写入。</p>' if already_confirmed else '<p class="sub">只写入有效行；错误行未污染正式数据。</p>'
+    owner_created = str(result.get("owner_created_count", 0))
     body = (f'<section class="hero"><div><h1>导入结果</h1>'
             f'<div class="sub">导入批次摘要：确认导入后请核对成功和跳过数量，再进入收费对象列表检查。</div></div>'
             f'<div class="badge tenant-scope">{_h(user.get("tenant_name"))} · {_h(user.get("project_name"))}</div></section>'
             f'<section class="card"><div class="card-h">导入批次摘要</div><div class="card-b">'
             f'<p><strong>批次 ID：{_h(import_id)}</strong></p>'
             f'<p>成功导入：{str(result.get("created_count", 0))}</p>'
+            f'<p>自动创建业主：{owner_created}</p>'
             f'<p>跳过错误：{str(result.get("skipped_count", 0))}</p>'
             f'<p>重复跳过：{str(result.get("duplicate_skipped_count", 0))}</p>{note}'
             f'<div class="actions"><a class="ghost-link" href="/backoffice/charge-targets">查看收费对象</a>'
@@ -267,7 +269,7 @@ def register_import_pages(app, service, repository, current_user):
                 review = service.get_import_review(user, user['project_id'], import_id)
                 already_confirmed = bool(review['confirmed'])
                 if already_confirmed:
-                    result = {'created_count': 0, 'skipped_count': review['error_count'], 'duplicate_skipped_count': 0}
+                    result = {'created_count': 0, 'skipped_count': review['error_count'], 'duplicate_skipped_count': 0, 'owner_created_count': 0}
                 else:
                     rows_to_create, duplicate_rows = split_new_and_duplicates(
                         review['valid_rows'], repository.list_charge_targets(user['tenant_id'], user['project_id'])
@@ -279,13 +281,16 @@ def register_import_pages(app, service, repository, current_user):
                         if row.get('owner_name'):
                             owner = repository.create_owner(user['tenant_id'], user['project_id'], row['owner_name'], row.get('owner_phone', ''), row.get('owner_type', '业主'))
                             owner_id = owner['id']
+                            owner_created += 1
                         item = repository.create_charge_target(user['tenant_id'], user['project_id'], row['building'], row.get('unit', ''), row['room_number'], row.get('category', '居民'), row['area'], owner_id, row.get('unit_price_override'), floor=row.get('floor'), shop_name=row.get('shop_name', ''), tenant_name=row.get('tenant_name', ''), tenant_phone=row.get('tenant_phone', ''), payment_cycle=row.get('payment_cycle', ''), notes=row.get('notes', ''))
                         service.targets[item['id']] = item
                         created += 1
                     service.imports[import_id]['confirmed'] = True
+                    service.imports[import_id]['owner_created_count'] = owner_created
                     skipped_total = review['error_count'] + duplicate_skipped
-                    repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped})
-                    result = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped}
+                    detail = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created}
+                    repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, detail)
+                    result = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created}
             else:
                 before = service.get_import_review(user, user['project_id'], import_id)
                 already_confirmed = bool(before['confirmed'])

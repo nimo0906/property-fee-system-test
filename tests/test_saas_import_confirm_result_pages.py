@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -49,6 +51,49 @@ class TestSaasImportConfirmResultPages(unittest.TestCase):
         self.assertNotIn('tenant_id', html)
         self.assertNotIn('project_id', html)
         self.assertNotIn('POSTGRES_PASSWORD=', html)
+
+
+    def test_confirm_import_shows_auto_created_owner_count(self):
+        client = self._client('finance')
+        csv_text = 'owner_name,owner_phone,building,unit,room_number,category,area\n张业主,13800000000,1栋,1单元,101,居民,80\n李业主,13900000000,商场,一层,A-01,商户,45\n'
+        preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+        self.assertEqual(preview.status_code, 200)
+        marker = 'name="import_id" value="'
+        start = preview.text.index(marker) + len(marker)
+        import_id = int(preview.text[start:preview.text.index('"', start)])
+
+        page = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id})
+
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('成功导入：2', page.text)
+        self.assertIn('自动创建业主：2', page.text)
+        self.assertNotIn('tenant_id', page.text)
+        self.assertNotIn('project_id', page.text)
+
+
+    def test_persistent_confirm_import_shows_auto_created_owner_count(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = TestClient(create_app(database_url=db_url))
+            response = client.post('/api/auth/login', json={
+                'tenant_name': '持久导入结果物业',
+                'project_name': '持久导入结果项目',
+                'username': 'finance',
+                'role_code': 'finance',
+            })
+            self.assertEqual(response.status_code, 200)
+            csv_text = 'owner_name,owner_phone,building,unit,room_number,category,area\n王业主,13700000000,1栋,1单元,101,居民,80\n赵业主,13600000000,商场,二层,B-01,商户,55\n'
+            preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+            self.assertEqual(preview.status_code, 200)
+            marker = 'name="import_id" value="'
+            start = preview.text.index(marker) + len(marker)
+            import_id = int(preview.text[start:preview.text.index('"', start)])
+
+            page = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id})
+
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('成功导入：2', page.text)
+            self.assertIn('自动创建业主：2', page.text)
 
     def test_reconfirm_import_shows_zero_created_and_same_skipped(self):
         client = self._client('finance')
