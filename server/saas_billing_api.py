@@ -9,6 +9,20 @@ from server.saas_csv_export import bill_export_rows, csv_content, payment_export
 from server.saas_payment_pages import _filter_payments
 
 
+def _percent(numerator, denominator):
+    if not denominator:
+        return '0.00%'
+    return f'{(float(numerator or 0) / float(denominator) * 100):.2f}%'
+
+
+def _report_summary_with_rates(summary):
+    due = float(summary.get('bill_amount_total') or 0)
+    result = dict(summary)
+    result['collection_rate'] = _percent(result.get('payment_amount_total'), due)
+    result['arrears_rate'] = _percent(result.get('unpaid_amount_total'), due)
+    return result
+
+
 def _to_export_float(value):
     try:
         return float(value) if str(value or '').strip() else None
@@ -211,8 +225,10 @@ def register_billing_routes(app, service):
     @app.get("/api/reports/summary")
     def report_summary(period: str, user=Depends(current_user)):
         if repository:
-            return repository.report_summary(user["tenant_id"], user["project_id"], period)
-        return service.report(user, user["project_id"], period)
+            summary = repository.report_summary(user["tenant_id"], user["project_id"], period)
+        else:
+            summary = service.report(user, user["project_id"], period)
+        return _report_summary_with_rates(summary)
 
     @app.get("/api/reports/breakdown")
     def report_breakdown(period: str, user=Depends(current_user)):

@@ -68,6 +68,8 @@ class TestSaasFastApiReceiptExportReport(unittest.TestCase):
         self.assertIn('bills-2026-06.csv', bills.json()['filename'])
         self.assertIn(payment.json()['item']['receipt_number'], payments.json()['content'])
         self.assertEqual(report.json()['unpaid_amount_total'], 150.0)
+        self.assertEqual(report.json()['collection_rate'], '25.00%')
+        self.assertEqual(report.json()['arrears_rate'], '75.00%')
 
 
 class TestSaasRepositoryReceiptExportReport(unittest.TestCase):
