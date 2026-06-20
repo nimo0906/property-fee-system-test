@@ -126,6 +126,8 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             for text in ['按楼栋 / 区域汇总', '按单元 / 分区汇总', '按收费项目汇总', '按收费对象分类汇总', 'A座', 'B座', '一层', '二层', '物业费', '车位费', '商户', '680.0', '650.0', '88.24%', '25.00%', '欠费率', '75.00%', '11.76%']:
                 self.assertIn(text, page.text)
+            self.assertIn('欠费最高单元/分区', page.text)
+            self.assertIn('一层：欠费150.0，欠费率75.00%', page.text)
             self.assertIn('欠费最高收费项目', page.text)
             self.assertIn('物业费：欠费150.0，欠费率18.75%', page.text)
             self.assertIn('欠费最高对象分类', page.text)

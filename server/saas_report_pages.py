@@ -41,12 +41,14 @@ def _summary_card(summary, breakdown=None):
     arrears_rate = _percent(unpaid, due)
     hint = '暂无欠费' if unpaid <= 0 else f'欠费提醒：当前账期仍有 {_h(unpaid)} 未收，请安排催缴或复核。'
     top_area = _top_arrears_item((breakdown or {}).get('by_building', []))
+    top_unit = _top_arrears_item((breakdown or {}).get('by_unit', []))
     top_fee = _top_arrears_item((breakdown or {}).get('by_fee_type', []))
     top_category = _top_arrears_item((breakdown or {}).get('by_category', []))
     area_text = _top_arrears_text(top_area)
+    unit_text = _top_arrears_text(top_unit)
     fee_text = _top_arrears_text(top_fee)
     category_text = _top_arrears_text(top_category)
-    return f'''<section class="card" style="margin-top:18px"><div class="card-h">经营摘要</div><div class="card-b"><table><tbody><tr><th>收缴率</th><td>{_h(collection_rate)}</td></tr><tr><th>欠费率</th><td>{_h(arrears_rate)}</td></tr><tr><th>欠费最高区域</th><td>{area_text}</td></tr><tr><th>欠费最高收费项目</th><td>{fee_text}</td></tr><tr><th>欠费最高对象分类</th><td>{category_text}</td></tr><tr><th>欠费提醒</th><td>{hint}</td></tr></tbody></table></div></section>'''
+    return f'''<section class="card" style="margin-top:18px"><div class="card-h">经营摘要</div><div class="card-b"><table><tbody><tr><th>收缴率</th><td>{_h(collection_rate)}</td></tr><tr><th>欠费率</th><td>{_h(arrears_rate)}</td></tr><tr><th>欠费最高区域</th><td>{area_text}</td></tr><tr><th>欠费最高单元/分区</th><td>{unit_text}</td></tr><tr><th>欠费最高收费项目</th><td>{fee_text}</td></tr><tr><th>欠费最高对象分类</th><td>{category_text}</td></tr><tr><th>欠费提醒</th><td>{hint}</td></tr></tbody></table></div></section>'''
 
 
 def _top_arrears_item(rows):
