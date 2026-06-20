@@ -40,14 +40,22 @@ def _summary_card(summary, breakdown=None):
     collection_rate = _percent(paid, due)
     arrears_rate = _percent(unpaid, due)
     hint = '暂无欠费' if unpaid <= 0 else f'欠费提醒：当前账期仍有 {_h(unpaid)} 未收，请安排催缴或复核。'
-    top = _top_arrears_area((breakdown or {}).get('by_building', []))
-    top_text = '暂无欠费' if not top else f"{_h(top.get('name'))}：欠费{_h(top.get('unpaid_amount_total'))}，欠费率{_h(top.get('arrears_rate', '0.00%'))}"
-    return f'''<section class="card" style="margin-top:18px"><div class="card-h">经营摘要</div><div class="card-b"><table><tbody><tr><th>收缴率</th><td>{_h(collection_rate)}</td></tr><tr><th>欠费率</th><td>{_h(arrears_rate)}</td></tr><tr><th>欠费最高区域</th><td>{top_text}</td></tr><tr><th>欠费提醒</th><td>{hint}</td></tr></tbody></table></div></section>'''
+    top_area = _top_arrears_item((breakdown or {}).get('by_building', []))
+    top_fee = _top_arrears_item((breakdown or {}).get('by_fee_type', []))
+    area_text = _top_arrears_text(top_area)
+    fee_text = _top_arrears_text(top_fee)
+    return f'''<section class="card" style="margin-top:18px"><div class="card-h">经营摘要</div><div class="card-b"><table><tbody><tr><th>收缴率</th><td>{_h(collection_rate)}</td></tr><tr><th>欠费率</th><td>{_h(arrears_rate)}</td></tr><tr><th>欠费最高区域</th><td>{area_text}</td></tr><tr><th>欠费最高收费项目</th><td>{fee_text}</td></tr><tr><th>欠费提醒</th><td>{hint}</td></tr></tbody></table></div></section>'''
 
 
-def _top_arrears_area(rows):
+def _top_arrears_item(rows):
     candidates = [row for row in rows if float(row.get('unpaid_amount_total') or 0) > 0]
     return max(candidates, key=lambda row: float(row.get('unpaid_amount_total') or 0), default=None)
+
+
+def _top_arrears_text(row):
+    if not row:
+        return '暂无欠费'
+    return f"{_h(row.get('name'))}：欠费{_h(row.get('unpaid_amount_total'))}，欠费率{_h(row.get('arrears_rate', '0.00%'))}"
 
 
 def _breakdown_table(title, rows):
