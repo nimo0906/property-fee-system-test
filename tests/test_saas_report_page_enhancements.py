@@ -128,6 +128,8 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
                 self.assertIn(text, page.text)
             self.assertIn('欠费最高收费项目', page.text)
             self.assertIn('物业费：欠费150.0，欠费率18.75%', page.text)
+            self.assertIn('欠费最高对象分类', page.text)
+            self.assertIn('商户：欠费230.0，欠费率26.14%', page.text)
 
     def test_report_breakdown_can_export_grouped_summary_csv(self):
         with tempfile.TemporaryDirectory() as td:
