@@ -116,6 +116,64 @@ def test_repository_prorates_amount_by_service_months_for_multi_month_period():
         repo.close()
 
 
+
+def test_repository_prorates_partial_month_service_period_by_days():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('按天规则物业')
+        project = repo.create_project(tenant['id'], '按天规则项目')
+        target = repo.create_charge_target(tenant['id'], project['id'], '1栋', '1单元', '101', '居民', 31)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '物业费', 1, 'area')
+
+        bill = repo.create_bill(tenant['id'], project['id'], target['id'], fee['id'], '2026-01', '2026-01-16', '2026-01-31', None)
+
+        assert bill['amount'] == 16.0
+        repo.close()
+
+
+def test_api_generates_partial_month_amount_by_service_days():
+    client = login_client()
+    target = client.post('/api/charge-targets', json={
+        'building': '1栋', 'unit': '1单元', 'room_number': '101', 'category': '居民', 'area': 31,
+    }).json()['item']
+    fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1, 'billing_mode': 'area'}).json()['item']
+
+    bill = client.post('/api/bills/generate', json={
+        'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2026-01',
+        'service_start': '2026-01-16', 'service_end': '2026-01-31',
+    })
+
+    assert bill.status_code == 200, bill.text
+    assert bill.json()['item']['amount'] == 16.0
+
+
+def test_fixed_billing_mode_prorates_partial_month_by_service_days():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('固定按天物业')
+        project = repo.create_project(tenant['id'], '固定按天项目')
+        target = repo.create_charge_target(tenant['id'], project['id'], '车场', '一区', 'P-001', '车位', 1)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '车位费', 310, 'fixed')
+
+        bill = repo.create_bill(tenant['id'], project['id'], target['id'], fee['id'], '2026-01', '2026-01-16', '2026-01-31', None)
+
+        assert bill['amount'] == 160.0
+        repo.close()
+
+
+def test_service_period_from_first_to_28th_keeps_legacy_full_month_amount():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('兼容规则物业')
+        project = repo.create_project(tenant['id'], '兼容规则项目')
+        target = repo.create_charge_target(tenant['id'], project['id'], '1栋', '1单元', '101', '居民', 100)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '物业费', 1, 'area')
+
+        bill = repo.create_bill(tenant['id'], project['id'], target['id'], fee['id'], '2026-06', '2026-06-01', '2026-06-28', None)
+
+        assert bill['amount'] == 100.0
+        repo.close()
+
 def test_api_and_page_accept_target_price_override_for_saas_billing():
     with tempfile.TemporaryDirectory() as td:
         client = login_client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")

@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """Fee rule calculation helpers for SaaS billing."""
 
-from datetime import date
+from datetime import date, timedelta
+import calendar
 
 VALID_BILLING_MODES = {"area", "fixed"}
 
@@ -25,8 +26,18 @@ def service_months(service_start=None, service_end=None):
     end = _parse_date(service_end)
     if not start or not end or end < start:
         return 1
-    months = (end.year - start.year) * 12 + end.month - start.month + 1
-    return max(months, 1)
+    total = 0.0
+    current = start
+    while current <= end:
+        days_in_month = calendar.monthrange(current.year, current.month)[1]
+        month_end = date(current.year, current.month, days_in_month)
+        segment_end = min(month_end, end)
+        if current.day == 1 and segment_end.day >= min(28, days_in_month):
+            total += 1
+        else:
+            total += ((segment_end - current).days + 1) / days_in_month
+        current = segment_end + timedelta(days=1)
+    return max(total, 1 / calendar.monthrange(start.year, start.month)[1])
 
 
 def effective_unit_price(target, fee):
