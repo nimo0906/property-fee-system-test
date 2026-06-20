@@ -45,10 +45,10 @@ def _summary_card(summary):
 
 def _breakdown_table(title, rows):
     body = ''.join([
-        f"<tr><td>{_h(row.get('name'))}</td><td>{_h(row.get('bill_count'))}</td><td>{_h(row.get('bill_amount_total'))}</td><td>{_h(row.get('payment_amount_total'))}</td><td>{_h(row.get('unpaid_amount_total'))}</td></tr>"
+        f"<tr><td>{_h(row.get('name'))}</td><td>{_h(row.get('bill_count'))}</td><td>{_h(row.get('bill_amount_total'))}</td><td>{_h(row.get('payment_amount_total'))}</td><td>{_h(row.get('unpaid_amount_total'))}</td><td>{_h(row.get('collection_rate', '0.00%'))}</td></tr>"
         for row in rows
-    ]) or '<tr><td colspan="5" class="hint">暂无数据</td></tr>'
-    return f'''<section class="card"><div class="card-h">{_h(title)}</div><div class="card-b"><table><thead><tr><th>名称</th><th>账单数</th><th>应收</th><th>实收</th><th>欠费</th></tr></thead><tbody>{body}</tbody></table></div></section>'''
+    ]) or '<tr><td colspan="6" class="hint">暂无数据</td></tr>'
+    return f'''<section class="card"><div class="card-h">{_h(title)}</div><div class="card-b"><table><thead><tr><th>名称</th><th>账单数</th><th>应收</th><th>实收</th><th>欠费</th><th>收缴率</th></tr></thead><tbody>{body}</tbody></table></div></section>'''
 
 
 def _breakdown_cards(breakdown):

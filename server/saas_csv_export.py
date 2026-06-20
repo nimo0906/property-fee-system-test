@@ -26,7 +26,7 @@ def payment_export_rows(items):
 
 
 def report_breakdown_export_rows(breakdown):
-    headers = ['group_type', 'name', 'bill_count', 'bill_amount_total', 'payment_amount_total', 'unpaid_amount_total']
+    headers = ['group_type', 'name', 'bill_count', 'bill_amount_total', 'payment_amount_total', 'unpaid_amount_total', 'collection_rate']
     group_map = [
         ('building', breakdown.get('by_building', [])),
         ('unit', breakdown.get('by_unit', [])),
@@ -43,5 +43,6 @@ def report_breakdown_export_rows(breakdown):
                 'bill_amount_total': item.get('bill_amount_total', 0.0),
                 'payment_amount_total': item.get('payment_amount_total', 0.0),
                 'unpaid_amount_total': item.get('unpaid_amount_total', 0.0),
+                'collection_rate': item.get('collection_rate', '0.00%'),
             })
     return headers, rows
