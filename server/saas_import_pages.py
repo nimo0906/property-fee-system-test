@@ -14,6 +14,7 @@ from server.saas_import_duplicate_preview import duplicate_preview_rows, existin
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
+from server.saas_excel_import import excel_preview_form, register_excel_import_routes
 
 STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
 TEMPLATE_CSV = ','.join(CHARGE_TARGET_TEMPLATE_HEADERS) + '\n示例业主,13800000000,业主,1栋,1单元,101,,,张租户,13900000000,居民,80,,monthly,模板示例\n# legacy aliases: 业主姓名,联系电话,楼栋/区域,单元/分区,房号/铺位号,面积\n'
@@ -38,7 +39,7 @@ def _render_import_home(user, file_item=None, files=None, logs=None, batches=Non
     body = f'''
 <section class="hero"><div><h1>数据导入</h1><div class="sub">先预览校验，不直接写库；确认后只导入有效行，错误行不会污染正式数据。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {_render_file_notice(file_item)}
-<section class="grid"><div class="card"><div class="card-h">收费对象导入</div><div class="card-b">{form}</div></div>
+<section class="grid"><div class="card"><div class="card-h">收费对象导入</div><div class="card-b">{form}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0">{excel_preview_form() if can_import else ''}</div></div>
 <aside class="card"><div class="card-h">导入模板</div><div class="card-b"><p class="sub">先按模板准备收费对象数据，再复制 CSV 内容做预览。</p><div class="actions"><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">字段说明</a><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a></div><div class="hint">模板不包含内部租户或项目编号，系统会按当前登录公司和项目写入。</div></div></aside>
 <aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{upload}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>
 {_render_import_batches(batches or [])}
@@ -187,7 +188,9 @@ def _valid_row(row):
 
 def register_import_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
-    from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
+    from fastapi.responses import HTMLResponse, PlainTextResponse
+
+    register_excel_import_routes(app, service, repository, current_user)
 
     def _activity(user):
         if repository:
@@ -197,7 +200,6 @@ def register_import_pages(app, service, repository, current_user):
             files = []
             logs = service.list_audit_logs(user, user['project_id'])
         return files, logs
-
     @app.get('/backoffice/imports', response_class=HTMLResponse)
     def import_page(user=Depends(current_user)):
         files, logs = _activity(user)
@@ -258,7 +260,6 @@ def register_import_pages(app, service, repository, current_user):
             return HTMLResponse(_render_preview(user, review, duplicates))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
-
     @app.post('/backoffice/imports/charge-targets/confirm', response_class=HTMLResponse)
     def confirm_import_page(import_id: int = Form(...), user=Depends(current_user)):
         try:
