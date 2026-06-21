@@ -100,7 +100,7 @@ def _render_payments(user, result, bills, params, message=''):
 
 
 def _receipt_export_rows(payment):
-    headers = ['receipt_number', 'bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'paid_amount', 'unpaid_amount']
+    headers = ['receipt_number', 'bill_number', 'billing_period', 'fee_name', 'service_start', 'service_end', 'bill_amount', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'paid_amount', 'unpaid_amount']
     return headers, [{key: payment.get(key, '') for key in headers}]
 
 
@@ -116,7 +116,12 @@ def _render_receipt(user, payment, target_id=''):
 <tr><th>收据号</th><td>{_h(payment.get('receipt_number'))}</td></tr>
 <tr><th>账单号</th><td>{_h(payment.get('bill_number'))}</td></tr>
 <tr><th>账期</th><td>{_h(payment.get('billing_period'))}</td></tr>
+<tr><th>收费项目</th><td>{_h(payment.get('fee_name') or '')}</td></tr>
+<tr><th>服务期</th><td>{_h(payment.get('service_start') or '')} ~ {_h(payment.get('service_end') or '')}</td></tr>
+<tr><th>应收金额</th><td>{_amount_text(payment.get('bill_amount'))}</td></tr>
 <tr><th>收费对象</th><td>{_h(target_label)}</td></tr>
+<tr><th>店名</th><td>{_h(payment.get('shop_name') or '')}</td></tr>
+<tr><th>承租人</th><td>{_h(payment.get('tenant_name') or '')}</td></tr>
 <tr><th>业主</th><td>{_h(payment.get('owner_name') or '未绑定')}</td></tr>
 <tr><th>本次收款</th><td>{_amount_text(payment.get('amount_paid'))}</td></tr>
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>

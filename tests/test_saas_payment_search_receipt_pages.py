@@ -127,7 +127,7 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
             data = exported.json()
             self.assertEqual(data['filename'], 'receipt-1.csv')
             content = data['content']
-            self.assertIn('receipt_number,bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,paid_amount,unpaid_amount', content)
+            self.assertIn('receipt_number,bill_number,billing_period,fee_name,service_start,service_end,bill_amount,building,unit,room_number,shop_name,tenant_name,owner_name,amount_paid,method,paid_amount,unpaid_amount', content)
             self.assertIn('RCPT-', content)
             self.assertIn(bill['bill_number'], content)
             self.assertIn('77.0', content)

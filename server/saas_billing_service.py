@@ -127,13 +127,14 @@ def search_payments(self, user, project_id, keyword="", period=None, page=1, pag
             if not bill or payment["tenant_id"] != user["tenant_id"] or payment["project_id"] != project_id:
                 continue
             target = self.targets.get(bill.get("charge_target_id"), {})
+            fee = self.fees.get(bill.get("fee_type_id"), {})
             paid_after = round(sum(
                 p.get("amount_paid", 0) for p in self.payments.values()
                 if p.get("tenant_id") == user["tenant_id"] and p.get("project_id") == project_id
                 and p.get("bill_id") == payment.get("bill_id") and p.get("id") <= payment.get("id")
             ), 2)
             unpaid_after = round(max(float(bill.get("amount") or 0) - paid_after, 0), 2)
-            item = {**payment, "bill_number": bill["bill_number"], "billing_period": bill["billing_period"], "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", ""), "owner_name": target.get("owner_name", ""), "paid_amount": paid_after, "unpaid_amount": unpaid_after}
+            item = {**payment, "bill_number": bill["bill_number"], "billing_period": bill["billing_period"], "service_start": bill.get("service_start", ""), "service_end": bill.get("service_end", ""), "bill_amount": bill.get("amount", 0), "fee_name": fee.get("name", ""), "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", ""), "shop_name": target.get("shop_name", ""), "tenant_name": target.get("tenant_name", ""), "owner_name": target.get("owner_name", ""), "paid_amount": paid_after, "unpaid_amount": unpaid_after}
             haystack = " ".join(str(item.get(k, "")) for k in ["receipt_number", "bill_number", "method", "billing_period"]).lower()
             if not keyword or keyword in haystack:
                 rows.append(item)
