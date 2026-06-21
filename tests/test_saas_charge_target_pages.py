@@ -36,6 +36,71 @@ class TestSaasChargeTargetPages(unittest.TestCase):
         self.assertIn('单元 / 分区', page.text)
         self.assertIn('房号 / 铺位号', page.text)
 
+    def test_charge_target_page_looks_like_business_directory(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            client.post('/backoffice/owners/create', data={
+                'name': '张三',
+                'phone': '13800000000',
+                'owner_type': '业主',
+            })
+            repo = create_saas_repository(db_url)
+            tenant_id = repo.list_tenants()[0]['id']
+            project_id = repo.list_projects()[0]['id']
+            owner = repo.list_owners(tenant_id, project_id)[0]
+            repo.close()
+            client.post('/backoffice/charge-targets/create', data={
+                'owner_id': str(owner['id']),
+                'building': '住宅楼',
+                'unit': '1单元',
+                'room_number': '101',
+                'category': '居民',
+                'area': '80',
+            })
+            client.post('/backoffice/charge-targets/create', data={
+                'building': '商业区A',
+                'unit': '一层',
+                'room_number': 'A-101',
+                'category': '商户',
+                'area': '88.5',
+                'shop_name': '便利店',
+                'tenant_name': '李四',
+                'tenant_phone': '13900000000',
+                'unit_price_override': '3.5',
+                'payment_cycle': 'quarterly',
+                'notes': '临街铺位',
+            })
+
+            page = client.get('/backoffice/charge-targets')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '房间 / 铺位档案',
+                '对象总数',
+                '已绑定业主',
+                '住宅',
+                '商户',
+                '总面积',
+                '快速操作',
+                '新增业主',
+                '新增房间 / 铺位',
+                '下载导入模板',
+                'Excel 导入',
+                '对象档案列表',
+                '住宅楼',
+                '商业区A',
+                '便利店',
+                '李四',
+                '13900000000',
+                '3.5',
+                'quarterly',
+                '临街铺位',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_charge_target_page_can_create_and_list_target_persistently(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

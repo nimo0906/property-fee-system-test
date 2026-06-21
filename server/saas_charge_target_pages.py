@@ -22,14 +22,41 @@ def _render_targets(user, items, message='', filters=None, page=1, page_size=20,
     form = _create_form(owners) if can_write else '<div class="hint">当前角色只能查看收费对象，不能新增。</div>'
     pager = _pager(filters, page, page_size, total)
     body = f'''
-<section class="hero"><div><h1>收费对象管理</h1><div class="sub">统一维护楼栋 / 区域、单元 / 分区、房号 / 铺位号，并建立房间/铺位与业主的云端映射。所有数据按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>收费对象管理</h1><div class="sub">房间 / 铺位档案：统一维护楼栋 / 区域、单元 / 分区、房号 / 铺位号、业主、商户、电话、面积、独立单价和缴费周期。所有数据按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{_directory_summary(items)}
+{_quick_actions(can_write)}
 {render_business_closure('charge_targets')}
 {_filter_form(filters, page_size)}
 {_batch_update_form(filters) if can_write else ''}
-<section class="grid"><div class="card"><div class="card-h">收费对象列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>楼栋 / 区域</th><th>单元 / 分区</th><th>房号 / 铺位号</th><th>楼层</th><th>业主</th><th>联系电话</th><th>店名</th><th>承租人</th><th>承租电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
-<aside class="card"><div class="card-h">新增收费对象</div><div class="card-b">{form}</div></aside></section>'''
+<section class="grid"><div class="card"><div class="card-h">对象档案列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>楼栋 / 区域</th><th>单元 / 分区</th><th>房号 / 铺位号</th><th>楼层</th><th>业主</th><th>联系电话</th><th>店名</th><th>承租人</th><th>承租电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
+<aside class="card"><div class="card-h">新增房间 / 铺位</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收费对象管理', body)
+
+
+def _directory_summary(items):
+    total = len(items or [])
+    bound = sum(1 for item in items if item.get('owner_id') or item.get('owner_name'))
+    residential = sum(1 for item in items if item.get('category') == '居民')
+    merchant = sum(1 for item in items if item.get('category') == '商户')
+    area = round(sum(float(item.get('area') or 0) for item in items), 2)
+    metrics = ''.join([
+        _summary_metric('对象总数', total),
+        _summary_metric('已绑定业主', bound),
+        _summary_metric('住宅', residential),
+        _summary_metric('商户', merchant),
+        _summary_metric('总面积', area),
+    ])
+    return f'<section class="metric-grid">{metrics}</section>'
+
+
+def _summary_metric(label, value):
+    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(value)}</strong></div>'
+
+
+def _quick_actions(can_write):
+    create_hint = '<span class="badge">可新增业主和房间 / 铺位</span>' if can_write else '<span class="badge">只读查看</span>'
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">快速操作</div><div class="card-b"><div class="actions">{create_hint}<a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="/backoffice/imports">Excel 导入</a><a class="ghost-link" href="/backoffice/merchants">商户档案</a><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a></div><div class="hint">建议先维护业主、房间/铺位和面积，再配置收费项目并批量出账。</div></div></section>'''
 
 
 def _row(item):
