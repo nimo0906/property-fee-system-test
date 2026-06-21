@@ -25,6 +25,7 @@ def _render_targets(user, items, message='', filters=None, page=1, page_size=20,
 <section class="hero"><div><h1>收费对象管理</h1><div class="sub">房间 / 铺位档案：统一维护楼栋 / 区域、单元 / 分区、房号 / 铺位号、业主、商户、电话、面积、独立单价和缴费周期。所有数据按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
 {_directory_summary(items)}
+{_directory_center()}
 {_quick_actions(can_write)}
 {render_business_closure('charge_targets')}
 {_filter_form(filters, page_size)}
@@ -51,7 +52,11 @@ def _directory_summary(items):
 
 
 def _summary_metric(label, value):
-    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(value)}</strong></div>'
+    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(str(value))}</strong></div>'
+
+
+def _directory_center():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">档案中心</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/charge-targets"><strong>业主档案</strong><span>新增业主、电话和业主类型，并绑定房间/铺位</span></a><a class="work-card" href="/backoffice/charge-targets"><strong>房间档案</strong><span>维护楼栋、单元、房号、面积和分类</span></a><a class="work-card" href="/backoffice/merchants"><strong>商户档案</strong><span>维护铺位号、店名、承租人、电话和独立单价</span></a><a class="work-card" href="/backoffice/imports"><strong>导入维护</strong><span>模板下载、Excel 导入预览和确认导入</span></a><a class="work-card" href="/backoffice/fee-types"><strong>计费准备</strong><span>配置收费项目后进入批量出账</span></a><a class="work-card" href="/backoffice/bills"><strong>批量出账</strong><span>按项目、楼栋、分类生成账单</span></a></div><div class="hint">先建业主和房间/铺位，再配置收费项目并批量出账。</div></div></section>'''
 
 
 def _quick_actions(can_write):

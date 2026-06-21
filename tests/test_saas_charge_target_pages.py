@@ -101,6 +101,32 @@ class TestSaasChargeTargetPages(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
                 self.assertNotIn(hidden, page.text)
 
+
+    def test_charge_target_page_shows_unified_directory_center(self):
+        client = self._client('finance')
+
+        page = client.get('/backoffice/charge-targets')
+
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '档案中心',
+            '业主档案',
+            '房间档案',
+            '商户档案',
+            '导入维护',
+            '计费准备',
+            '先建业主和房间/铺位，再配置收费项目并批量出账',
+            '/backoffice/charge-targets',
+            '/backoffice/merchants',
+            '/backoffice/imports',
+            '/backoffice/fee-types',
+            '/backoffice/bills',
+            '共 0 个收费对象',
+        ]:
+            self.assertIn(text, page.text)
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            self.assertNotIn(hidden, page.text)
+
     def test_charge_target_page_can_create_and_list_target_persistently(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
