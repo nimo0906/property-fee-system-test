@@ -10,6 +10,7 @@ from server.saas_business_closure import render_business_closure
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
+from server.saas_payment_workbench_ui import bill_status_label, collection_board
 
 
 def _to_float(value):
@@ -93,6 +94,7 @@ def _render_payments(user, result, bills, params, message=''):
 <section class="hero"><div><h1>收款工作台</h1><div class="sub">收款登记：处理部分收款、欠费联动、收据号、收据打印和导出收据；现金、转账、微信/支付宝线下记录都可在这里留痕。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
 {_payment_summary(result['items'])}
+{collection_board(bills, result['items'])}
 {_payment_check_panel()}
 {_payment_workflow_panel()}
 {render_business_closure('payments')}
@@ -191,9 +193,9 @@ def _create_form(bills, target_id=''):
     unpaid_bills = [bill for bill in bills if bill.get('status') in {'unpaid', 'partial'}]
     if not unpaid_bills:
         return '<div class="hint">请先把账单审核为未收款/部分收款，再登记收款。</div>'
-    options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(_bill_label(b))} · {_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(b.get("status"))} · 应收 {_h(b.get("amount"))} · 已收 {_h(b.get("paid_amount", 0))} · 欠费 {_h(b.get("unpaid_amount", b.get("amount")))}</option>' for b in unpaid_bills)
+    options = ''.join(f'<option value="{_h(b.get("id"))}">{_h(_bill_label(b))} · {_h(b.get("bill_number"))} · {_h(b.get("billing_period"))} · {_h(bill_status_label(b.get("status")))} · 应收 {_h(b.get("amount"))} · 已收 {_h(b.get("paid_amount", 0))} · 欠费 {_h(b.get("unpaid_amount", b.get("amount")))}</option>' for b in unpaid_bills)
     target_hidden = f'<input type="hidden" name="target_id" value="{_h(target_id)}">' if target_id else ''
-    return f'''<form method="post" action="/backoffice/payments/create">{target_hidden}<label>账单</label><select name="bill_id" required>{options}</select><label>收款金额</label><input name="amount" required type="number" step="0.01" min="0.01" placeholder="例如 100"><label>收款方式</label><input name="method" placeholder="cash / transfer / wechat / alipay"><label>幂等键</label><input name="idempotency_key" placeholder="可选，防重复提交"><button class="primary">登记收款</button><div class="hint">幂等键用于防止重复入账；收款后账单状态会自动变为 partial 或 paid。</div></form>'''
+    return f'''<form method="post" action="/backoffice/payments/create">{target_hidden}<label>账单</label><select name="bill_id" required>{options}</select><label>收款金额</label><input name="amount" required type="number" step="0.01" min="0.01" placeholder="例如 100"><label>收款方式</label><input name="method" placeholder="cash / transfer / wechat / alipay"><label>幂等键</label><input name="idempotency_key" placeholder="可选，防重复提交"><button class="primary">登记收款</button><div class="hint">幂等键用于防止重复入账；收款后账单状态会自动变为部分收款或已收款。</div></form>'''
 
 
 def register_payment_pages(app, service, repository, current_user):

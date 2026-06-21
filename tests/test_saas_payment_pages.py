@@ -70,7 +70,7 @@ class TestSaasPaymentPages(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             self.assertIn('RCPT-', page.text)
             self.assertIn('50.0', page.text)
-            self.assertIn('partial', page.text)
+            self.assertIn('部分收款', page.text)
 
             repo = create_saas_repository(db_url)
             bills = repo.list_bills(repo.list_tenants()[0]['id'], repo.list_projects()[0]['id'])
@@ -139,6 +139,40 @@ class TestSaasPaymentPages(unittest.TestCase):
             self.assertIn(text, page.text)
         for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
             self.assertNotIn(hidden, page.text)
+
+
+    def test_payment_page_shows_formal_collection_board_and_chinese_bill_status(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            finance = self._client('finance', database_url=db_url)
+            bill = self._seed_unpaid_bill(finance)
+            paid = finance.post('/backoffice/payments/create', data={
+                'bill_id': str(bill['id']),
+                'amount': '50',
+                'method': 'cash',
+                'idempotency_key': 'FORMAL-PAY-1',
+            }, follow_redirects=False)
+            self.assertEqual(paid.status_code, 303)
+
+            page = finance.get('/backoffice/payments')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '收款办理看板',
+                '可登记收款账单',
+                '收款后自动更新已收、欠费和账单状态',
+                '收后欠费余额',
+                '部分收款',
+                '查看收据',
+                '打印收据',
+                '/backoffice/payments/',
+                '/receipt',
+                '150.0',
+            ]:
+                self.assertIn(text, page.text)
+            self.assertNotIn(' · partial · ', page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
 
     def test_executive_can_view_but_cannot_record_payment(self):
         client = self._client('executive')
