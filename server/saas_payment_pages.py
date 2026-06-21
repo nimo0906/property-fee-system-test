@@ -83,7 +83,9 @@ def _pager(result, params):
 
 
 def _render_payments(user, result, bills, params, message=''):
-    notice = f'<div class="badge">{_h(message)}</div>' if message else ''
+    receipt_id = str(params.get('receipt_id') or '').strip()
+    receipt_link = f' <a class="ghost-link" href="/backoffice/payments/{_h(receipt_id)}/receipt">查看本次收据</a>' if receipt_id else ''
+    notice = f'<div class="badge">{_h(message)}{receipt_link}</div>' if message else ''
     can_write = user.get('role_code') in {'platform_admin', 'system_admin', 'finance', 'cashier'}
     form = _create_form(bills, params.get('target_id')) if can_write else '<div class="hint">当前角色只能查看收款，不能登记收款。</div>'
     rows = _payment_rows(result['items'], params.get('target_id'))
@@ -181,9 +183,9 @@ def register_payment_pages(app, service, repository, current_user):
         return next((item for item in rows if int(item.get('id')) == int(payment_id)), None)
 
     @app.get('/backoffice/payments', response_class=HTMLResponse)
-    def payment_page(keyword: str = '', period: str = '', method: str = '', amount_min: str = '', amount_max: str = '', page: int = 1, page_size: int = 20, message: str = '', target_id: str = '', user=Depends(current_user)):
+    def payment_page(keyword: str = '', period: str = '', method: str = '', amount_min: str = '', amount_max: str = '', page: int = 1, page_size: int = 20, message: str = '', target_id: str = '', receipt_id: str = '', user=Depends(current_user)):
         try:
-            params = {'keyword': keyword, 'period': period, 'method': method, 'amount_min': amount_min, 'amount_max': amount_max, 'page': page, 'page_size': page_size, 'target_id': target_id}
+            params = {'keyword': keyword, 'period': period, 'method': method, 'amount_min': amount_min, 'amount_max': amount_max, 'page': page, 'page_size': page_size, 'target_id': target_id, 'receipt_id': receipt_id}
             bills, result = _context(user, keyword, period, method, amount_min, amount_max, page, page_size, target_id)
             return HTMLResponse(_render_payments(user, result, bills, params, message))
         except (PermissionDenied, TenantScopeError):
@@ -221,7 +223,7 @@ def register_payment_pages(app, service, repository, current_user):
                 payment = repository.create_payment(user['tenant_id'], user['project_id'], bill_id, amount, method, idempotency_key or None, actor_user_id=user['id'])
             else:
                 payment = service.record_payment(user, bill_id, amount, method, idempotency_key or None)
-            params = {'message': f"收款已登记，收据号 {payment.get('receipt_number', '')}"}
+            params = {'message': f"收款已登记，收据号 {payment.get('receipt_number', '')}", 'receipt_id': payment.get('id')}
             if str(target_id or '').strip():
                 params['target_id'] = str(target_id)
             return RedirectResponse('/backoffice/payments?' + urlencode(params), status_code=303)

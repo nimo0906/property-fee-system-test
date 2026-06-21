@@ -178,6 +178,8 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
             self.assertEqual(page.status_code, 200)
             self.assertIn('收款已登记', page.text)
             self.assertIn('收据号 RCPT-', page.text)
+            self.assertIn('/backoffice/payments/2/receipt', page.text)
+            self.assertIn('查看本次收据', page.text)
 
     def test_payment_list_shows_balance_after_each_partial_payment(self):
         with tempfile.TemporaryDirectory() as td:
