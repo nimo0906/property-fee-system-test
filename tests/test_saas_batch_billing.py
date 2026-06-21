@@ -107,6 +107,8 @@ def test_api_and_backoffice_batch_generate_show_created_amount_total():
         assert page.status_code == 200
         assert '批量出账2张' in page.text
         assert '金额合计200.0元' in page.text
+        assert 'A-101 2028-01-01~2028-01-31 80.0元' in page.text
+        assert 'A-102 2028-01-01~2028-01-31 120.0元' in page.text
 
 def test_api_and_backoffice_batch_generate_bills_for_selected_category():
     with tempfile.TemporaryDirectory() as td:

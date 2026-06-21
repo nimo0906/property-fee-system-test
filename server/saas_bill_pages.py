@@ -221,7 +221,15 @@ def register_bill_pages(app, service, repository, current_user):
             else:
                 result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category, building, unit, bool(use_payment_cycle))
             msg = f"批量出账{result['created_count']}张，跳过{result['skipped_count']}张，金额合计{result.get('amount_total', 0)}元"
-            return RedirectResponse(f'/backoffice/bills?period={_h(billing_period)}&message={_h(msg)}', status_code=303)
+            item_details = []
+            for item in result.get('created_items', []):
+                item_details.append(
+                    f"{item.get('room_number')} {item.get('service_start')}~{item.get('service_end')} {item.get('amount')}元"
+                )
+            if item_details:
+                msg = f"{msg}；{'；'.join(item_details)}"
+            query = urllib.parse.urlencode({'period': billing_period, 'message': msg})
+            return RedirectResponse(f'/backoffice/bills?{query}', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
