@@ -5,7 +5,7 @@
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
-from server.saas_csv_export import bill_export_rows, csv_content, payment_export_rows, report_breakdown_export_rows
+from server.saas_csv_export import arrears_bill_export_rows, bill_export_rows, csv_content, payment_export_rows, report_breakdown_export_rows
 from server.saas_payment_pages import _filter_payments
 
 
@@ -259,6 +259,19 @@ def register_billing_routes(app, service):
             return {"filename": f"report-breakdown-{period or 'all'}.csv", "content": csv_content(headers, rows)}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
+
+    @app.get("/api/exports/reports/arrears-bills.csv")
+    def export_report_arrears_bills(period: str, user=Depends(current_user)):
+        try:
+            if repository:
+                result = repository.search_bills(user["tenant_id"], user["project_id"], "", period or None, None, 1, 10000)
+            else:
+                result = service.search_bills(user, user["project_id"], "", period or None, None, 1, 10000)
+            headers, rows = arrears_bill_export_rows(result["items"])
+            return {"filename": f"report-arrears-bills-{period or 'all'}.csv", "content": csv_content(headers, rows)}
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail="forbidden")
+
 
     @app.get("/api/reports/summary")
     def report_summary(period: str, user=Depends(current_user)):

@@ -24,7 +24,7 @@ def _percent(numerator, denominator):
 def _export_links(period):
     query = urlencode({'period': period}) if period else ''
     suffix = f'?{query}' if query else ''
-    return f'''<div class="actions"><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv{suffix}">导出分组汇总</a></div>'''
+    return f'''<div class="actions"><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv{suffix}">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv{suffix}">导出欠费明细</a></div>'''
 
 
 def _filter_card(user, period):

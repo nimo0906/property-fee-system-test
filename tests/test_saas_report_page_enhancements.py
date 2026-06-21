@@ -210,6 +210,43 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
                 self.assertNotIn(hidden, page.text)
 
+    def test_report_arrears_bill_details_can_export_csv_with_tenant_scope(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='A欠费导出物业', project_name='A欠费导出项目')
+            fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1}).json()['item']
+            target = client.post('/api/charge-targets', json={
+                'building': '欠费区', 'unit': '一层', 'room_number': 'A201', 'category': '商户', 'area': 300,
+                'shop_name': 'A201店', 'tenant_name': 'A201承租人',
+            }).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-05',
+                'service_start': '2027-05-01', 'service_end': '2027-05-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            client.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 80, 'method': 'cash', 'idempotency_key': 'REPORT-ARREARS-EXPORT-A',
+            })
+
+            page = client.get('/backoffice/reports?period=2027-05')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('/api/exports/reports/arrears-bills.csv?period=2027-05', page.text)
+
+            exported = client.get('/api/exports/reports/arrears-bills.csv?period=2027-05')
+            self.assertEqual(exported.status_code, 200)
+            data = exported.json()
+            self.assertEqual(data['filename'], 'report-arrears-bills-2027-05.csv')
+            content = data['content']
+            self.assertIn('bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,fee_name,amount,paid_amount,unpaid_amount,status', content)
+            self.assertIn('A201店,A201承租人,物业费,300.0,80.0,220.0,partial', content)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', 'idempotency_key']:
+                self.assertNotIn(hidden, content)
+
+            client_b = self._client(db_url, tenant_name='B欠费导出物业', project_name='B欠费导出项目')
+            other = client_b.get('/api/exports/reports/arrears-bills.csv?period=2027-05')
+            self.assertEqual(other.status_code, 200)
+            self.assertNotIn('A201店', other.json()['content'])
+
     def test_report_breakdown_can_export_grouped_summary_csv(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
