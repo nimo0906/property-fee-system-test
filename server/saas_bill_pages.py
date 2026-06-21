@@ -5,6 +5,7 @@
 import urllib.parse
 
 from server.saas_business_closure import render_business_closure
+from server.saas_bill_preview_pages import register_batch_bill_preview_pages
 from server.saas_repository import TenantScopeError
 from server.saas_fee_rules import calculate_bill_amount
 from server.saas_service import PermissionDenied
@@ -96,7 +97,7 @@ def _batch_generate_form(fees):
         return '<div class="hint">请先维护收费项目，再批量出账。</div>'
     fee_options = _options(fees, lambda item: f"{item.get('name')} · {item.get('unit_price')}")
     category_options = '<option value="">全部类型</option><option value="居民">仅居民</option><option value="商户">仅商户</option><option value="办公">仅办公</option><option value="其他">仅其他</option>'
-    return f'''<form method="post" action="/backoffice/bills/batch-generate"><label>收费项目</label><select name="fee_type_id" required>{fee_options}</select><label>对象范围</label><select name="category">{category_options}</select><label>楼栋 / 区域范围</label><input name="building" placeholder="选填，精确匹配楼栋/区域"><label>单元 / 分区范围</label><input name="unit" placeholder="选填，精确匹配单元/分区"><label>账期</label><input name="billing_period" required placeholder="例如 2026-06"><label>服务开始日期</label><input name="service_start" required type="date"><label>服务结束日期</label><input name="service_end" type="date"><label><input type="checkbox" name="use_payment_cycle" value="1"> 按收费对象缴费周期自动计算服务结束</label><button class="primary">批量出账</button><div class="hint">按当前租户和项目内收费对象批量生成；同一账期、收费项目、收费对象已存在账单会自动跳过。</div></form>'''
+    return f'''<form method="post" action="/backoffice/bills/batch-generate-preview"><label>收费项目</label><select name="fee_type_id" required>{fee_options}</select><label>对象范围</label><select name="category">{category_options}</select><label>楼栋 / 区域范围</label><input name="building" placeholder="选填，精确匹配楼栋/区域"><label>单元 / 分区范围</label><input name="unit" placeholder="选填，精确匹配单元/分区"><label>账期</label><input name="billing_period" required placeholder="例如 2026-06"><label>服务开始日期</label><input name="service_start" required type="date"><label>服务结束日期</label><input name="service_end" type="date"><label><input type="checkbox" name="use_payment_cycle" value="1"> 按收费对象缴费周期自动计算服务结束</label><button class="primary">预览批量出账</button><div class="hint">按当前租户和项目内收费对象先预览；确认后才写入账单，重复账单会自动跳过。</div></form>'''
 
 
 def _to_int(value, default):
@@ -172,6 +173,7 @@ def _pager(filters, page, page_size, total):
 def register_bill_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
     from fastapi.responses import HTMLResponse, RedirectResponse
+    register_batch_bill_preview_pages(app, service, repository, current_user)
 
     def _context(user, period='', status=''):
         service._require(user, 'read')
