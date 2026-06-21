@@ -90,7 +90,7 @@ def _business_nav(user):
     platform_section = f'<div class="nav-group"><b>平台运维</b>{platform_links}</div>' if platform_links else ''
     return f'''<aside class="business-nav"><div class="brand">物业收费系统</div>
 <div class="nav-group"><b>日常业务</b><a href="/backoffice">工作台</a><a href="/backoffice/charge-targets">收费对象</a><a href="/backoffice/fee-types">收费项目</a><a href="/backoffice/bills">出账审核</a><a href="/backoffice/payments">收款登记</a><a href="/backoffice/reports">欠费报表</a></div>
-<div class="nav-group"><b>数据维护</b><a href="/backoffice/merchants">业主/房间/商户</a><a href="/backoffice/imports/templates/charge-targets">导入模板</a><a href="/backoffice/imports">Excel 导入</a></div>
+<div class="nav-group"><b>数据维护</b><a href="/backoffice/owners">业主档案</a><a href="/backoffice/charge-targets">房间/铺位</a><a href="/backoffice/merchants">商户档案</a><a href="/backoffice/imports/templates/charge-targets">导入模板</a><a href="/backoffice/imports">Excel 导入</a></div>
 <div class="nav-group"><b>查询报表</b><a href="/backoffice/bills">账单查询</a><a href="/backoffice/payments">收款流水</a><a href="/backoffice/reports">项目报表</a><a href="/api/exports/reports/breakdown.csv">导出</a></div>
 <div class="nav-group"><b>系统管理</b>{admin_links}</div>{platform_section}</aside>'''
 
@@ -105,6 +105,7 @@ def _workbench(user, period, stats):
         _metric('欠费', stats['unpaid_amount_total'], True),
     ])
     flow = ''.join([
+        _link_card('业主档案', '维护业主、住户、商户联系人', '/backoffice/owners', True),
         _link_card('收费对象', '维护楼栋、房号、铺位、业主和商户资料', '/backoffice/charge-targets', True),
         _link_card('收费项目', '配置物业费、水费、停车费和固定金额规则', '/backoffice/fee-types', True),
         _link_card('批量出账', '出账收款：按项目、楼栋、分类批量生成账单', '/backoffice/bills', True),

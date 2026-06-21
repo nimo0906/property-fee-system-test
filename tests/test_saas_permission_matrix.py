@@ -139,6 +139,45 @@ class TestSaasFastApiPermissionMatrix(unittest.TestCase):
         self.assertEqual(disabled.status_code, 200)
         self.assertEqual(disabled.json()['item']['is_active'], 0)
 
+    def test_persistent_api_enforces_billing_and_payment_permissions(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            finance = TestClient(create_app(database_url=db_url))
+            self.assertEqual(finance.post('/api/auth/login', json={
+                'tenant_name': '持久权限物业', 'project_name': '持久权限项目',
+                'username': 'finance', 'role_code': 'finance',
+            }).status_code, 200)
+            target = finance.post('/api/charge-targets', json={
+                'building': '1栋', 'unit': '1单元', 'room_number': '101',
+                'category': '居民', 'area': 80,
+            }).json()['item']
+            fee = finance.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+            bill = finance.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'],
+                'billing_period': '2026-06', 'service_start': '2026-06-01',
+                'service_end': '2026-06-30',
+            }).json()['item']
+
+            cashier = TestClient(create_app(database_url=db_url))
+            self.assertEqual(cashier.post('/api/auth/login', json={
+                'tenant_name': '持久权限物业', 'project_name': '持久权限项目',
+                'username': 'cashier', 'role_code': 'cashier',
+            }).status_code, 200)
+            self.assertEqual(cashier.post(f"/api/bills/{bill['id']}/approve").status_code, 403)
+
+            executive = TestClient(create_app(database_url=db_url))
+            self.assertEqual(executive.post('/api/auth/login', json={
+                'tenant_name': '持久权限物业', 'project_name': '持久权限项目',
+                'username': 'reader', 'role_code': 'executive',
+            }).status_code, 200)
+            self.assertEqual(executive.post('/api/payments', json={
+                'bill_id': bill['id'], 'amount': 1, 'method': 'cash',
+                'idempotency_key': 'EXEC-PERSIST-PAY',
+            }).status_code, 403)
+
 
 if __name__ == '__main__':
     unittest.main()

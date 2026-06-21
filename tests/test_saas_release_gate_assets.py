@@ -35,6 +35,28 @@ def test_release_gate_script_passes_and_runs_all_required_checks():
         assert item in result.stdout
 
 
+def test_release_gate_dry_run_passes_without_runtime_secrets_and_does_not_print_secret_values():
+    assert SCRIPT.exists()
+    env = os.environ.copy()
+    env.pop("POSTGRES_PASSWORD", None)
+    env.pop("APP_SECRET_KEY", None)
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT), "--dry-run"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+        timeout=180,
+        env=env,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "RUN scripts/saas_env_security_check.py --dry-run" in output
+    assert "PASS saas production env security dry-run plan" in output
+    assert "POSTGRES_PASSWORD=" not in output
+    assert "APP_SECRET_KEY=" not in output
+
+
 def test_release_gate_is_registered_as_deploy_asset():
     deploy = (ROOT / "server" / "saas_deploy.py").read_text(encoding="utf-8")
     assert "scripts/saas_release_gate.py" in deploy

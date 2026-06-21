@@ -95,6 +95,36 @@ class TestSaasPasswordLoginFlow(unittest.TestCase):
             self.assertNotIn('New-pass-2026', str(logs))
             repo.close()
 
+    def test_disabled_persistent_user_cannot_login_even_with_correct_password(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            admin = TestClient(create_app(database_url=db_url))
+            login = admin.post('/api/auth/login', json={
+                'tenant_name': '禁用物业',
+                'project_name': '禁用项目',
+                'username': 'admin',
+                'role_code': 'system_admin',
+            })
+            self.assertEqual(login.status_code, 200)
+            created = admin.post('/api/users', json={'username': 'cashier_disabled', 'role_code': 'cashier'})
+            self.assertEqual(created.status_code, 200)
+            user_id = created.json()['item']['id']
+            reset = admin.post(f'/api/users/{user_id}/reset-password', json={'new_password': 'Temp-pass-2026'})
+            self.assertEqual(reset.status_code, 200)
+            disabled = admin.post(f'/api/users/{user_id}/active', json={'is_active': False})
+            self.assertEqual(disabled.status_code, 200)
+
+            staff = TestClient(create_app(database_url=db_url))
+            blocked = staff.post('/api/auth/login', json={
+                'tenant_name': '禁用物业',
+                'project_name': '禁用项目',
+                'username': 'cashier_disabled',
+                'role_code': 'cashier',
+                'password': 'Temp-pass-2026',
+            })
+            self.assertEqual(blocked.status_code, 401)
+            self.assertEqual(blocked.json()['detail'], 'inactive user')
+
 
 if __name__ == '__main__':
     unittest.main()

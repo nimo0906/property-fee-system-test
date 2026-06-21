@@ -176,6 +176,7 @@ def register_billing_routes(app, service):
     @app.post("/api/bills/{bill_id}/approve")
     def approve_bill(bill_id: int, user=Depends(current_user)):
         try:
+            service._require(user, "billing")
             if repository:
                 item = repository.approve_bill(user["tenant_id"], user["project_id"], bill_id, actor_user_id=user["id"])
             else:
@@ -198,6 +199,7 @@ def register_billing_routes(app, service):
     @app.post("/api/payments")
     def record_payment(data: PaymentIn, user=Depends(current_user)):
         try:
+            service._require(user, "payment")
             if repository:
                 item = repository.create_payment(user["tenant_id"], user["project_id"], data.bill_id, data.amount, data.method, data.idempotency_key or None, actor_user_id=user["id"])
             else:

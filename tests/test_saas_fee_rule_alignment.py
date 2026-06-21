@@ -203,3 +203,21 @@ def test_import_mapping_keeps_target_price_override_for_confirmed_rows():
     assert confirm.status_code == 200, confirm.text
     targets = client.get('/api/charge-targets').json()['items']
     assert targets[0]['unit_price_override'] == 9.0
+
+
+def test_target_price_override_does_not_replace_fixed_amount_fee():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('固定金额覆盖物业')
+        project = repo.create_project(tenant['id'], '固定金额覆盖项目')
+        target = repo.create_charge_target(
+            tenant['id'], project['id'], '商场', '一层', 'P-001', '商户', 50, unit_price_override=8
+        )
+        fee = repo.create_fee_type(tenant['id'], project['id'], '固定停车费', 120, 'fixed')
+
+        bill = repo.create_bill(
+            tenant['id'], project['id'], target['id'], fee['id'], '2026-09', '2026-09-01', '2026-09-30', None
+        )
+
+        assert bill['amount'] == 120.0
+        repo.close()

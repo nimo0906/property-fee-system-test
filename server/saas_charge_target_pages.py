@@ -56,12 +56,12 @@ def _summary_metric(label, value):
 
 
 def _directory_center():
-    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">档案中心</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/charge-targets"><strong>业主档案</strong><span>新增业主、电话和业主类型，并绑定房间/铺位</span></a><a class="work-card" href="/backoffice/charge-targets"><strong>房间档案</strong><span>维护楼栋、单元、房号、面积和分类</span></a><a class="work-card" href="/backoffice/merchants"><strong>商户档案</strong><span>维护铺位号、店名、承租人、电话和独立单价</span></a><a class="work-card" href="/backoffice/imports"><strong>导入维护</strong><span>模板下载、Excel 导入预览和确认导入</span></a><a class="work-card" href="/backoffice/fee-types"><strong>计费准备</strong><span>配置收费项目后进入批量出账</span></a><a class="work-card" href="/backoffice/bills"><strong>批量出账</strong><span>按项目、楼栋、分类生成账单</span></a></div><div class="hint">先建业主和房间/铺位，再配置收费项目并批量出账。</div></div></section>'''
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">档案中心</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/owners"><strong>业主档案</strong><span>新增业主、电话和业主类型，并绑定房间/铺位</span></a><a class="work-card" href="/backoffice/charge-targets"><strong>房间档案</strong><span>维护楼栋、单元、房号、面积和分类</span></a><a class="work-card" href="/backoffice/merchants"><strong>商户档案</strong><span>维护铺位号、店名、承租人、电话和独立单价</span></a><a class="work-card" href="/backoffice/imports"><strong>导入维护</strong><span>模板下载、Excel 导入预览和确认导入</span></a><a class="work-card" href="/backoffice/fee-types"><strong>计费准备</strong><span>配置收费项目后进入批量出账</span></a><a class="work-card" href="/backoffice/bills"><strong>批量出账</strong><span>按项目、楼栋、分类生成账单</span></a></div><div class="hint">先建业主和房间/铺位，再配置收费项目并批量出账。</div></div></section>'''
 
 
 def _quick_actions(can_write):
     create_hint = '<span class="badge">可新增业主和房间 / 铺位</span>' if can_write else '<span class="badge">只读查看</span>'
-    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">快速操作</div><div class="card-b"><div class="actions">{create_hint}<a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="/backoffice/imports">Excel 导入</a><a class="ghost-link" href="/backoffice/merchants">商户档案</a><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a></div><div class="hint">建议先维护业主、房间/铺位和面积，再配置收费项目并批量出账。</div></div></section>'''
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">快速操作</div><div class="card-b"><div class="actions">{create_hint}<a class="ghost-link" href="/backoffice/owners">业主档案</a><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">下载导入模板</a><a class="ghost-link" href="/backoffice/imports">Excel 导入</a><a class="ghost-link" href="/backoffice/merchants">商户档案</a><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a></div><div class="hint">建议先维护业主、房间/铺位和面积，再配置收费项目并批量出账。</div></div></section>'''
 
 
 def _row(item):
@@ -171,7 +171,7 @@ def register_charge_target_pages(app, service, repository, current_user):
             service._require(user, 'write')
             if repository:
                 item = repository.create_owner(user['tenant_id'], user['project_id'], name, phone, owner_type)
-                service._log(user, user['project_id'], 'owner.create', 'owner', item['id'], {'name': name, 'phone': phone, 'owner_type': owner_type})
+                repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'owner.create', 'owner', item['id'], {'name': name, 'owner_type': owner_type})
             else:
                 service.create_owner(user, user['project_id'], name, phone, owner_type)
             return RedirectResponse('/backoffice/charge-targets?message=业主已新增', status_code=303)

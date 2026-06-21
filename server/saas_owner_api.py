@@ -18,7 +18,7 @@ def register_owner_routes(app, service):
             service._require(user, "write")
             if repository:
                 item = repository.create_owner(user["tenant_id"], user["project_id"], data.name, data.phone, data.owner_type)
-                service._log(user, user["project_id"], "owner.create", "owner", item["id"], {"name": data.name, "phone": data.phone, "owner_type": data.owner_type})
+                repository.create_audit_log(user["tenant_id"], user["project_id"], user["id"], "owner.create", "owner", item["id"], {"name": data.name, "owner_type": data.owner_type})
             else:
                 item = service.create_owner(user, user["project_id"], data.name, data.phone, data.owner_type)
             return {"item": item}

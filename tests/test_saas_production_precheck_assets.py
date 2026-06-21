@@ -12,6 +12,7 @@ from server.saas_app import create_app
 
 SCRIPT = Path('scripts/saas_production_precheck.py')
 DOC = Path('docs/saas-production-precheck.md')
+NGINX = Path('deploy/nginx/property-saas.conf')
 
 
 def test_production_precheck_script_exists_and_reports_required_sections():
@@ -113,3 +114,14 @@ def test_production_precheck_is_registered_in_gate_registry_readiness_and_deploy
         assert text in page.text
     for hidden in ['POSTGRES_PASSWORD', 'APP_SECRET_KEY', 'tenant_id', 'project_id']:
         assert hidden not in page.text
+
+
+def test_nginx_asset_terminates_https_and_redirects_http_without_exposing_app_directly():
+    text = NGINX.read_text(encoding='utf-8')
+    assert 'listen 80' in text
+    assert 'return 301 https://$host$request_uri' in text
+    assert 'listen 443 ssl' in text
+    assert 'ssl_certificate' in text
+    assert 'proxy_pass http://127.0.0.1:8000' in text
+    assert 'POSTGRES_PASSWORD' not in text
+    assert 'APP_SECRET_KEY' not in text

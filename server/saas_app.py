@@ -146,7 +146,7 @@ def create_app(database_url=None, acceptance_store=None):
             require_active_license(user, 'fee_type.create')
             if repository:
                 item = repository.create_fee_type(user["tenant_id"], user["project_id"], data.name, data.unit_price, data.billing_mode)
-                service._log(user, user["project_id"], 'fee_type.create', 'fee_type', item['id'], {'name': data.name, 'unit_price': float(data.unit_price), 'billing_mode': item.get('billing_mode')})
+                repository.create_audit_log(user["tenant_id"], user["project_id"], user["id"], 'fee_type.create', 'fee_type', item['id'], {'name': data.name, 'unit_price': float(data.unit_price), 'billing_mode': item.get('billing_mode')})
             else:
                 item = service.create_fee_type(user, user["project_id"], data.name, data.unit_price, data.billing_mode)
             return {"item": item}
@@ -160,7 +160,7 @@ def create_app(database_url=None, acceptance_store=None):
             require_active_license(user, 'charge_target.create')
             if repository:
                 item = repository.create_charge_target(user["tenant_id"], user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override, floor=data.floor, shop_name=data.shop_name, tenant_name=data.tenant_name, tenant_phone=data.tenant_phone, payment_cycle=data.payment_cycle, notes=data.notes)
-                service._log(user, user["project_id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
+                repository.create_audit_log(user["tenant_id"], user["project_id"], user["id"], 'charge_target.create', 'charge_target', item['id'], {'building': data.building, 'room_number': data.room_number})
             else:
                 item = service.create_charge_target(user, user["project_id"], data.building, data.unit, data.room_number, data.category, data.area, data.owner_id, data.unit_price_override, floor=data.floor, shop_name=data.shop_name, tenant_name=data.tenant_name, tenant_phone=data.tenant_phone, payment_cycle=data.payment_cycle, notes=data.notes)
             return {"item": item}
@@ -170,7 +170,14 @@ def create_app(database_url=None, acceptance_store=None):
     @app.post("/api/imports/charge-targets/preview")
     def preview_import(data: ImportPreviewIn, user=__import__('fastapi').Depends(current_user)):
         try:
-            return service.preview_charge_target_import(user, user["project_id"], data.rows)
+            result = service.preview_charge_target_import(user, user["project_id"], data.rows)
+            if repository:
+                repository.create_audit_log(
+                    user["tenant_id"], user["project_id"], user["id"], 'import.preview',
+                    'import', result["import_id"],
+                    {'valid_count': result.get('valid_count', 0), 'error_count': result.get('error_count', 0)},
+                )
+            return result
         except PermissionDenied:
             raise HTTPException(status_code=403, detail="forbidden")
 
@@ -223,7 +230,7 @@ def create_app(database_url=None, acceptance_store=None):
                 service.imports[data.import_id]["owner_created_count"] = owner_created
                 skipped_total = review['error_count'] + duplicate_skipped
                 detail = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created}
-                service._log(user, user["project_id"], 'import.confirm', 'import', data.import_id, detail)
+                repository.create_audit_log(user["tenant_id"], user["project_id"], user["id"], 'import.confirm', 'import', data.import_id, detail)
                 result = {"created_count": created, "skipped_count": skipped_total, "duplicate_skipped_count": duplicate_skipped}
                 if owner_created:
                     result["owner_created_count"] = owner_created

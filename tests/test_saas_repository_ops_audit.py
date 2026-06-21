@@ -68,6 +68,35 @@ class TestSaasFastApiPersistentOpsAudit(unittest.TestCase):
             self.assertIn('restore.drill', [row['action'] for row in logs])
             reopened.close()
 
+    def test_persistent_api_business_and_import_actions_are_persisted_to_audit_log(self):
+        from fastapi.testclient import TestClient
+        from server.saas_app import create_app
+
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = TestClient(create_app(database_url=db_url))
+            self.assertEqual(client.post('/api/auth/login', json={
+                'tenant_name': '持久审计物业', 'project_name': '持久审计项目',
+                'username': 'finance', 'role_code': 'finance',
+            }).status_code, 200)
+            client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2})
+            preview = client.post('/api/imports/charge-targets/preview', json={'rows': [{
+                'building': '1栋', 'unit': '1单元', 'room_number': '101',
+                'category': '居民', 'area': '80',
+            }]})
+            self.assertEqual(preview.status_code, 200)
+            confirmed = client.post('/api/imports/charge-targets/confirm', json={'import_id': preview.json()['import_id']})
+            self.assertEqual(confirmed.status_code, 200)
+
+            reopened = create_saas_repository(db_url)
+            tenant = reopened.list_tenants()[0]
+            project = reopened.list_projects()[0]
+            actions = [row['action'] for row in reopened.list_audit_logs(tenant['id'], project['id'])]
+            self.assertIn('fee_type.create', actions)
+            self.assertIn('import.preview', actions)
+            self.assertIn('import.confirm', actions)
+            reopened.close()
+
 class TestSaasOpsAuditSchema(unittest.TestCase):
     def test_schema_defines_backup_records_and_restore_drills_with_tenant_scope(self):
         from server.saas_schema import build_saas_postgres_schema

@@ -3,6 +3,7 @@
 """Commercial release gate for SaaS cloud backoffice."""
 
 from pathlib import Path
+import argparse
 import subprocess
 import sys
 
@@ -94,10 +95,14 @@ CHECKS = [
 ]
 
 
-def run_check(script):
-    print(f"RUN {script}")
+def run_check(script, dry_run=False):
+    args = list(CHECK_ARGS.get(script, []))
+    if dry_run and script == "scripts/saas_env_security_check.py":
+        args = ["--dry-run"]
+    printable = " ".join([script, *args]).strip()
+    print(f"RUN {printable}")
     result = subprocess.run(
-        [PYTHON, str(ROOT / script), *CHECK_ARGS.get(script, [])],
+        [PYTHON, str(ROOT / script), *args],
         cwd=ROOT,
         text=True,
         stdout=subprocess.PIPE,
@@ -111,8 +116,15 @@ def run_check(script):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Run SaaS commercial release gate.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Run local-safe release gate checks without requiring runtime production secrets.",
+    )
+    args = parser.parse_args()
     for script in CHECKS:
-        run_check(script)
+        run_check(script, dry_run=args.dry_run)
     print("saas_release_gate: PASS")
 
 

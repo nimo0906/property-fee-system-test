@@ -41,6 +41,8 @@ def service_months(service_start=None, service_end=None):
 
 
 def effective_unit_price(target, fee):
+    if normalize_billing_mode(fee.get("billing_mode")) == "fixed":
+        return float(fee.get("unit_price") or 0)
     override = target.get("unit_price_override")
     if override not in (None, ""):
         return float(override)
