@@ -79,7 +79,7 @@ def _pager(result, params):
     next_cls = ' ghost-link disabled' if page * size >= total else 'ghost-link'
     prev_href = '/backoffice/payments?' + _query(params, page=max(page - 1, 1), page_size=size)
     next_href = '/backoffice/payments?' + _query(params, page=page + 1, page_size=size)
-    return f'''<div class="pager"><span>共 {_h(total)} 条 · 第 {_h(page)} 页 · 每页 {_h(size)} 条</span><span class="actions"><a class="{prev_cls}" href="{_h(prev_href)}">上一页</a><a class="{next_cls}" href="{_h(next_href)}">下一页</a></span></div>'''
+    return f'''<div class="pager"><span>共 {_h(str(total))} 条 · 第 {_h(str(page))} 页 · 每页 {_h(str(size))} 条</span><span class="actions"><a class="{prev_cls}" href="{_h(prev_href)}">上一页</a><a class="{next_cls}" href="{_h(next_href)}">下一页</a></span></div>'''
 
 
 def _render_payments(user, result, bills, params, message=''):
@@ -94,6 +94,7 @@ def _render_payments(user, result, bills, params, message=''):
 {notice}
 {_payment_summary(result['items'])}
 {_payment_check_panel()}
+{_payment_workflow_panel()}
 {render_business_closure('payments')}
 {_filter_card(params)}
 <section class="grid"><div class="card"><div class="card-h">收款流水</div><div class="card-b">{_pager(result, params)}<table><thead><tr><th>收据号</th><th>账单号</th><th>账期</th><th>房号 / 铺位号</th><th>店名</th><th>承租人</th><th>本次收款</th><th>收后累计已收</th><th>收后欠费余额</th><th>方式</th></tr></thead><tbody>{rows}</tbody></table>{_pager(result, params)}</div></div>
@@ -121,6 +122,9 @@ def _summary_metric(label, value):
 
 def _payment_check_panel():
     return '''<section class="card" style="margin-bottom:18px"><div class="card-h">收款检查</div><div class="card-b"><div class="actions"><span class="badge">部分收款</span><span class="badge">欠费联动</span><span class="badge">收据号</span><span class="badge">收据打印</span><span class="badge">导出收据</span><span class="badge">幂等防重复</span><a class="ghost-link" href="/backoffice/reports">欠费报表</a><a class="ghost-link" href="/api/exports/payments">导出收款流水</a></div><div class="hint">收款后账单自动联动已收、欠费和状态；同一幂等键可防止重复提交。</div></div></section>'''
+
+def _payment_workflow_panel():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">收款办理流程</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/bills?status=unpaid"><strong>选择未收账单</strong><span>先从已审核未收或部分收款账单中选择</span></a><a class="work-card" href="/backoffice/payments"><strong>登记本次收款</strong><span>录入金额、方式和幂等键，自动联动欠费</span></a><a class="work-card" href="/api/exports/payments"><strong>打印/导出收据</strong><span>收款后打开收据详情，可打印或导出</span></a><a class="work-card" href="/backoffice/reports"><strong>核对欠费报表</strong><span>核对应收、实收、欠费和收缴率</span></a></div></div></section>'''
 
 
 def _receipt_export_rows(payment):

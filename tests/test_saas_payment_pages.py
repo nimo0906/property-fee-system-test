@@ -118,6 +118,28 @@ class TestSaasPaymentPages(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
                 self.assertNotIn(hidden, page.text)
 
+
+    def test_payment_page_shows_cashier_workflow_links(self):
+        client = self._client('finance')
+
+        page = client.get('/backoffice/payments')
+
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '收款办理流程',
+            '选择未收账单',
+            '登记本次收款',
+            '打印/导出收据',
+            '核对欠费报表',
+            '/backoffice/bills?status=unpaid',
+            '/backoffice/reports',
+            '/api/exports/payments',
+            '共 0 条',
+        ]:
+            self.assertIn(text, page.text)
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            self.assertNotIn(hidden, page.text)
+
     def test_executive_can_view_but_cannot_record_payment(self):
         client = self._client('executive')
         page = client.get('/backoffice/payments')
