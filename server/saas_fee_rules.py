@@ -47,6 +47,19 @@ def effective_unit_price(target, fee):
     return float(fee.get("unit_price") or 0)
 
 
+def fee_applies_to_target(fee, target, selected_category=''):
+    fee_name = str(fee.get('name') or '')
+    category = str(target.get('category') or '居民')
+    if '(商业)' in fee_name:
+        return category in {'商户', '商业'}
+    if '(商户)' in fee_name:
+        return category == '商户'
+    if '(居民)' in fee_name:
+        return category == '居民'
+    if selected_category == '商业':
+        return category in {'商户', '商业'}
+    return not selected_category or category == selected_category
+
 def calculate_bill_amount(target, fee, service_start=None, service_end=None):
     mode = normalize_billing_mode(fee.get("billing_mode"))
     unit_price = effective_unit_price(target, fee)

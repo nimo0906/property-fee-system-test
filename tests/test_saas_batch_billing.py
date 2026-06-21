@@ -270,3 +270,24 @@ def test_memory_api_batch_generate_can_use_target_payment_cycle_for_service_peri
     assert bill['service_end'] == '2028-01-31'
     assert bill['amount'] == 540.0
 
+
+def test_batch_generate_commercial_fee_name_applies_to_merchant_and_commercial_targets_like_desktop():
+    with tempfile.TemporaryDirectory() as td:
+        repo = create_saas_repository(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        tenant = repo.create_tenant('商业规则物业')
+        project = repo.create_project(tenant['id'], '商业规则项目')
+        repo.create_charge_target(tenant['id'], project['id'], '商场', '一层', 'M-101', '商户', 40, unit_price_override=5)
+        repo.create_charge_target(tenant['id'], project['id'], '商场', '二层', 'C-201', '商业', 30, unit_price_override=6)
+        repo.create_charge_target(tenant['id'], project['id'], '住宅楼', '1单元', '101', '居民', 80)
+        fee = repo.create_fee_type(tenant['id'], project['id'], '物业费(商业)', 2, 'area')
+
+        result = repo.batch_generate_bills(
+            tenant['id'], project['id'], fee['id'], '2028-04', '2028-04-01', '2028-04-30', category='商业'
+        )
+
+        assert result['created_count'] == 2
+        assert result['skipped_count'] == 0
+        bills = repo.list_bills(tenant['id'], project['id'], '2028-04')
+        assert [bill['amount'] for bill in bills] == [200.0, 180.0]
+        assert [bill['charge_target_id'] for bill in bills] == [1, 2]
+        repo.close()

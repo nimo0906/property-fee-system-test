@@ -4,7 +4,7 @@
 
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
-from server.saas_batch_billing import service_end_for_cycle
+from server.saas_batch_billing import build_batch_bill_rows
 from server.saas_bill_balances import attach_bill_balances, service_paid_by_bill
 from server.saas_csv_export import bill_export_rows, csv_content, payment_export_rows
 
@@ -157,27 +157,24 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
         if not self._same_tenant_project(user, project_id):
             raise PermissionDenied("cross tenant project")
         fee = self.fees[fee_type_id]
+        targets = self.list_charge_targets(user, project_id)
+        rows = build_batch_bill_rows(targets, fee, user['tenant_id'], project_id, period, service_start, service_end, category, building, unit, use_payment_cycle)
         created = skipped = 0
         amount_total = 0.0
         bill_ids = []
         created_items = []
-        for target in self.list_charge_targets(user, project_id):
-            if category and target.get('category') != category:
-                continue
-            if building and target.get('building') != building:
-                continue
-            if unit and target.get('unit') != unit:
-                continue
+        targets_by_id = {target['id']: target for target in targets}
+        for row in rows:
             exists = any(
                 b['tenant_id'] == user['tenant_id'] and b['project_id'] == project_id and
-                b['charge_target_id'] == target['id'] and b['fee_type_id'] == fee_type_id and b['billing_period'] == period
+                b['charge_target_id'] == row['target_id'] and b['fee_type_id'] == fee_type_id and b['billing_period'] == period
                 for b in self.bills.values()
             )
             if exists:
                 skipped += 1
                 continue
-            target_service_end = service_end_for_cycle(service_start, target.get('payment_cycle')) if use_payment_cycle and service_start else service_end
-            bill = self.generate_bill(user, project_id, target, fee, period, service_start, target_service_end)
+            target = targets_by_id[row['target_id']]
+            bill = self.generate_bill(user, project_id, target, fee, period, row['service_start'], row['service_end'])
             bill_ids.append(bill['id'])
             amount_total = round(amount_total + float(bill.get('amount') or 0), 2)
             created_items.append(_batch_created_item(bill, target))

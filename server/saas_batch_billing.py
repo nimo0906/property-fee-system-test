@@ -5,11 +5,7 @@
 from calendar import monthrange
 from datetime import date
 
-from server.saas_fee_rules import calculate_bill_amount
-
-
-def target_matches_category(target, category):
-    return not category or target.get('category') == category
+from server.saas_fee_rules import calculate_bill_amount, fee_applies_to_target
 
 
 def target_matches_scope(target, building='', unit=''):
@@ -60,7 +56,7 @@ def _effective_service_end(target, service_start, service_end, use_payment_cycle
 def build_batch_bill_rows(targets, fee, tenant_id, project_id, period, service_start, service_end, category='', building='', unit='', use_payment_cycle=False):
     rows = []
     for target in targets:
-        if not target_matches_category(target, category):
+        if not fee_applies_to_target(fee, target, category):
             continue
         if not target_matches_scope(target, building, unit):
             continue

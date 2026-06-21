@@ -230,13 +230,11 @@ def register_merchant_directory(app, service, repository, current_user):
         try:
             service._require(user, 'billing')
             if repository:
-                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户', building=building, unit=unit, actor_user_id=user['id'])
-                extra = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', building=building, unit=unit, actor_user_id=user['id'])
+                result = repository.batch_generate_bills(user['tenant_id'], user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', building=building, unit=unit, actor_user_id=user['id'])
             else:
-                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商户', building=building, unit=unit)
-                extra = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', building=building, unit=unit)
-            created = int(result.get('created_count', 0)) + int(extra.get('created_count', 0))
-            skipped = int(result.get('skipped_count', 0)) + int(extra.get('skipped_count', 0))
+                result = service.batch_generate_bills(user, user['project_id'], fee_type_id, billing_period, service_start, service_end, category='商业', building=building, unit=unit)
+            created = int(result.get('created_count', 0))
+            skipped = int(result.get('skipped_count', 0))
             return RedirectResponse(f'/backoffice/merchants?message=商户批量出账：新增 {created} 笔，跳过 {skipped} 笔', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
