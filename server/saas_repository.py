@@ -156,6 +156,14 @@ class SaasRepository:
             raise PermissionDenied("bill pending review")
         existing = self._row("SELECT id,tenant_id,project_id,bill_id,amount_paid,method,idempotency_key,receipt_number FROM payments WHERE tenant_id=:tenant_id AND idempotency_key=:key", {"tenant_id": tenant_id, "key": idempotency_key}) if idempotency_key else None
         if existing:
+            same_request = (
+                int(existing["project_id"]) == int(project_id)
+                and int(existing["bill_id"]) == int(bill_id)
+                and round(float(existing["amount_paid"] or 0), 2) == round(float(amount), 2)
+                and str(existing.get("method") or "") == str(method or "")
+            )
+            if not same_request:
+                raise PermissionDenied("idempotency key conflict")
             return existing
         with self.engine.begin() as conn:
             paid_before = conn.execute(text("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE tenant_id=:tenant_id AND project_id=:project_id AND bill_id=:bill_id"), {"tenant_id": tenant_id, "project_id": project_id, "bill_id": bill_id}).scalar_one()

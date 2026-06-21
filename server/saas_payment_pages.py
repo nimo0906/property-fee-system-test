@@ -231,6 +231,6 @@ def register_payment_pages(app, service, repository, current_user):
             raise HTTPException(status_code=403, detail='forbidden')
         except PermissionDenied as exc:
             detail = str(exc)
-            if 'remaining arrears' in detail or 'positive' in detail:
+            if 'remaining arrears' in detail or 'positive' in detail or 'idempotency key conflict' in detail:
                 raise HTTPException(status_code=400, detail=detail)
             raise HTTPException(status_code=403, detail='forbidden')

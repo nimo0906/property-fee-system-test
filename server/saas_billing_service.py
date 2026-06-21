@@ -59,7 +59,16 @@ def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
             raise PermissionDenied("bill pending review")
         key = (user["tenant_id"], idempotency_key) if idempotency_key else None
         if key and key in self.payment_keys:
-            return self.payments[self.payment_keys[key]]
+            existing = self.payments[self.payment_keys[key]]
+            same_request = (
+                int(existing["project_id"]) == int(bill["project_id"])
+                and int(existing["bill_id"]) == int(bill_id)
+                and round(float(existing["amount_paid"] or 0), 2) == round(float(amount), 2)
+                and str(existing.get("method") or "") == str(method or "")
+            )
+            if not same_request:
+                raise PermissionDenied("idempotency key conflict")
+            return existing
         paid_before = sum(p["amount_paid"] for p in self.payments.values() if p["bill_id"] == bill_id)
         remaining = round(float(bill.get("amount") or 0) - float(paid_before or 0), 2)
         if float(amount) <= 0:
