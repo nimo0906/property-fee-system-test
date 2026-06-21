@@ -33,6 +33,10 @@ def _filter_card(user, period):
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">高级筛选</div><div class="card-b"><form method="get" action="/backoffice/reports" class="filters"><div><label>账期</label><input name="period" required value="{_h(period)}" placeholder="例如 2026-09"></div><div><button class="primary">查看报表</button></div><div>{_export_links(period)}</div><div class="hint">当前角色：{_h(role_label)} {readonly}</div></form></div></section>'''
 
 
+def _report_check_panel():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">报表检查</div><div class="card-b"><div class="actions"><span class="badge">应收</span><span class="badge">实收</span><span class="badge">欠费</span><span class="badge">收缴率</span><span class="badge">欠费率</span><span class="badge">欠费明细</span><a class="ghost-link" href="/api/exports/reports/projects.csv">导出项目汇总</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv">导出欠费明细</a></div><div class="hint">用于核对应收金额、实收金额和欠费金额，并按项目、楼栋、收费项目、对象分类汇总。</div></div></section>'''
+
+
 def _summary_card(summary, breakdown=None):
     due = float(summary.get('bill_amount_total') or 0)
     paid = float(summary.get('payment_amount_total') or 0)
@@ -103,20 +107,21 @@ def _arrears_bill_table(items, period):
 def _render_report(user, period, summary, breakdown=None, arrears_bills=None, project_summary=None):
     metrics = ''.join([
         _metric('账单数量', summary.get('bill_count', 0)),
-        _metric('应收金额', summary.get('bill_amount_total', 0.0)),
-        _metric('实收金额', summary.get('payment_amount_total', 0.0)),
-        _metric('欠费金额', summary.get('unpaid_amount_total', 0.0)),
+        _metric('应收', summary.get('bill_amount_total', 0.0)),
+        _metric('实收', summary.get('payment_amount_total', 0.0)),
+        _metric('欠费', summary.get('unpaid_amount_total', 0.0)),
     ])
     body = f'''
-<section class="hero"><div><h1>对账报表</h1><div class="sub">按账期汇总当前租户和项目的应收、实收、欠费。报表只读取本公司数据，避免不同公司数据混在一起。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>报表工作台</h1><div class="sub">对账报表：按账期汇总当前租户和项目的应收、实收、欠费，按项目、楼栋 / 区域、收费项目和对象分类汇总并导出。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {render_business_closure('reports')}
+{_report_check_panel()}
 {_filter_card(user, period)}
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
 {_project_summary_table(project_summary or [])}
 {_breakdown_cards(breakdown or {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})}
 {_arrears_bill_table(arrears_bills or [], period)}
 {_summary_card(summary, breakdown or {})}'''
-    return _page('对账报表', body)
+    return _page('报表工作台', body)
 
 
 def register_report_pages(app, service, repository, current_user):

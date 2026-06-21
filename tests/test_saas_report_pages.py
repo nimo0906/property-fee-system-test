@@ -70,6 +70,41 @@ class TestSaasReportPages(unittest.TestCase):
             self.assertIn('欠费金额', page.text)
             self.assertIn('150.0', page.text)
 
+    def test_report_page_looks_like_report_workbench(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            self._seed_paid_bill(client, period='2027-05', payment_amount=50)
+
+            page = client.get('/backoffice/reports?period=2027-05')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '报表工作台',
+                '应收',
+                '实收',
+                '欠费',
+                '收缴率',
+                '欠费率',
+                '报表检查',
+                '按项目汇总',
+                '按楼栋 / 区域汇总',
+                '按收费项目汇总',
+                '欠费明细',
+                '导出账单',
+                '导出收款流水',
+                '导出项目汇总',
+                '导出分组汇总',
+                '导出欠费明细',
+                '2027-05',
+                '200.0',
+                '50.0',
+                '150.0',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_executive_can_view_report_readonly(self):
         client = self._client('executive')
         page = client.get('/backoffice/reports?period=2026-09')
