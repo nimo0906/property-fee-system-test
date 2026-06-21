@@ -123,6 +123,24 @@ def _arrears_bill_table(items, period):
     return f'''<section class="card" style="margin-top:18px"><div class="card-h">欠费账单明细</div><div class="card-b"><table><thead><tr><th>收费对象</th><th>商户/承租人</th><th>业主/电话</th><th>收费项目</th><th>应收</th><th>已收</th><th>欠费</th><th>操作</th></tr></thead><tbody>{_arrears_bill_rows(sorted_items, period)}</tbody></table><div class="hint">按欠费金额从高到低显示当前账期前 10 条，用于收费员催缴核对。</div></div></section>'''
 
 
+def _arrears_stats(items):
+    arrears = [item for item in items if float(item.get('unpaid_amount') or 0) > 0]
+    target_ids = {item.get('charge_target_id') for item in arrears if item.get('charge_target_id') not in (None, '')}
+    top = max(arrears, key=lambda item: float(item.get('unpaid_amount') or 0), default=None)
+    if top:
+        detail = ' / '.join(str(top.get(k) or '').strip() for k in ['shop_name', 'tenant_name'] if str(top.get(k) or '').strip())
+        label = detail or ' '.join(str(top.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
+        top_text = f"{label}：欠费{top.get('unpaid_amount', 0)}"
+    else:
+        top_text = '暂无欠费'
+    return {'bill_count': len(arrears), 'target_count': len(target_ids), 'top_text': top_text}
+
+
+def _arrears_stats_card(items):
+    stats = _arrears_stats(items)
+    return f'''<section class="card" style="margin-top:18px"><div class="card-h">催缴摘要</div><div class="card-b"><table><tbody><tr><th>欠费笔数</th><td>{_h(stats.get('bill_count'))}</td></tr><tr><th>欠费对象数</th><td>{_h(stats.get('target_count'))}</td></tr><tr><th>重点催缴对象</th><td>{_h(stats.get('top_text'))}</td></tr></tbody></table></div></section>'''
+
+
 def _render_report(user, period, summary, breakdown=None, arrears_bills=None, project_summary=None):
     metrics = ''.join([
         _metric('账单数量', summary.get('bill_count', 0)),
@@ -141,6 +159,7 @@ def _render_report(user, period, summary, breakdown=None, arrears_bills=None, pr
 {_project_summary_table(project_summary or [])}
 {_breakdown_cards(breakdown or {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})}
 {_arrears_bill_table(arrears_bills or [], period)}
+{_arrears_stats_card(arrears_bills or [])}
 {_summary_card(summary, breakdown or {})}'''
     return _page('报表工作台', body)
 

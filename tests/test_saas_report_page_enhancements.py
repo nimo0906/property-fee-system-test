@@ -294,3 +294,45 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_report_page_and_arrears_export_show_arrears_bill_and_target_counts():
+    with tempfile.TemporaryDirectory() as td:
+        db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+        client = TestSaasReportPageEnhancements()._client(db_url, tenant_name='欠费户数物业', project_name='欠费户数项目')
+        fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1}).json()['item']
+
+        def seed(room, due, paid):
+            target = client.post('/api/charge-targets', json={
+                'building': '催缴区', 'unit': '一层', 'room_number': room, 'category': '商户',
+                'area': due, 'shop_name': f'{room}店', 'tenant_name': f'{room}承租人',
+            }).json()['item']
+            bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2028-07',
+                'service_start': '2028-07-01', 'service_end': '2028-07-31',
+            }).json()['item']
+            client.post(f"/api/bills/{bill['id']}/approve", json={})
+            if paid:
+                client.post('/api/payments', json={
+                    'bill_id': bill['id'], 'amount': paid, 'method': 'cash',
+                    'idempotency_key': f'ARREARS-COUNT-{room}',
+                })
+
+        seed('Q101', 100, 0)
+        seed('Q102', 300, 50)
+        seed('Q103', 200, 200)
+
+        page = client.get('/backoffice/reports?period=2028-07')
+        exported = client.get('/api/exports/reports/arrears-bills.csv?period=2028-07')
+
+        assert page.status_code == 200
+        for text in ['欠费笔数', '2', '欠费对象数', '2', '重点催缴对象', 'Q102店 / Q102承租人：欠费250.0']:
+            assert text in page.text
+        assert exported.status_code == 200
+        content = exported.json()['content']
+        assert 'arrears_rank' in content
+        assert '1,' in content
+        assert content.index('Q102店') < content.index('Q101店')
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', 'idempotency_key']:
+            assert hidden not in page.text
+            assert hidden not in content
