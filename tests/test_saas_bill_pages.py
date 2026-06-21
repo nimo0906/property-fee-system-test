@@ -66,6 +66,48 @@ class TestSaasBillPages(unittest.TestCase):
             self.assertEqual(bills[0]['amount'], 200.0)
             repo.close()
 
+    def test_bill_page_looks_like_billing_workbench(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            target, fee = self._seed_target_and_fee(client)
+            created = client.post('/backoffice/bills/generate', data={
+                'target_id': str(target['id']),
+                'fee_type_id': str(fee['id']),
+                'billing_period': '2026-08',
+                'service_start': '2026-08-01',
+                'service_end': '2026-08-31',
+            }, follow_redirects=False)
+            self.assertEqual(created.status_code, 303)
+
+            page = client.get('/backoffice/bills?period=2026-08')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '出账工作台',
+                '账单总数',
+                '待审核',
+                '应收',
+                '实收',
+                '欠费',
+                '出账检查',
+                '账期',
+                '服务期起止',
+                '金额核对',
+                '重复出账自动跳过',
+                '批量出账预览',
+                '账单审核',
+                '收款登记',
+                '账单审核列表',
+                '单户生成账单',
+                '2026-08',
+                '200.0',
+                'pending_review',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_cashier_can_view_but_cannot_generate_bill(self):
         client = self._client('cashier')
         page = client.get('/backoffice/bills')

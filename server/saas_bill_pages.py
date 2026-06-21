@@ -48,21 +48,44 @@ def _render_bills(user, bills, targets, fees, filters=None, message='', page=1, 
     pager = _pager(filters, page, page_size, total)
     batch = _batch_approve_bar(user, filters)
     body = f'''
-<section class="hero"><div><h1>账单生成</h1><div class="sub">从当前项目的收费对象和收费项目生成应收账单。账单、金额和筛选结果都按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>出账工作台</h1><div class="sub">账单生成与审核：从当前项目的收费对象和收费项目生成应收账单；支持批量出账预览、账单审核、账期、服务期起止、金额核对和重复出账自动跳过。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{_bill_summary(bills)}
+{_billing_check_panel()}
 {render_business_closure('bills')}
 {_filter_form(filters, page_size)}
-<section class="grid"><div class="card"><div class="card-h">账单列表</div><div class="card-b"><form method="post" action="/backoffice/bills/batch-approve">{batch}{pager}<table><thead><tr><th>批量审核</th><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>已收</th><th>欠费</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table>{pager}</form></div></div>
-<aside class="card"><div class="card-h">生成账单</div><div class="card-b">{form}</div></aside></section>
-<section class="card" style="margin-top:18px"><div class="card-h">批量出账</div><div class="card-b">{batch_form}</div></section>'''
-    return _page('账单生成', body)
+<section class="grid"><div class="card"><div class="card-h">账单审核列表</div><div class="card-b"><form method="post" action="/backoffice/bills/batch-approve">{batch}{pager}<table><thead><tr><th>批量审核</th><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>已收</th><th>欠费</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table>{pager}</form></div></div>
+<aside class="card"><div class="card-h">单户生成账单</div><div class="card-b">{form}</div></aside></section>
+<section class="card" style="margin-top:18px"><div class="card-h">批量出账预览</div><div class="card-b">{batch_form}</div></section>'''
+    return _page('出账工作台', body)
 
+
+def _bill_summary(bills):
+    total = len(bills or [])
+    pending = sum(1 for bill in bills if bill.get('status') == 'pending_review')
+    receivable = sum(float(bill.get('amount') or 0) for bill in bills)
+    paid = sum(float(bill.get('paid_amount') or 0) for bill in bills)
+    unpaid = sum(float(bill.get('unpaid_amount', bill.get('amount')) or 0) for bill in bills)
+    metrics = ''.join([
+        _summary_metric('账单总数', total),
+        _summary_metric('待审核', pending),
+        _summary_metric('应收', round(receivable, 2)),
+        _summary_metric('实收', round(paid, 2)),
+        _summary_metric('欠费', round(unpaid, 2)),
+    ])
+    return f'<section class="metric-grid">{metrics}</section>'
+
+
+def _summary_metric(label, value):
+    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(str(value))}</strong></div>'
+
+def _billing_check_panel():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">出账检查</div><div class="card-b"><div class="actions"><span class="badge">账期</span><span class="badge">服务期起止</span><span class="badge">金额核对</span><span class="badge">重复出账自动跳过</span><a class="ghost-link" href="/backoffice/fee-types">检查收费项目</a><a class="ghost-link" href="/backoffice/charge-targets">检查收费对象</a><a class="ghost-link" href="/backoffice/payments">收款登记</a></div><div class="hint">建议先预览批量出账，确认数量、金额、账期和服务期无误后再写入账单；审核后进入正式应收和收款。</div></div></section>'''
 
 def _bill_export_href(filters):
     params = {key: value for key, value in filters.items() if value}
     query = urllib.parse.urlencode(params)
     return '/api/exports/bills?' + query if query else '/api/exports/bills'
-
 
 def _filter_form(filters, page_size):
     page_size_options = ''.join(
@@ -71,18 +94,15 @@ def _filter_form(filters, page_size):
     )
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">高级筛选</div><div class="card-b"><form method="get" action="/backoffice/bills" class="filters"><input type="hidden" name="page" value="1"><div><label>账期</label><input name="period" value="{_h(filters.get('period'))}" placeholder="例如 2026-06"></div><div><label>状态</label><select name="status">{_status_options(filters.get('status', ''))}</select></div><div><label>房号 / 铺位号</label><input name="room_number" value="{_h(filters.get('room_number'))}" placeholder="房号关键词"></div><div><label>最低金额</label><input name="amount_min" type="number" step="0.01" min="0" value="{_h(filters.get('amount_min'))}"></div><div><label>最高金额</label><input name="amount_max" type="number" step="0.01" min="0" value="{_h(filters.get('amount_max'))}"></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">查询账单</button></div><div><a class="ghost-link" href="{_h(_bill_export_href(filters))}">导出账单</a></div></form></div></section>'''
 
-
 def _batch_approve_bar(user, filters):
     if user.get('role_code') not in {'platform_admin', 'system_admin', 'finance'}:
         return ''
     hidden = ''.join(f'<input type="hidden" name="{_h(key)}" value="{_h(filters.get(key, ""))}">' for key in ['period', 'status', 'room_number', 'amount_min', 'amount_max'])
     return f'''<div class="actions" style="margin-bottom:12px">{hidden}<button class="primary">批量审核选中账单</button><button class="ghost" formaction="/backoffice/bills/batch-approve-filtered">批量审核当前筛选待审核账单</button><span class="hint">批量审核仅处理待审核账单。</span></div>'''
 
-
 def _status_options(selected):
     items = [('', '全部状态'), ('pending_review', '待审核'), ('unpaid', '未收款'), ('partial', '部分收款'), ('paid', '已收款')]
     return ''.join(f'<option value="{_h(v)}"{" selected" if selected == v else ""}>{_h(label)}</option>' for v, label in items)
-
 
 def _create_form(targets, fees):
     if not targets or not fees:
@@ -91,7 +111,6 @@ def _create_form(targets, fees):
     fee_options = _options(fees, lambda item: f"{item.get('name')} · {item.get('unit_price')}")
     return f'''<form method="post" action="/backoffice/bills/generate"><label>收费对象</label><select name="target_id" required>{target_options}</select><label>收费项目</label><select name="fee_type_id" required>{fee_options}</select><label>账期</label><input name="billing_period" required placeholder="例如 2026-06"><label>服务开始日期</label><input name="service_start" required type="date"><label>服务结束日期</label><input name="service_end" required type="date"><button class="primary">生成账单</button><div class="hint">金额按收费方式、独立单价和服务期自动计算，生成后进入待审核状态。</div></form>'''
 
-
 def _batch_generate_form(fees):
     if not fees:
         return '<div class="hint">请先维护收费项目，再批量出账。</div>'
@@ -99,20 +118,17 @@ def _batch_generate_form(fees):
     category_options = '<option value="">全部类型</option><option value="居民">仅居民</option><option value="商户">仅商户</option><option value="办公">仅办公</option><option value="其他">仅其他</option>'
     return f'''<form method="post" action="/backoffice/bills/batch-generate-preview"><label>收费项目</label><select name="fee_type_id" required>{fee_options}</select><label>对象范围</label><select name="category">{category_options}</select><label>楼栋 / 区域范围</label><input name="building" placeholder="选填，精确匹配楼栋/区域"><label>单元 / 分区范围</label><input name="unit" placeholder="选填，精确匹配单元/分区"><label>账期</label><input name="billing_period" required placeholder="例如 2026-06"><label>服务开始日期</label><input name="service_start" required type="date"><label>服务结束日期</label><input name="service_end" type="date"><label><input type="checkbox" name="use_payment_cycle" value="1"> 按收费对象缴费周期自动计算服务结束</label><button class="primary">预览批量出账</button><div class="hint">按当前租户和项目内收费对象先预览；确认后才写入账单，重复账单会自动跳过。</div></form>'''
 
-
 def _to_int(value, default):
     try:
         return int(value)
     except Exception:
         return default
 
-
 def _to_float(value):
     try:
         return float(value)
     except Exception:
         return None
-
 
 def _normalize_filters(period='', status='', room_number='', amount_min='', amount_max='', page=1, page_size=20):
     filters = {
@@ -127,7 +143,6 @@ def _normalize_filters(period='', status='', room_number='', amount_min='', amou
     page = max(_to_int(page, 1), 1)
     page_size = min(max(_to_int(page_size, 20), 1), 50)
     return filters, page, page_size
-
 
 def _filter_bills(bills, targets, filters):
     target_map = {int(i['id']): i for i in targets}
@@ -150,12 +165,10 @@ def _filter_bills(bills, targets, filters):
         rows.append(bill)
     return rows
 
-
 def _paginate(items, page, page_size):
     total = len(items)
     start = (page - 1) * page_size
     return items[start:start + page_size], total
-
 
 def _query(filters, page, page_size):
     params = {key: value for key, value in filters.items() if value}
@@ -163,12 +176,10 @@ def _query(filters, page, page_size):
     params['page_size'] = str(page_size)
     return urllib.parse.urlencode(params)
 
-
 def _pager(filters, page, page_size, total):
     prev_link = f'<a class="ghost-link" href="/backoffice/bills?{_query(filters, page - 1, page_size)}">上一页</a>' if page > 1 else '<span class="ghost-link disabled">上一页</span>'
     next_link = f'<a class="ghost-link" href="/backoffice/bills?{_query(filters, page + 1, page_size)}">下一页</a>' if page * page_size < total else '<span class="ghost-link disabled">下一页</span>'
     return f'<div class="pager"><span>共 {total} 张账单 · 第 {page} 页</span><span>{prev_link} {next_link}</span></div>'
-
 
 def register_bill_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException
