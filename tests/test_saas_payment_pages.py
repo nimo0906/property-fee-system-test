@@ -79,6 +79,45 @@ class TestSaasPaymentPages(unittest.TestCase):
             self.assertEqual(payments['total'], 1)
             repo.close()
 
+    def test_payment_page_looks_like_payment_workbench(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            finance = self._client('finance', database_url=db_url)
+            bill = self._seed_unpaid_bill(finance)
+            paid = finance.post('/backoffice/payments/create', data={
+                'bill_id': str(bill['id']),
+                'amount': '50',
+                'method': 'cash',
+                'idempotency_key': 'WORKBENCH-PAY-1',
+            }, follow_redirects=False)
+            self.assertEqual(paid.status_code, 303)
+
+            page = finance.get('/backoffice/payments')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '收款工作台',
+                '收款笔数',
+                '本页收款',
+                '收后累计已收',
+                '收后欠费',
+                '部分收款',
+                '欠费联动',
+                '收据号',
+                '收据打印',
+                '导出收据',
+                '幂等防重复',
+                '收款流水',
+                '登记收款',
+                'RCPT-',
+                '50.0',
+                '150.0',
+                'cash',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_executive_can_view_but_cannot_record_payment(self):
         client = self._client('executive')
         page = client.get('/backoffice/payments')

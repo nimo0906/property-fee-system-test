@@ -90,13 +90,37 @@ def _render_payments(user, result, bills, params, message=''):
     form = _create_form(bills, params.get('target_id')) if can_write else '<div class="hint">当前角色只能查看收款，不能登记收款。</div>'
     rows = _payment_rows(result['items'], params.get('target_id'))
     body = f'''
-<section class="hero"><div><h1>收款登记</h1><div class="sub">登记已审核账单的收款记录，按当前租户和项目隔离。现金、转账、微信/支付宝线下记录都可在这里留痕。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>收款工作台</h1><div class="sub">收款登记：处理部分收款、欠费联动、收据号、收据打印和导出收据；现金、转账、微信/支付宝线下记录都可在这里留痕。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{_payment_summary(result['items'])}
+{_payment_check_panel()}
 {render_business_closure('payments')}
 {_filter_card(params)}
-<section class="grid"><div class="card"><div class="card-h">收款列表</div><div class="card-b">{_pager(result, params)}<table><thead><tr><th>收据号</th><th>账单号</th><th>账期</th><th>房号 / 铺位号</th><th>店名</th><th>承租人</th><th>本次收款</th><th>收后累计已收</th><th>收后欠费余额</th><th>方式</th></tr></thead><tbody>{rows}</tbody></table>{_pager(result, params)}</div></div>
+<section class="grid"><div class="card"><div class="card-h">收款流水</div><div class="card-b">{_pager(result, params)}<table><thead><tr><th>收据号</th><th>账单号</th><th>账期</th><th>房号 / 铺位号</th><th>店名</th><th>承租人</th><th>本次收款</th><th>收后累计已收</th><th>收后欠费余额</th><th>方式</th></tr></thead><tbody>{rows}</tbody></table>{_pager(result, params)}</div></div>
 <aside class="card"><div class="card-h">登记收款</div><div class="card-b">{form}</div></aside></section>'''
-    return _page('收款登记', body)
+    return _page('收款工作台', body)
+
+
+def _payment_summary(payments):
+    count = len(payments or [])
+    amount = sum(float(item.get('amount_paid') or 0) for item in payments)
+    paid = sum(float(item.get('paid_amount') or item.get('amount_paid') or 0) for item in payments)
+    unpaid = sum(float(item.get('unpaid_amount') or 0) for item in payments)
+    metrics = ''.join([
+        _summary_metric('收款笔数', count),
+        _summary_metric('本页收款', round(amount, 2)),
+        _summary_metric('收后累计已收', round(paid, 2)),
+        _summary_metric('收后欠费', round(unpaid, 2)),
+    ])
+    return f'<section class="metric-grid">{metrics}</section>'
+
+
+def _summary_metric(label, value):
+    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(str(value))}</strong></div>'
+
+
+def _payment_check_panel():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">收款检查</div><div class="card-b"><div class="actions"><span class="badge">部分收款</span><span class="badge">欠费联动</span><span class="badge">收据号</span><span class="badge">收据打印</span><span class="badge">导出收据</span><span class="badge">幂等防重复</span><a class="ghost-link" href="/backoffice/reports">欠费报表</a><a class="ghost-link" href="/api/exports/payments">导出收款流水</a></div><div class="hint">收款后账单自动联动已收、欠费和状态；同一幂等键可防止重复提交。</div></div></section>'''
 
 
 def _receipt_export_rows(payment):
