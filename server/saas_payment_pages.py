@@ -11,6 +11,7 @@ from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
 from server.saas_payment_workbench_ui import bill_status_label, collection_board
+from server.rmb_uppercase import rmb_uppercase
 
 
 def _to_float(value):
@@ -130,8 +131,10 @@ def _payment_workflow_panel():
 
 
 def _receipt_export_rows(payment):
-    headers = ['receipt_number', 'bill_number', 'billing_period', 'fee_name', 'service_start', 'service_end', 'bill_amount', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'paid_amount', 'unpaid_amount']
-    return headers, [{key: payment.get(key, '') for key in headers}]
+    headers = ['receipt_number', 'bill_number', 'billing_period', 'fee_name', 'service_start', 'service_end', 'bill_amount', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'amount_paid', 'method', 'paid_amount', 'unpaid_amount', 'amount_upper']
+    row = {key: payment.get(key, '') for key in headers}
+    row['amount_upper'] = rmb_uppercase(payment.get('amount_paid'))
+    return headers, [row]
 
 
 def _render_receipt(user, payment, target_id='', print_only=False):
@@ -159,6 +162,7 @@ def _render_receipt(user, payment, target_id='', print_only=False):
 <tr><th>承租人</th><td>{_h(payment.get('tenant_name') or '')}</td></tr>
 <tr><th>业主</th><td>{_h(payment.get('owner_name') or '未绑定')}</td></tr>
 <tr><th>本次收款</th><td>{_amount_text(payment.get('amount_paid'))}</td></tr>
+<tr><th>人民币大写</th><td>{_h(rmb_uppercase(payment.get('amount_paid')))}</td></tr>
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>
 <tr><th>收后累计已收</th><td>{_amount_text(payment.get('paid_amount', payment.get('amount_paid')))}</td></tr>
 <tr><th>收后欠费余额</th><td>{_amount_text(payment.get('unpaid_amount', 0))}</td></tr>

@@ -78,3 +78,27 @@ def test_receipt_csv_export_includes_fee_service_period_and_bill_amount():
             assert text in content
         for hidden in ['tenant_id', 'project_id', 'idempotency_key', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
             assert hidden not in content
+
+
+def test_receipt_detail_print_and_csv_include_uppercase_rmb_amount():
+    with tempfile.TemporaryDirectory() as td:
+        client = _client(f"sqlite:///{Path(td) / 'saas.sqlite3'}")
+        _, payment = _create_receipt(client)
+
+        detail = client.get(f"/backoffice/payments/{payment['id']}/receipt")
+        print_page = client.get(f"/backoffice/payments/{payment['id']}/receipt/print")
+        exported = client.get(f"/api/exports/receipts/{payment['id']}.csv")
+
+        assert detail.status_code == 200
+        assert print_page.status_code == 200
+        assert exported.status_code == 200
+        for text in ['人民币大写', '人民币捌拾元整']:
+            assert text in detail.text
+            assert text in print_page.text
+        content = exported.json()['content']
+        assert 'amount_upper' in content
+        assert '人民币捌拾元整' in content
+        for hidden in ['tenant_id', 'project_id', 'idempotency_key', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
+            assert hidden not in detail.text
+            assert hidden not in print_page.text
+            assert hidden not in content
