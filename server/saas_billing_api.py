@@ -23,6 +23,44 @@ def _report_summary_with_rates(summary):
     return result
 
 
+def _empty_breakdown():
+    return {"by_building": [], "by_unit": [], "by_fee_type": [], "by_category": []}
+
+
+def _report_breakdown(service, user, period):
+    rows = _empty_breakdown()
+    bills = service.list_bills(user, user["project_id"], period, None)
+    paid_by_bill = {bill["id"]: float(bill.get("paid_amount") or 0) for bill in bills}
+    groups = {
+        "by_building": lambda bill: service.targets.get(bill.get("charge_target_id"), {}).get("building", ""),
+        "by_unit": lambda bill: service.targets.get(bill.get("charge_target_id"), {}).get("unit", ""),
+        "by_fee_type": lambda bill: service.fees.get(bill.get("fee_type_id"), {}).get("name", ""),
+        "by_category": lambda bill: service.targets.get(bill.get("charge_target_id"), {}).get("category", ""),
+    }
+    for key, name_for in groups.items():
+        buckets = {}
+        for bill in bills:
+            name = name_for(bill) or "未分类"
+            row = buckets.setdefault(name, {"name": name, "bill_count": 0, "bill_amount_total": 0.0, "payment_amount_total": 0.0})
+            row["bill_count"] += 1
+            row["bill_amount_total"] = round(row["bill_amount_total"] + float(bill.get("amount") or 0), 2)
+            row["payment_amount_total"] = round(row["payment_amount_total"] + paid_by_bill.get(bill.get("id"), 0.0), 2)
+        rows[key] = [_breakdown_row(row) for row in buckets.values()]
+    return rows
+
+
+def _breakdown_row(row):
+    due = float(row.get("bill_amount_total") or 0)
+    paid = float(row.get("payment_amount_total") or 0)
+    unpaid = round(due - paid, 2)
+    return {
+        **row,
+        "unpaid_amount_total": unpaid,
+        "collection_rate": _percent(paid, due),
+        "arrears_rate": _percent(unpaid, due),
+    }
+
+
 def _to_export_float(value):
     try:
         return float(value) if str(value or '').strip() else None
@@ -235,6 +273,6 @@ def register_billing_routes(app, service):
         try:
             if repository:
                 return repository.report_breakdown(user["tenant_id"], user["project_id"], period)
-            return {"by_building": [], "by_unit": [], "by_fee_type": [], "by_category": []}
+            return _report_breakdown(service, user, period)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")

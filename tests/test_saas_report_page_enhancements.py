@@ -133,16 +133,32 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             self.assertIn('欠费最高对象分类', page.text)
             self.assertIn('商户：欠费230.0，欠费率26.14%', page.text)
 
-    def test_report_breakdown_api_fallback_returns_all_group_keys(self):
+    def test_report_breakdown_api_fallback_returns_real_group_totals(self):
         client = TestClient(create_app())
         client.post('/api/auth/login', json={
             'tenant_name': '内存报表物业', 'project_name': '内存报表项目', 'username': 'finance', 'role_code': 'finance'
         })
+        fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 2}).json()['item']
+        target = client.post('/api/charge-targets', json={
+            'building': 'A座', 'unit': '一层', 'room_number': 'A101', 'category': '商户', 'area': 100,
+        }).json()['item']
+        bill = client.post('/api/bills/generate', json={
+            'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2026-08',
+            'service_start': '2026-08-01', 'service_end': '2026-08-31',
+        }).json()['item']
+        client.post(f"/api/bills/{bill['id']}/approve", json={})
+        client.post('/api/payments', json={
+            'bill_id': bill['id'], 'amount': 80, 'method': 'cash', 'idempotency_key': 'API-BREAKDOWN-1'
+        })
 
-        response = client.get('/api/reports/breakdown?period=2099-01')
+        response = client.get('/api/reports/breakdown?period=2026-08')
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})
+        expected = {'name': 'A座', 'bill_count': 1, 'bill_amount_total': 200.0, 'payment_amount_total': 80.0, 'unpaid_amount_total': 120.0, 'collection_rate': '40.00%', 'arrears_rate': '60.00%'}
+        self.assertEqual(response.json()['by_building'], [expected])
+        self.assertEqual(response.json()['by_unit'], [{**expected, 'name': '一层'}])
+        self.assertEqual(response.json()['by_fee_type'], [{**expected, 'name': '物业费'}])
+        self.assertEqual(response.json()['by_category'], [{**expected, 'name': '商户'}])
 
     def test_report_breakdown_can_export_grouped_summary_csv(self):
         with tempfile.TemporaryDirectory() as td:
