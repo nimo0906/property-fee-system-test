@@ -150,6 +150,7 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
         created = skipped = 0
         amount_total = 0.0
         bill_ids = []
+        created_items = []
         for target in self.list_charge_targets(user, project_id):
             if category and target.get('category') != category:
                 continue
@@ -169,9 +170,24 @@ def batch_generate_bills(self, user, project_id, fee_type_id, period, service_st
             bill = self.generate_bill(user, project_id, target, fee, period, service_start, target_service_end)
             bill_ids.append(bill['id'])
             amount_total = round(amount_total + float(bill.get('amount') or 0), 2)
+            created_items.append(_batch_created_item(bill, target))
             created += 1
         self._log(user, project_id, 'bill.batch_generate', 'bill', 0, {'billing_period': period, 'fee_type_id': fee_type_id, 'category': category, 'building': building, 'unit': unit, 'use_payment_cycle': use_payment_cycle, 'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total})
-        return {'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total, 'bill_ids': bill_ids}
+        return {'created_count': created, 'skipped_count': skipped, 'amount_total': amount_total, 'bill_ids': bill_ids, 'created_items': created_items}
+
+
+def _batch_created_item(bill, target):
+        return {
+            'bill_id': bill.get('id'),
+            'target_id': bill.get('charge_target_id'),
+            'building': target.get('building', ''),
+            'unit': target.get('unit', ''),
+            'room_number': target.get('room_number', ''),
+            'service_start': bill.get('service_start'),
+            'service_end': bill.get('service_end'),
+            'amount': bill.get('amount'),
+        }
+
 
 def attach_billing_methods(cls):
     cls.generate_bill = generate_bill

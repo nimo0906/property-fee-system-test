@@ -93,6 +93,10 @@ def test_api_and_backoffice_batch_generate_show_created_amount_total():
         })
         assert api_response.status_code == 200, api_response.text
         assert api_response.json()['amount_total'] == 200.0
+        assert api_response.json()['created_items'] == [
+            {'bill_id': api_response.json()['bill_ids'][0], 'target_id': 1, 'building': '金额区', 'unit': '一层', 'room_number': 'A-101', 'service_start': '2027-12-01', 'service_end': '2027-12-31', 'amount': 80.0},
+            {'bill_id': api_response.json()['bill_ids'][1], 'target_id': 2, 'building': '金额区', 'unit': '一层', 'room_number': 'A-102', 'service_start': '2027-12-01', 'service_end': '2027-12-31', 'amount': 120.0},
+        ]
 
         page_response = client.post('/backoffice/bills/batch-generate', data={
             'fee_type_id': str(fee['id']), 'billing_period': '2028-01',
@@ -240,10 +244,10 @@ def test_memory_api_batch_generate_can_use_target_payment_cycle_for_service_peri
         'tenant_name': '内存周期物业', 'project_name': '内存周期项目', 'username': 'finance', 'role_code': 'finance'
     })
     assert login.status_code == 200
-    client.post('/api/charge-targets', json={
+    target = client.post('/api/charge-targets', json={
         'building': '商场', 'unit': '三层', 'room_number': 'M-301', 'category': '商户',
         'area': 30, 'unit_price_override': 6, 'payment_cycle': '季付',
-    })
+    }).json()['item']
     fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
 
     response = client.post('/api/bills/batch-generate', json={
@@ -255,6 +259,10 @@ def test_memory_api_batch_generate_can_use_target_payment_cycle_for_service_peri
     assert response.status_code == 200, response.text
     assert response.json()['created_count'] == 1
     assert response.json()['amount_total'] == 540.0
+    assert response.json()['created_items'] == [{
+        'bill_id': response.json()['bill_ids'][0], 'target_id': target['id'], 'building': '商场', 'unit': '三层',
+        'room_number': 'M-301', 'service_start': '2027-11-01', 'service_end': '2028-01-31', 'amount': 540.0,
+    }]
     bill = client.get('/api/bills', params={'period': '2027-11'}).json()['items'][0]
     assert bill['service_start'] == '2027-11-01'
     assert bill['service_end'] == '2028-01-31'
