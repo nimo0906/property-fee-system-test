@@ -108,3 +108,42 @@ def test_batch_generate_preview_explains_amount_rules_and_payment_cycle():
         for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
             assert hidden not in area_preview.text
             assert hidden not in fixed_preview.text
+
+
+def test_batch_generate_preview_shows_formal_target_fee_period_columns_for_commercial_scope():
+    with tempfile.TemporaryDirectory() as td:
+        db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+        client = login_client(db_url)
+        client.post('/api/charge-targets', json={
+            'building': '商场A区', 'unit': '一层', 'room_number': 'M-101', 'category': '商户',
+            'area': 40, 'shop_name': '品牌店', 'tenant_name': '张商户', 'unit_price_override': 5,
+        })
+        client.post('/api/charge-targets', json={
+            'building': '商场A区', 'unit': '二层', 'room_number': 'C-201', 'category': '商业',
+            'area': 30, 'shop_name': '餐饮店', 'tenant_name': '李商户', 'unit_price_override': 6,
+        })
+        client.post('/api/charge-targets', json={
+            'building': '住宅楼', 'unit': '一单元', 'room_number': '101', 'category': '居民', 'area': 80,
+        })
+        fee = client.post('/api/fee-types', json={'name': '物业费(商业)', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+
+        bill_page = client.get('/backoffice/bills')
+        preview = client.post('/backoffice/bills/batch-generate-preview', data={
+            'fee_type_id': str(fee['id']), 'billing_period': '2028-04',
+            'service_start': '2028-04-01', 'service_end': '2028-04-30',
+            'category': '商业', 'building': '商场A区', 'unit': '',
+        })
+
+        assert bill_page.status_code == 200
+        assert '<option value="商业">商业/商户</option>' in bill_page.text
+        assert preview.status_code == 200
+        for text in [
+            '出账明细核对', '跳过明细', '收费项目', '账期', '楼栋 / 区域', '单元 / 分区',
+            '房号 / 铺位号', '类型', '店名 / 承租人', '服务期', '金额', '计算规则',
+            '物业费(商业)', '2028-04', '商场A区', '一层', 'M-101', '商户', '品牌店 / 张商户',
+            '二层', 'C-201', '商业', '餐饮店 / 李商户', '200.0', '180.0', '金额合计380.0元',
+        ]:
+            assert text in preview.text
+        assert '住宅楼' not in preview.text
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            assert hidden not in preview.text

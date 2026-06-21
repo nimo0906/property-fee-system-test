@@ -30,8 +30,15 @@ def _preview_items(rows, targets, fee, existing_numbers):
     create_items, skip_items, amount_total = [], [], 0.0
     for row in rows:
         target = targets_by_id.get(int(row.get('target_id') or 0), {})
+        party = ' / '.join(str(target.get(k) or '').strip() for k in ['shop_name', 'tenant_name'] if str(target.get(k) or '').strip())
         item = {
+            'fee_name': fee.get('name', ''),
+            'billing_period': row.get('billing_period', ''),
+            'building': target.get('building', ''),
+            'unit': target.get('unit', ''),
             'room_number': target.get('room_number', ''),
+            'category': target.get('category', ''),
+            'party': party,
             'service_start': row.get('service_start'),
             'service_end': row.get('service_end'),
             'amount': row.get('amount'),
@@ -45,20 +52,33 @@ def _preview_items(rows, targets, fee, existing_numbers):
     return create_items, skip_items, amount_total
 
 
+def _preview_table(items, empty_text, skipped=False):
+    if not items:
+        return f'<div class="hint">{_h(empty_text)}</div>'
+    rows = []
+    for i in items:
+        compact = f'{i["room_number"]} 已存在账单，确认导入将跳过' if skipped else f'{i["room_number"]} {i["service_start"]}~{i["service_end"]} {i["amount"]}元'
+        rows.append(
+            '<tr>'
+            f'<td>{_h(i["fee_name"])}</td><td>{_h(i["billing_period"])}</td>'
+            f'<td>{_h(i["building"])}</td><td>{_h(i["unit"])}</td><td>{_h(i["room_number"])}</td>'
+            f'<td>{_h(i["category"])}</td><td>{_h(i["party"])}</td>'
+            f'<td>{_h(i["service_start"])}~{_h(i["service_end"])}</td><td>{_h(i["amount"])}元</td>'
+            f'<td>{_h(i["rule"])}<div class="hint">{_h(compact)}</div></td>'
+            '</tr>'
+        )
+    header = '<tr><th>收费项目</th><th>账期</th><th>楼栋 / 区域</th><th>单元 / 分区</th><th>房号 / 铺位号</th><th>类型</th><th>店名 / 承租人</th><th>服务期</th><th>金额</th><th>计算规则</th></tr>'
+    return f'<table><thead>{header}</thead><tbody>{"".join(rows)}</tbody></table>'
+
+
 def _render_preview(user, create_items, skip_items, amount_total, form):
-    create_rows = ''.join(
-        f'<li>{_h(i["room_number"])} {_h(i["service_start"])}~{_h(i["service_end"])} {_h(i["amount"])}元 <span class="hint">{_h(i["rule"])}</span></li>'
-        for i in create_items
-    ) or '<li>无新增账单</li>'
-    skip_rows = ''.join(
-        f'<li>{_h(i["room_number"])} 已存在账单，确认导入将跳过</li>'
-        for i in skip_items
-    ) or '<li>无重复账单</li>'
+    create_rows = _preview_table(create_items, '无新增账单')
+    skip_rows = _preview_table(skip_items, '无重复账单', skipped=True)
     hidden = ''.join(f'<input type="hidden" name="{_h(k)}" value="{_h(v)}">' for k, v in form.items())
     body = f'''
 <section class="hero"><div><h1>批量出账预览</h1><div class="sub">预览不会写入账单；确认后才生成当前租户、当前项目范围内的新账单。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card" style="margin-bottom:18px"><div class="card-h">金额规则说明</div><div class="card-b"><div class="actions"><span class="badge">面积计费：面积 × 单价</span><span class="badge">固定金额：每户/每铺固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">周期规则：按收费对象缴费周期计算服务期</span></div><div class="hint">预览会展示每条账单的计算公式；确认前请核对账期、服务期、单价覆盖和金额合计。</div></div></section>
-<section class="card"><div class="card-h">预览结果</div><div class="card-b"><div class="badge">预计出账{len(create_items)}张</div> <div class="badge">跳过{len(skip_items)}张</div> <div class="badge">金额合计{_h(amount_total)}元</div><h3>将生成</h3><ul>{create_rows}</ul><h3>将跳过</h3><ul>{skip_rows}</ul><form method="post" action="/backoffice/bills/batch-generate-confirm">{hidden}<button class="primary">确认出账</button> <a class="ghost-link" href="/backoffice/bills">返回账单</a></form></div></section>'''
+<section class="card"><div class="card-h">预览结果</div><div class="card-b"><div class="badge">预计出账{len(create_items)}张</div> <div class="badge">跳过{len(skip_items)}张</div> <div class="badge">金额合计{_h(amount_total)}元</div><h3>出账明细核对</h3>{create_rows}<h3>跳过明细</h3>{skip_rows}<form method="post" action="/backoffice/bills/batch-generate-confirm">{hidden}<button class="primary">确认出账</button> <a class="ghost-link" href="/backoffice/bills">返回账单</a></form></div></section>'''
     return _page('批量出账预览', body)
 
 
