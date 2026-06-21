@@ -17,7 +17,7 @@ from server.saas_user_pages import _h, _page
 from server.saas_excel_import import excel_preview_form, register_excel_import_routes
 
 STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
-TEMPLATE_CSV = ','.join(CHARGE_TARGET_TEMPLATE_HEADERS) + '\n示例业主,13800000000,业主,1栋,1单元,101,,,张租户,13900000000,居民,80,,monthly,模板示例\n# legacy aliases: 业主姓名,联系电话,楼栋/区域,单元/分区,房号/铺位号,面积\n'
+TEMPLATE_CSV = template_csv('residential')
 
 
 def _parse_csv_rows(csv_text):
@@ -118,7 +118,7 @@ def _render_template_page(user, business_template='residential'):
     body = f'''
 <section class="hero"><div><h1>收费对象导入模板</h1><div class="sub">不同公司业务可以不同，但第一版 SaaS 收费对象导入统一使用楼栋 / 区域、单元 / 分区、房号 / 铺位号、类型、面积七个字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 <section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>是否必填</th><th>填写说明</th></tr></thead><tbody>{_template_rows()}</tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/charge-targets.csv?business_template={_h(business_template)}">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>
-<section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">旧表头兼容：业主姓名、联系电话、楼栋/区域、单元/分区、房号/铺位号、面积等桌面旧模板字段可以继续预览导入。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>{render_template_summary(business_template)}'''
+<section class="card" style="margin-top:18px"><div class="card-h">本地端基础资料模板对照</div><div class="card-b"><p class="sub">本地端字段会映射到云端收费对象、业主和商户字段；预览仍不写库，确认导入才写入。</p><table><thead><tr><th>本地端字段</th><th>云端字段</th><th>说明</th></tr></thead><tbody><tr><td>项目</td><td>当前项目</td><td>云端使用当前登录项目，不允许覆盖内部编号</td></tr><tr><td>对象类型</td><td>category</td><td>居民、商户、商业等</td></tr><tr><td>面积㎡</td><td>area</td><td>收费面积</td></tr><tr><td>物业费单价</td><td>unit_price_override</td><td>商户/铺位独立单价</td></tr><tr><td>水费标准</td><td>后续水电模块</td><td>当前先作为模板兼容字段，不写入收费对象</td></tr><tr><td>身份证号 / 租户身份证号</td><td>后续档案扩展</td><td>当前先作为模板兼容字段，不展示内部编号</td></tr><tr><td>合同开始日期 / 合同结束日期</td><td>后续合同模块</td><td>当前先作为模板兼容字段，合同模块迁移后再落库</td></tr><tr><td>店铺名称</td><td>shop_name</td><td>商户店名</td></tr><tr><td>业态/商户类别</td><td>category</td><td>优先使用对象类型，业态后续迁移到商户档案</td></tr></tbody></table></div></section><section class="card" style="margin-top:18px"><div class="card-h">导入规则</div><div class="card-b"><p class="sub">导入预览不会写库；确认导入才写入有效行，错误行不会污染正确行。</p><p class="sub">旧表头兼容：业主姓名、联系电话、楼栋/区域、单元/分区、房号/铺位号、面积等桌面旧模板字段可以继续预览导入。</p><p class="sub">客户上传文件只进入当前租户目录；系统会自动使用当前登录公司和项目，不允许客户在模板里填写或覆盖内部编号。</p></div></section>{render_template_summary(business_template)}'''
     return _page('收费对象导入模板', body)
 
 
@@ -131,12 +131,12 @@ def _error_download_link(review):
 
 def _error_csv(review):
     output = io.StringIO()
-    fieldnames = ['row', 'error'] + CHARGE_TARGET_TEMPLATE_HEADERS
+    fieldnames = ['row', 'error'] + [key for key, _ in _valid_headers()]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
     for err in review.get('errors', []):
         data = normalize_import_row(err.get('data') or {})
-        writer.writerow({'row': err.get('row'), 'error': err.get('error'), **{key: data.get(key, '') for key in CHARGE_TARGET_TEMPLATE_HEADERS}})
+        writer.writerow({'row': err.get('row'), 'error': err.get('error'), **{key: data.get(key, '') for key, _ in _valid_headers()}})
     return output.getvalue()
 
 
@@ -170,7 +170,7 @@ def _render_confirm_result(user, import_id, result, already_confirmed=False):
 
 def _valid_headers():
     return [
-        ('owner_name', '业主'), ('owner_phone', '联系电话'), ('building', '楼栋/区域'),
+        ('owner_name', '业主'), ('owner_phone', '联系电话'), ('owner_type', '业主类型'), ('building', '楼栋/区域'),
         ('unit', '单元/分区'), ('room_number', '房号/铺位号'), ('floor', '楼层'),
         ('shop_name', '店名'), ('tenant_name', '承租人'), ('tenant_phone', '承租电话'),
         ('category', '类型'), ('area', '面积'), ('unit_price_override', '独立单价'),

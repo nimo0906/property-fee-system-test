@@ -55,12 +55,11 @@ class TestSaasImportTemplatePages(unittest.TestCase):
         self.assertIn('text/csv', response.headers.get('content-type', ''))
         self.assertIn('attachment; filename="charge_targets_template.csv"', response.headers.get('content-disposition', ''))
         lines = response.text.strip().splitlines()
-        self.assertEqual(
-            lines[0],
-            'owner_name,owner_phone,owner_type,building,unit,room_number,floor,shop_name,tenant_name,tenant_phone,category,area,unit_price_override,payment_cycle,notes',
-        )
-        self.assertIn('1栋,1单元,101', response.text)
+        for text in ['项目', '楼栋/区域', '单元/分区', '房号/铺位号', '对象类型', '面积㎡', '物业费单价', '业主姓名']:
+            self.assertIn(text, lines[0])
+        self.assertIn('住宅楼,1单元,101', response.text)
         self.assertIn('居民,80', response.text)
+        self.assertIn('canonical fields: owner_name,owner_phone', response.text)
         self.assertNotIn('tenant_id', response.text)
         self.assertNotIn('project_id', response.text)
 
@@ -79,6 +78,32 @@ class TestSaasImportTemplatePages(unittest.TestCase):
             '备注',
             '旧表头兼容',
             '业主姓名、联系电话、楼栋/区域、单元/分区、房号/铺位号',
+        ]:
+            self.assertIn(text, page.text)
+
+
+    def test_csv_template_aligns_with_desktop_basic_import_headers(self):
+        client = self._client('finance')
+        response = client.get('/api/imports/templates/charge-targets.csv')
+        self.assertEqual(response.status_code, 200)
+        first_line = response.text.splitlines()[0]
+        for text in [
+            '项目', '楼栋/区域', '单元/分区', '房号/铺位号', '楼层', '对象类型', '面积㎡',
+            '物业费单价', '水费标准', '业主姓名', '业主电话', '身份证号', '租户姓名', '租户电话',
+            '租户身份证号', '合同开始日期', '合同结束日期', '缴费周期', '店铺名称', '业态/商户类别', '备注',
+        ]:
+            self.assertIn(text, first_line)
+        for hidden in ['tenant_id', 'project_id', 'POSTGRES_PASSWORD', 'APP_SECRET_KEY', '.env']:
+            self.assertNotIn(hidden, response.text)
+
+    def test_template_page_documents_desktop_basic_template_mapping(self):
+        client = self._client('finance')
+        page = client.get('/backoffice/imports/templates/charge-targets')
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '本地端基础资料模板对照', '项目', '对象类型', '面积㎡', '物业费单价', '水费标准',
+            '身份证号', '租户身份证号', '合同开始日期', '合同结束日期', '店铺名称', '业态/商户类别',
+            '本地端字段会映射到云端收费对象、业主和商户字段',
         ]:
             self.assertIn(text, page.text)
 

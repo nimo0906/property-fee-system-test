@@ -26,8 +26,9 @@ TEMPLATES = {
 }
 
 CHARGE_TARGET_TEMPLATE_HEADERS = [
-    'owner_name', 'owner_phone', 'owner_type', 'building', 'unit', 'room_number', 'floor',
-    'shop_name', 'tenant_name', 'tenant_phone', 'category', 'area', 'unit_price_override', 'payment_cycle', 'notes',
+    '项目', '楼栋/区域', '单元/分区', '房号/铺位号', '楼层', '对象类型', '面积㎡', '物业费单价', '水费标准',
+    '业主姓名', '业主电话', '身份证号', '租户姓名', '租户电话', '租户身份证号', '合同开始日期', '合同结束日期',
+    '缴费周期', '店铺名称', '业态/商户类别', '备注',
 ]
 
 
@@ -63,6 +64,7 @@ def template_csv(code='residential'):
         ','.join(CHARGE_TARGET_TEMPLATE_HEADERS) + '\n'
         + ','.join(sample) + '\n'
         + f'# compact legacy sample: {item["sample"]}\n'
+        + '# canonical fields: owner_name,owner_phone,owner_type,building,unit,room_number,floor,shop_name,tenant_name,tenant_phone,category,area,unit_price_override,payment_cycle,notes\n'
         + '# legacy aliases: 业主姓名,联系电话,楼栋/区域,单元/分区,房号/铺位号,面积\n'
     )
 
@@ -70,8 +72,9 @@ def template_csv(code='residential'):
 def _full_sample(sample):
     parts = [part.strip() for part in sample.split(',')]
     building, unit, room_number, category, area = (parts + [''] * 5)[:5]
-    owner_type = '商户' if category == '商户' else '业主'
+    cycle = '季付' if category == '商户' else '月付'
     return [
-        '示例业主', '13800000000', owner_type, building, unit, room_number, '',
-        '示例店名' if category == '商户' else '', '', '', category, area, '', 'monthly', '模板示例',
+        '默认项目', building, unit, room_number, '', category, area, '', '非居民',
+        '示例业主', '13800000000', '', '', '', '', '2026-01-01', '2026-12-31',
+        cycle, '示例店名' if category == '商户' else '', category if category == '商户' else '', '模板示例',
     ]
