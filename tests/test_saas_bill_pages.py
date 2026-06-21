@@ -132,6 +132,39 @@ class TestSaasBillPages(unittest.TestCase):
         for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
             self.assertNotIn(hidden, page.text)
 
+
+    def test_bill_approval_page_shows_formal_review_board_and_payment_next_step(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            target, fee = self._seed_target_and_fee(client)
+            created = client.post('/backoffice/bills/generate', data={
+                'target_id': str(target['id']),
+                'fee_type_id': str(fee['id']),
+                'billing_period': '2026-09',
+                'service_start': '2026-09-01',
+                'service_end': '2026-09-30',
+            }, follow_redirects=False)
+            self.assertEqual(created.status_code, 303)
+
+            page = client.get('/backoffice/bills?period=2026-09')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '出账审核看板',
+                '待审核账单',
+                '审核通过后进入收款登记',
+                '服务期',
+                '2026-09-01~2026-09-30',
+                '待审核',
+                '去收款登记',
+                '/backoffice/payments',
+            ]:
+                self.assertIn(text, page.text)
+            self.assertNotIn('<td>pending_review</td>', page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_cashier_can_view_but_cannot_generate_bill(self):
         client = self._client('cashier')
         page = client.get('/backoffice/bills')

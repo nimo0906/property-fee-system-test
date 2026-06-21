@@ -6,6 +6,7 @@ import urllib.parse
 
 from server.saas_business_closure import render_business_closure
 from server.saas_bill_preview_pages import register_batch_bill_preview_pages
+from server.saas_bill_review_ui import bill_review_board, bill_review_header, bill_rows
 from server.saas_repository import TenantScopeError
 from server.saas_fee_rules import calculate_bill_amount
 from server.saas_service import PermissionDenied
@@ -21,40 +22,24 @@ def _target_label(item):
 def _options(items, label_func):
     return ''.join(f'<option value="{_h(i.get("id"))}">{_h(label_func(i))}</option>' for i in items)
 
-
-def _bill_rows(bills, targets, fees):
-    target_map = {int(i['id']): i for i in targets}
-    fee_map = {int(i['id']): i for i in fees}
-    rows = []
-    for bill in bills:
-        target = target_map.get(int(bill.get('charge_target_id') or 0), {})
-        fee = fee_map.get(int(bill.get('fee_type_id') or 0), {})
-        approve_action = ''
-        checkbox = ''
-        if bill.get('status') == 'pending_review':
-            checkbox = f'<input type="checkbox" name="bill_ids" value="{_h(bill.get("id"))}">'
-            approve_action = f'<form method="post" action="/backoffice/bills/{_h(bill.get("id"))}/approve" class="inline"><button class="primary">审核通过</button></form>'
-        rows.append(f'''<tr><td>{checkbox}</td><td>{_h(bill.get('bill_number'))}</td><td>{_h(bill.get('billing_period'))}</td><td>{_h(_target_label(target))}</td><td>{_h(fee.get('name'))}</td><td>{_h(bill.get('amount'))}</td><td>{_h(bill.get('paid_amount', 0))}</td><td>{_h(bill.get('unpaid_amount', bill.get('amount')))}</td><td>{_h(bill.get('status'))}</td><td>{approve_action}</td></tr>''')
-    return ''.join(rows) or '<tr><td colspan="10">暂无账单</td></tr>'
-
-
 def _render_bills(user, bills, targets, fees, filters=None, message='', page=1, page_size=20, total=0):
     filters = filters or {}
     notice = f'<div class="badge">{_h(message)}</div>' if message else ''
     can_generate = user.get('role_code') in {'platform_admin', 'system_admin', 'finance'}
     form = _create_form(targets, fees) if can_generate else '<div class="hint">当前角色只能查看账单，不能生成账单。</div>'
     batch_form = _batch_generate_form(fees) if can_generate else ''
-    rows = _bill_rows(bills, targets, fees)
+    rows = bill_rows(bills, targets, fees, _target_label)
     pager = _pager(filters, page, page_size, total)
     batch = _batch_approve_bar(user, filters)
     body = f'''
 <section class="hero"><div><h1>出账工作台</h1><div class="sub">账单生成与审核：从当前项目的收费对象和收费项目生成应收账单；支持批量出账预览、账单审核、账期、服务期起止、金额核对和重复出账自动跳过。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
 {_bill_summary(bills)}
+{bill_review_board(user, bills)}
 {_billing_check_panel()}
 {render_business_closure('bills')}
 {_filter_form(filters, page_size)}
-<section class="grid"><div class="card"><div class="card-h">账单审核列表</div><div class="card-b"><form method="post" action="/backoffice/bills/batch-approve">{batch}{pager}<table><thead><tr><th>批量审核</th><th>账单号</th><th>账期</th><th>收费对象</th><th>收费项目</th><th>金额</th><th>已收</th><th>欠费</th><th>状态</th><th>审核</th></tr></thead><tbody>{rows}</tbody></table>{pager}</form></div></div>
+<section class="grid"><div class="card"><div class="card-h">账单审核列表</div><div class="card-b"><form method="post" action="/backoffice/bills/batch-approve">{batch}{pager}<table><thead><tr>{bill_review_header()}</tr></thead><tbody>{rows}</tbody></table>{pager}</form></div></div>
 <aside class="card"><div class="card-h">单户生成账单</div><div class="card-b">{form}</div></aside></section>
 <section class="card" style="margin-top:18px"><div class="card-h">批量出账预览</div><div class="card-b">{batch_form}</div></section>'''
     return _page('出账工作台', body)
