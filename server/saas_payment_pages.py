@@ -104,13 +104,18 @@ def _receipt_export_rows(payment):
     return headers, [{key: payment.get(key, '') for key in headers}]
 
 
-def _render_receipt(user, payment, target_id=''):
+def _render_receipt(user, payment, target_id='', print_only=False):
     target_label = ' '.join(str(payment.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
     return_href = '/backoffice/payments?' + urlencode({'target_id': target_id}) if target_id else '/backoffice/payments'
+    title = '收据打印' if print_only else '收据详情'
+    header = '正式收据' if print_only else '收据详情'
+    actions = '<button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="/api/exports/receipts/%s.csv">导出收据</a>' % _h(payment.get('id'))
+    if not print_only:
+        actions += '<a class="ghost-link" href="%s">返回收款列表</a>' % _h(return_href)
     body = f'''
 <style>@media print{{body{{background:#fff}}.shell{{max-width:none;padding:0}}.no-print,.hero{{display:none!important}}.receipt-print-area{{border:0;box-shadow:none}}}}</style>
-<section class="hero"><div><h1>收据详情</h1><div class="sub">当前收据只展示当前公司、当前项目下的收款业务信息，不展示内部数据字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card receipt-print-area"><div class="card-h">收据详情</div><div class="card-b"><table><tbody>
+<section class="hero"><div><h1>{title}</h1><div class="sub">当前收据只展示当前公司、当前项目下的收款业务信息，不展示内部数据字段。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="card receipt-print-area"><div class="card-h">{header}</div><div class="card-b"><table><tbody>
 <tr><th>公司</th><td>{_h(user.get('tenant_name'))}</td></tr>
 <tr><th>项目</th><td>{_h(user.get('project_name'))}</td></tr>
 <tr><th>收据号</th><td>{_h(payment.get('receipt_number'))}</td></tr>
@@ -127,8 +132,8 @@ def _render_receipt(user, payment, target_id=''):
 <tr><th>收款方式</th><td>{_h(payment.get('method'))}</td></tr>
 <tr><th>收后累计已收</th><td>{_amount_text(payment.get('paid_amount', payment.get('amount_paid')))}</td></tr>
 <tr><th>收后欠费余额</th><td>{_amount_text(payment.get('unpaid_amount', 0))}</td></tr>
-</tbody></table><div class="actions no-print" style="margin-top:16px"><button class="primary" type="button" onclick="window.print()">打印收据</button><a class="ghost-link" href="/api/exports/receipts/{_h(payment.get('id'))}.csv">导出收据</a><a class="ghost-link" href="{_h(return_href)}">返回收款列表</a></div></div></section>'''
-    return _page('收据详情', body)
+</tbody></table><div class="actions no-print" style="margin-top:16px">{actions}</div></div></section>'''
+    return _page(title, body)
 
 
 def _attach_target_labels(bills, targets):
@@ -207,6 +212,17 @@ def register_payment_pages(app, service, repository, current_user):
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
 
+
+    @app.get('/backoffice/payments/{payment_id}/receipt/print', response_class=HTMLResponse)
+    def receipt_print_page(payment_id: int, user=Depends(current_user)):
+        try:
+            service._require(user, 'read')
+            item = _find_payment(user, payment_id)
+            if not item:
+                raise HTTPException(status_code=404, detail='receipt not found')
+            return HTMLResponse(_render_receipt(user, item, print_only=True))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
 
     @app.get('/api/exports/receipts/{payment_id}.csv')
     def export_receipt(payment_id: int, user=Depends(current_user)):
