@@ -68,3 +68,43 @@ def test_backoffice_batch_generate_preview_does_not_write_until_confirmed():
         repo.close()
 
 
+
+def test_batch_generate_preview_explains_amount_rules_and_payment_cycle():
+    with tempfile.TemporaryDirectory() as td:
+        db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+        client = login_client(db_url)
+        client.post('/api/charge-targets', json={
+            'building': '规则区', 'unit': '一层', 'room_number': 'R-101', 'category': '商户',
+            'area': 40, 'shop_name': '覆盖店', 'unit_price_override': 5, 'payment_cycle': 'quarterly',
+        })
+        client.post('/api/charge-targets', json={
+            'building': '规则区', 'unit': '一层', 'room_number': 'R-102', 'category': '商户',
+            'area': 30, 'shop_name': '固定店', 'payment_cycle': 'monthly',
+        })
+        area_fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+        fixed_fee = client.post('/api/fee-types', json={'name': '商户服务费', 'unit_price': 80, 'billing_mode': 'fixed'}).json()['item']
+
+        area_preview = client.post('/backoffice/bills/batch-generate-preview', data={
+            'fee_type_id': str(area_fee['id']), 'billing_period': '2028-03',
+            'service_start': '2028-03-01', 'service_end': '',
+            'category': '商户', 'building': '规则区', 'unit': '一层', 'use_payment_cycle': '1',
+        })
+        fixed_preview = client.post('/backoffice/bills/batch-generate-preview', data={
+            'fee_type_id': str(fixed_fee['id']), 'billing_period': '2028-03',
+            'service_start': '2028-03-01', 'service_end': '2028-03-31',
+            'category': '商户', 'building': '规则区', 'unit': '一层',
+        })
+
+        assert area_preview.status_code == 200
+        for text in [
+            '金额规则说明', '面积计费：面积 × 单价', '独立单价覆盖', '周期规则：按收费对象缴费周期计算服务期',
+            'R-101', '2028-03-01~2028-05-31', '面积40.0 × 单价5.0 × 3个月 = 600.0',
+            'R-102', '2028-03-01~2028-03-31', '面积30.0 × 单价2.0 × 1个月 = 60.0',
+        ]:
+            assert text in area_preview.text
+        assert fixed_preview.status_code == 200
+        for text in ['固定金额：每户/每铺固定金额', 'R-101', '固定金额 5.0', 'R-102', '固定金额 80.0', '金额合计85.0元']:
+            assert text in fixed_preview.text
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            assert hidden not in area_preview.text
+            assert hidden not in fixed_preview.text

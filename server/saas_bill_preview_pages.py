@@ -5,6 +5,7 @@
 import urllib.parse
 
 from server.saas_batch_billing import build_batch_bill_rows
+from server.saas_fee_rules import effective_unit_price, normalize_billing_mode, service_months
 from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
@@ -14,7 +15,17 @@ def _target_map(targets):
     return {int(target['id']): target for target in targets}
 
 
-def _preview_items(rows, targets, existing_numbers):
+def _rule_text(target, fee, row):
+    months = service_months(row.get('service_start'), row.get('service_end'))
+    months_text = int(months) if float(months).is_integer() else round(months, 2)
+    price = effective_unit_price(target, fee)
+    if normalize_billing_mode(fee.get('billing_mode')) == 'fixed':
+        return f"固定金额 {round(price, 2)} × {months_text}个月 = {row.get('amount')}"
+    override = '，独立单价覆盖' if target.get('unit_price_override') not in (None, '') else ''
+    return f"面积{float(target.get('area') or 0)} × 单价{round(price, 2)} × {months_text}个月 = {row.get('amount')}{override}"
+
+
+def _preview_items(rows, targets, fee, existing_numbers):
     targets_by_id = _target_map(targets)
     create_items, skip_items, amount_total = [], [], 0.0
     for row in rows:
@@ -24,6 +35,7 @@ def _preview_items(rows, targets, existing_numbers):
             'service_start': row.get('service_start'),
             'service_end': row.get('service_end'),
             'amount': row.get('amount'),
+            'rule': _rule_text(target, fee, row),
         }
         if row.get('bill_number') in existing_numbers:
             skip_items.append(item)
@@ -35,7 +47,7 @@ def _preview_items(rows, targets, existing_numbers):
 
 def _render_preview(user, create_items, skip_items, amount_total, form):
     create_rows = ''.join(
-        f'<li>{_h(i["room_number"])} {_h(i["service_start"])}~{_h(i["service_end"])} {_h(i["amount"])}元</li>'
+        f'<li>{_h(i["room_number"])} {_h(i["service_start"])}~{_h(i["service_end"])} {_h(i["amount"])}元 <span class="hint">{_h(i["rule"])}</span></li>'
         for i in create_items
     ) or '<li>无新增账单</li>'
     skip_rows = ''.join(
@@ -45,6 +57,7 @@ def _render_preview(user, create_items, skip_items, amount_total, form):
     hidden = ''.join(f'<input type="hidden" name="{_h(k)}" value="{_h(v)}">' for k, v in form.items())
     body = f'''
 <section class="hero"><div><h1>批量出账预览</h1><div class="sub">预览不会写入账单；确认后才生成当前租户、当前项目范围内的新账单。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">金额规则说明</div><div class="card-b"><div class="actions"><span class="badge">面积计费：面积 × 单价</span><span class="badge">固定金额：每户/每铺固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">周期规则：按收费对象缴费周期计算服务期</span></div><div class="hint">预览会展示每条账单的计算公式；确认前请核对账期、服务期、单价覆盖和金额合计。</div></div></section>
 <section class="card"><div class="card-h">预览结果</div><div class="card-b"><div class="badge">预计出账{len(create_items)}张</div> <div class="badge">跳过{len(skip_items)}张</div> <div class="badge">金额合计{_h(amount_total)}元</div><h3>将生成</h3><ul>{create_rows}</ul><h3>将跳过</h3><ul>{skip_rows}</ul><form method="post" action="/backoffice/bills/batch-generate-confirm">{hidden}<button class="primary">确认出账</button> <a class="ghost-link" href="/backoffice/bills">返回账单</a></form></div></section>'''
     return _page('批量出账预览', body)
 
@@ -72,7 +85,7 @@ def register_batch_bill_preview_pages(app, service, repository, current_user):
             raise HTTPException(status_code=404, detail='fee type not found')
         rows = build_batch_bill_rows(targets, fee, user['tenant_id'], user['project_id'], billing_period, service_start, service_end, category, building, unit, bool(use_payment_cycle))
         existing = {bill.get('bill_number') for bill in bills}
-        return _preview_items(rows, targets, existing)
+        return _preview_items(rows, targets, fee, existing)
 
     @app.post('/backoffice/bills/batch-generate-preview', response_class=HTMLResponse)
     def preview_batch_generate_bill_page(fee_type_id: int = Form(...), billing_period: str = Form(...), service_start: str = Form(...), service_end: str = Form(''), category: str = Form(''), building: str = Form(''), unit: str = Form(''), use_payment_cycle: str = Form(''), user=Depends(current_user)):
