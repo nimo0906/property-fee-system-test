@@ -132,6 +132,34 @@ class TestSaasReportPages(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
                 self.assertNotIn(hidden, page.text)
 
+
+    def test_report_page_shows_formal_reconciliation_board_and_collection_actions(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            self._seed_paid_bill(client, period='2027-07', payment_amount=80)
+
+            page = client.get('/backoffice/reports?period=2027-07')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '对账看板',
+                '本期应收',
+                '本期实收',
+                '本期欠费',
+                '收缴率 40.00%',
+                '欠费率 60.00%',
+                '去登记收款',
+                '查看欠费账单',
+                '导出催缴清单',
+                '/backoffice/payments?period=2027-07',
+                '/backoffice/bills?period=2027-07&status=unpaid',
+                '/api/exports/reports/arrears-bills.csv?period=2027-07',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_executive_can_view_report_readonly(self):
         client = self._client('executive')
         page = client.get('/backoffice/reports?period=2026-09')

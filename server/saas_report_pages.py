@@ -44,6 +44,18 @@ def _arrears_workflow_panel(period):
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">欠费追踪流程</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/reports{suffix}"><strong>查看欠费明细</strong><span>按欠费金额排序，先处理金额较大的账单</span></a><a class="work-card" href="/backoffice/bills?{unpaid_query}"><strong>定位账单</strong><span>跳到账单查询，核对账期、对象和欠费金额</span></a><a class="work-card" href="/backoffice/payments{suffix}"><strong>登记收款</strong><span>收费后回到收款工作台登记本次收款</span></a><a class="work-card" href="/api/exports/reports/arrears-bills.csv{suffix}"><strong>导出催缴清单</strong><span>导出欠费明细给收费员催缴核对</span></a><a class="work-card" href="/backoffice/reports{suffix}"><strong>复核收缴率</strong><span>收款后复核应收、实收、欠费和收缴率</span></a></div></div></section>'''
 
 
+def _reconciliation_board(period, summary):
+    due = float(summary.get('bill_amount_total') or 0)
+    paid = float(summary.get('payment_amount_total') or 0)
+    unpaid = float(summary.get('unpaid_amount_total') or 0)
+    collection_rate = _percent(paid, due)
+    arrears_rate = _percent(unpaid, due)
+    bills_href = '/backoffice/bills?' + urlencode({'period': period, 'status': 'unpaid'})
+    payments_href = '/backoffice/payments?' + urlencode({'period': period})
+    arrears_export = '/api/exports/reports/arrears-bills.csv?' + urlencode({'period': period})
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">对账看板</div><div class="card-b"><div class="actions"><span class="badge">本期应收 {_h(due)}</span><span class="badge">本期实收 {_h(paid)}</span><span class="badge">本期欠费 {_h(unpaid)}</span><span class="badge">收缴率 {_h(collection_rate)}</span><span class="badge">欠费率 {_h(arrears_rate)}</span><a class="ghost-link" href="{_h(payments_href)}">去登记收款</a><a class="ghost-link" href="{_h(bills_href)}">查看欠费账单</a><a class="ghost-link" href="{_h(arrears_export)}">导出催缴清单</a></div><div class="hint">按当前租户和项目核对应收、实收、欠费和收缴率；欠费金额用于催缴和复核。</div></div></section>'''
+
+
 def _summary_card(summary, breakdown=None):
     due = float(summary.get('bill_amount_total') or 0)
     paid = float(summary.get('payment_amount_total') or 0)
@@ -121,6 +133,7 @@ def _render_report(user, period, summary, breakdown=None, arrears_bills=None, pr
     body = f'''
 <section class="hero"><div><h1>报表工作台</h1><div class="sub">对账报表：按账期汇总当前租户和项目的应收、实收、欠费，按项目、楼栋 / 区域、收费项目和对象分类汇总并导出。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {render_business_closure('reports')}
+{_reconciliation_board(period, summary)}
 {_report_check_panel()}
 {_arrears_workflow_panel(period)}
 {_filter_card(user, period)}
