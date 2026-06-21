@@ -27,6 +27,18 @@ def _summary_rows(rows):
 
 
 def attach_report_repository_methods(cls):
+    def report_projects(self, tenant_id, period):
+        params = {"tenant_id": tenant_id, "period": period}
+        payment_subquery = """SELECT bill_id,COALESCE(SUM(amount_paid),0) paid FROM payments
+            WHERE tenant_id=:tenant_id GROUP BY bill_id"""
+        with self.engine.begin() as conn:
+            rows = conn.execute(text(f"""SELECT p.name name,COUNT(b.id) bill_count,COALESCE(SUM(b.amount),0) due,COALESCE(SUM(paid_by_bill.paid),0) paid
+                FROM projects p LEFT JOIN bills b ON b.project_id=p.id AND b.tenant_id=p.tenant_id AND b.billing_period=:period
+                LEFT JOIN ({payment_subquery}) paid_by_bill ON paid_by_bill.bill_id=b.id
+                WHERE p.tenant_id=:tenant_id
+                GROUP BY p.id,p.name ORDER BY p.id"""), params).mappings().all()
+        return _summary_rows(rows)
+
     def report_breakdown(self, tenant_id, project_id, period):
         self._require_project_scope(tenant_id, project_id)
         params = {"tenant_id": tenant_id, "project_id": project_id, "period": period}
@@ -55,4 +67,5 @@ def attach_report_repository_methods(cls):
                 GROUP BY ct.category ORDER BY MIN(b.id)"""), params).mappings().all()
         return {"by_building": _summary_rows(by_building), "by_unit": _summary_rows(by_unit), "by_fee_type": _summary_rows(by_fee_type), "by_category": _summary_rows(by_category)}
 
+    cls.report_projects = report_projects
     cls.report_breakdown = report_breakdown

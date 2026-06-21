@@ -6,6 +6,7 @@ from server.saas_repository import TenantScopeError
 from server.saas_service import PermissionDenied
 from server.saas_fee_rules import calculate_bill_amount
 from server.saas_csv_export import arrears_bill_export_rows, bill_export_rows, csv_content, payment_export_rows, report_breakdown_export_rows
+from server.saas_report_project_api import register_report_project_routes
 from server.saas_payment_pages import _filter_payments
 
 
@@ -111,6 +112,7 @@ def register_billing_routes(app, service):
 
     current_user = app.state.current_user
     repository = getattr(app.state, "repository", None)
+    register_report_project_routes(app, service, repository, current_user)
 
     @app.post("/api/bills/generate")
     def generate_bill(data: BillGenerateIn, user=Depends(current_user)):
@@ -259,6 +261,7 @@ def register_billing_routes(app, service):
             return {"filename": f"report-breakdown-{period or 'all'}.csv", "content": csv_content(headers, rows)}
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail="forbidden")
+
 
     @app.get("/api/exports/reports/arrears-bills.csv")
     def export_report_arrears_bills(period: str, user=Depends(current_user)):

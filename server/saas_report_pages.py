@@ -24,7 +24,7 @@ def _percent(numerator, denominator):
 def _export_links(period):
     query = urlencode({'period': period}) if period else ''
     suffix = f'?{query}' if query else ''
-    return f'''<div class="actions"><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv{suffix}">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv{suffix}">导出欠费明细</a></div>'''
+    return f'''<div class="actions"><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a><a class="ghost-link" href="/api/exports/reports/projects.csv{suffix}">导出项目汇总</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv{suffix}">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv{suffix}">导出欠费明细</a></div>'''
 
 
 def _filter_card(user, period):
@@ -74,6 +74,10 @@ def _breakdown_cards(breakdown):
     return f'''<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px">{_breakdown_table('按楼栋 / 区域汇总', breakdown.get('by_building', []))}{_breakdown_table('按单元 / 分区汇总', breakdown.get('by_unit', []))}{_breakdown_table('按收费项目汇总', breakdown.get('by_fee_type', []))}{_breakdown_table('按收费对象分类汇总', breakdown.get('by_category', []))}</section>'''
 
 
+def _project_summary_table(items):
+    return f'''<section style="margin-top:18px">{_breakdown_table('按项目汇总', items)}</section>'''
+
+
 def _owner_contact(item):
     return ' / '.join(str(item.get(k) or '').strip() for k in ['owner_name', 'owner_phone'] if str(item.get(k) or '').strip())
 
@@ -96,7 +100,7 @@ def _arrears_bill_table(items, period):
     return f'''<section class="card" style="margin-top:18px"><div class="card-h">欠费账单明细</div><div class="card-b"><table><thead><tr><th>收费对象</th><th>商户/承租人</th><th>业主/电话</th><th>收费项目</th><th>应收</th><th>已收</th><th>欠费</th><th>操作</th></tr></thead><tbody>{_arrears_bill_rows(sorted_items, period)}</tbody></table><div class="hint">按欠费金额从高到低显示当前账期前 10 条，用于收费员催缴核对。</div></div></section>'''
 
 
-def _render_report(user, period, summary, breakdown=None, arrears_bills=None):
+def _render_report(user, period, summary, breakdown=None, arrears_bills=None, project_summary=None):
     metrics = ''.join([
         _metric('账单数量', summary.get('bill_count', 0)),
         _metric('应收金额', summary.get('bill_amount_total', 0.0)),
@@ -108,6 +112,7 @@ def _render_report(user, period, summary, breakdown=None, arrears_bills=None):
 {render_business_closure('reports')}
 {_filter_card(user, period)}
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
+{_project_summary_table(project_summary or [])}
 {_breakdown_cards(breakdown or {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})}
 {_arrears_bill_table(arrears_bills or [], period)}
 {_summary_card(summary, breakdown or {})}'''
@@ -125,12 +130,14 @@ def register_report_pages(app, service, repository, current_user):
             selected_period = period or '2026-09'
             if repository:
                 summary = repository.report_summary(user['tenant_id'], user['project_id'], selected_period)
+                project_summary = repository.report_projects(user['tenant_id'], selected_period)
                 breakdown = repository.report_breakdown(user['tenant_id'], user['project_id'], selected_period)
                 arrears_bills = repository.search_bills(user['tenant_id'], user['project_id'], '', selected_period, None, 1, 10000)['items']
             else:
                 summary = service.report(user, user['project_id'], selected_period)
+                project_summary = []
                 breakdown = {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []}
                 arrears_bills = service.search_bills(user, user['project_id'], '', selected_period, None, 1, 10000)['items']
-            return HTMLResponse(_render_report(user, selected_period, summary, breakdown, arrears_bills))
+            return HTMLResponse(_render_report(user, selected_period, summary, breakdown, arrears_bills, project_summary))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')

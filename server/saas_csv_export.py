@@ -51,6 +51,11 @@ def report_breakdown_export_rows(breakdown):
     return headers, rows
 
 
+def project_summary_export_rows(items):
+    headers = ['name', 'bill_count', 'bill_amount_total', 'payment_amount_total', 'unpaid_amount_total', 'collection_rate', 'arrears_rate']
+    return headers, [{key: item.get(key, '') for key in headers} for item in items]
+
+
 def _report_breakdown_row(group_type, item):
     return {
         'group_type': group_type,
