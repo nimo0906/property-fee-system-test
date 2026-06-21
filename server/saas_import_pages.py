@@ -37,14 +37,15 @@ def _render_import_home(user, file_item=None, files=None, logs=None, batches=Non
     form = _preview_form() if can_import else '<div class="hint">当前角色不能导入，只能查看业务数据。</div>'
     upload = _upload_form() if can_import else '<div class="hint">当前角色不能登记上传文件。</div>'
     body = f'''
-<section class="hero"><div><h1>数据导入</h1><div class="sub">先预览校验，不直接写库；确认后只导入有效行，错误行不会污染正式数据。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>导入工作台</h1><div class="sub">数据导入：预览不写库，确认导入才写库；错误行隔离，可下载修正后重试。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">导入检查</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/imports/templates/charge-targets"><strong>模板下载</strong><span>收费对象导入模板和字段说明</span></a><a class="work-card" href="/backoffice/imports"><strong>CSV 预览</strong><span>复制表格内容，预览不写库</span></a><a class="work-card" href="/backoffice/imports"><strong>Excel 预览</strong><span>上传 .xlsx 后先校验再确认</span></a><a class="work-card" href="/backoffice/imports"><strong>错误行隔离</strong><span>错误行不污染正确行，支持错误行下载</span></a><a class="work-card" href="/backoffice/imports"><strong>导入批次</strong><span>复核预览、确认导入和导入结果</span></a></div></div></section>
 {_render_file_notice(file_item)}
 <section class="grid"><div class="card"><div class="card-h">收费对象导入</div><div class="card-b">{form}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0">{excel_preview_form() if can_import else ''}</div></div>
-<aside class="card"><div class="card-h">导入模板</div><div class="card-b"><p class="sub">先按模板准备收费对象数据，再复制 CSV 内容做预览。</p><div class="actions"><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">字段说明</a><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a></div><div class="hint">模板不包含内部租户或项目编号，系统会按当前登录公司和项目写入。</div></div></aside>
+<aside class="card"><div class="card-h">模板下载 · 导入模板</div><div class="card-b"><p class="sub">先按模板准备收费对象数据，再复制 CSV 内容做预览。</p><div class="actions"><a class="ghost-link" href="/backoffice/imports/templates/charge-targets">字段说明</a><a class="ghost-link" href="/api/imports/templates/charge-targets.csv">下载 CSV 模板</a></div><div class="hint">模板不包含内部租户或项目编号，系统会按当前登录公司和项目写入。</div></div></aside>
 <aside class="card"><div class="card-h">上传文件登记</div><div class="card-b">{upload}<p class="sub">客户上传文件进入当前租户目录，系统模板、配置、日志和备份保存在系统目录。</p><div class="hint">预览不会写库；确认导入才写入有效行，错误行不会污染正式数据。</div></div></aside></section>
 {_render_import_batches(batches or [])}
 {render_import_activity(files, logs)}'''
-    return _page('数据导入', body)
+    return _page('导入工作台', body)
 
 
 def _upload_form():
@@ -53,7 +54,7 @@ def _upload_form():
 
 def _preview_form():
     sample = 'owner_name,owner_phone,building,unit,room_number,category,area\n张三,13800000000,1栋,1单元,101,居民,80'
-    return f'''<form method="post" action="/backoffice/imports/charge-targets/preview"><label>CSV 内容</label><textarea name="csv_text" rows="10" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:10px" placeholder="{_h(sample)}"></textarea><button class="primary">导入预览</button><div class="hint">预览阶段不会写入收费对象。</div></form>'''
+    return f'''<form method="post" action="/backoffice/imports/charge-targets/preview"><label>CSV 内容</label><textarea name="csv_text" rows="10" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:10px" placeholder="{_h(sample)}"></textarea><button class="primary">导入预览</button><div class="hint">CSV 预览：预览阶段不会写入收费对象。</div></form>'''
 
 
 def _render_import_batches(batches):
@@ -184,7 +185,6 @@ def _valid_header_cells():
 def _valid_row(row):
     cells = ''.join(f'<td>{_h(row.get(key))}</td>' for key, _ in _valid_headers())
     return f'<tr>{cells}</tr>'
-
 
 def register_import_pages(app, service, repository, current_user):
     from fastapi import Depends, Form, HTTPException

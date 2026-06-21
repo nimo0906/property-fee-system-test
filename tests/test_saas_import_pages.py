@@ -33,6 +33,28 @@ class TestSaasImportPages(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         self.assertIn('/backoffice/imports', page.text)
 
+
+    def test_import_page_looks_like_formal_import_workbench(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+
+            page = client.get('/backoffice/imports')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '导入工作台', '模板下载', 'Excel 预览', 'CSV 预览',
+                '预览不写库', '确认导入才写库', '错误行隔离', '错误行下载',
+                '导入批次', '导入结果', '上传文件登记', '收费对象导入模板',
+                '/backoffice/imports/templates/charge-targets',
+                '/api/imports/templates/charge-targets.csv',
+                '/backoffice/imports/charge-targets/xlsx-preview',
+                '/backoffice/imports/charge-targets/preview',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_preview_does_not_write_and_confirm_writes_only_valid_rows(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
