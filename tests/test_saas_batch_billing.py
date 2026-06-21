@@ -233,3 +233,30 @@ def test_api_batch_generate_can_use_target_payment_cycle_for_service_period():
         assert bill['service_start'] == '2027-10-01'
         assert bill['service_end'] == '2028-03-31'
         assert bill['amount'] == 1200.0
+
+def test_memory_api_batch_generate_can_use_target_payment_cycle_for_service_period():
+    client = TestClient(create_app())
+    login = client.post('/api/auth/login', json={
+        'tenant_name': '内存周期物业', 'project_name': '内存周期项目', 'username': 'finance', 'role_code': 'finance'
+    })
+    assert login.status_code == 200
+    client.post('/api/charge-targets', json={
+        'building': '商场', 'unit': '三层', 'room_number': 'M-301', 'category': '商户',
+        'area': 30, 'unit_price_override': 6, 'payment_cycle': '季付',
+    })
+    fee = client.post('/api/fee-types', json={'name': '商户物业费', 'unit_price': 2, 'billing_mode': 'area'}).json()['item']
+
+    response = client.post('/api/bills/batch-generate', json={
+        'fee_type_id': fee['id'], 'billing_period': '2027-11',
+        'service_start': '2027-11-01', 'service_end': '', 'category': '商户',
+        'use_payment_cycle': True,
+    })
+
+    assert response.status_code == 200, response.text
+    assert response.json()['created_count'] == 1
+    assert response.json()['amount_total'] == 540.0
+    bill = client.get('/api/bills', params={'period': '2027-11'}).json()['items'][0]
+    assert bill['service_start'] == '2027-11-01'
+    assert bill['service_end'] == '2028-01-31'
+    assert bill['amount'] == 540.0
+

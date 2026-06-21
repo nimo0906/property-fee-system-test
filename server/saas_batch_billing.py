@@ -20,7 +20,12 @@ def target_matches_scope(target, building='', unit=''):
     return True
 
 
-CYCLE_MONTHS = {'monthly': 1, 'quarterly': 3, 'semiannual': 6, 'yearly': 12}
+CYCLE_MONTHS = {
+    'monthly': 1, 'month': 1, '月付': 1, '按月': 1,
+    'quarterly': 3, 'quarter': 3, '季付': 3, '季度': 3, '按季': 3,
+    'semiannual': 6, 'semi-annual': 6, 'halfyear': 6, '半年付': 6, '半年': 6, '按半年': 6,
+    'yearly': 12, 'annual': 12, 'year': 12, '年付': 12, '年度': 12, '按年': 12,
+}
 
 
 def bill_key(tenant_id, project_id, period, target_id, fee_type_id):
