@@ -148,6 +148,41 @@ class TestSaasBillSearchBatchPages(unittest.TestCase):
             self.assertEqual(statuses[bills[2]['id']], 'pending_review')
             repo.close()
 
+    def test_bill_page_batch_approves_current_filtered_pending_bills_only(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(database_url=db_url)
+            target_bill = self._seed_bill(client, '商铺A', 120, '2026-06')
+            second_target_bill = self._seed_bill(client, '商铺B', 130, '2026-06')
+            other_room_bill = self._seed_bill(client, '住宅101', 80, '2026-06')
+            other_period_bill = self._seed_bill(client, '商铺C', 140, '2026-07')
+            already_approved = self._seed_bill(client, '商铺D', 150, '2026-06')
+            client.post(f"/api/bills/{already_approved['id']}/approve", json={})
+
+            page = client.get('/backoffice/bills?period=2026-06&room_number=商铺&page_size=10')
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('批量审核当前筛选待审核账单', page.text)
+
+            response = client.post('/backoffice/bills/batch-approve-filtered', data={
+                'period': '2026-06',
+                'room_number': '商铺',
+                'page_size': '10',
+            }, follow_redirects=False)
+
+            self.assertEqual(response.status_code, 303)
+            result_page = client.get(response.headers['location'])
+            self.assertIn('批量审核2张账单', result_page.text)
+            repo = create_saas_repository(db_url)
+            tenant = repo.list_tenants()[0]
+            project = repo.list_projects(tenant['id'])[0]
+            statuses = {item['id']: item['status'] for item in repo.list_bills(tenant['id'], project['id'])}
+            self.assertEqual(statuses[target_bill['id']], 'unpaid')
+            self.assertEqual(statuses[second_target_bill['id']], 'unpaid')
+            self.assertEqual(statuses[other_room_bill['id']], 'pending_review')
+            self.assertEqual(statuses[other_period_bill['id']], 'pending_review')
+            self.assertEqual(statuses[already_approved['id']], 'unpaid')
+            repo.close()
+
 
 if __name__ == '__main__':
     unittest.main()

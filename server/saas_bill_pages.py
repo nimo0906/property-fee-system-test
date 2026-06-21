@@ -45,7 +45,7 @@ def _render_bills(user, bills, targets, fees, filters=None, message='', page=1, 
     batch_form = _batch_generate_form(fees) if can_generate else ''
     rows = _bill_rows(bills, targets, fees)
     pager = _pager(filters, page, page_size, total)
-    batch = _batch_approve_bar(user)
+    batch = _batch_approve_bar(user, filters)
     body = f'''
 <section class="hero"><div><h1>账单生成</h1><div class="sub">从当前项目的收费对象和收费项目生成应收账单。账单、金额和筛选结果都按当前租户和项目隔离。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
@@ -71,10 +71,11 @@ def _filter_form(filters, page_size):
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">高级筛选</div><div class="card-b"><form method="get" action="/backoffice/bills" class="filters"><input type="hidden" name="page" value="1"><div><label>账期</label><input name="period" value="{_h(filters.get('period'))}" placeholder="例如 2026-06"></div><div><label>状态</label><select name="status">{_status_options(filters.get('status', ''))}</select></div><div><label>房号 / 铺位号</label><input name="room_number" value="{_h(filters.get('room_number'))}" placeholder="房号关键词"></div><div><label>最低金额</label><input name="amount_min" type="number" step="0.01" min="0" value="{_h(filters.get('amount_min'))}"></div><div><label>最高金额</label><input name="amount_max" type="number" step="0.01" min="0" value="{_h(filters.get('amount_max'))}"></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">查询账单</button></div><div><a class="ghost-link" href="{_h(_bill_export_href(filters))}">导出账单</a></div></form></div></section>'''
 
 
-def _batch_approve_bar(user):
+def _batch_approve_bar(user, filters):
     if user.get('role_code') not in {'platform_admin', 'system_admin', 'finance'}:
         return ''
-    return '<div class="actions" style="margin-bottom:12px"><button class="primary">批量审核选中账单</button><span class="hint">批量审核仅处理待审核账单。</span></div>'
+    hidden = ''.join(f'<input type="hidden" name="{_h(key)}" value="{_h(filters.get(key, ""))}">' for key in ['period', 'status', 'room_number', 'amount_min', 'amount_max'])
+    return f'''<div class="actions" style="margin-bottom:12px">{hidden}<button class="primary">批量审核选中账单</button><button class="ghost" formaction="/backoffice/bills/batch-approve-filtered">批量审核当前筛选待审核账单</button><span class="hint">批量审核仅处理待审核账单。</span></div>'''
 
 
 def _status_options(selected):
@@ -257,5 +258,23 @@ def register_bill_pages(app, service, repository, current_user):
                     service.approve_bill(user, user['project_id'], int(bill_id))
                 count += 1
             return RedirectResponse(f'/backoffice/bills?status=pending_review&message=批量审核{count}张账单', status_code=303)
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/bills/batch-approve-filtered')
+    def batch_approve_filtered_bill_page(period: str = Form(''), status: str = Form(''), room_number: str = Form(''), amount_min: str = Form(''), amount_max: str = Form(''), page_size: int = Form(20), user=Depends(current_user)):
+        try:
+            service._require(user, 'billing')
+            filters, _, page_size = _normalize_filters(period, status, room_number, amount_min, amount_max, 1, page_size)
+            bills, targets, _ = _context(user)
+            pending = [bill for bill in _filter_bills(bills, targets, filters) if bill.get('status') == 'pending_review']
+            for bill in pending:
+                if repository:
+                    repository.approve_bill(user['tenant_id'], user['project_id'], int(bill['id']), actor_user_id=user['id'])
+                else:
+                    service.approve_bill(user, user['project_id'], int(bill['id']))
+            query = _query(filters, 1, page_size)
+            message = urllib.parse.quote(f'批量审核{len(pending)}张账单')
+            return RedirectResponse(f'/backoffice/bills?{query}&message={message}', status_code=303)
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
