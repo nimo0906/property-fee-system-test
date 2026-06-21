@@ -102,8 +102,8 @@ def search_bills(self, user, project_id, keyword="", period=None, status=None, p
         for bill in self.list_bills(user, project_id, period, status):
             target = self.targets.get(bill["charge_target_id"], {})
             fee = self.fees.get(bill.get("fee_type_id"), {})
-            item = {**bill, "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", ""), "owner_name": target.get("owner_name", ""), "fee_name": fee.get("name", "")}
-            haystack = " ".join(str(item.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number"]).lower()
+            item = {**bill, "building": target.get("building", ""), "unit": target.get("unit", ""), "room_number": target.get("room_number", ""), "owner_name": target.get("owner_name", ""), "owner_phone": target.get("owner_phone", ""), "fee_name": fee.get("name", "")}
+            haystack = " ".join(str(item.get(k, "")) for k in ["bill_number", "billing_period", "status", "building", "unit", "room_number", "owner_name", "owner_phone"]).lower()
             if not keyword or keyword in haystack:
                 rows.append(item)
         return _paginate(rows, page, page_size)

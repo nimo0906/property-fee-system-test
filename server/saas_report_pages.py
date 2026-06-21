@@ -74,6 +74,10 @@ def _breakdown_cards(breakdown):
     return f'''<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px">{_breakdown_table('按楼栋 / 区域汇总', breakdown.get('by_building', []))}{_breakdown_table('按单元 / 分区汇总', breakdown.get('by_unit', []))}{_breakdown_table('按收费项目汇总', breakdown.get('by_fee_type', []))}{_breakdown_table('按收费对象分类汇总', breakdown.get('by_category', []))}</section>'''
 
 
+def _owner_contact(item):
+    return ' / '.join(str(item.get(k) or '').strip() for k in ['owner_name', 'owner_phone'] if str(item.get(k) or '').strip())
+
+
 def _arrears_bill_rows(items, period):
     rows = []
     for item in items:
@@ -83,13 +87,13 @@ def _arrears_bill_rows(items, period):
         label = ' '.join(str(item.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
         detail = ' / '.join(str(item.get(k) or '').strip() for k in ['shop_name', 'tenant_name'] if str(item.get(k) or '').strip())
         bill_href = '/backoffice/bills?' + urlencode({'period': period, 'room_number': item.get('room_number') or ''})
-        rows.append(f"<tr><td>{_h(label)}</td><td>{_h(detail)}</td><td>{_h(item.get('fee_name') or '')}</td><td>{_h(item.get('amount'))}</td><td>{_h(item.get('paid_amount', 0))}</td><td>{_h(item.get('unpaid_amount', 0))}</td><td><a class=\"ghost-link\" href=\"{_h(bill_href)}\">查看账单</a></td></tr>")
-    return ''.join(rows) or '<tr><td colspan="7" class="hint">暂无欠费账单</td></tr>'
+        rows.append(f"<tr><td>{_h(label)}</td><td>{_h(detail)}</td><td>{_h(_owner_contact(item))}</td><td>{_h(item.get('fee_name') or '')}</td><td>{_h(item.get('amount'))}</td><td>{_h(item.get('paid_amount', 0))}</td><td>{_h(item.get('unpaid_amount', 0))}</td><td><a class=\"ghost-link\" href=\"{_h(bill_href)}\">查看账单</a></td></tr>")
+    return ''.join(rows) or '<tr><td colspan="8" class="hint">暂无欠费账单</td></tr>'
 
 
 def _arrears_bill_table(items, period):
     sorted_items = sorted(items, key=lambda item: float(item.get('unpaid_amount') or 0), reverse=True)[:10]
-    return f'''<section class="card" style="margin-top:18px"><div class="card-h">欠费账单明细</div><div class="card-b"><table><thead><tr><th>收费对象</th><th>商户/承租人</th><th>收费项目</th><th>应收</th><th>已收</th><th>欠费</th><th>操作</th></tr></thead><tbody>{_arrears_bill_rows(sorted_items, period)}</tbody></table><div class="hint">按欠费金额从高到低显示当前账期前 10 条，用于收费员催缴核对。</div></div></section>'''
+    return f'''<section class="card" style="margin-top:18px"><div class="card-h">欠费账单明细</div><div class="card-b"><table><thead><tr><th>收费对象</th><th>商户/承租人</th><th>业主/电话</th><th>收费项目</th><th>应收</th><th>已收</th><th>欠费</th><th>操作</th></tr></thead><tbody>{_arrears_bill_rows(sorted_items, period)}</tbody></table><div class="hint">按欠费金额从高到低显示当前账期前 10 条，用于收费员催缴核对。</div></div></section>'''
 
 
 def _render_report(user, period, summary, breakdown=None, arrears_bills=None):

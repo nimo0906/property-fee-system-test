@@ -215,8 +215,9 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
             client = self._client(db_url, tenant_name='A欠费导出物业', project_name='A欠费导出项目')
             fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1}).json()['item']
+            owner = client.post('/api/owners', json={'name': '赵催缴', 'phone': '13800138000', 'owner_type': '业主'}).json()['item']
             target = client.post('/api/charge-targets', json={
-                'building': '欠费区', 'unit': '一层', 'room_number': 'A201', 'category': '商户', 'area': 300,
+                'owner_id': owner['id'], 'building': '欠费区', 'unit': '一层', 'room_number': 'A201', 'category': '商户', 'area': 300,
                 'shop_name': 'A201店', 'tenant_name': 'A201承租人',
             }).json()['item']
             bill = client.post('/api/bills/generate', json={
@@ -231,14 +232,16 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
             page = client.get('/backoffice/reports?period=2027-05')
             self.assertEqual(page.status_code, 200)
             self.assertIn('/api/exports/reports/arrears-bills.csv?period=2027-05', page.text)
+            self.assertIn('赵催缴 / 13800138000', page.text)
 
             exported = client.get('/api/exports/reports/arrears-bills.csv?period=2027-05')
             self.assertEqual(exported.status_code, 200)
             data = exported.json()
             self.assertEqual(data['filename'], 'report-arrears-bills-2027-05.csv')
             content = data['content']
-            self.assertIn('bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,fee_name,amount,paid_amount,unpaid_amount,status', content)
-            self.assertIn('A201店,A201承租人,物业费,300.0,80.0,220.0,partial', content)
+            self.assertIn('bill_number,billing_period,building,unit,room_number,shop_name,tenant_name,owner_name,owner_phone,fee_name,amount,paid_amount,unpaid_amount,status', content)
+            self.assertIn('owner_name,owner_phone', content)
+            self.assertIn('A201店,A201承租人,赵催缴,13800138000,物业费,300.0,80.0,220.0,partial', content)
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', 'idempotency_key']:
                 self.assertNotIn(hidden, content)
 

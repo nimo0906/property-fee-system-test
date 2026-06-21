@@ -26,7 +26,7 @@ def payment_export_rows(items):
 
 
 def arrears_bill_export_rows(items):
-    headers = ['bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'fee_name', 'amount', 'paid_amount', 'unpaid_amount', 'status']
+    headers = ['bill_number', 'billing_period', 'building', 'unit', 'room_number', 'shop_name', 'tenant_name', 'owner_name', 'owner_phone', 'fee_name', 'amount', 'paid_amount', 'unpaid_amount', 'status']
     rows = [item for item in items if float(item.get('unpaid_amount') or 0) > 0]
     rows = sorted(rows, key=lambda item: float(item.get('unpaid_amount') or 0), reverse=True)
     return headers, [{key: item.get(key, '') for key in headers} for item in rows]
