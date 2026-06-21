@@ -37,6 +37,13 @@ def _report_check_panel():
     return '''<section class="card" style="margin-bottom:18px"><div class="card-h">报表检查</div><div class="card-b"><div class="actions"><span class="badge">应收</span><span class="badge">实收</span><span class="badge">欠费</span><span class="badge">收缴率</span><span class="badge">欠费率</span><span class="badge">欠费明细</span><a class="ghost-link" href="/api/exports/reports/projects.csv">导出项目汇总</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv">导出欠费明细</a></div><div class="hint">用于核对应收金额、实收金额和欠费金额，并按项目、楼栋、收费项目、对象分类汇总。</div></div></section>'''
 
 
+def _arrears_workflow_panel(period):
+    query = urlencode({'period': period}) if period else ''
+    suffix = f'?{query}' if query else ''
+    unpaid_query = urlencode({'period': period, 'status': 'unpaid'}) if period else 'status=unpaid'
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">欠费追踪流程</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/reports{suffix}"><strong>查看欠费明细</strong><span>按欠费金额排序，先处理金额较大的账单</span></a><a class="work-card" href="/backoffice/bills?{unpaid_query}"><strong>定位账单</strong><span>跳到账单查询，核对账期、对象和欠费金额</span></a><a class="work-card" href="/backoffice/payments{suffix}"><strong>登记收款</strong><span>收费后回到收款工作台登记本次收款</span></a><a class="work-card" href="/api/exports/reports/arrears-bills.csv{suffix}"><strong>导出催缴清单</strong><span>导出欠费明细给收费员催缴核对</span></a><a class="work-card" href="/backoffice/reports{suffix}"><strong>复核收缴率</strong><span>收款后复核应收、实收、欠费和收缴率</span></a></div></div></section>'''
+
+
 def _summary_card(summary, breakdown=None):
     due = float(summary.get('bill_amount_total') or 0)
     paid = float(summary.get('payment_amount_total') or 0)
@@ -115,6 +122,7 @@ def _render_report(user, period, summary, breakdown=None, arrears_bills=None, pr
 <section class="hero"><div><h1>报表工作台</h1><div class="sub">对账报表：按账期汇总当前租户和项目的应收、实收、欠费，按项目、楼栋 / 区域、收费项目和对象分类汇总并导出。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {render_business_closure('reports')}
 {_report_check_panel()}
+{_arrears_workflow_panel(period)}
 {_filter_card(user, period)}
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
 {_project_summary_table(project_summary or [])}

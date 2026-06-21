@@ -105,6 +105,33 @@ class TestSaasReportPages(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
                 self.assertNotIn(hidden, page.text)
 
+
+    def test_report_page_shows_arrears_tracking_workflow(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            self._seed_paid_bill(client, period='2027-06', payment_amount=80)
+
+            page = client.get('/backoffice/reports?period=2027-06')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '欠费追踪流程',
+                '查看欠费明细',
+                '定位账单',
+                '登记收款',
+                '导出催缴清单',
+                '复核收缴率',
+                '/backoffice/bills?period=2027-06&status=unpaid',
+                '/backoffice/payments?period=2027-06',
+                '/api/exports/reports/arrears-bills.csv?period=2027-06',
+                '欠费账单明细',
+                '120.0',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_executive_can_view_report_readonly(self):
         client = self._client('executive')
         page = client.get('/backoffice/reports?period=2026-09')
