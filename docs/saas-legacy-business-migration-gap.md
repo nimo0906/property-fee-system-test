@@ -76,3 +76,24 @@ SaaS 导入预览已兼容原桌面版 rooms/owners 常见字段：owner_name、
 ## 10. P0-2 计费规则已开始落地
 
 SaaS 收费项目已支持 billing_mode：area 表示按面积 × 单价，fixed 表示每个房间/铺位按固定金额出账。这一步开始对齐原桌面版收费项目、计费规则和固定金额类收费；后续继续补周期、单价覆盖、商业规则和批量出账。
+
+## 11. 本地端到云端的直接移植对照表
+
+本地端不是重新做一套，而是按模块移植到云端：先确认本地端已有能力，再把可复用业务规则抽出或复用，最后由 SaaS 页面、API、仓储层加上多租户隔离和项目边界。下面这张表用于后续开发检查，避免凭空重做，也避免把本地 SQLite 桌面版破坏掉。
+
+| 本地端已有能力 | 本地模块 | 云端承接模块 | 移植状态 | 下一步动作 |
+| --- | --- | --- | --- | --- |
+| 业主、房间、收费对象 | rooms.py / owners.py | saas_charge_target_pages.py / saas_owner_pages.py | 已开始移植 | 继续核对桌面字段、导入模板和业主绑定关系 |
+| 收费项目和计费规则 | fees.py / billing_engine.py | saas_fee_type_pages.py / saas_fee_rules.py | 已开始移植 | 继续对齐周期、独立单价、公摊和商业收费规则 |
+| 批量出账 | billing_engine.py / bill_generation.py | saas_batch_billing.py / saas_bill_pages.py | 已开始移植 | 继续按项目、楼栋、分类、防重复出账核对桌面口径 |
+| 自动出账 | auto_billing.py | saas_bill_pages.py / saas_batch_billing.py | 未完整移植 | 后续增加计划出账、执行记录和失败重试 |
+| 收款和欠费联动 | payments.py / payment_ledger.py | saas_payment_pages.py | 已开始移植 | 继续核对部分收款、幂等、防重复和流水明细 |
+| 收据和打印 | bill_receipt.py / bill_print.py | saas_payment_pages.py | 已开始移植 | 继续对齐正式打印样式、导出字段和浏览器打印 |
+| 报表和导出 | reports.py / reports_exports.py | saas_report_pages.py | 已开始移植 | 继续核对应收、实收、欠费、分类汇总和经营报表 |
+| 导入模板和预览 | import_templates.py | saas_import_pages.py | 已开始移植 | 继续补完整桌面模板、错误行下载和确认导入记录 |
+| 水电表抄表 | meter.py | 待新增 SaaS 抄表模块 | 未移植 | 明确读数、倍率、损耗和水电账单生成口径 |
+| 停车费 | parking.py | 待新增 SaaS 停车模块 | 未移植 | 明确车位、车辆、周期收费和欠费查询口径 |
+| 商户合同和变更 | merchant_contracts.py / contract_amendments.py | 待新增 SaaS 合同模块 | 未移植 | 明确合同期、租金、物业费、变更后金额口径 |
+| 发票 | invoices.py | 待新增 SaaS 发票模块 | 未移植 | 先记录开票申请和状态，电子票据平台后置 |
+
+这张表是后续开发顺序的依据：优先移植本地端已经成熟的收费核心；只有当本地端没有对应能力，才按 SaaS 新模块设计。每次迁移都必须补租户隔离、金额、账期、数量和导入/导出测试。

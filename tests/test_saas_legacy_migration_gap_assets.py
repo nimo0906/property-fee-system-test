@@ -77,3 +77,28 @@ def test_backoffice_and_release_gate_link_legacy_gap_check():
         text = path.read_text(encoding="utf-8")
         assert "scripts/saas_legacy_gap_check.py" in text
         assert "saas-legacy-business-migration-gap.md" in text or path.name == "saas_release_gate.py"
+
+
+def test_legacy_gap_doc_explains_direct_migration_map_not_rebuild():
+    text = DOC.read_text(encoding='utf-8')
+    for term in [
+        '本地端不是重新做一套，而是按模块移植到云端',
+        '本地端已有能力',
+        '本地模块',
+        '云端承接模块',
+        '移植状态',
+        '下一步动作',
+        'rooms.py / owners.py',
+        'saas_charge_target_pages.py / saas_owner_pages.py',
+        'billing_engine.py / bill_generation.py',
+        'saas_batch_billing.py / saas_bill_pages.py',
+        'payments.py / payment_ledger.py',
+        'saas_payment_pages.py',
+        'reports.py / reports_exports.py',
+        'saas_report_pages.py',
+        'import_templates.py',
+        'saas_import_pages.py',
+    ]:
+        assert term in text
+    for hidden in ['tenant_id=', 'project_id=', 'POSTGRES_PASSWORD=', 'APP_SECRET_KEY=', '/Users/nimo', '.env']:
+        assert hidden not in text
