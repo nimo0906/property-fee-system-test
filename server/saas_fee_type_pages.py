@@ -20,10 +20,11 @@ def _render_fee_types(user, items, message='', filters=None, page=1, page_size=2
     pager = _pager(filters, page, page_size, total)
     template_panel = _template_init_panel(user, template or {}, recommended or [])
     body = f'''
-<section class="hero"><div><h1>收费项目管理</h1><div class="sub">计费规则配置：配置物业费、水费、停车费等项目，明确面积计费、固定金额、独立单价覆盖、服务期起止和周期规则。所有价格规则按当前租户和项目隔离保存。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>规则配置工作台</h1><div class="sub">收费项目管理 / 计费规则配置：配置物业费、水费、停车费等项目，明确面积计费、固定金额、独立单价覆盖、服务期起止和周期规则。所有价格规则按当前租户和项目隔离保存。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
 {_rule_summary(items)}
 {_rule_check_panel()}
+{_rule_workflow_panel()}
 {render_business_closure('fee_types')}
 {template_panel}
 {_filter_form(filters, page_size)}
@@ -45,11 +46,15 @@ def _rule_summary(items):
 
 
 def _summary_metric(label, value):
-    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(value)}</strong></div>'
+    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(str(value))}</strong></div>'
 
 
 def _rule_check_panel():
     return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则检查</div><div class="card-b"><div class="actions"><span class="badge">面积 × 单价</span><span class="badge">每户固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">服务期起止</span><span class="badge">周期规则</span><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a><a class="ghost-link" href="/backoffice/charge-targets">维护收费对象</a></div><div class="hint">面积计费会按收费对象面积计算；固定金额直接按每户/每铺金额出账；收费对象上的独立单价优先覆盖本页基础单价；服务期和缴费周期在出账时确认。</div></div></section>'''
+
+
+def _rule_workflow_panel():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则配置流程</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/fee-types"><strong>配置面积计费</strong><span>适合物业费等按面积 × 单价计费项目</span></a><a class="work-card" href="/backoffice/fee-types"><strong>配置固定金额</strong><span>适合停车费、固定服务费等每户固定金额</span></a><a class="work-card" href="/backoffice/charge-targets"><strong>核对独立单价</strong><span>商户或特殊房间可用独立单价覆盖基础单价</span></a><a class="work-card" href="/backoffice/bills"><strong>批量出账验证</strong><span>按账期、服务期和对象范围预览金额</span></a><a class="work-card" href="/backoffice/reports"><strong>查看收费结果</strong><span>核对应收、实收、欠费和收缴率</span></a></div></div></section>'''
 
 
 def _template_init_panel(user, template, recommended):

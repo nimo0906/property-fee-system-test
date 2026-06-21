@@ -89,6 +89,31 @@ class TestSaasFeeTypePages(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
                 self.assertNotIn(hidden, page.text)
 
+
+    def test_fee_type_page_shows_rule_workflow_and_zero_metrics(self):
+        client = self._client('finance')
+
+        page = client.get('/backoffice/fee-types')
+
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '规则配置工作台',
+            '规则配置流程',
+            '配置面积计费',
+            '配置固定金额',
+            '核对独立单价',
+            '批量出账验证',
+            '查看收费结果',
+            '/backoffice/charge-targets',
+            '/backoffice/bills',
+            '/backoffice/reports',
+            '<strong>0</strong>',
+            '共 0 个收费项目',
+        ]:
+            self.assertIn(text, page.text)
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            self.assertNotIn(hidden, page.text)
+
     def test_cashier_can_view_but_cannot_create_fee_type(self):
         client = self._client('cashier')
         page = client.get('/backoffice/fee-types')
