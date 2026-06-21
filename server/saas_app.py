@@ -18,6 +18,7 @@ from server.saas_owner_api import register_owner_routes
 from server.saas_isolation_self_check import register_isolation_self_check_api
 from server.saas_audit_api import register_audit_api
 from server.saas_backup_api import register_backup_api
+from server.saas_fee_type_import import register_fee_type_import_routes
 from server.saas_license_enforcement import LicenseRequired, require_license_or_audit
 from server.saas_license_seats import LicenseSeatsExceeded, require_seat_available
 from server.saas_api_models import FeeIn, ImportConfirmIn, ImportFileRegisterIn, ImportPreviewIn, PasswordResetIn, RestoreDrillIn, TargetIn, UserActiveIn, UserCreateIn
@@ -49,6 +50,7 @@ def create_app(database_url=None, acceptance_store=None):
     register_isolation_self_check_api(app, service, repository, current_user)
     register_audit_api(app, service, repository)
     register_backup_api(app, service, repository)
+    register_fee_type_import_routes(app, service, repository, current_user)
 
     @app.get("/health")
     def health():
