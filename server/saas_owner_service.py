@@ -46,6 +46,31 @@ def attach_owner_methods(cls):
         self._log(user, project_id, 'charge_target.create', 'charge_target', tid, {'building': building, 'room_number': room_number})
         return target
 
+
+    def batch_update_charge_targets(self, user, project_id, filters, updates):
+        self._require(user, "write")
+        if not self._same_tenant_project(user, project_id):
+            raise PermissionDenied("cross tenant project")
+        changes = {key: value for key, value in (updates or {}).items() if key in {"category", "payment_cycle", "unit_price_override"}}
+        if not changes:
+            return 0
+        count = 0
+        for target in self.targets.values():
+            if target["tenant_id"] != user["tenant_id"] or target["project_id"] != project_id:
+                continue
+            if filters.get("building") and filters["building"].lower() not in str(target.get("building", "")).lower():
+                continue
+            if filters.get("unit") and filters["unit"].lower() not in str(target.get("unit", "")).lower():
+                continue
+            if filters.get("room_number") and filters["room_number"].lower() not in str(target.get("room_number", "")).lower():
+                continue
+            if filters.get("category") and target.get("category") != filters["category"]:
+                continue
+            target.update(changes)
+            count += 1
+        self._log(user, project_id, "charge_target.batch_update", "charge_target", 0, {"count": count, "filters": filters, "updates": changes})
+        return count
+
     def list_charge_targets(self, user, project_id):
         self._require(user, "read")
         if not self._same_tenant_project(user, project_id):
@@ -55,4 +80,5 @@ def attach_owner_methods(cls):
     cls.create_owner = create_owner
     cls.list_owners = list_owners
     cls.create_charge_target = create_charge_target
+    cls.batch_update_charge_targets = batch_update_charge_targets
     cls.list_charge_targets = list_charge_targets

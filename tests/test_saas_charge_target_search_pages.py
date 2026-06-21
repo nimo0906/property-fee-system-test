@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from server.saas_app import create_app
+from server.saas_repository import create_saas_repository
 
 
 class TestSaasChargeTargetSearchPages(unittest.TestCase):
@@ -85,3 +86,36 @@ class TestSaasChargeTargetSearchPages(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def test_charge_target_page_batch_updates_filtered_targets_only():
+    with tempfile.TemporaryDirectory() as td:
+        db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+        client = TestSaasChargeTargetSearchPages()._client(database_url=db_url)
+        helper = TestSaasChargeTargetSearchPages()
+        helper._create(client, '商场', '一层', 'A101', '商户', '40')
+        helper._create(client, '商场', '一层', 'A102', '商户', '60')
+        helper._create(client, '住宅', '1单元', '101', '居民', '80')
+
+        response = client.post('/backoffice/charge-targets/batch-update', data={
+            'building': '商场', 'unit': '一层', 'category': '商户',
+            'new_category': '办公', 'payment_cycle': '季付', 'unit_price_override': '9.5',
+        }, follow_redirects=False)
+
+        assert response.status_code == 303
+        page = client.get(response.headers['location'])
+        assert '批量更新2个收费对象' in page.text
+        assert 'quarterly' in page.text
+        assert '9.5' in page.text
+        repo = create_saas_repository(db_url)
+        tenant = repo.list_tenants()[0]
+        project = repo.list_projects(tenant['id'])[0]
+        rows = repo.list_charge_targets(tenant['id'], project['id'])
+        changed = [row for row in rows if row['building'] == '商场']
+        untouched = [row for row in rows if row['building'] == '住宅'][0]
+        assert {row['category'] for row in changed} == {'办公'}
+        assert {row['payment_cycle'] for row in changed} == {'quarterly'}
+        assert {row['unit_price_override'] for row in changed} == {9.5}
+        assert untouched['category'] == '居民'
+        assert untouched['payment_cycle'] in ('', None)
+        repo.close()

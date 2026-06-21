@@ -18,6 +18,21 @@ def _target_dict(base, extras):
     return {**base, **{key: extras.get(key) for key in TARGET_EXTRA_FIELDS}}
 
 
+def _filter_clauses(filters):
+    clauses = []
+    params = {}
+    for key in ("building", "unit", "room_number"):
+        value = str((filters or {}).get(key) or "").strip()
+        if value:
+            clauses.append(f"{key} LIKE :{key}_filter")
+            params[f"{key}_filter"] = f"%{value}%"
+    category = str((filters or {}).get("category") or "").strip()
+    if category:
+        clauses.append("category=:category_filter")
+        params["category_filter"] = category
+    return clauses, params
+
+
 def attach_owner_repository_methods(cls):
     def create_owner(self, tenant_id, project_id, name, phone="", owner_type="业主"):
         self._require_project_scope(tenant_id, project_id)
@@ -52,6 +67,23 @@ def attach_owner_repository_methods(cls):
             base = {"id": target_row_id, "tenant_id": tenant_id, "project_id": project_id, "owner_id": owner_id or None, "owner_name": owner.get("name") if owner else "", "owner_phone": owner.get("phone") if owner else "", "building": building, "unit": unit, "room_number": room_number, "category": category, "area": float(area), "unit_price_override": price_override}
             return _target_dict(base, extras)
 
+
+    def batch_update_charge_targets(self, tenant_id, project_id, filters, updates):
+        self._require_project_scope(tenant_id, project_id)
+        allowed = {"category", "payment_cycle", "unit_price_override"}
+        changes = {key: value for key, value in (updates or {}).items() if key in allowed}
+        if not changes:
+            return 0
+        set_parts = [f"{key}=:{key}" for key in changes]
+        clauses, params = _filter_clauses(filters)
+        where = "tenant_id=:tenant_id AND project_id=:project_id"
+        if clauses:
+            where += " AND " + " AND ".join(clauses)
+        with self.engine.begin() as conn:
+            result = conn.execute(text(f"UPDATE charge_targets SET {', '.join(set_parts)} WHERE {where}"),
+                {"tenant_id": tenant_id, "project_id": project_id, **params, **changes})
+            return int(result.rowcount or 0)
+
     def get_charge_target(self, tenant_id, project_id, target_id):
         return self._row("""SELECT ct.id,ct.tenant_id,ct.project_id,ct.owner_id,o.name owner_name,o.phone owner_phone,ct.building,ct.unit,ct.room_number,ct.category,ct.area,ct.unit_price_override,ct.floor,ct.shop_name,ct.tenant_name,ct.tenant_phone,ct.payment_cycle,ct.notes FROM charge_targets ct LEFT JOIN owners o ON ct.owner_id=o.id AND ct.tenant_id=o.tenant_id AND ct.project_id=o.project_id
             WHERE ct.tenant_id=:tenant_id AND ct.project_id=:project_id AND ct.id=:id""", {"tenant_id": tenant_id, "project_id": project_id, "id": target_id})
@@ -66,5 +98,6 @@ def attach_owner_repository_methods(cls):
     cls.get_owner = get_owner
     cls.list_owners = list_owners
     cls.create_charge_target = create_charge_target
+    cls.batch_update_charge_targets = batch_update_charge_targets
     cls.get_charge_target = get_charge_target
     cls.list_charge_targets = list_charge_targets

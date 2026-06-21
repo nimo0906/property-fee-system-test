@@ -4,6 +4,7 @@
 
 import urllib.parse
 
+from server.saas_batch_billing import normalize_payment_cycle
 from server.saas_business_closure import render_business_closure
 from server.saas_service import PermissionDenied
 from server.saas_user_pages import _h, _page
@@ -25,6 +26,7 @@ def _render_targets(user, items, message='', filters=None, page=1, page_size=20,
 {notice}
 {render_business_closure('charge_targets')}
 {_filter_form(filters, page_size)}
+{_batch_update_form(filters) if can_write else ''}
 <section class="grid"><div class="card"><div class="card-h">收费对象列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>楼栋 / 区域</th><th>单元 / 分区</th><th>房号 / 铺位号</th><th>楼层</th><th>业主</th><th>联系电话</th><th>店名</th><th>承租人</th><th>承租电话</th><th>类型</th><th>面积</th><th>独立单价</th><th>缴费周期</th><th>备注</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
 <aside class="card"><div class="card-h">新增收费对象</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收费对象管理', body)
@@ -47,6 +49,14 @@ def _filter_form(filters, page_size):
         for n in [10, 20, 50]
     )
     return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">筛选收费对象</div><div class="card-b"><form method="get" action="/backoffice/charge-targets" class="filters"><input type="hidden" name="page" value="1"><div><label>楼栋 / 区域</label><input name="building" value="{_h(filters.get('building'))}" placeholder="楼栋或区域关键词"></div><div><label>单元 / 分区</label><input name="unit" value="{_h(filters.get('unit'))}" placeholder="单元或分区关键词"></div><div><label>房号 / 铺位号</label><input name="room_number" value="{_h(filters.get('room_number'))}" placeholder="房号关键词"></div><div><label>类型</label><select name="category">{options}</select></div><div><label>每页数量</label><select name="page_size">{page_size_options}</select></div><div><button class="primary">筛选</button></div></form></div></section>'''
+
+
+def _batch_update_form(filters):
+    hidden = ''.join(
+        f'<input type="hidden" name="{_h(key)}" value="{_h(filters.get(key, ""))}">'
+        for key in FILTER_KEYS
+    )
+    return f'''<section class="card" style="margin-bottom:18px"><div class="card-h">批量维护收费对象</div><div class="card-b"><form method="post" action="/backoffice/charge-targets/batch-update" class="filters">{hidden}<div><label>新类型</label><input name="new_category" placeholder="为空不修改"></div><div><label>缴费周期</label><input name="payment_cycle" placeholder="月付 / 季付 / yearly，空不修改"></div><div><label>独立单价</label><input name="unit_price_override" type="number" step="0.01" min="0" placeholder="为空不修改"></div><div><button class="primary">批量更新收费对象</button></div></form><div class="hint">按当前筛选条件批量更新；为空的更新字段不会修改。</div></div></section>'''
 
 
 def _create_form(owners):
@@ -135,6 +145,36 @@ def register_charge_target_pages(app, service, repository, current_user):
             return RedirectResponse('/backoffice/charge-targets?message=业主已新增', status_code=303)
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.post('/backoffice/charge-targets/batch-update')
+    def batch_update_charge_targets_page(building: str = Form(''), unit: str = Form(''), room_number: str = Form(''), category: str = Form(''), new_category: str = Form(''), payment_cycle: str = Form(''), unit_price_override: str = Form(''), user=Depends(current_user)):
+        try:
+            service._require(user, 'write')
+            filters, _, page_size = _normalize_filters(building, unit, room_number, category, 1, 20)
+            updates = {}
+            if str(new_category or '').strip():
+                updates['category'] = str(new_category).strip()
+            if str(payment_cycle or '').strip():
+                updates['payment_cycle'] = normalize_payment_cycle(payment_cycle)
+            if str(unit_price_override or '').strip():
+                updates['unit_price_override'] = float(unit_price_override)
+            if not updates:
+                raise HTTPException(status_code=400, detail='no update fields')
+            if repository:
+                count = repository.batch_update_charge_targets(user['tenant_id'], user['project_id'], filters, updates)
+                service._log(user, user['project_id'], 'charge_target.batch_update', 'charge_target', 0, {'count': count, 'filters': filters, 'updates': updates})
+            else:
+                count = service.batch_update_charge_targets(user, user['project_id'], filters, updates)
+            redirect_filters = dict(filters)
+            if 'category' in updates:
+                redirect_filters['category'] = updates['category']
+            query = _query(redirect_filters, 1, page_size)
+            message = urllib.parse.quote(f'批量更新{count}个收费对象')
+            return RedirectResponse(f'/backoffice/charge-targets?{query}&message={message}', status_code=303)
+        except PermissionDenied:
+            raise HTTPException(status_code=403, detail='forbidden')
+        except ValueError:
+            raise HTTPException(status_code=400, detail='invalid unit_price_override')
 
     @app.post('/backoffice/charge-targets/create')
     def create_charge_target_page(building: str = Form(...), unit: str = Form(''), room_number: str = Form(...), category: str = Form('居民'), area: float = Form(...), owner_id: int = Form(0), unit_price_override: str = Form(''), floor: str = Form(''), shop_name: str = Form(''), tenant_name: str = Form(''), tenant_phone: str = Form(''), payment_cycle: str = Form(''), notes: str = Form(''), user=Depends(current_user)):
