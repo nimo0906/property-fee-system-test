@@ -32,6 +32,15 @@ def bill_key(tenant_id, project_id, period, target_id, fee_type_id):
     return f"SaaS-{tenant_id}-{project_id}-{period}-{target_id}-{fee_type_id}"
 
 
+def normalize_payment_cycle(payment_cycle):
+    value = str(payment_cycle or '').strip()
+    lowered = value.lower()
+    for canonical in ['monthly', 'quarterly', 'semiannual', 'yearly']:
+        if CYCLE_MONTHS.get(lowered) == CYCLE_MONTHS[canonical]:
+            return canonical
+    return '' if not value else value
+
+
 def service_end_for_cycle(service_start, payment_cycle):
     months = CYCLE_MONTHS.get(str(payment_cycle or '').strip().lower(), 1)
     start = date.fromisoformat(str(service_start)[:10])

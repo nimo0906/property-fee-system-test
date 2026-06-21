@@ -143,3 +143,16 @@ def test_api_and_page_accept_room_like_charge_target_fields():
     listed = client.get('/backoffice/charge-targets')
     assert '云端书店' in listed.text
     assert '钱承租' in listed.text
+
+def test_charge_target_page_mentions_chinese_payment_cycle_aliases():
+    client = TestClient(create_app())
+    client.post('/api/auth/login', json={
+        'tenant_name': '周期提示物业', 'project_name': '周期提示项目', 'username': 'finance', 'role_code': 'finance'
+    })
+
+    page = client.get('/backoffice/charge-targets')
+
+    assert page.status_code == 200
+    for text in ['月付', '季付', '半年付', '年付']:
+        assert text in page.text
+

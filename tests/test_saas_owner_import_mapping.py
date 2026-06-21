@@ -72,7 +72,7 @@ def test_import_maps_room_like_fields_and_keeps_preview_side_effect_free():
     preview = service.preview_charge_target_import(user, project, [{
         '楼栋/区域': '商场', '单元/分区': '一层', '房号/铺位号': 'A-108', '类型': '商户', '面积': '33.5',
         '楼层': '1', '店名': '导入花店', '承租人': '孙承租', '承租人电话': '13300000000',
-        '缴费周期': 'monthly', '备注': '导入备注', '独立单价': '9.5', '业主姓名': '孙业主',
+        '缴费周期': '季付', '备注': '导入备注', '独立单价': '9.5', '业主姓名': '孙业主',
     }])
 
     assert preview['valid_count'] == 1
@@ -83,13 +83,14 @@ def test_import_maps_room_like_fields_and_keeps_preview_side_effect_free():
     assert row['shop_name'] == '导入花店'
     assert row['tenant_name'] == '孙承租'
     assert row['tenant_phone'] == '13300000000'
-    assert row['payment_cycle'] == 'monthly'
+    assert row['payment_cycle'] == 'quarterly'
     assert row['notes'] == '导入备注'
 
     result = service.confirm_charge_target_import(user, project, preview['import_id'])
     assert result['created_count'] == 1
     target = service.list_charge_targets(user, project)[0]
     assert target['shop_name'] == '导入花店'
+    assert target['payment_cycle'] == 'quarterly'
     assert target['notes'] == '导入备注'
 
 

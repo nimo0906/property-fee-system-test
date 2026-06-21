@@ -4,6 +4,7 @@
 
 from server.saas_service import PermissionDenied
 from server.saas_import_duplicates import split_new_and_duplicates
+from server.saas_batch_billing import normalize_payment_cycle
 
 FIELD_ALIASES = {
     "building": ("building", "楼栋/区域", "楼栋", "区域"),
@@ -48,7 +49,7 @@ def normalize_import_row(row):
         "shop_name": _pick(row, "shop_name"),
         "tenant_name": _pick(row, "tenant_name"),
         "tenant_phone": _pick(row, "tenant_phone"),
-        "payment_cycle": _pick(row, "payment_cycle"),
+        "payment_cycle": normalize_payment_cycle(_pick(row, "payment_cycle")),
         "notes": _pick(row, "notes"),
     }
 
