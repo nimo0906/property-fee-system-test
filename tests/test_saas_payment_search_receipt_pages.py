@@ -153,6 +153,32 @@ class TestSaasPaymentSearchReceiptPages(unittest.TestCase):
                 self.assertNotIn(hidden, receipt.text)
 
 
+    def test_backoffice_payment_create_message_shows_receipt_number(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='收款回执物业', project_name='收款回执项目')
+            bill = self._create_paid_bill(client, '601', '2027-03', 100, 'cash', 'PAYMENT-CREATE-RECEIPT-SETUP')
+
+            target = client.post('/api/charge-targets', json={
+                'building': '6栋', 'unit': '1单元', 'room_number': '602', 'category': '居民', 'area': 80,
+            }).json()['item']
+            fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1}).json()['item']
+            new_bill = client.post('/api/bills/generate', json={
+                'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-03',
+                'service_start': '2027-03-01', 'service_end': '2027-03-31',
+            }).json()['item']
+            client.post(f"/api/bills/{new_bill['id']}/approve", json={})
+
+            response = client.post('/backoffice/payments/create', data={
+                'bill_id': str(new_bill['id']), 'amount': '80', 'method': 'transfer', 'idempotency_key': 'PAYMENT-CREATE-RECEIPT-1',
+            }, follow_redirects=False)
+            self.assertEqual(response.status_code, 303)
+            page = client.get(response.headers['location'])
+
+            self.assertEqual(page.status_code, 200)
+            self.assertIn('收款已登记', page.text)
+            self.assertIn('收据号 RCPT-', page.text)
+
     def test_payment_list_shows_balance_after_each_partial_payment(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """HTML payment recording, search, receipt pages for SaaS backoffice."""
 
-from urllib.parse import urlencode, quote
+from urllib.parse import urlencode
 
 from server.saas_csv_export import csv_content
 
@@ -218,11 +218,13 @@ def register_payment_pages(app, service, repository, current_user):
         try:
             service._require(user, 'payment')
             if repository:
-                repository.create_payment(user['tenant_id'], user['project_id'], bill_id, amount, method, idempotency_key or None, actor_user_id=user['id'])
+                payment = repository.create_payment(user['tenant_id'], user['project_id'], bill_id, amount, method, idempotency_key or None, actor_user_id=user['id'])
             else:
-                service.record_payment(user, bill_id, amount, method, idempotency_key or None)
-            suffix = f'&target_id={quote(str(target_id))}' if str(target_id or '').strip() else ''
-            return RedirectResponse('/backoffice/payments?message=收款已登记' + suffix, status_code=303)
+                payment = service.record_payment(user, bill_id, amount, method, idempotency_key or None)
+            params = {'message': f"收款已登记，收据号 {payment.get('receipt_number', '')}"}
+            if str(target_id or '').strip():
+                params['target_id'] = str(target_id)
+            return RedirectResponse('/backoffice/payments?' + urlencode(params), status_code=303)
         except TenantScopeError:
             raise HTTPException(status_code=403, detail='forbidden')
         except PermissionDenied as exc:
