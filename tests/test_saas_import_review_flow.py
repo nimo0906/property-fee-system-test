@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from fastapi.testclient import TestClient
@@ -92,3 +93,40 @@ class TestSaasFastApiImportReviewFlow(unittest.TestCase):
         })
         self.assertEqual(client_b.get(f"/api/imports/{preview.json()['import_id']}/review").status_code, 403)
         self.assertEqual(client_b.post('/api/imports/charge-targets/confirm', json={'import_id': preview.json()['import_id']}).status_code, 403)
+
+
+class TestSaasImportResultSummaryPage(unittest.TestCase):
+    def test_backoffice_confirm_result_splits_error_duplicate_and_success_counts_with_error_download(self):
+        client = TestClient(create_app())
+        client.post('/api/auth/login', json={
+            'tenant_name': '导入结果物业', 'project_name': '导入结果项目', 'username': 'finance', 'role_code': 'finance'
+        })
+        existing = client.post('/api/charge-targets', json={
+            'building': '1栋', 'unit': '1单元', 'room_number': '101', 'category': '居民', 'area': 80,
+        })
+        self.assertEqual(existing.status_code, 200)
+        csv_text = '\n'.join([
+            'building,unit,room_number,category,area,owner_name',
+            '1栋,1单元,101,居民,80,重复业主',
+            '1栋,1单元,102,居民,90,新业主',
+            '1栋,1单元,,居民,70,错误业主',
+        ])
+        preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+        self.assertEqual(preview.status_code, 200)
+        self.assertIn('有效 2 行，错误 1 行', preview.text)
+        self.assertIn('/api/imports/', preview.text)
+        self.assertIn('/errors.csv', preview.text)
+
+        import_id = re.search(r'name="import_id" value="(\d+)"', preview.text).group(1)
+        result = client.post('/backoffice/imports/charge-targets/confirm', data={'import_id': import_id})
+
+        self.assertEqual(result.status_code, 200)
+        for text in [
+            '导入结果', '预览有效：2', '预览错误：1', '成功导入：1', '错误跳过：1',
+            '重复跳过：1', '总跳过：2', '自动创建业主：1', '下载错误行 CSV', f'/api/imports/{import_id}/errors.csv',
+        ]:
+            self.assertIn(text, result.text)
+        targets = client.get('/api/charge-targets').json()['items']
+        self.assertEqual([item['room_number'] for item in targets], ['101', '102'])
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            self.assertNotIn(hidden, result.text)

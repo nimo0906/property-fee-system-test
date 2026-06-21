@@ -15,6 +15,7 @@ from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
 from server.saas_excel_import import excel_preview_form, register_excel_import_routes
+from server.saas_import_result_pages import render_confirm_result
 
 STORAGE = SaasStorage(root_dir='/var/lib/property-saas')
 TEMPLATE_CSV = template_csv('residential')
@@ -151,23 +152,6 @@ def _render_preview(user, review, duplicates=None):
     return _page('导入预览', body)
 
 
-def _render_confirm_result(user, import_id, result, already_confirmed=False):
-    note = '<p class="sub">该批次已确认过，本次不会重复写入。</p>' if already_confirmed else '<p class="sub">只写入有效行；错误行未污染正式数据。</p>'
-    owner_created = str(result.get("owner_created_count", 0))
-    body = (f'<section class="hero"><div><h1>导入结果</h1>'
-            f'<div class="sub">导入批次摘要：确认导入后请核对成功和跳过数量，再进入收费对象列表检查。</div></div>'
-            f'<div class="badge tenant-scope">{_h(user.get("tenant_name"))} · {_h(user.get("project_name"))}</div></section>'
-            f'<section class="card"><div class="card-h">导入批次摘要</div><div class="card-b">'
-            f'<p><strong>批次 ID：{_h(import_id)}</strong></p>'
-            f'<p>成功导入：{str(result.get("created_count", 0))}</p>'
-            f'<p>自动创建业主：{owner_created}</p>'
-            f'<p>跳过错误：{str(result.get("skipped_count", 0))}</p>'
-            f'<p>重复跳过：{str(result.get("duplicate_skipped_count", 0))}</p>{note}'
-            f'<div class="actions"><a class="ghost-link" href="/backoffice/charge-targets">查看收费对象</a>'
-            f'<a class="ghost-link" href="/backoffice/imports">继续导入</a></div></div></section>')
-    return _page('导入结果', body)
-
-
 def _valid_headers():
     return [
         ('owner_name', '业主'), ('owner_phone', '联系电话'), ('owner_type', '业主类型'), ('building', '楼栋/区域'),
@@ -288,13 +272,14 @@ def register_import_pages(app, service, repository, current_user):
                     service.imports[import_id]['confirmed'] = True
                     service.imports[import_id]['owner_created_count'] = owner_created
                     skipped_total = review['error_count'] + duplicate_skipped
-                    detail = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created}
+                    detail = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created, 'error_skipped_count': review['error_count'], 'valid_count': review['valid_count'], 'error_count': review['error_count']}
                     repository.create_audit_log(user['tenant_id'], user['project_id'], user['id'], 'import.confirm', 'import', import_id, detail)
-                    result = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created}
+                    result = {'created_count': created, 'skipped_count': skipped_total, 'duplicate_skipped_count': duplicate_skipped, 'owner_created_count': owner_created, 'error_skipped_count': review['error_count'], 'valid_count': review['valid_count'], 'error_count': review['error_count']}
             else:
                 before = service.get_import_review(user, user['project_id'], import_id)
                 already_confirmed = bool(before['confirmed'])
                 result = service.confirm_charge_target_import(user, user['project_id'], import_id)
-            return HTMLResponse(_render_confirm_result(user, import_id, result, already_confirmed))
+            review_for_result = service.get_import_review(user, user['project_id'], import_id)
+            return HTMLResponse(render_confirm_result(user, import_id, result, already_confirmed, review_for_result))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
