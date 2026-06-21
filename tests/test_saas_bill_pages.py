@@ -108,6 +108,30 @@ class TestSaasBillPages(unittest.TestCase):
             for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
                 self.assertNotIn(hidden, page.text)
 
+
+    def test_bill_page_shows_bill_query_and_arrears_tracking_flow(self):
+        client = self._client('finance')
+
+        page = client.get('/backoffice/bills')
+
+        self.assertEqual(page.status_code, 200)
+        for text in [
+            '账单查询流程',
+            '生成/预览账单',
+            '审核应收账单',
+            '查询未收欠费',
+            '进入收款登记',
+            '核对欠费报表',
+            '/backoffice/bills?status=pending_review',
+            '/backoffice/bills?status=unpaid',
+            '/backoffice/payments',
+            '/backoffice/reports',
+            '共 0 张账单',
+        ]:
+            self.assertIn(text, page.text)
+        for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+            self.assertNotIn(hidden, page.text)
+
     def test_cashier_can_view_but_cannot_generate_bill(self):
         client = self._client('cashier')
         page = client.get('/backoffice/bills')
