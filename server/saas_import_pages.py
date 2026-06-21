@@ -10,6 +10,7 @@ from server.saas_business_templates import CHARGE_TARGET_TEMPLATE_HEADERS, rende
 from server.saas_import_mapping import normalize_import_row
 from server.saas_tenant_business_config import template_code_for_user
 from server.saas_import_duplicates import split_new_and_duplicates
+from server.saas_import_duplicate_preview import duplicate_preview_rows, existing_charge_targets, render_duplicate_preview_card
 from server.saas_service import PermissionDenied
 from server.saas_storage import SaasStorage
 from server.saas_user_pages import _h, _page
@@ -137,11 +138,12 @@ def _error_csv(review):
     return output.getvalue()
 
 
-def _render_preview(user, review):
+def _render_preview(user, review, duplicates=None):
     valid_rows = ''.join(_valid_row(row) for row in review['valid_rows']) or f'<tr><td colspan="{len(_valid_headers())}">暂无有效行</td></tr>'
     error_rows = ''.join(f'<tr><td>{_h(err.get("row"))}</td><td>{_h((err.get("error") or "").replace("不能为空", "必填"))}</td></tr>' for err in review['errors']) or '<tr><td colspan="2">暂无错误</td></tr>'
     body = f'''
 <section class="hero"><div><h1>导入预览</h1><div class="sub">有效 {review['valid_count']} 行，错误 {review['error_count']} 行。确认导入只会写入有效行。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+{render_duplicate_preview_card(duplicates or [])}
 <section class="grid"><div class="card"><div class="card-h">有效行</div><div class="card-b"><table><thead><tr>{_valid_header_cells()}</tr></thead><tbody>{valid_rows}</tbody></table><form method="post" action="/backoffice/imports/charge-targets/confirm"><input type="hidden" name="import_id" value="{_h(review['import_id'])}"><button class="primary">确认导入</button></form></div></div>
 <aside class="card"><div class="card-h">错误行</div><div class="card-b">{_error_download_link(review)}<table><thead><tr><th>行号</th><th>错误</th></tr></thead><tbody>{error_rows}</tbody></table></div></aside></section>'''
     return _page('导入预览', body)
@@ -252,7 +254,8 @@ def register_import_pages(app, service, repository, current_user):
             rows = _parse_csv_rows(csv_text)
             preview = service.preview_charge_target_import(user, user['project_id'], rows)
             review = service.get_import_review(user, user['project_id'], preview['import_id'])
-            return HTMLResponse(_render_preview(user, review))
+            duplicates = duplicate_preview_rows(review['valid_rows'], existing_charge_targets(service, repository, user))
+            return HTMLResponse(_render_preview(user, review, duplicates))
         except PermissionDenied:
             raise HTTPException(status_code=403, detail='forbidden')
 

@@ -65,3 +65,18 @@ def test_backoffice_confirm_import_reports_duplicate_skip_count():
     assert '成功导入：1' in confirm.text
     assert '重复跳过：1' in confirm.text
     assert len(client.get('/api/charge-targets').json()['items']) == 2
+
+
+def test_backoffice_preview_marks_existing_charge_target_duplicates_before_confirm():
+    client = TestClient(create_app())
+    client.post('/api/auth/login', json={'tenant_name': '预览重复物业', 'project_name': '预览重复项目', 'username': 'finance', 'role_code': 'finance'})
+    client.post('/api/charge-targets', json={'building': '1栋', 'unit': '1单元', 'room_number': '101', 'category': '居民', 'area': 80})
+    csv_text = 'building,unit,room_number,category,area\n1栋,1单元,101,居民,80\n1栋,1单元,102,居民,70\n'
+
+    preview = client.post('/backoffice/imports/charge-targets/preview', data={'csv_text': csv_text})
+
+    assert preview.status_code == 200
+    assert '重复 1 行' in preview.text
+    assert '已存在收费对象' in preview.text
+    assert '1栋 1单元 101' in preview.text
+    assert len(client.get('/api/charge-targets').json()['items']) == 1
