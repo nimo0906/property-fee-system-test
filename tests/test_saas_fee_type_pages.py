@@ -48,6 +48,47 @@ class TestSaasFeeTypePages(unittest.TestCase):
             self.assertEqual(items[0]['unit_price'], 2.5)
             repo.close()
 
+    def test_fee_type_page_looks_like_billing_rule_console(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client('finance', database_url=db_url)
+            client.post('/backoffice/fee-types/create', data={
+                'name': '物业费',
+                'unit_price': '2.50',
+                'billing_mode': 'area',
+            })
+            client.post('/backoffice/fee-types/create', data={
+                'name': '停车费',
+                'unit_price': '120',
+                'billing_mode': 'fixed',
+            })
+
+            page = client.get('/backoffice/fee-types')
+
+            self.assertEqual(page.status_code, 200)
+            for text in [
+                '计费规则配置',
+                '规则总数',
+                '面积计费',
+                '固定金额',
+                '规则检查',
+                '面积 × 单价',
+                '每户固定金额',
+                '独立单价覆盖',
+                '服务期起止',
+                '周期规则',
+                '下一步：批量出账',
+                '收费项目规则列表',
+                '新增计费规则',
+                '物业费',
+                '停车费',
+                '¥2.50',
+                '¥120.00',
+            ]:
+                self.assertIn(text, page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
+                self.assertNotIn(hidden, page.text)
+
     def test_cashier_can_view_but_cannot_create_fee_type(self):
         client = self._client('cashier')
         page = client.get('/backoffice/fee-types')

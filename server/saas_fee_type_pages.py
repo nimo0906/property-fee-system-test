@@ -20,14 +20,36 @@ def _render_fee_types(user, items, message='', filters=None, page=1, page_size=2
     pager = _pager(filters, page, page_size, total)
     template_panel = _template_init_panel(user, template or {}, recommended or [])
     body = f'''
-<section class="hero"><div><h1>收费项目管理</h1><div class="sub">配置物业费、水费、停车费等通用收费项目和单价。所有价格规则按当前租户和项目隔离保存。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
+<section class="hero"><div><h1>收费项目管理</h1><div class="sub">计费规则配置：配置物业费、水费、停车费等项目，明确面积计费、固定金额、独立单价覆盖、服务期起止和周期规则。所有价格规则按当前租户和项目隔离保存。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
 {notice}
+{_rule_summary(items)}
+{_rule_check_panel()}
 {render_business_closure('fee_types')}
 {template_panel}
 {_filter_form(filters, page_size)}
-<section class="grid"><div class="card"><div class="card-h">收费项目列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>收费项目</th><th>单价</th><th>计费方式</th><th>价格配置</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
-<aside class="card"><div class="card-h">新增收费项目</div><div class="card-b">{form}</div></aside></section>'''
+<section class="grid"><div class="card"><div class="card-h">收费项目规则列表</div><div class="card-b">{pager}<table><thead><tr><th>ID</th><th>收费项目</th><th>单价</th><th>计费方式</th><th>价格配置</th></tr></thead><tbody>{rows}</tbody></table>{pager}</div></div>
+<aside class="card"><div class="card-h">新增计费规则</div><div class="card-b">{form}</div></aside></section>'''
     return _page('收费项目管理', body)
+
+
+def _rule_summary(items):
+    total = len(items or [])
+    area_count = sum(1 for item in items if item.get('billing_mode') != 'fixed')
+    fixed_count = sum(1 for item in items if item.get('billing_mode') == 'fixed')
+    metrics = ''.join([
+        _summary_metric('规则总数', total),
+        _summary_metric('面积计费', area_count),
+        _summary_metric('固定金额', fixed_count),
+    ])
+    return f'<section class="metric-grid">{metrics}</section>'
+
+
+def _summary_metric(label, value):
+    return f'<div class="metric"><div>{_h(label)}</div><strong>{_h(value)}</strong></div>'
+
+
+def _rule_check_panel():
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则检查</div><div class="card-b"><div class="actions"><span class="badge">面积 × 单价</span><span class="badge">每户固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">服务期起止</span><span class="badge">周期规则</span><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a><a class="ghost-link" href="/backoffice/charge-targets">维护收费对象</a></div><div class="hint">面积计费会按收费对象面积计算；固定金额直接按每户/每铺金额出账；收费对象上的独立单价优先覆盖本页基础单价；服务期和缴费周期在出账时确认。</div></div></section>'''
 
 
 def _template_init_panel(user, template, recommended):
