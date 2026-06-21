@@ -160,6 +160,56 @@ class TestSaasReportPageEnhancements(unittest.TestCase):
         self.assertEqual(response.json()['by_fee_type'], [{**expected, 'name': '物业费'}])
         self.assertEqual(response.json()['by_category'], [{**expected, 'name': '商户'}])
 
+    def test_report_page_shows_top_arrears_bill_details_with_bill_filter_links(self):
+        with tempfile.TemporaryDirectory() as td:
+            db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"
+            client = self._client(db_url, tenant_name='A欠费明细物业', project_name='A欠费明细项目')
+            fee = client.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1}).json()['item']
+
+            def seed(room, due, paid):
+                target = client.post('/api/charge-targets', json={
+                    'building': '欠费区', 'unit': '一层', 'room_number': room, 'category': '商户', 'area': due,
+                    'shop_name': f'{room}店', 'tenant_name': f'{room}承租人',
+                }).json()['item']
+                bill = client.post('/api/bills/generate', json={
+                    'target_id': target['id'], 'fee_type_id': fee['id'], 'billing_period': '2027-04',
+                    'service_start': '2027-04-01', 'service_end': '2027-04-30',
+                }).json()['item']
+                client.post(f"/api/bills/{bill['id']}/approve", json={})
+                if paid:
+                    client.post('/api/payments', json={
+                        'bill_id': bill['id'], 'amount': paid, 'method': 'cash',
+                        'idempotency_key': f'REPORT-ARREARS-DETAIL-{room}',
+                    })
+                return bill
+
+            seed('A101', 100, 0)
+            seed('A102', 200, 50)
+            seed('A103', 300, 300)
+
+            client_b = self._client(db_url, tenant_name='B欠费明细物业', project_name='B欠费明细项目')
+            other_fee = client_b.post('/api/fee-types', json={'name': '物业费', 'unit_price': 1}).json()['item']
+            other_target = client_b.post('/api/charge-targets', json={
+                'building': '其他区', 'unit': '二层', 'room_number': 'B201', 'category': '商户', 'area': 999,
+            }).json()['item']
+            other_bill = client_b.post('/api/bills/generate', json={
+                'target_id': other_target['id'], 'fee_type_id': other_fee['id'], 'billing_period': '2027-04',
+                'service_start': '2027-04-01', 'service_end': '2027-04-30',
+            }).json()['item']
+            client_b.post(f"/api/bills/{other_bill['id']}/approve", json={})
+
+            page = client.get('/backoffice/reports?period=2027-04')
+
+            self.assertEqual(page.status_code, 200)
+            for text in ['欠费账单明细', 'A102店', 'A102承租人', 'A102', '150.0', 'A101店', 'A101承租人', '100.0']:
+                self.assertIn(text, page.text)
+            self.assertLess(page.text.index('A102店'), page.text.index('A101店'))
+            self.assertIn('/backoffice/bills?period=2027-04', page.text)
+            self.assertIn('查看账单', page.text)
+            self.assertNotIn('B201', page.text)
+            for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD']:
+                self.assertNotIn(hidden, page.text)
+
     def test_report_breakdown_can_export_grouped_summary_csv(self):
         with tempfile.TemporaryDirectory() as td:
             db_url = f"sqlite:///{Path(td) / 'saas.sqlite3'}"

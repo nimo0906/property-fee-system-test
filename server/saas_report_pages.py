@@ -74,7 +74,25 @@ def _breakdown_cards(breakdown):
     return f'''<section class="grid" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-top:18px">{_breakdown_table('按楼栋 / 区域汇总', breakdown.get('by_building', []))}{_breakdown_table('按单元 / 分区汇总', breakdown.get('by_unit', []))}{_breakdown_table('按收费项目汇总', breakdown.get('by_fee_type', []))}{_breakdown_table('按收费对象分类汇总', breakdown.get('by_category', []))}</section>'''
 
 
-def _render_report(user, period, summary, breakdown=None):
+def _arrears_bill_rows(items, period):
+    rows = []
+    for item in items:
+        unpaid = float(item.get('unpaid_amount') or 0)
+        if unpaid <= 0:
+            continue
+        label = ' '.join(str(item.get(k) or '') for k in ['building', 'unit', 'room_number']).strip()
+        detail = ' / '.join(str(item.get(k) or '').strip() for k in ['shop_name', 'tenant_name'] if str(item.get(k) or '').strip())
+        bill_href = '/backoffice/bills?' + urlencode({'period': period, 'room_number': item.get('room_number') or ''})
+        rows.append(f"<tr><td>{_h(label)}</td><td>{_h(detail)}</td><td>{_h(item.get('fee_name') or '')}</td><td>{_h(item.get('amount'))}</td><td>{_h(item.get('paid_amount', 0))}</td><td>{_h(item.get('unpaid_amount', 0))}</td><td><a class=\"ghost-link\" href=\"{_h(bill_href)}\">查看账单</a></td></tr>")
+    return ''.join(rows) or '<tr><td colspan="7" class="hint">暂无欠费账单</td></tr>'
+
+
+def _arrears_bill_table(items, period):
+    sorted_items = sorted(items, key=lambda item: float(item.get('unpaid_amount') or 0), reverse=True)[:10]
+    return f'''<section class="card" style="margin-top:18px"><div class="card-h">欠费账单明细</div><div class="card-b"><table><thead><tr><th>收费对象</th><th>商户/承租人</th><th>收费项目</th><th>应收</th><th>已收</th><th>欠费</th><th>操作</th></tr></thead><tbody>{_arrears_bill_rows(sorted_items, period)}</tbody></table><div class="hint">按欠费金额从高到低显示当前账期前 10 条，用于收费员催缴核对。</div></div></section>'''
+
+
+def _render_report(user, period, summary, breakdown=None, arrears_bills=None):
     metrics = ''.join([
         _metric('账单数量', summary.get('bill_count', 0)),
         _metric('应收金额', summary.get('bill_amount_total', 0.0)),
@@ -87,6 +105,7 @@ def _render_report(user, period, summary, breakdown=None):
 {_filter_card(user, period)}
 <section class="grid" style="grid-template-columns:repeat(4,minmax(0,1fr))">{metrics}</section>
 {_breakdown_cards(breakdown or {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []})}
+{_arrears_bill_table(arrears_bills or [], period)}
 {_summary_card(summary, breakdown or {})}'''
     return _page('对账报表', body)
 
@@ -103,9 +122,11 @@ def register_report_pages(app, service, repository, current_user):
             if repository:
                 summary = repository.report_summary(user['tenant_id'], user['project_id'], selected_period)
                 breakdown = repository.report_breakdown(user['tenant_id'], user['project_id'], selected_period)
+                arrears_bills = repository.search_bills(user['tenant_id'], user['project_id'], '', selected_period, None, 1, 10000)['items']
             else:
                 summary = service.report(user, user['project_id'], selected_period)
                 breakdown = {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []}
-            return HTMLResponse(_render_report(user, selected_period, summary, breakdown))
+                arrears_bills = service.search_bills(user, user['project_id'], '', selected_period, None, 1, 10000)['items']
+            return HTMLResponse(_render_report(user, selected_period, summary, breakdown, arrears_bills))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')
