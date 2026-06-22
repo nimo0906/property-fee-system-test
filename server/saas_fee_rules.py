@@ -5,7 +5,7 @@
 from datetime import date, timedelta
 import calendar
 
-VALID_BILLING_MODES = {"area", "fixed"}
+VALID_BILLING_MODES = {"area", "fixed", "meter"}
 
 
 def normalize_billing_mode(value):
@@ -41,7 +41,7 @@ def service_months(service_start=None, service_end=None):
 
 
 def effective_unit_price(target, fee):
-    if normalize_billing_mode(fee.get("billing_mode")) == "fixed":
+    if normalize_billing_mode(fee.get("billing_mode")) in {"fixed", "meter"}:
         return float(fee.get("unit_price") or 0)
     override = target.get("unit_price_override")
     if override not in (None, ""):
@@ -65,5 +65,5 @@ def fee_applies_to_target(fee, target, selected_category=''):
 def calculate_bill_amount(target, fee, service_start=None, service_end=None):
     mode = normalize_billing_mode(fee.get("billing_mode"))
     unit_price = effective_unit_price(target, fee)
-    amount = unit_price if mode == "fixed" else float(target.get("area") or 0) * unit_price
+    amount = unit_price if mode in {"fixed", "meter"} else float(target.get("area") or 0) * unit_price
     return round(amount * service_months(service_start, service_end), 2)

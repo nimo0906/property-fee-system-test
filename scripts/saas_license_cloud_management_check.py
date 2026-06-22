@@ -3,6 +3,7 @@
 """Check license cloud management API and admin page."""
 
 from pathlib import Path
+from secrets import token_urlsafe
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,16 @@ def main():
         require(item in page.text, f'page missing: {item}')
     for forbidden in ['tenant_id', 'project_id', 'storage_key', 'bill_number', 'POSTGRES_PASSWORD', 'APP_SECRET_KEY']:
         require(forbidden not in page.text, f'page leaks forbidden field: {forbidden}')
+    admin_token = token_urlsafe(24)
+    secured = TestClient(create_license_app(admin_token=admin_token))
+    denied = secured.post('/api/license/customers', json={'customer_code': 'cust-secure', 'name': '安全授权客户'})
+    require(denied.status_code == 401, 'secured management API must require admin token')
+    allowed = secured.post(
+        '/api/license/customers',
+        json={'customer_code': 'cust-secure', 'name': '安全授权客户'},
+        headers={'X-License-Admin-Token': admin_token},
+    )
+    require(allowed.status_code == 200, 'secured management API must accept valid admin token')
     gate = (ROOT / 'scripts/saas_release_gate.py').read_text(encoding='utf-8')
     require('scripts/saas_license_cloud_management_check.py' in gate, 'release gate missing license cloud management check')
     print('saas_license_cloud_management_check: PASS')

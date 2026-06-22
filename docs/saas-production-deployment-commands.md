@@ -125,3 +125,20 @@ PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_accept
 ```bash
 PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_production_acceptance_result.py --operator "实施人员手填" --domain your-domain.example.com
 ```
+
+## 12. 水电表抄表模块上线检查
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_module11_meter_reading_gate.py
+```
+
+上线后用测试租户登录 `/backoffice/meter-readings`，新建 `billing_mode=meter` 的水费或电费项目，录入一条已确认抄表，确认生成待审核账单；检查页面和日志不得展示 `.env`、数据库密码或生产密钥。
+
+
+## 13. 商户合同、合同变更模块上线检查
+
+```bash
+PYTHONPYCACHEPREFIX=/tmp/property_pycache python3 scripts/saas_module13_merchant_contract_gate.py
+```
+
+上线后用测试租户登录 `/backoffice/merchant-contracts`，选择商户铺位新增一份合同，录入一条生效日调价变更，再生成该生效日之后账期的合同账单；检查金额口径为 `合同面积 × 租金单价 + 合同面积 × 物业费单价`，状态为 `pending_review`，页面和日志不得展示 `.env`、数据库密码或生产密钥。

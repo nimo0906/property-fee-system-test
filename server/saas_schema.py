@@ -110,8 +110,72 @@ CREATE TABLE IF NOT EXISTS bills (
     service_end DATE,
     amount NUMERIC(12,2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'pending_review',
+    source TEXT,
+    source_ref TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     UNIQUE(tenant_id, project_id, bill_number),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
+);
+
+
+CREATE TABLE IF NOT EXISTS meter_readings (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    project_id BIGINT NOT NULL REFERENCES projects(id),
+    charge_target_id BIGINT NOT NULL REFERENCES charge_targets(id),
+    fee_type_id BIGINT NOT NULL REFERENCES fee_types(id),
+    billing_period TEXT NOT NULL,
+    previous_reading NUMERIC(12,2) NOT NULL DEFAULT 0,
+    current_reading NUMERIC(12,2) NOT NULL DEFAULT 0,
+    consumption NUMERIC(12,2) NOT NULL DEFAULT 0,
+    reading_date DATE,
+    status TEXT NOT NULL DEFAULT 'draft',
+    notes TEXT,
+    bill_id BIGINT REFERENCES bills(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(tenant_id, project_id, charge_target_id, fee_type_id, billing_period),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
+);
+
+
+
+CREATE TABLE IF NOT EXISTS merchant_contracts (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    project_id BIGINT NOT NULL REFERENCES projects(id),
+    charge_target_id BIGINT NOT NULL REFERENCES charge_targets(id),
+    contract_no TEXT NOT NULL,
+    merchant_name TEXT NOT NULL,
+    shop_name TEXT,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    contract_area NUMERIC(12,2) NOT NULL DEFAULT 0,
+    rent_unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+    property_rate NUMERIC(12,4) NOT NULL DEFAULT 0,
+    rent_cycle TEXT NOT NULL DEFAULT 'monthly',
+    property_cycle TEXT NOT NULL DEFAULT 'monthly',
+    deposit_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'active',
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(tenant_id, project_id, contract_no),
+    FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
+);
+
+CREATE TABLE IF NOT EXISTS contract_amendments (
+    id BIGSERIAL PRIMARY KEY,
+    tenant_id BIGINT NOT NULL REFERENCES tenants(id),
+    project_id BIGINT NOT NULL REFERENCES projects(id),
+    contract_id BIGINT NOT NULL REFERENCES merchant_contracts(id),
+    amendment_no TEXT NOT NULL,
+    effective_date DATE NOT NULL,
+    rent_unit_price NUMERIC(12,2),
+    property_rate NUMERIC(12,4),
+    contract_area NUMERIC(12,2),
+    status TEXT NOT NULL DEFAULT 'confirmed',
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE(tenant_id, project_id, contract_id, amendment_no),
     FOREIGN KEY(project_id, tenant_id) REFERENCES projects(id, tenant_id)
 );
 

@@ -24,7 +24,7 @@ def _percent(numerator, denominator):
 def _export_links(period):
     query = urlencode({'period': period}) if period else ''
     suffix = f'?{query}' if query else ''
-    return f'''<div class="actions"><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a><a class="ghost-link" href="/api/exports/reports/projects.csv{suffix}">导出项目汇总</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv{suffix}">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv{suffix}">导出欠费明细</a></div>'''
+    return f'''<div class="actions"><a class="ghost-link" href="/backoffice/reports/print{suffix}">打印报表</a><a class="ghost-link" href="/api/exports/bills{suffix}">导出账单</a><a class="ghost-link" href="/api/exports/payments{suffix}">导出收款流水</a><a class="ghost-link" href="/api/exports/reports/projects.csv{suffix}">导出项目汇总</a><a class="ghost-link" href="/api/exports/reports/breakdown.csv{suffix}">导出分组汇总</a><a class="ghost-link" href="/api/exports/reports/arrears-bills.csv{suffix}">导出欠费明细</a></div>'''
 
 
 def _filter_card(user, period):
@@ -164,6 +164,31 @@ def _render_report(user, period, summary, breakdown=None, arrears_bills=None, pr
     return _page('报表工作台', body)
 
 
+def _render_print_report(user, period, summary, breakdown=None, arrears_bills=None, project_summary=None):
+    due = float(summary.get('bill_amount_total') or 0)
+    paid = float(summary.get('payment_amount_total') or 0)
+    unpaid = float(summary.get('unpaid_amount_total') or 0)
+    styles = '''<style>body{font:14px/1.65 "Songti SC","SimSun",serif;color:#111;margin:28px;background:#fff}.toolbar{margin-bottom:16px}.toolbar button{padding:8px 14px}h1{text-align:center;font-size:24px;margin:0 0 12px}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #333;padding:7px;text-align:left}.meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.card{break-inside:avoid}@media print{.toolbar{display:none}body{margin:14mm}.grid{display:block}}</style>'''
+    body = f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>报表打印</title>{styles}</head><body><div class="toolbar"><button onclick="window.print()">打印报表</button><a href="/backoffice/reports?{_h(urlencode({'period': period}))}">返回报表工作台</a></div><h1>正式对账报表</h1><div class="meta"><div>客户公司：{_h(user.get('tenant_name'))}</div><div>项目名称：{_h(user.get('project_name'))}</div><div>账期：{_h(period)}</div><div>打印用途：报表打印 / 财务对账留档</div><div>应收：{_h(due)}</div><div>实收：{_h(paid)}</div><div>欠费：{_h(unpaid)}</div><div>收缴率：{_h(_percent(paid, due))}　欠费率：{_h(_percent(unpaid, due))}</div></div>{_project_summary_table(project_summary or [])}<div class="grid">{_breakdown_table('按楼栋 / 区域汇总', (breakdown or {}).get('by_building', []))}{_breakdown_table('按收费项目汇总', (breakdown or {}).get('by_fee_type', []))}</div>{_arrears_bill_table(arrears_bills or [], period)}<p>本报表仅展示业务字段，不展示内部租户、项目、密钥或环境变量信息。</p></body></html>'''
+    return body
+
+
+def _report_dataset(service, repository, user, period):
+    if repository:
+        return {
+            'summary': repository.report_summary(user['tenant_id'], user['project_id'], period),
+            'project_summary': repository.report_projects(user['tenant_id'], period),
+            'breakdown': repository.report_breakdown(user['tenant_id'], user['project_id'], period),
+            'arrears_bills': repository.search_bills(user['tenant_id'], user['project_id'], '', period, None, 1, 10000)['items'],
+        }
+    return {
+        'summary': service.report(user, user['project_id'], period),
+        'project_summary': [],
+        'breakdown': {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []},
+        'arrears_bills': service.search_bills(user, user['project_id'], '', period, None, 1, 10000)['items'],
+    }
+
+
 def register_report_pages(app, service, repository, current_user):
     from fastapi import Depends, HTTPException
     from fastapi.responses import HTMLResponse
@@ -173,16 +198,17 @@ def register_report_pages(app, service, repository, current_user):
         try:
             service._require(user, 'read')
             selected_period = period or '2026-09'
-            if repository:
-                summary = repository.report_summary(user['tenant_id'], user['project_id'], selected_period)
-                project_summary = repository.report_projects(user['tenant_id'], selected_period)
-                breakdown = repository.report_breakdown(user['tenant_id'], user['project_id'], selected_period)
-                arrears_bills = repository.search_bills(user['tenant_id'], user['project_id'], '', selected_period, None, 1, 10000)['items']
-            else:
-                summary = service.report(user, user['project_id'], selected_period)
-                project_summary = []
-                breakdown = {'by_building': [], 'by_unit': [], 'by_fee_type': [], 'by_category': []}
-                arrears_bills = service.search_bills(user, user['project_id'], '', selected_period, None, 1, 10000)['items']
-            return HTMLResponse(_render_report(user, selected_period, summary, breakdown, arrears_bills, project_summary))
+            data = _report_dataset(service, repository, user, selected_period)
+            return HTMLResponse(_render_report(user, selected_period, data['summary'], data['breakdown'], data['arrears_bills'], data['project_summary']))
+        except (PermissionDenied, TenantScopeError):
+            raise HTTPException(status_code=403, detail='forbidden')
+
+    @app.get('/backoffice/reports/print', response_class=HTMLResponse)
+    def report_print_page(period: str = '', user=Depends(current_user)):
+        try:
+            service._require(user, 'read')
+            selected_period = period or '2026-09'
+            data = _report_dataset(service, repository, user, selected_period)
+            return HTMLResponse(_render_print_report(user, selected_period, data['summary'], data['breakdown'], data['arrears_bills'], data['project_summary']))
         except (PermissionDenied, TenantScopeError):
             raise HTTPException(status_code=403, detail='forbidden')

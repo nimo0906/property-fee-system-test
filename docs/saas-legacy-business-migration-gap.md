@@ -31,12 +31,12 @@
 
 | 原桌面能力 | SaaS 当前状态 | 差距 | 验收标准 |
 | --- | --- | --- | --- |
-| 水电表抄表 | 缺失 | meter/meter_ledger 未迁 | 可录入读数并生成水电账单 |
+| 水电表抄表 | 已完成第 11 模块云端闭环 | SaaS meter_readings 已迁 | 可录入读数、确认并生成待审核水电账单 |
 | 停车费 | 缺失 | parking 未迁 | 可维护车位/车辆并出账收款 |
 | 商户档案 | 缺失 | merchant_contracts 相关能力未迁 | 可维护商户基础资料 |
 | 铺位 | 部分覆盖 | charge_targets 可表达但字段不完整 | 铺位号、店名、面积、分类可维护 |
-| 商户合同 | 缺失 | 商户合同、附件、生命周期未迁 | 合同周期、租金/物业费规则可出账 |
-| 合同变更 | 缺失 | contract_amendments 未迁 | 合同变更后账期金额正确 |
+| 商户合同 | 已完成第 13 模块云端闭环 | SaaS merchant_contracts 已迁；附件后置 | 合同周期、租金/物业费规则可出账 |
+| 合同变更 | 已完成第 13 模块云端闭环 | SaaS contract_amendments 已迁 | 合同变更后账期金额正确 |
 | 发票 | 缺失 | invoices/invoice_requests 未迁 | 可记录发票申请与开票状态 |
 
 ## 5. 迁移优先级 P2：上线后增强
@@ -91,9 +91,9 @@ SaaS 收费项目已支持 billing_mode：area 表示按面积 × 单价，fixed
 | 收据和打印 | bill_receipt.py / bill_print.py | saas_payment_pages.py | 已开始移植 | 继续对齐正式打印样式、导出字段和浏览器打印 |
 | 报表和导出 | reports.py / reports_exports.py | saas_report_pages.py | 已开始移植 | 继续核对应收、实收、欠费、分类汇总和经营报表 |
 | 导入模板和预览 | import_templates.py | saas_import_pages.py | 已开始移植 | 继续补完整桌面模板、错误行下载和确认导入记录 |
-| 水电表抄表 | meter.py | 待新增 SaaS 抄表模块 | 未移植 | 明确读数、倍率、损耗和水电账单生成口径 |
+| 水电表抄表 | meter.py / meter_ledger.py | SaaS 抄表模块 `/backoffice/meter-readings` | 已移植第 11 模块 | 已支持读数、用量、确认出账、租户/项目隔离；倍率和损耗后续如客户需要再扩展 |
 | 停车费 | parking.py | 待新增 SaaS 停车模块 | 未移植 | 明确车位、车辆、周期收费和欠费查询口径 |
-| 商户合同和变更 | merchant_contracts.py / contract_amendments.py | 待新增 SaaS 合同模块 | 未移植 | 明确合同期、租金、物业费、变更后金额口径 |
+| 商户合同和变更 | merchant_contracts.py / contract_amendments.py | SaaS 合同模块 `/backoffice/merchant-contracts` | 已移植第 13 模块 | 支持合同期、租金、物业费、变更后金额口径、租户/项目隔离 |
 | 发票 | invoices.py | 待新增 SaaS 发票模块 | 未移植 | 先记录开票申请和状态，电子票据平台后置 |
 
 这张表是后续开发顺序的依据：优先移植本地端已经成熟的收费核心；只有当本地端没有对应能力，才按 SaaS 新模块设计。每次迁移都必须补租户隔离、金额、账期、数量和导入/导出测试。

@@ -4,6 +4,7 @@
 
 import subprocess
 import sys
+from secrets import token_urlsafe
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -72,6 +73,49 @@ def test_license_cloud_management_page_shows_admin_console_without_secret_or_bus
         assert text in page.text
     for hidden in ['POSTGRES_PASSWORD', 'APP_SECRET_KEY', 'tenant_id', 'project_id', 'storage_key', 'bill_number']:
         assert hidden not in page.text
+
+
+def test_license_cloud_management_api_requires_admin_token_when_configured():
+    admin_token = token_urlsafe(24)
+    client = TestClient(create_license_app(admin_token=admin_token))
+
+    denied = client.post('/api/license/customers', json={
+        'customer_code': 'cust-secure',
+        'name': '安全授权客户',
+    })
+    assert denied.status_code == 401
+
+    allowed = client.post('/api/license/customers', json={
+        'customer_code': 'cust-secure',
+        'name': '安全授权客户',
+    }, headers={'X-License-Admin-Token': admin_token})
+    assert allowed.status_code == 200
+
+    listed_denied = client.get('/api/license/customers')
+    assert listed_denied.status_code == 401
+
+    listed_allowed = client.get('/api/license/customers', headers={'X-License-Admin-Token': admin_token})
+    assert listed_allowed.status_code == 200
+    assert listed_allowed.json()['items'][0]['customer_code'] == 'cust-secure'
+
+
+def test_license_check_stays_public_and_returns_sanitized_result_with_admin_token_configured():
+    admin_token = token_urlsafe(24)
+    service = LicenseCloudService.in_memory()
+    service.create_customer('cust-public-check', '公开校验客户')
+    service.create_product('property-saas-backoffice', '物业收费 SaaS 员工后台')
+    service.issue_entitlement('cust-public-check', 'property-saas-backoffice', seats=3, expires_at='2099-12-31')
+    client = TestClient(create_license_app(service=service, admin_token=admin_token))
+
+    response = client.post('/api/license/check', json={
+        'customer_code': 'cust-public-check',
+        'product_code': 'property-saas-backoffice',
+    })
+
+    assert response.status_code == 200
+    assert response.json()['allowed'] is True
+    for hidden in ['POSTGRES_PASSWORD', 'APP_SECRET_KEY', 'tenant_id', 'project_id', 'property_license_cloud', 'property_saas']:
+        assert hidden not in str(response.json())
 
 
 def test_license_cloud_management_validation_blocks_invalid_seats_and_unknown_refs():

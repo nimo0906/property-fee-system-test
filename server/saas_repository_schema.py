@@ -13,6 +13,9 @@ TABLES = [
     ('charge_targets', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,owner_id INTEGER,building TEXT NOT NULL,unit TEXT,room_number TEXT NOT NULL,category TEXT NOT NULL,area REAL NOT NULL DEFAULT 0,unit_price_override REAL,floor INTEGER,shop_name TEXT,tenant_name TEXT,tenant_phone TEXT,payment_cycle TEXT,notes TEXT,UNIQUE(tenant_id,project_id,building,unit,room_number)'),
     ('fee_types', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,name TEXT NOT NULL,unit_price REAL NOT NULL DEFAULT 0,billing_mode TEXT NOT NULL DEFAULT \'area\',UNIQUE(tenant_id,project_id,name)'),
     ('bills', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,bill_number TEXT NOT NULL,billing_period TEXT NOT NULL,service_start TEXT,service_end TEXT,amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT \'pending_review\',UNIQUE(tenant_id,project_id,bill_number)'),
+    ('meter_readings', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,fee_type_id INTEGER NOT NULL,billing_period TEXT NOT NULL,previous_reading REAL NOT NULL DEFAULT 0,current_reading REAL NOT NULL DEFAULT 0,consumption REAL NOT NULL DEFAULT 0,reading_date TEXT,status TEXT NOT NULL DEFAULT \'draft\',notes TEXT,bill_id INTEGER,UNIQUE(tenant_id,project_id,charge_target_id,fee_type_id,billing_period)'),
+    ('merchant_contracts', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,charge_target_id INTEGER NOT NULL,contract_no TEXT NOT NULL,merchant_name TEXT NOT NULL,shop_name TEXT,start_date TEXT NOT NULL,end_date TEXT NOT NULL,contract_area REAL NOT NULL DEFAULT 0,rent_unit_price REAL NOT NULL DEFAULT 0,property_rate REAL NOT NULL DEFAULT 0,rent_cycle TEXT NOT NULL DEFAULT \'monthly\',property_cycle TEXT NOT NULL DEFAULT \'monthly\',deposit_amount REAL NOT NULL DEFAULT 0,status TEXT NOT NULL DEFAULT \'active\',notes TEXT,UNIQUE(tenant_id,project_id,contract_no)'),
+    ('contract_amendments', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,contract_id INTEGER NOT NULL,amendment_no TEXT NOT NULL,effective_date TEXT NOT NULL,rent_unit_price REAL,property_rate REAL,contract_area REAL,status TEXT NOT NULL DEFAULT \'confirmed\',notes TEXT,UNIQUE(tenant_id,project_id,contract_id,amendment_no)'),
     ('payments', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,bill_id INTEGER NOT NULL,amount_paid REAL NOT NULL,method TEXT,idempotency_key TEXT,receipt_number TEXT,UNIQUE(tenant_id,idempotency_key)'),
     ('imports', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,import_type TEXT NOT NULL,status TEXT NOT NULL,original_name TEXT,storage_key TEXT,file_size INTEGER,content_type TEXT,summary_json TEXT NOT NULL DEFAULT \'{}\''),
     ('backup_records', 'id {pk},tenant_id INTEGER NOT NULL,project_id INTEGER NOT NULL,backup_id TEXT NOT NULL,status TEXT NOT NULL,created_by INTEGER,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,UNIQUE(tenant_id,backup_id)'),
@@ -42,6 +45,11 @@ def alter_statements(dialect):
             "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS tenant_phone TEXT",
             "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS payment_cycle TEXT",
             "ALTER TABLE charge_targets ADD COLUMN IF NOT EXISTS notes TEXT",
+            "ALTER TABLE meter_readings ADD COLUMN IF NOT EXISTS bill_id INTEGER",
+            "ALTER TABLE bills ADD COLUMN IF NOT EXISTS source TEXT",
+            "ALTER TABLE bills ADD COLUMN IF NOT EXISTS source_ref TEXT",
+            "ALTER TABLE bills ADD COLUMN IF NOT EXISTS source TEXT",
+            "ALTER TABLE bills ADD COLUMN IF NOT EXISTS source_ref TEXT",
         ]
     return [
         "ALTER TABLE fee_types ADD COLUMN billing_mode TEXT NOT NULL DEFAULT 'area'",
@@ -53,6 +61,11 @@ def alter_statements(dialect):
         "ALTER TABLE charge_targets ADD COLUMN tenant_phone TEXT",
         "ALTER TABLE charge_targets ADD COLUMN payment_cycle TEXT",
         "ALTER TABLE charge_targets ADD COLUMN notes TEXT",
+        "ALTER TABLE meter_readings ADD COLUMN bill_id INTEGER",
+        "ALTER TABLE bills ADD COLUMN source TEXT",
+        "ALTER TABLE bills ADD COLUMN source_ref TEXT",
+        "ALTER TABLE bills ADD COLUMN source TEXT",
+        "ALTER TABLE bills ADD COLUMN source_ref TEXT",
     ]
 
 

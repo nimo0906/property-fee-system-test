@@ -40,6 +40,7 @@ class SaasBackofficeService:
         self.backup_records = {}
         self.restore_drills = {}
         self.audit_logs = []
+        self.meter_readings = {}
 
     def _id(self):
         value = self._seq
@@ -217,7 +218,11 @@ from server.saas_billing_service import attach_billing_methods
 from server.saas_fee_type_service import attach_fee_type_methods
 from server.saas_owner_service import attach_owner_methods
 from server.saas_import_mapping import attach_import_mapping_methods
+from server.saas_meter_service import attach_meter_methods
+from server.saas_contract_service import attach_contract_methods
 attach_billing_methods(SaasBackofficeService)
 attach_fee_type_methods(SaasBackofficeService)
 attach_owner_methods(SaasBackofficeService)
 attach_import_mapping_methods(SaasBackofficeService)
+attach_meter_methods(SaasBackofficeService)
+attach_contract_methods(SaasBackofficeService)

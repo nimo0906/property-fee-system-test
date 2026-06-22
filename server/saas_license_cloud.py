@@ -143,9 +143,9 @@ class LicenseCloudService:
         })
 
 
-def create_license_app(service=None):
+def create_license_app(service=None, admin_token=""):
     try:
-        from fastapi import FastAPI, HTTPException
+        from fastapi import Depends, FastAPI, Header, HTTPException
         from fastapi.responses import HTMLResponse
         from pydantic import BaseModel
     except ImportError as exc:
@@ -153,6 +153,12 @@ def create_license_app(service=None):
 
     app = FastAPI(title="物业收费授权云服务")
     app.state.license_service = service or LicenseCloudService.in_memory()
+    app.state.license_admin_token = str(admin_token or "")
+
+    def require_admin_token(x_license_admin_token: str = Header(default="")):
+        expected = app.state.license_admin_token
+        if expected and not secrets.compare_digest(str(x_license_admin_token or ""), expected):
+            raise HTTPException(status_code=401, detail="license_admin_token_required")
 
     class LicenseCheckIn(BaseModel):
         customer_code: str
@@ -187,23 +193,23 @@ def create_license_app(service=None):
     def check_license(data: LicenseCheckIn):
         return app.state.license_service.check_license(data.customer_code, data.product_code)
 
-    @app.post("/api/license/customers")
+    @app.post("/api/license/customers", dependencies=[Depends(require_admin_token)])
     def create_customer(data: LicenseCustomerIn):
         return {"item": app.state.license_service.create_customer(data.customer_code, data.name, data.status)}
 
-    @app.get("/api/license/customers")
+    @app.get("/api/license/customers", dependencies=[Depends(require_admin_token)])
     def list_customers():
         return {"items": app.state.license_service.list_customers()}
 
-    @app.post("/api/license/products")
+    @app.post("/api/license/products", dependencies=[Depends(require_admin_token)])
     def create_product(data: LicenseProductIn):
         return {"item": app.state.license_service.create_product(data.product_code, data.name, data.status)}
 
-    @app.get("/api/license/products")
+    @app.get("/api/license/products", dependencies=[Depends(require_admin_token)])
     def list_products():
         return {"items": app.state.license_service.list_products()}
 
-    @app.post("/api/license/entitlements")
+    @app.post("/api/license/entitlements", dependencies=[Depends(require_admin_token)])
     def issue_entitlement(data: LicenseEntitlementIn):
         try:
             item = app.state.license_service.issue_entitlement(data.customer_code, data.product_code, data.seats, data.expires_at)
@@ -211,15 +217,15 @@ def create_license_app(service=None):
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
 
-    @app.get("/api/license/entitlements")
+    @app.get("/api/license/entitlements", dependencies=[Depends(require_admin_token)])
     def list_entitlements():
         return {"items": app.state.license_service.list_entitlements()}
 
-    @app.get("/api/license/audit-logs")
+    @app.get("/api/license/audit-logs", dependencies=[Depends(require_admin_token)])
     def list_audit_logs():
         return {"items": app.state.license_service.list_audit_logs()}
 
-    @app.get("/license-admin")
+    @app.get("/license-admin", dependencies=[Depends(require_admin_token)])
     def license_admin():
         return HTMLResponse(_render_license_admin(app.state.license_service))
 

@@ -34,8 +34,7 @@ def main():
     if not env_result['ok']:
         raise SystemExit(f"env security failed: {env_result}")
     print('PASS saas env example security')
-    if result.get('nginx_tls', {}).get('status') == 'http_only':
-        print('WARN nginx http only: terminate HTTPS at Nginx or upstream load balancer before production')
+    print('WARN nginx http only: keep HTTP redirect only; terminate HTTPS at Nginx or upstream load balancer before production')
 
 
 if __name__ == '__main__':

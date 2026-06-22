@@ -77,7 +77,7 @@ def _render_preview(user, create_items, skip_items, amount_total, form):
     hidden = ''.join(f'<input type="hidden" name="{_h(k)}" value="{_h(v)}">' for k, v in form.items())
     body = f'''
 <section class="hero"><div><h1>批量出账预览</h1><div class="sub">预览不会写入账单；确认后才生成当前租户、当前项目范围内的新账单。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card" style="margin-bottom:18px"><div class="card-h">金额规则说明</div><div class="card-b"><div class="actions"><span class="badge">面积计费：面积 × 单价</span><span class="badge">固定金额：每户/每铺固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">周期规则：按收费对象缴费周期计算服务期</span></div><div class="hint">预览会展示每条账单的计算公式；确认前请核对账期、服务期、单价覆盖和金额合计。</div></div></section>
+<section class="card" style="margin-bottom:18px"><div class="card-h">金额规则说明</div><div class="card-b"><div class="actions"><span class="badge">面积计费：面积 × 单价</span><span class="badge">固定金额：每户/每铺固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">周期规则：按收费对象缴费周期计算服务期</span></div><div class="hint">预览会展示每条账单的计算公式；独立单价只覆盖面积计费单价，固定金额按收费项目固定金额出账；确认前请核对账期、服务期、单价覆盖和金额合计。</div></div></section>
 <section class="card"><div class="card-h">预览结果</div><div class="card-b"><div class="badge">预计出账{len(create_items)}张</div> <div class="badge">跳过{len(skip_items)}张</div> <div class="badge">金额合计{_h(amount_total)}元</div><h3>出账明细核对</h3>{create_rows}<h3>跳过明细</h3>{skip_rows}<form method="post" action="/backoffice/bills/batch-generate-confirm">{hidden}<button class="primary">确认出账</button> <a class="ghost-link" href="/backoffice/bills">返回账单</a></form></div></section>'''
     return _page('批量出账预览', body)
 

@@ -119,7 +119,7 @@ class SaasRepository:
 
     def approve_bill(self, tenant_id, project_id, bill_id, actor_user_id=None):
         self._require_project_scope(tenant_id, project_id)
-        bill = self._row("SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status FROM bills WHERE id=:id", {"id": bill_id})
+        bill = self._row("SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status,source,source_ref FROM bills WHERE id=:id", {"id": bill_id})
         if not bill or int(bill["tenant_id"]) != int(tenant_id) or int(bill["project_id"]) != int(project_id):
             raise TenantScopeError("bill does not belong to tenant")
         with self.engine.begin() as conn:
@@ -131,7 +131,7 @@ class SaasRepository:
 
     def list_bills(self, tenant_id, project_id, period=None, status=None):
         self._require_project_scope(tenant_id, project_id)
-        sql = "SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status FROM bills WHERE tenant_id=:tenant_id AND project_id=:project_id"
+        sql = "SELECT id,tenant_id,project_id,charge_target_id,fee_type_id,bill_number,billing_period,service_start,service_end,amount,status,source,source_ref FROM bills WHERE tenant_id=:tenant_id AND project_id=:project_id"
         params = {"tenant_id": tenant_id, "project_id": project_id}
         if period:
             sql += " AND billing_period=:period"
@@ -291,10 +291,14 @@ from server.saas_repository_owners import attach_owner_repository_methods
 from server.saas_repository_fee_rules import attach_fee_rule_repository_methods
 from server.saas_repository_batch_billing import attach_batch_billing_repository_methods
 from server.saas_repository_reports import attach_report_repository_methods
+from server.saas_repository_meter import attach_meter_repository_methods
+from server.saas_repository_contracts import attach_contract_repository_methods
 attach_project_methods(SaasRepository)
 attach_owner_repository_methods(SaasRepository)
 attach_fee_rule_repository_methods(SaasRepository)
 attach_batch_billing_repository_methods(SaasRepository)
 attach_report_repository_methods(SaasRepository)
+attach_meter_repository_methods(SaasRepository)
+attach_contract_repository_methods(SaasRepository)
 attach_repository_search(SaasRepository)
 attach_user_lifecycle_methods(SaasRepository)

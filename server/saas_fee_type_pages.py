@@ -35,12 +35,14 @@ def _render_fee_types(user, items, message='', filters=None, page=1, page_size=2
 
 def _rule_summary(items):
     total = len(items or [])
-    area_count = sum(1 for item in items if item.get('billing_mode') != 'fixed')
+    area_count = sum(1 for item in items if item.get('billing_mode') == 'area')
     fixed_count = sum(1 for item in items if item.get('billing_mode') == 'fixed')
+    meter_count = sum(1 for item in items if item.get('billing_mode') == 'meter')
     metrics = ''.join([
         _summary_metric('规则总数', total),
         _summary_metric('面积计费', area_count),
         _summary_metric('固定金额', fixed_count),
+        _summary_metric('水电抄表', meter_count),
     ])
     return f'<section class="metric-grid">{metrics}</section>'
 
@@ -50,11 +52,11 @@ def _summary_metric(label, value):
 
 
 def _rule_check_panel():
-    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则检查</div><div class="card-b"><div class="actions"><span class="badge">面积 × 单价</span><span class="badge">每户固定金额</span><span class="badge">独立单价覆盖</span><span class="badge">服务期起止</span><span class="badge">周期规则</span><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a><a class="ghost-link" href="/backoffice/charge-targets">维护收费对象</a></div><div class="hint">面积计费会按收费对象面积计算；固定金额直接按每户/每铺金额出账；收费对象上的独立单价优先覆盖本页基础单价；服务期和缴费周期在出账时确认。</div></div></section>'''
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则检查</div><div class="card-b"><div class="actions"><span class="badge">面积 × 单价</span><span class="badge">每户固定金额</span><span class="badge">水电抄表：用量 × 单价</span><span class="badge">独立单价覆盖</span><span class="badge">服务期起止</span><span class="badge">周期规则</span><a class="ghost-link" href="/backoffice/bills">下一步：批量出账</a><a class="ghost-link" href="/backoffice/charge-targets">维护收费对象</a></div><div class="hint">面积计费会按收费对象面积计算；固定金额直接按每户/每铺金额出账；水电抄表按确认用量 × 单价生成账单；收费对象上的独立单价优先覆盖本页基础单价；服务期和缴费周期在出账时确认。</div></div></section>'''
 
 
 def _rule_workflow_panel():
-    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则配置流程</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/fee-types"><strong>配置面积计费</strong><span>适合物业费等按面积 × 单价计费项目</span></a><a class="work-card" href="/backoffice/fee-types"><strong>配置固定金额</strong><span>适合停车费、固定服务费等每户固定金额</span></a><a class="work-card" href="/backoffice/charge-targets"><strong>核对独立单价</strong><span>商户或特殊房间可用独立单价覆盖基础单价</span></a><a class="work-card" href="/backoffice/bills"><strong>批量出账验证</strong><span>按账期、服务期和对象范围预览金额</span></a><a class="work-card" href="/backoffice/reports"><strong>查看收费结果</strong><span>核对应收、实收、欠费和收缴率</span></a></div></div></section>'''
+    return '''<section class="card" style="margin-bottom:18px"><div class="card-h">规则配置流程</div><div class="card-b"><div class="work-grid"><a class="work-card primary-work-card" href="/backoffice/fee-types"><strong>配置面积计费</strong><span>适合物业费等按面积 × 单价计费项目</span></a><a class="work-card" href="/backoffice/fee-types"><strong>配置固定金额</strong><span>适合停车费、固定服务费等每户固定金额</span></a><a class="work-card" href="/backoffice/meter-readings"><strong>录入水电抄表</strong><span>适合水费、电费按读数用量出账</span></a><a class="work-card" href="/backoffice/charge-targets"><strong>核对独立单价</strong><span>商户或特殊房间可用独立单价覆盖基础单价</span></a><a class="work-card" href="/backoffice/bills"><strong>批量出账验证</strong><span>按账期、服务期和对象范围预览金额</span></a><a class="work-card" href="/backoffice/reports"><strong>查看收费结果</strong><span>核对应收、实收、欠费和收缴率</span></a></div></div></section>'''
 
 
 def _template_init_panel(user, template, recommended):
@@ -75,12 +77,12 @@ def _money(value):
 
 
 def _billing_mode_label(mode):
-    return '固定金额' if mode == 'fixed' else '按面积'
+    return {'fixed': '固定金额', 'meter': '按抄表用量'}.get(mode, '按面积')
 
 
 def _row(item):
     label = _billing_mode_label(item.get('billing_mode'))
-    hint = '每个房间/铺位按固定金额出账' if item.get('billing_mode') == 'fixed' else '按面积 × 单价出账'
+    hint = '每个房间/铺位按固定金额出账' if item.get('billing_mode') == 'fixed' else ('确认抄表后按用量 × 单价出账' if item.get('billing_mode') == 'meter' else '按面积 × 单价出账')
     return f'''<tr><td>{_h(item.get('id'))}</td><td><strong>{_h(item.get('name'))}</strong></td><td>{_h(_money(item.get('unit_price')))}</td><td>{_h(label)}</td><td><span class="badge">{_h(label)}</span><div class="hint">{_h(hint)}</div></td></tr>'''
 
 
@@ -93,7 +95,7 @@ def _filter_form(filters, page_size):
 
 
 def _create_form():
-    return '''<form method="post" action="/backoffice/fee-types/create"><label>收费项目名称</label><input name="name" required placeholder="例如 物业费 / 水费 / 停车费"><label>单价 / 固定金额</label><input name="unit_price" required type="number" step="0.01" min="0" placeholder="例如 2.50"><label>计费方式</label><select name="billing_mode"><option value="area">按面积</option><option value="fixed">固定金额</option></select><button class="primary">新增收费项目</button><div class="hint">基础单价支持两种计费方式：按面积表示 面积 × 单价；固定金额表示每个房间/铺位直接按该金额出账。</div></form>'''
+    return '''<form method="post" action="/backoffice/fee-types/create"><label>收费项目名称</label><input name="name" required placeholder="例如 物业费 / 水费 / 停车费"><label>单价 / 固定金额</label><input name="unit_price" required type="number" step="0.01" min="0" placeholder="例如 2.50"><label>计费方式</label><select name="billing_mode"><option value="area">按面积</option><option value="fixed">固定金额</option><option value="meter">按抄表用量</option></select><button class="primary">新增收费项目</button><div class="hint">基础单价支持三种计费方式：按面积表示 面积 × 单价；固定金额表示每个房间/铺位直接按该金额出账；按抄表用量表示确认读数后按 用量 × 单价 出账。</div></form>'''
 
 
 def _to_int(value, default):

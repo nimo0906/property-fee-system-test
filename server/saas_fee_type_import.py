@@ -102,7 +102,7 @@ def _template_csv():
 
 def _template_page(user):
     body = f'''<section class="hero"><div><h1>收费项目导入模板</h1><div class="sub">导入预览不会写库；确认后才写入当前公司和项目的收费项目。</div></div><div class="badge tenant-scope">{_h(user.get('tenant_name'))} · {_h(user.get('project_name'))}</div></section>
-<section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>说明</th></tr></thead><tbody><tr><td>name</td><td>收费项目</td><td>必填，例如物业费、租金</td></tr><tr><td>unit_price</td><td>单价</td><td>必填，必须大于0</td></tr><tr><td>billing_mode</td><td>计费方式</td><td>area 按面积，fixed 固定金额</td></tr></tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/fee-types.csv">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>'''
+<section class="card"><div class="card-h">字段说明</div><div class="card-b"><table><thead><tr><th>CSV 字段</th><th>业务名称</th><th>说明</th></tr></thead><tbody><tr><td>name</td><td>收费项目</td><td>必填，例如物业费、租金</td></tr><tr><td>unit_price</td><td>单价</td><td>必填，必须大于0</td></tr><tr><td>billing_mode</td><td>计费方式</td><td>area 按面积，fixed 固定金额，meter 按抄表用量</td></tr></tbody></table><div class="actions" style="margin-top:14px"><a class="ghost-link" href="/api/imports/templates/fee-types.csv">下载 CSV 模板</a><a class="ghost-link" href="/backoffice/imports">返回数据导入</a></div></div></section>'''
     return _page('收费项目导入模板', body)
 
 

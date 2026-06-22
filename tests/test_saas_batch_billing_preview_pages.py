@@ -103,8 +103,9 @@ def test_batch_generate_preview_explains_amount_rules_and_payment_cycle():
         ]:
             assert text in area_preview.text
         assert fixed_preview.status_code == 200
-        for text in ['固定金额：每户/每铺固定金额', 'R-101', '固定金额 5.0', 'R-102', '固定金额 80.0', '金额合计85.0元']:
+        for text in ['固定金额：每户/每铺固定金额', 'R-101', '固定金额 80.0', 'R-102', '金额合计160.0元']:
             assert text in fixed_preview.text
+        assert '固定金额 5.0' not in fixed_preview.text
         for hidden in ['tenant_id', 'project_id', 'APP_SECRET_KEY', 'POSTGRES_PASSWORD', '.env']:
             assert hidden not in area_preview.text
             assert hidden not in fixed_preview.text

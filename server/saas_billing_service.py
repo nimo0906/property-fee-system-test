@@ -52,7 +52,9 @@ def approve_bill(self, user, project_id, bill_id):
 
 def record_payment(self, user, bill_id, amount, method, idempotency_key=None):
         self._require(user, "payment")
-        bill = self.bills[bill_id]
+        bill = self.bills.get(bill_id)
+        if not bill:
+            raise PermissionDenied("bill not found")
         if bill["tenant_id"] != user["tenant_id"] or bill["project_id"] != user["project_id"]:
             raise PermissionDenied("cross tenant bill")
         if bill["status"] == "pending_review":

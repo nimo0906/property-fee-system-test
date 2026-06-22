@@ -21,7 +21,7 @@
 - 收费项目页面：`/backoffice/fee-types` 支持查看和新增收费项目/单价；租户管理员、财务、平台管理员可见，收费员只读，所有读写按 tenant/project scope 隔离。
 - 账单生成与审核页面：`/backoffice/bills` 支持按收费对象和收费项目生成账单、按账期/状态查询列表、待审核账单页面审核通过；财务和管理员可出账/审核，收费员只读，所有账单按 tenant/project scope 隔离。
 - 收款登记页面：`/backoffice/payments` 支持登记已审核账单收款和查看收款列表；财务、收费员、管理员可收款，管理层只读，收款和账单状态按 tenant/project scope 隔离。
-- 对账报表页面：`/backoffice/reports` 支持按账期查看账单数量、应收、实收和欠费；管理层只读可看，所有报表按 tenant/project scope 隔离。
+- 对账报表页面：`/backoffice/reports` 支持按账期查看账单数量、应收、实收和欠费；提供 `打印报表`、账单/收款/项目/分组/欠费明细导出，管理层只读可看，所有报表按 tenant/project scope 隔离。
 - 数据导入页面：`/backoffice/imports` 支持收费对象 CSV 文本预览、确认导入；预览不写库，确认只写有效行，错误行不污染正式数据，导入记录按 tenant/project scope 校验。
 - 审计日志页面：`/backoffice/audit-logs` 支持只读查看账号、导入、出账、审核、收款等关键操作；不展示密码明文，日志按 tenant/project scope 隔离。
 - 备份恢复页面：`/backoffice/backups` 支持管理员创建备份记录、提交恢复演练，非管理员只读查看；备份和演练审计按 tenant/project scope 隔离。
@@ -36,6 +36,9 @@
 - 后台首页入口：`/backoffice` 展示当前租户、项目、角色和可见模块，账号管理、租户管理员控制台、租户项目管理、云端上线清单从首页可发现，非管理员只看到权限说明。
 - 退出登录：SaaS 后台提供 `/api/auth/logout`，退出后销毁 session 并清理 cookie，避免已登录会话继续访问。
 - 收费对象页面：`/backoffice/charge-targets` 支持查看和新增楼栋/区域、单元/分区、房号/铺位号，写入仍按 tenant/project scope 隔离。
+- 水电表抄表页面：`/backoffice/meter-readings` 支持按收费对象录入水费/电费上次读数、本次读数、用量和抄表日期；确认后按 用量 × 单价 生成 pending_review 待审核账单，API、页面、审计和账单均按 tenant/project scope 隔离。
+- 商户合同页面：`/backoffice/merchant-contracts` 支持维护商户合同、合同周期、租金/物业费单价、押金和合同变更；按变更生效日期生成 pending_review 合同账单，合同、变更、账单和审计均按 tenant/project scope 隔离。
+- 云端 UI 复刻本地核心页面：`/backoffice`、收费对象、收费项目、出账审核、收款登记、报表和导入页统一使用本地 App 风格的侧边栏、顶栏、移动菜单和核心业务入口，保持租户/项目隔离且不展示密钥或 `.env`。
 - 多租户隔离：业务表、导入记录、审计日志、上传路径均带 tenant/project scope。
 - 客户上传数据和系统自身数据隔离：tenants 与 system 目录分离，备份、日志、系统文件分层。
 - 通用 Linux/VPS 部署资产：Docker Compose、Nginx、systemd、logrotate、备份和恢复脚本；Compose 服务包含重启策略、PostgreSQL 健康检查和 SaaS app `/health` 健康检查。
@@ -56,6 +59,7 @@ PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 scripts/saas_acceptanc
 
 ## 当前仍后置
 
+- 停车费、发票和更多桌面存量业务继续后置；第 11 模块水电表抄表、第 13 模块商户合同/合同变更已完成云端闭环。
 - 业主端 H5 云端重做。
 - 微信/支付宝真实支付。
 - 电子票据平台对接。

@@ -17,6 +17,8 @@ from server.saas_production_delivery_pages import register_production_delivery_p
 from server.saas_import_pages import register_import_pages
 from server.saas_license_ops_pages import register_license_ops_pages
 from server.saas_merchant_directory import register_merchant_directory
+from server.saas_meter_pages import register_meter_pages
+from server.saas_contract_pages import register_contract_pages
 from server.saas_owner_pages import register_owner_pages
 from server.saas_login_pages import register_login_pages
 from server.saas_first_tenant_wizard_pages import register_first_tenant_wizard_pages
@@ -53,6 +55,8 @@ def register_saas_pages(app, service, repository, current_user, sessions, sessio
     register_charge_target_pages(app, service, repository, current_user)
     register_owner_pages(app, service, repository, current_user)
     register_merchant_directory(app, service, repository, current_user)
+    register_meter_pages(app, service, repository, current_user)
+    register_contract_pages(app, service, repository, current_user)
     register_fee_type_pages(app, service, repository, current_user)
     register_bill_pages(app, service, repository, current_user)
     register_payment_pages(app, service, repository, current_user)

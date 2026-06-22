@@ -26,13 +26,31 @@ def _role_name(code):
     }.get(code, code)
 
 
+def _core_nav():
+    return ''.join([
+        '<a class="nav-link" href="/backoffice"><span>工作台</span></a>',
+        '<a class="nav-link" href="/backoffice/owners"><span>业主档案</span></a>',
+        '<a class="nav-link" href="/backoffice/charge-targets"><span>收费对象</span></a>',
+        '<a class="nav-link" href="/backoffice/fee-types"><span>收费项目</span></a>',
+        '<a class="nav-link" href="/backoffice/meter-readings"><span>水电表抄表</span></a>',
+        '<a class="nav-link" href="/backoffice/bills"><span>出账审核</span></a>',
+        '<a class="nav-link" href="/backoffice/payments"><span>收款登记</span></a>',
+        '<a class="nav-link" href="/backoffice/reports"><span>欠费报表</span></a>',
+        '<a class="nav-link" href="/backoffice/imports"><span>Excel 导入</span></a>',
+        '<a class="nav-link" href="/backoffice/audit-logs"><span>审计日志</span></a>',
+        '<a class="nav-link" href="/backoffice/backups"><span>备份恢复</span></a>',
+    ])
+
+
 def _page(title, body):
+    nav = _core_nav()
     return f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{_h(title)} · 物业收费管理系统 SaaS</title>
 <style>
 :root{{--ink:#172033;--muted:#667085;--line:#d9e2ec;--panel:#ffffff;--bg:#eef3f8;--brand:#1355d8;--danger:#b42318;--ok:#087443;}}
 *{{box-sizing:border-box}}body{{margin:0;background:linear-gradient(135deg,#eef3f8,#f9fbfd);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}}
+.app-shell{{min-height:100vh;display:grid;grid-template-columns:248px 1fr}}.sidebar{{background:#0f172a;color:#dbeafe;padding:18px;position:sticky;top:0;height:100vh;overflow:auto}}.sidebar-brand{{display:flex;gap:10px;align-items:center;margin-bottom:16px}}.brand-mark{{width:38px;height:38px;border-radius:14px;background:linear-gradient(135deg,#dbeafe,#60a5fa);display:grid;place-items:center;color:#0f172a;font-weight:900}}.brand-title{{font-size:18px;font-weight:900;color:#fff}}.brand-subtitle{{font-size:12px;color:#93c5fd}}.sidebar-nav{{display:grid;gap:6px}}.nav-link{{color:#eef6ff;text-decoration:none;padding:9px 10px;border-radius:12px;font-weight:800}}.nav-link:hover{{background:rgba(255,255,255,.12)}}.main-content{{min-width:0;padding:22px 24px 44px}}.topbar{{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:18px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px;box-shadow:0 12px 34px rgba(21,42,74,.06)}}.mobile-menu-btn{{display:none}}.page-title{{font-size:24px;margin:0}}.page-kicker{{font-size:12px;color:var(--muted);font-weight:900}}.topbar-actions{{display:flex;gap:8px;flex-wrap:wrap}}.content-stack{{display:grid;gap:18px}}
 .shell{{max-width:1280px;margin:0 auto;padding:24px 20px 44px}}.hero{{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:22px}}
 .business-layout{{display:grid;grid-template-columns:230px 1fr;gap:20px;align-items:start}}.business-nav{{position:sticky;top:20px;background:#0f172a;color:#dbeafe;border-radius:18px;padding:18px;box-shadow:0 20px 52px rgba(15,23,42,.18)}}.business-nav .brand{{font-size:18px;font-weight:900;color:#fff;margin-bottom:18px}}.nav-group{{border-top:1px solid rgba(255,255,255,.12);padding-top:12px;margin-top:12px;display:grid;gap:6px}}.nav-group b{{font-size:12px;color:#93c5fd}}.nav-group a{{color:#eef6ff;text-decoration:none;padding:7px 9px;border-radius:10px}}.nav-group a:hover{{background:rgba(255,255,255,.12)}}.business-main{{min-width:0}}.business-top{{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:16px}}.business-top h1{{font-size:32px;margin:0 0 6px}}.business-top p{{margin:0;color:var(--muted)}}.tenant-chip{{background:#e0f2fe;color:#075985;border:1px solid #bae6fd;border-radius:999px;padding:8px 14px;font-weight:900;white-space:nowrap}}.account-bar{{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:16px}}.account-bar form{{display:flex;gap:8px;align-items:end}}.account-bar label{{font-size:12px}}.account-bar input{{width:120px;margin:0}}.metric-grid{{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:18px}}.metric{{background:#fff;border:1px solid var(--line);border-radius:16px;padding:14px}}.metric div{{font-size:12px;color:var(--muted);font-weight:800}}.metric strong{{display:block;font-size:24px;margin-top:6px}}.work-grid{{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}}.work-card{{display:grid;gap:6px;text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff}}.work-card strong{{font-size:16px}}.work-card span{{color:var(--muted);font-size:12px}}.primary-work-card{{border-color:#bfdbfe;background:#eff6ff}}
 h1{{font-size:30px;margin:0 0 8px;letter-spacing:-.02em}}.sub{{color:var(--muted);max-width:760px}}.badge{{display:inline-flex;align-items:center;border:1px solid #b8c7dc;border-radius:999px;padding:6px 12px;background:#fff;color:#344054;font-weight:700}}
@@ -41,8 +59,8 @@ table{{width:100%;border-collapse:collapse}}th,td{{padding:12px 10px;border-bott
 .status{{border-radius:999px;padding:4px 9px;font-weight:700;font-size:12px}}.on{{background:#ecfdf3;color:var(--ok)}}.off{{background:#f2f4f7;color:#667085}}.tenant-scope{{background:#eff6ff;color:#1849a9;border:1px solid #b2ccff}}
 .actions{{display:flex;gap:8px;flex-wrap:wrap}}button{{border:0;border-radius:10px;padding:8px 11px;font-weight:800;cursor:pointer}}.primary{{background:var(--brand);color:white}}.ghost{{background:#eef4ff;color:#1849a9}}.danger{{background:#fff1f3;color:var(--danger);border:1px solid #fecdd6}}
 input,select{{width:100%;border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fff;margin:6px 0 12px}}label{{font-weight:800;color:#344054}}.hint{{font-size:12px;color:#667085;margin-top:8px}}.inline{{display:flex;gap:8px;align-items:center}}.inline input{{margin:0;min-width:160px}}.filters{{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end;margin-bottom:12px}}.pager{{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:12px 0;font-size:12px;color:var(--muted)}}.ghost-link{{display:inline-flex;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:999px;color:#1849a9;text-decoration:none;background:#fff}}.ghost-link.disabled{{opacity:.45;pointer-events:none}}
-@media(max-width:900px){{.grid,.business-layout,.metric-grid,.work-grid{{grid-template-columns:1fr}}.hero,.business-top,.account-bar{{display:block}}.business-nav{{position:static;margin-bottom:16px}}}}
-</style></head><body><main class="shell">{body}</main></body></html>'''
+@media(max-width:900px){{.app-shell,.grid,.business-layout,.metric-grid,.work-grid{{grid-template-columns:1fr}}.hero,.business-top,.account-bar,.topbar{{display:block}}.business-nav{{position:static;margin-bottom:16px}}.sidebar{{position:static;height:auto}}.mobile-menu-btn{{display:inline-flex}}}}
+</style></head><body><div class="app-shell"><aside class="sidebar"><div class="sidebar-brand"><div class="brand-mark">物</div><div><div class="brand-title">物业收费系统</div><div class="brand-subtitle">云端核心页面复刻</div></div></div><nav class="sidebar-nav">{nav}</nav></aside><main class="main-content"><div class="topbar"><div><div class="page-kicker">当前租户 / 当前项目</div><h1 class="page-title">{_h(title)}</h1></div><div class="topbar-actions"><button class="ghost mobile-menu-btn">菜单</button><form method="post" action="/api/auth/logout"><button class="danger">退出登录</button></form></div></div><div class="content-stack">{body}</div></main></div></body></html>'''
 
 
 def _render_users(user, items, message='', filters=None, total=0, page=1, page_size=10):
