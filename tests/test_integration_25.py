@@ -156,6 +156,30 @@ class TestIntegration25(IntegrationTestBase):
         self.assertEqual(print_html.count('物业管理缴费单'), 1)
         self.assertNotIn('<div class="page-break"', print_html)
 
+    def test_print_selected_and_single_bill_show_exact_service_dates(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '打印日期区间业主', '13911113333')
+        room_id = create_room(db, building='PRINTDATE', unit='B座', room_number='1001', category='商户', area=50, owner_id=owner_id)
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()['id']
+        bill_id = db.execute("""INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,service_start,service_end)
+            VALUES(?,?,?,?,?,?,?,?,?,?)""",
+            (room_id, owner_id, fee_id, '2026-07~2026-09', 825, '2026-09-30', 'unpaid', 'PRINT-DATE-001', '2026-07-01', '2026-09-30')
+        ).lastrowid
+        db.commit(); db.close()
+
+        status, print_html, _ = http_post('/bills/print_selected', {
+            'bill_ids': str(bill_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-07-01 至 2026-09-30', print_html)
+        self.assertNotIn('2026-07~2026-09</td>', print_html)
+
+        status, single_html = http_get(f'/bills/{bill_id}/print', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-07-01 至 2026-09-30', single_html)
+        self.assertNotIn('2026-07~2026-09</td>', single_html)
+
 
     def test_bill_list_print_and_receipt_preserve_current_back_url(self):
         http_post('/rooms/create', {

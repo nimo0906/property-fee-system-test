@@ -4,6 +4,7 @@
 
 from server.db import get_db, h, m
 from server.print_helper import print_page, print_header_row
+from server.bill_receipt_shared import _receipt_period_label
 
 
 class BillSinglePrintMixin:
@@ -28,7 +29,7 @@ class BillSinglePrintMixin:
             ('业主', h(b["oname"] or '-')),
             ('电话', h(b["ophone"] or '-')),
             ('费用项目', h(b["ft"])),
-            ('账期', h(b["billing_period"])),
+            ('账期', h(_receipt_period_label(b))),
             ('面积', f'{b["area"] or "-"} m2'),
             ('票据号', h(b["bill_number"] or '-')),
             ('截止日', h(b["due_date"] or '-')),
@@ -53,5 +54,4 @@ class BillSinglePrintMixin:
         <table class="signature"><tr><td>业主签字</td><td>收费员签字</td><td>物业盖章</td></tr></table>
         '''
         self._html(print_page(f'缴费单 #{b["id"]}', content, back_url=f'/bills/{bid}'))
-
 

@@ -9,11 +9,17 @@ window.cycleMonths = function(cycle){ return cycle === 'quarterly' ? 3 : (cycle 
 
 window.shouldUseRoomCycle = function(){ return false; };
 
+window.parseBillingDate = function(value){
+    var m = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(!m) return new Date(NaN);
+    return new Date(parseInt(m[1], 10), parseInt(m[2], 10) - 1, parseInt(m[3], 10));
+};
+
 window.calcMonths = function(){
     var s = document.getElementById("periodStart");
     var e = document.getElementById("periodEnd");
     if(!s || !e || !s.value || !e.value) return 1;
-    var sd = new Date(s.value), ed = new Date(e.value);
+    var sd = window.parseBillingDate(s.value), ed = window.parseBillingDate(e.value);
     if(ed <= sd) return 1;
     var days = Math.floor((ed - sd) / (24 * 60 * 60 * 1000));
     return Math.max(1, Math.floor((days + 15) / 30));
@@ -24,7 +30,7 @@ window.daysInMonth = function(d){ return new Date(d.getFullYear(), d.getMonth() 
 window.prorateFactor = function(){
     var s = document.getElementById("periodStart"), e = document.getElementById("periodEnd");
     if(!s || !e || !s.value || !e.value) return 1;
-    var sd = new Date(s.value), ed = new Date(e.value);
+    var sd = window.parseBillingDate(s.value), ed = window.parseBillingDate(e.value);
     if(isNaN(sd.getTime()) || isNaN(ed.getTime())) return 1;
     if(ed < sd){ var tmp = sd; sd = ed; ed = tmp; }
     var total = 0, cur = new Date(sd.getFullYear(), sd.getMonth(), 1);
@@ -47,7 +53,7 @@ window.updateMonthDisplay = function(){
     var mc = document.getElementById("monthCount");
     if(!s || !e || !mc) return;
     if(!s.value || !e.value) { mc.textContent = "请选择日期"; return; }
-    var sd = new Date(s.value), ed = new Date(e.value);
+    var sd = window.parseBillingDate(s.value), ed = window.parseBillingDate(e.value);
     if(ed <= sd) { mc.textContent = "截止须大于起始"; return; }
     var factor = window.prorateFactor();
     mc.textContent = "服务期折算：" + window.factorLabel(factor);
@@ -90,7 +96,7 @@ window.isFeeRowSelected = function(row){
 window.billingMeterPeriods = function(){
     var s = document.getElementById("periodStart"), e = document.getElementById("periodEnd");
     if(!s || !e || !s.value || !e.value) return [];
-    var sd = new Date(s.value), ed = new Date(e.value);
+    var sd = window.parseBillingDate(s.value), ed = window.parseBillingDate(e.value);
     if(isNaN(sd.getTime()) || isNaN(ed.getTime())) return [];
     var y = sd.getFullYear(), m = sd.getMonth() + 1;
     var ey = ed.getFullYear(), em = ed.getMonth() + 1, out = [];

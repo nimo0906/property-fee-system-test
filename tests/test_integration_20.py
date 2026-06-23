@@ -28,6 +28,7 @@ class TestIntegration20(IntegrationTestBase):
         owner_id = create_owner(db, '发票打印业主', '13900005555')
         room_id = create_room(db, building='INVOICEPRINT', unit='A座', room_number='1701', owner_id=owner_id)
         bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-06', amount=188, status='paid', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2034-06-01', service_end='2034-06-30' WHERE id=?", (bill_id,))
         invoice_id = db.execute("""
             INSERT INTO invoices(bill_id, invoice_number, amount, issue_date, buyer_name, buyer_tax_id)
             VALUES(?, 'INV-PRINT-001', 188, '2034-06-02', '发票打印抬头', 'TAX001')
@@ -66,9 +67,9 @@ class TestIntegration20(IntegrationTestBase):
         self.assertIn('class="invoice-watermark"', print_page)
         self.assertIn('数电票据样式参考，仅用于内部留存', print_page)
         self.assertIn('内部凭证信息', print_page)
-        self.assertIn('服务账期', print_page)
+        self.assertIn('服务期', print_page)
         self.assertIn('缴费截止日', print_page)
-        self.assertIn('2034-06', print_page)
+        self.assertIn('2034-06-01 至 2034-06-30', print_page)
 
 
     def test_invoice_list_filters_by_keyword_and_buyer(self):
@@ -248,5 +249,4 @@ class TestIntegration20(IntegrationTestBase):
         self.assertIn('备份预览', preview)
         self.assertIn('备份数据摘要', preview)
         self.assertNotIn('确认恢复', preview)
-
 

@@ -6,6 +6,7 @@ from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bil
 from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
 from server.billing_periods import append_period_filter, append_natural_date_range_filter
+from server.bill_receipt_shared import _receipt_period_label
 from datetime import datetime, date
 import urllib.parse, csv, io
 from server.print_helper import print_page, print_header_row
@@ -200,7 +201,7 @@ class BillExportMixin(BaseHandler):
             for b in bills:
                 rem = b['amount'] - b['paid']
                 sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
-                w.writerow([b['ft'], b['billing_period'], b['unit_price'], b['amount'], b['paid'], round(rem, 2), sn.get(b['status'], b['status'])])
+                w.writerow([b['ft'], _receipt_period_label(b), b['unit_price'], b['amount'], b['paid'], round(rem, 2), sn.get(b['status'], b['status'])])
                 total_amt += b['amount']
                 total_paid += b['paid']
             w.writerow(['合计', '', '', round(total_amt, 2), round(total_paid, 2), round(total_amt - total_paid, 2), ''])

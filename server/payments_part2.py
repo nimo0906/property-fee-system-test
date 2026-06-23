@@ -1,5 +1,6 @@
 from server.payments_shared import *
 from server.pagination import pagination_state, query_items, render_pagination
+from server.bill_receipt_shared import _receipt_period_label
 
 class PaymentMixinPart2(BaseHandler):
     def _payments(self, q):
@@ -107,12 +108,12 @@ class PaymentMixinPart2(BaseHandler):
             return self._redirect('/payments?flash=未找到缴费记录')
         detail = ''.join(f'''<tr><td>{h(r["payment_date"] or "-")}</td><td>{h(r["bill_number"] or "-")}</td>
             <td>{h(_bill_target_label(r))}</td>
-            <td>{h(r["owner_name"] or "-")}</td><td>{h(r["ft"] or "-")}</td><td>{h(r["billing_period"] or "-")}</td>
+            <td>{h(r["owner_name"] or "-")}</td><td>{h(r["ft"] or "-")}</td><td>{h(_receipt_period_label(r) or "-")}</td>
             <td class="amt">{m(r["amount_paid"])}</td><td>{h(r["payment_method"] or "-")}</td><td>{h(r["operator"] or "-")}</td></tr>'''
             for r in rows)
         total = sum(float(r['amount_paid'] or 0) for r in rows)
         content = f'''<h1>缴费记录打印</h1><table class="detail"><thead><tr>
-            <th>时间</th><th>票据</th><th>对象</th><th>客户</th><th>项目</th><th>账期</th>
+            <th>时间</th><th>票据</th><th>对象</th><th>客户</th><th>项目</th><th>费用区间</th>
             <th class="amt">金额</th><th>方式</th><th>经手人</th></tr></thead>
             <tbody>{detail}</tbody><tfoot><tr class="total-row"><td colspan="6">合计</td>
             <td class="amt">{m(total)}</td><td colspan="2"></td></tr></tfoot></table>'''
@@ -131,7 +132,7 @@ class PaymentMixinPart2(BaseHandler):
     def _selected_payment_rows(self, ids):
         placeholders = ','.join('?' * len(ids))
         db = get_db()
-        rows = db.execute(f'''SELECT p.*,b.bill_number,b.billing_period,b.commercial_space_id,
+        rows = db.execute(f'''SELECT p.*,b.bill_number,b.billing_period,b.service_start,b.service_end,b.commercial_space_id,
             r.building,r.unit,r.room_number,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN owners o ON b.owner_id=o.id

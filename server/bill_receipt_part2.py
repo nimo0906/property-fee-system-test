@@ -64,10 +64,11 @@ class BillReceiptMixinPart2(BaseHandler):
                 period_set.add(b['billing_period'])
                 key = b['ft']
                 if key not in fee_groups:
-                    fee_groups[key] = {'name': key, 'total': 0, 'paid': 0, 'unit_price': b['unit_price'], 'calc_method': b['calc_method'], 'count': 0}
+                    fee_groups[key] = {'name': key, 'total': 0, 'paid': 0, 'unit_price': b['unit_price'], 'calc_method': b['calc_method'], 'count': 0, 'bills': []}
                 fee_groups[key]['total'] += b['amount']
                 fee_groups[key]['paid'] += b['paid']
                 fee_groups[key]['count'] += 1
+                fee_groups[key]['bills'].append(b)
             num_periods = len(period_set)
             period_label = f"{min(period_set)}~{max(period_set)}" if num_periods > 1 else (list(period_set)[0] if period_set else '')
     
@@ -98,9 +99,10 @@ class BillReceiptMixinPart2(BaseHandler):
                     usage_str = ''
                     coeff_display = '1'
                 up_display = str(g['unit_price']) if g['unit_price'] else ''
+                group_period_label = _receipt_group_period_label(g['bills'], period_label)
                 rows_html += f'''<tr>
                     <td>{h(key)}</td>
-                    <td>{h(period_label)}</td>
+                    <td>{h(group_period_label)}</td>
                     <td>{usage_str}</td>
                     <td>{coeff_display}</td>
                     <td class="amt">{up_display}</td>

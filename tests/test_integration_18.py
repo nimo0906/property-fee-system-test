@@ -45,6 +45,8 @@ class TestIntegration18(IntegrationTestBase):
         status, property_body = http_get('/billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('window.BILLING_MODE="property"', property_body)
+        self.assertIn('起始日和截止日均计入服务期', property_body)
+        self.assertNotIn('收7-9月', property_body)
 
         status, commercial_body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
@@ -57,6 +59,44 @@ class TestIntegration18(IntegrationTestBase):
         self.assertIn('window.shouldUseRoomCycle', js)
         self.assertIn('return false', js)
         self.assertNotIn('if(roomCycle) months = window.cycleMonths(roomCycle);', js)
+        self.assertNotIn('new Date(s.value)', js)
+        self.assertNotIn('new Date(e.value)', js)
+        self.assertIn('window.parseBillingDate', js)
+
+
+    def test_billing_frontend_proration_parses_date_inputs_as_local_dates(self):
+        import subprocess
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const js = fs.readFileSync("static/billing.js", "utf8");
+const elements = {
+  periodStart: { value: "2026-07-01" },
+  periodEnd: { value: "2026-09-30" }
+};
+const context = {
+  window: {},
+  addEventListener: function() {},
+  document: {
+    getElementById: function(id) { return elements[id] || null; },
+    querySelectorAll: function() { return []; },
+    addEventListener: function() {}
+  }
+};
+context.window = context;
+vm.createContext(context);
+vm.runInContext(js, context);
+console.log(context.factorLabel(context.prorateFactor()));
+'''
+        result = subprocess.run(
+            ['node', '-e', script],
+            cwd=PROJECT_ROOT,
+            env={**os.environ, 'TZ': 'Asia/Shanghai'},
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout.strip(), '3个月')
 
 
     def test_bills_start_month_filter_includes_multi_month_billing_period(self):
@@ -286,16 +326,14 @@ class TestIntegration18(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('收款收据', receipt_html)
         self.assertIn('收据区间业主', receipt_html)
-        self.assertIn('2035-05', receipt_html)
+        self.assertIn('2035-05-01 至 2035-05-31', receipt_html)
         self.assertIn('270.00', receipt_html)
         self.assertNotIn('2035-07', receipt_html)
         self.assertNotIn('360.00', receipt_html)
 
         status, csv_body = http_get(f'/bills/export_receipt?room_id={room_id}&period_start=2035-05-01&period_end=2035-05-31', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('2035-05', csv_body)
+        self.assertIn('2035-05-01 至 2035-05-31', csv_body)
         self.assertIn('270', csv_body)
         self.assertNotIn('2035-07', csv_body)
         self.assertNotIn('360', csv_body)
-
-

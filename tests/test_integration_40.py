@@ -41,6 +41,69 @@ class TestIntegration40(IntegrationTestBase):
         self.assertIsNotNone(full)
         self.assertEqual(full['amount'], 90.0)  # 完整自然月仍按一个月，不按28/30折扣
 
+    def test_quarter_date_range_includes_start_day_and_receipt_shows_full_dates(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '季度日期收据业主', '13900004011')
+        room_id = create_room(db, building='RECEIPTDATE', unit='B座', room_number='1001', floor=10, category='商户', area=100, owner_id=owner_id)
+        fee_id = db.execute("""
+            INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes)
+            VALUES('季度完整日期物业费','area',1,'元/m²·月','monthly',46,1,'完整日期收据测试')
+        """).lastrowid
+        db.commit(); db.close()
+
+        status, _, _ = http_post('/billing/calc', {
+            'room_id': str(room_id), 'fee_types': str(fee_id),
+            'period_start': '2026-07-01', 'period_end': '2026-09-30',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+
+        db = db_module.get_db()
+        bill = db.execute("""SELECT id,amount,billing_period,service_start,service_end FROM bills
+            WHERE room_id=? AND fee_type_id=? ORDER BY id DESC LIMIT 1""", (room_id, fee_id)).fetchone()
+        db.close()
+        self.assertIsNotNone(bill)
+        self.assertEqual(float(bill['amount']), 300.0)
+        self.assertEqual(bill['billing_period'], '2026-07~2026-09')
+        self.assertEqual(bill['service_start'], '2026-07-01')
+        self.assertEqual(bill['service_end'], '2026-09-30')
+
+        status, receipt_html, _ = http_post('/bills/receipt_by_ids', {
+            'bill_ids': str(bill['id']),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-07-01 至 2026-09-30', receipt_html)
+        self.assertNotIn('2026-07~2026-09</td>', receipt_html)
+
+    def test_receipt_shows_exact_date_when_end_is_first_day_of_next_month(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '一号截止收据业主', '13900004012')
+        room_id = create_room(db, building='RECEIPTDATE', unit='B座', room_number='1002', floor=10, category='商户', area=100, owner_id=owner_id)
+        fee_id = db.execute("""
+            INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes)
+            VALUES('一号截止完整日期物业费','area',1,'元/m²·月','monthly',47,1,'完整日期收据测试')
+        """).lastrowid
+        db.commit(); db.close()
+
+        status, _, _ = http_post('/billing/calc', {
+            'room_id': str(room_id), 'fee_types': str(fee_id),
+            'period_start': '2026-07-01', 'period_end': '2026-10-01',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+
+        db = db_module.get_db()
+        bill = db.execute("SELECT id FROM bills WHERE room_id=? AND fee_type_id=? ORDER BY id DESC LIMIT 1", (room_id, fee_id)).fetchone()
+        db.close()
+        self.assertIsNotNone(bill)
+
+        status, receipt_html, _ = http_post('/bills/receipt_by_ids', {
+            'bill_ids': str(bill['id']),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-07-01 至 2026-10-01', receipt_html)
+        self.assertNotIn('2026-07~2026-10</td>', receipt_html)
+
     def test_one_time_fee_does_not_prorate_by_selected_dates(self):
         import server.db as db_module
         db = db_module.get_db()

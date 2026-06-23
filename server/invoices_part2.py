@@ -1,9 +1,10 @@
 from server.invoices_shared import *
+from server.bill_receipt_shared import _receipt_period_label
 
 class InvoiceMixinPart2(BaseHandler):
     def _invoice_print(self, iid):
         db=get_db()
-        i=db.execute('''SELECT i.*,b.bill_number,b.billing_period,b.amount,b.due_date,
+        i=db.execute('''SELECT i.*,b.bill_number,b.billing_period,b.service_start,b.service_end,b.amount,b.due_date,
             r.building,r.unit,r.room_number,r.area,o.name oname,o.phone ophone,o.id_card oid_card
             FROM invoices i JOIN bills b ON i.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id WHERE i.id=?''',(iid,)).fetchone()
@@ -13,6 +14,7 @@ class InvoiceMixinPart2(BaseHandler):
         buyer = h(i['buyer_name'] or i['oname'] or '')
         tax_id = h(i['buyer_tax_id'] or '-')
         amount = m(i['amount'])
+        period_label = h(_receipt_period_label(i))
         html='''<!DOCTYPE html><html><head><meta charset="utf-8"><title>发票 #'''+h(i['invoice_number'])+'''</title>
     <link href="/static/vendor/bootstrap/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -64,11 +66,11 @@ class InvoiceMixinPart2(BaseHandler):
         <div class="party"><div class="party-title">销售方信息</div><div class="party-body"><div>名称：</div><div>物业管理收费系统</div><div>纳税人识别号：</div><div>-</div><div>地址、电话：</div><div>-</div><div>开户行及账号：</div><div>-</div></div></div>
       </div>
       <table class="invoice-table"><thead><tr><th style="width:28%">项目名称</th><th>规格型号</th><th>单位</th><th>数量</th><th>单价</th><th>金额</th><th>税率/征收率</th><th>税额</th></tr></thead>
-      <tbody><tr><td class="left">*物业服务*物业管理费<br><small>房号：'''+room_label+'''；账期：'''+h(i['billing_period'])+'''</small></td><td>-</td><td>项</td><td>1</td><td>'''+amount+'''</td><td>'''+amount+'''</td><td>免税</td><td>0.00</td></tr>
+      <tbody><tr><td class="left">*物业服务*物业管理费<br><small>房号：'''+room_label+'''；服务期：'''+period_label+'''</small></td><td>-</td><td>项</td><td>1</td><td>'''+amount+'''</td><td>'''+amount+'''</td><td>免税</td><td>0.00</td></tr>
       <tr class="amount-line"><td>合计</td><td colspan="4"></td><td>¥'''+amount+'''</td><td></td><td>¥0.00</td></tr></tbody></table>
       <div class="total-row"><div>价税合计（大写）</div><div>'''+_rmb_upper(float(i['amount'] or 0))+'''</div><div>价税合计（小写）</div><div>¥'''+amount+'''</div></div>
-      <div class="remark"><div class="remark-label">备注</div><div class="remark-body">账单号 '''+h(i['bill_number'] or '-')+'''；房号 '''+room_label+'''；账期 '''+h(i['billing_period'])+'''</div></div>
-      <div class="voucher-row"><div>内部凭证信息</div><div>'''+h(i['bill_number'] or '-')+'''</div><div>服务账期</div><div>'''+h(i['billing_period'] or '-')+'''</div><div>缴费截止日</div><div>'''+h(i['due_date'] or '-')+'''</div></div>
+      <div class="remark"><div class="remark-label">备注</div><div class="remark-body">账单号 '''+h(i['bill_number'] or '-')+'''；房号 '''+room_label+'''；服务期 '''+period_label+'''</div></div>
+      <div class="voucher-row"><div>内部凭证信息</div><div>'''+h(i['bill_number'] or '-')+'''</div><div>服务期</div><div>'''+period_label+'''</div><div>缴费截止日</div><div>'''+h(i['due_date'] or '-')+'''</div></div>
       </div>
       <div class="sign-row"><div>收款人：管理员</div><div>复核人：管理员</div><div>开票人：管理员</div></div>
     </div>

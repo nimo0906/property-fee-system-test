@@ -12,7 +12,9 @@ class TestIntegration19(IntegrationTestBase):
         owner_id = create_owner(db, '缴费打印业主', '13900002222')
         room_id = create_room(db, building='PAYACT', unit='A座', room_number='501', owner_id=owner_id)
         bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-03', amount=120, status='paid', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2034-03-01', service_end='2034-03-31' WHERE id=?", (bill_id,))
         payment_id = create_payment(db, bill_id=bill_id, amount=120, method='cash', operator='打印员')
+        db.commit()
         db.close()
 
         status, body = http_get('/payments?period=2034-03-01', self.cookie, TEST_PORT)
@@ -43,6 +45,8 @@ class TestIntegration19(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('缴费记录打印', print_html)
         self.assertIn('PAYACT-A座-501', print_html)
+        self.assertIn('费用区间', print_html)
+        self.assertIn('2034-03-01 至 2034-03-31', print_html)
         self.assertIn('class="print-toolbar"', print_html)
         self.assertIn('保存为PDF', print_html)
         self.assertIn('href="/payments"', print_html)

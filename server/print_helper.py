@@ -39,6 +39,7 @@ table.detail .amt { text-align: right; }
 .page-break { page-break-after: always; }
 body.receipt-print { max-width: 210mm; padding: 12mm; color: #000; }
 body.receipt-print.receipt-paper { max-width: 241mm; padding: 6mm; }
+body.receipt-print.receipt-paper-92 { max-width: 241mm; padding: 4mm 6mm; }
 body.receipt-print h1 { font-size: 16pt; margin-bottom: 4pt; letter-spacing: 2pt; }
 body.receipt-print h2 { font-size: 13pt; margin-bottom: 8pt; color: #000; }
 body.receipt-print .header-info { margin-bottom: 7pt; font-size: 10.5pt; color: #000; }
@@ -52,8 +53,10 @@ body.receipt-print .signature td { border-top: 1.2pt solid #000; padding-top: 14
 body.receipt-print .footer { color: #000; font-size: 8pt; margin-top: 8pt; }
 @media print {
   body.receipt-print { max-width: none; padding: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  body.receipt-print.receipt-paper { width: 229mm; page: receipt; }
-  @page receipt { size: 241mm 140mm; margin: 5mm 6mm; }
+  body.receipt-print.receipt-paper { width: 229mm; page: receipt140; }
+  body.receipt-print.receipt-paper-92 { width: 229mm; page: receipt92; }
+  @page receipt140 { size: 241mm 140mm; margin: 5mm 6mm; }
+  @page receipt92 { size: 241mm 92mm; margin: 4mm 6mm; }
 }
 """
 
@@ -63,7 +66,8 @@ def _receipt_mode_controls():
             <div class="receipt-mode-switch" data-receipt-mode-switch>
                 <strong>收据打印模式：</strong>
                 <button type="button" data-mode="a4" onclick="setReceiptPrintMode('a4')">普通A4</button>
-                <button type="button" data-mode="paper" onclick="setReceiptPrintMode('paper')">收据纸</button>
+                <button type="button" data-mode="paper" onclick="setReceiptPrintMode('paper')">收据纸 241×140</button>
+                <button type="button" data-mode="paper92" onclick="setReceiptPrintMode('paper92')">收据纸 241×92</button>
             </div>
             <div class="receipt-mode-note" id="receiptModeNote">普通A4：不锁定纸张尺寸，可在系统打印框选择纵向或横向。</div>'''
 
@@ -76,17 +80,18 @@ function setReceiptPrintMode(mode) {
   var note = document.getElementById('receiptModeNote');
   body.classList.toggle('receipt-a4', mode === 'a4');
   body.classList.toggle('receipt-paper', mode === 'paper');
+  body.classList.toggle('receipt-paper-92', mode === 'paper92');
   document.querySelectorAll('[data-receipt-mode-switch] button').forEach(function (btn) {
     btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
   });
   if (note) {
-    note.textContent = mode === 'paper'
-      ? '收据纸：使用系统预设 241mm x 140mm 票据纸尺寸。'
-      : '普通A4：不锁定纸张尺寸，可在系统打印框选择纵向或横向。';
+    if (mode === 'paper') note.textContent = '收据纸：使用系统预设 241mm x 140mm 票据纸尺寸。';
+    else if (mode === 'paper92') note.textContent = '收据纸：使用系统预设 241mm x 92mm 票据纸尺寸。';
+    else note.textContent = '普通A4：不锁定纸张尺寸，可在系统打印框选择纵向或横向。';
   }
 }
 document.addEventListener('DOMContentLoaded', function () {
-  setReceiptPrintMode(document.body.classList.contains('receipt-paper') ? 'paper' : 'a4');
+  setReceiptPrintMode(document.body.classList.contains('receipt-paper-92') ? 'paper92' : (document.body.classList.contains('receipt-paper') ? 'paper' : 'a4'));
 });
 </script>'''
 
@@ -95,12 +100,12 @@ def print_page(title, content, show_back=True, back_url='/', body_class=''):
     """Generate a self-contained print-friendly HTML page."""
     classes = body_class.split()
     is_receipt = 'receipt-print' in classes
-    if is_receipt and 'receipt-a4' not in classes and 'receipt-paper' not in classes:
+    if is_receipt and 'receipt-a4' not in classes and 'receipt-paper' not in classes and 'receipt-paper-92' not in classes:
         classes.append('receipt-a4')
     receipt_controls = _receipt_mode_controls() if is_receipt else ''
     receipt_marker = ''
     if is_receipt:
-        receipt_marker = '<div class="receipt-print-marker">收据纸模式：黑色加粗线条，建议纸张 241mm x 140mm，缩放 100%</div>'
+        receipt_marker = '<div class="receipt-print-marker">收据纸模式：黑色加粗线条，可选纸张 241mm x 140mm 或 241mm x 92mm，缩放 100%</div>'
     back_btn = ''
     if show_back:
         safe_back_url = html.escape(back_url, quote=True)

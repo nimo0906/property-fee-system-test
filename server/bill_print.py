@@ -5,6 +5,7 @@
 from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs
 from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
+from server.bill_receipt_shared import _receipt_period_label
 from datetime import datetime, date
 import urllib.parse, csv, io
 
@@ -20,7 +21,7 @@ def _combined_bill_print_html(rows):
         f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}' for r in rows
     })
     owner_names = sorted({r['oname'] or '-' for r in rows})
-    periods = sorted({r['billing_period'] or '-' for r in rows})
+    periods = sorted({_receipt_period_label(r) or '-' for r in rows})
     total = sum(float(r['amount'] or 0) for r in rows)
 
     info = ''.join(print_header_row(k, v) for k, v in [
@@ -41,7 +42,7 @@ def _combined_bill_print_html(rows):
                 <td>{h(bill['bill_number'] or '-')}</td>
                 <td>{h(room_name)}</td>
                 <td>{h(bill['ft'] or '-')}</td>
-                <td>{h(bill['billing_period'] or '-')}{_service_period_text(bill)}</td>
+                <td>{h(_receipt_period_label(bill) or '-')}{_service_period_text(bill)}</td>
                 <td class="amt">¥{m(bill['amount'])}</td>
                 <td>{status_names.get(bill['status'], h(bill['status'] or '-'))}</td>
             </tr>
@@ -123,7 +124,7 @@ class BillPrintMixin(BaseHandler):
             pages = ''
             sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
             for i, b in enumerate(rows):
-                period = f'{h(b["billing_period"])}{_service_period_text(b)}'
+                period = f'{h(_receipt_period_label(b))}{_service_period_text(b)}'
                 info = ''.join(print_header_row(k, v) for k, v in [
                     ('房号', f'{h(b["building"])}-{h(b["unit"])}-{h(b["room_number"])}'),
                     ('业主', h(b["oname"] or '-')),

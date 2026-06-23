@@ -17,6 +17,29 @@ def _receipt_service_period(bill):
     return ''
 
 
+def _receipt_period_label(bill):
+    start = (bill['service_start'] or '').strip()
+    end = (bill['service_end'] or '').strip()
+    if start and end:
+        return f'{start} 至 {end}'
+    return bill['billing_period'] or ''
+
+
+def _receipt_group_period_label(bills, fallback=''):
+    starts = []
+    ends = []
+    for bill in bills:
+        start = (bill['service_start'] or '').strip()
+        end = (bill['service_end'] or '').strip()
+        if not start or not end:
+            return fallback
+        starts.append(start)
+        ends.append(end)
+    if starts and ends:
+        return f'{min(starts)} 至 {max(ends)}'
+    return fallback
+
+
 def _month_range(period=''):
     p = date_to_period(period or get_period())
     start = period_to_date(p)

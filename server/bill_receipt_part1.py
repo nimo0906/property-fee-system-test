@@ -84,7 +84,7 @@ class BillReceiptMixinPart1(BaseHandler):
                 rows_html += f'''<tr>
                     <td>{h(row_room)}</td>
                     <td>{h(b['ft'])}</td>
-                    <td>{h(b['billing_period'])}{_receipt_service_period(b)}</td>
+                    <td>{h(_receipt_period_label(b))}{_receipt_service_period(b)}</td>
                     <td>{usage_str}</td>
                     <td>1</td>
                     <td class="amt">{up}</td>
