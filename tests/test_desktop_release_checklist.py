@@ -28,6 +28,29 @@ class TestDesktopReleaseChecklist(unittest.TestCase):
         self.assertIn('Windows build script', result.stdout)
         self.assertIn('PASS', result.stdout)
 
+
+    def test_windows_server_background_assets_are_packaged(self):
+        required_files = [
+            'start_windows_server.bat',
+            'install_windows_background_task.bat',
+            'status_windows_background_task.bat',
+            'uninstall_windows_background_task.bat',
+            'Windows服务器无黑框运行说明.md',
+        ]
+        for rel in required_files:
+            self.assertTrue(os.path.exists(os.path.join(ROOT, rel)), rel)
+
+        package_script = open(os.path.join(ROOT, 'package_windows_release.bat'), encoding='utf-8').read()
+        self.assertIn('物业管理收费系统-v2.0-windows-server', package_script)
+        for rel in required_files:
+            self.assertIn(rel, package_script)
+        self.assertIn(r'D:\PropertyFeeSystemData', package_script)
+
+        guide = open(os.path.join(ROOT, 'Windows服务器无黑框运行说明.md'), encoding='utf-8').read()
+        self.assertIn('PropertyFeeSystemServer', guide)
+        self.assertIn(r'D:\PropertyFeeSystemData', guide)
+        self.assertIn('http://服务器内网IP:5001', guide)
+
     def test_runtime_pages_use_local_static_assets(self):
         checked = [
             'templates/base.html',

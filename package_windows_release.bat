@@ -4,11 +4,11 @@ setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 set "RELEASE_ROOT=release\windows"
-set "RELEASE_NAME=物业管理收费系统-v2.0-windows"
+set "RELEASE_NAME=物业管理收费系统-v2.0-windows-server"
 set "RELEASE_DIR=%RELEASE_ROOT%\%RELEASE_NAME%"
 set "ZIP_PATH=%RELEASE_ROOT%\%RELEASE_NAME%.zip"
 
-echo Building Windows trial release package...
+echo Building Windows server-ready release package...
 echo.
 
 where py >nul 2>nul
@@ -67,21 +67,25 @@ copy /Y "清空本机试用数据.bat" "%RELEASE_DIR%\清空本机试用数据.b
 copy /Y "diagnose_windows.bat" "%RELEASE_DIR%\diagnose_windows.bat" >nul
 copy /Y "start_windows.bat" "%RELEASE_DIR%\start_windows.bat" >nul
 copy /Y "start_windows_server.bat" "%RELEASE_DIR%\start_windows_server.bat" >nul
+copy /Y "install_windows_background_task.bat" "%RELEASE_DIR%\install_windows_background_task.bat" >nul
+copy /Y "status_windows_background_task.bat" "%RELEASE_DIR%\status_windows_background_task.bat" >nul
+copy /Y "uninstall_windows_background_task.bat" "%RELEASE_DIR%\uninstall_windows_background_task.bat" >nul
+copy /Y "Windows服务器无黑框运行说明.md" "%RELEASE_DIR%\Windows服务器无黑框运行说明.md" >nul
 copy /Y "check_windows_packaging_ready.bat" "%RELEASE_DIR%\check_windows_packaging_ready.bat" >nul
 
 for /f "delims=" %%i in ('git rev-parse --short HEAD 2^>nul') do set "COMMIT=%%i"
 if not defined COMMIT set "COMMIT=unknown"
 for /f "delims=" %%i in ('%PYTHON_CMD% --version 2^>^&1') do set "PY_VERSION=%%i"
 
-> "%RELEASE_DIR%\本次交付记录.md" echo # 物业管理收费系统 v2.0 Windows 试用交付记录
+> "%RELEASE_DIR%\本次交付记录.md" echo # 物业管理收费系统 v2.0 Windows 服务器可用版交付记录
 >> "%RELEASE_DIR%\本次交付记录.md" echo.
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 交付包名称：%RELEASE_NAME%
 >> "%RELEASE_DIR%\本次交付记录.md" echo - 当前 commit：%COMMIT%
 >> "%RELEASE_DIR%\本次交付记录.md" echo - Python 版本：%PY_VERSION%
->> "%RELEASE_DIR%\本次交付记录.md" echo - 交付类型：Windows 内部/客户试用包
->> "%RELEASE_DIR%\本次交付记录.md" echo - 启动入口：PropertyFeeSystem\PropertyFeeSystem.exe
->> "%RELEASE_DIR%\本次交付记录.md" echo - 数据目录：%%APPDATA%%\PropertyFeeSystemData
->> "%RELEASE_DIR%\本次交付记录.md" echo - 说明：本交付包不包含本机 property.db、.env、backups 或缓存文件。
+>> "%RELEASE_DIR%\本次交付记录.md" echo - 交付类型：Windows 服务器共享/内部试用包
+>> "%RELEASE_DIR%\本次交付记录.md" echo - 普通桌面入口：PropertyFeeSystem\PropertyFeeSystem.exe
+>> "%RELEASE_DIR%\本次交付记录.md" echo - 服务器数据目录：D:\PropertyFeeSystemData
+>> "%RELEASE_DIR%\本次交付记录.md" echo - 说明：本交付包不包含本机 property.db、.env、backups 或缓存文件；服务器无黑框模式请使用 install_windows_background_task.bat。
 
 where powershell >nul 2>nul
 if errorlevel 1 (
@@ -101,5 +105,5 @@ echo.
 echo Windows release package is ready:
 echo %ZIP_PATH%
 echo.
-echo Ordinary users only need to unzip it and double-click PropertyFeeSystem.exe.
+echo Server use: unzip it on Windows Server, then run install_windows_background_task.bat as administrator.
 if not defined CI pause
