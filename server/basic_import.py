@@ -292,8 +292,7 @@ def _build_notes(tenant='', shop='', rent_period=''):
 
 
 def _merge_notes(old, new):
-    old = old or ''
-    new = new or ''
+    old, new = old or '', new or ''
     if not old:
         return new
     if not new or new in old:
