@@ -37,8 +37,10 @@ docs/**/.DS_Store
 
 # Generated release binaries stay out of source control by default.
 # Curated v2.0.2 delivery zips below are intentionally committed for GitHub sync.
-release/**/*.zip
-!release/macos/物业管理收费系统-v2.0-macos.zip
-!release/windows/物业管理收费系统-v2.0-windows-build-source.zip
-!release/windows/物业管理收费系统-v2.0-windows.zip
-release/**/*.app/
+# Generated release artifacts stay outside source control.
+release/
+release_packages/
+*.zip
+*.app/
+*.dmg
+*.exe
