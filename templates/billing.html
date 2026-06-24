@@ -25,6 +25,14 @@ window.filterRooms=function(){ window.filterSearchableSelect && window.filterSea
 </div>
 </div>
 <small class="text-muted" id="monthCount">共 3 个月</small>
+<div class="mt-2">
+<label class="small text-muted">手动调整折算月数（可选）</label>
+<div class="input-group input-group-sm">
+<input type="number" name="proration_factor" id="prorationFactor" class="form-control" step="0.0001" min="0" placeholder="自动计算" oninput="calcFees()">
+<button class="btn btn-outline-secondary" type="button" onclick="var f=document.getElementById('prorationFactor'); if(f){f.value=''; calcFees();}">恢复自动</button>
+</div>
+<small class="text-muted d-block">例如系统算出 1 个月，也可临时改为 1.5；留空则按起始日整月自动折算。</small>
+</div>
 <small class="text-muted d-block">起始日和截止日均计入服务期。</small>
 </div>
 <div id="ownerRoomsSection" class="mb-3" style="display:none">
@@ -51,5 +59,5 @@ window.filterRooms=function(){ window.filterSearchableSelect && window.filterSea
 </div>
 </form>
 <script src="/static/searchable_select.js?v=20260615"></script>
-<script src="/static/billing.js?v=20260614spacewater"></script>
+<script src="/static/billing.js?v=20260624proration"></script>
 <script src="/static/billing_ui_extras.js?v=20260614billingui"></script>

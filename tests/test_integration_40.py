@@ -6,6 +6,54 @@ from tests.integration_base import *
 
 
 class TestIntegration40(IntegrationTestBase):
+
+    def test_billing_page_exposes_manual_proration_factor_control(self):
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('name="proration_factor"', body)
+        self.assertIn('手动调整折算月数', body)
+        self.assertIn('恢复自动', body)
+        self.assertIn('20260624proration', body)
+
+    def test_anchor_day_ranges_count_as_whole_service_months(self):
+        from server.billing_proration import prorated_month_factor, factor_label
+
+        cases = [
+            ('2026-06-24', '2026-07-23', 1.0, '1个月'),
+            ('2026-06-24', '2026-08-23', 2.0, '2个月'),
+            ('2026-06-24', '2026-09-23', 3.0, '3个月'),
+            ('2026-06-24', '2026-10-23', 4.0, '4个月'),
+        ]
+        for start, end, expected, label in cases:
+            factor = prorated_month_factor(start, end)
+            self.assertEqual(factor, expected, (start, end, factor))
+            self.assertEqual(factor_label(factor), label)
+
+    def test_manual_proration_factor_override_affects_generated_bill_amount(self):
+        import server.db as db_module
+
+        db = db_module.get_db()
+        owner_id = create_owner(db, '手动折算业主', '13900004099')
+        room_id = create_room(db, building='ADJFACTOR', unit='B座', room_number='2401', floor=24, category='居民', area=100, owner_id=owner_id)
+        fee_id = db.execute("""
+            INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes)
+            VALUES('手动折算物业费测试','area',2,'元/m²·月','monthly',66,1,'允许手动调整折算月数')
+        """).lastrowid
+        db.commit(); db.close()
+
+        status, _, _ = http_post('/billing/calc', {
+            'room_id': str(room_id), 'fee_types': str(fee_id),
+            'period_start': '2026-06-24', 'period_end': '2026-07-23',
+            'proration_factor': '1.25',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+
+        db = db_module.get_db()
+        bill = db.execute('SELECT amount FROM bills WHERE room_id=? AND fee_type_id=? ORDER BY id DESC LIMIT 1', (room_id, fee_id)).fetchone()
+        db.close()
+        self.assertIsNotNone(bill)
+        self.assertEqual(bill['amount'], 250.0)
+
     def test_billing_prorates_partial_month_but_keeps_full_natural_month(self):
         import server.db as db_module
         db = db_module.get_db()

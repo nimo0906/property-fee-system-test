@@ -38,7 +38,7 @@ class TestIntegration18(IntegrationTestBase):
         self.assertIsNotNone(bill)
         self.assertEqual(bill['billing_period'], '2026-06~2026-10')
         self.assertEqual(bill['due_date'], '2026-10-02')
-        self.assertAlmostEqual(float(bill['amount']), 455.12)
+        self.assertAlmostEqual(float(bill['amount']), 455.24)
 
 
     def test_billing_frontend_uses_room_cycle_only_in_commercial_mode(self):

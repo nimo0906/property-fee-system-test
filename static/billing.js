@@ -25,22 +25,40 @@ window.calcMonths = function(){
     return Math.max(1, Math.floor((days + 15) / 30));
 };
 
-window.daysInMonth = function(d){ return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); };
+window.addBillingMonths = function(d, n){
+    var y = d.getFullYear(), m = d.getMonth() + n, day = d.getDate();
+    var target = new Date(y, m, 1);
+    var last = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    target.setDate(Math.min(day, last));
+    return target;
+};
 
-window.prorateFactor = function(){
+window.billingDaysBetween = function(a, b){ return Math.round((b - a) / 86400000); };
+
+window.prorateFactorAuto = function(){
     var s = document.getElementById("periodStart"), e = document.getElementById("periodEnd");
     if(!s || !e || !s.value || !e.value) return 1;
     var sd = window.parseBillingDate(s.value), ed = window.parseBillingDate(e.value);
     if(isNaN(sd.getTime()) || isNaN(ed.getTime())) return 1;
     if(ed < sd){ var tmp = sd; sd = ed; ed = tmp; }
-    var total = 0, cur = new Date(sd.getFullYear(), sd.getMonth(), 1);
-    while(cur <= ed){
-        var dim = window.daysInMonth(cur), ms = new Date(cur.getFullYear(), cur.getMonth(), 1), me = new Date(cur.getFullYear(), cur.getMonth(), dim);
-        var a = sd > ms ? sd : ms, b = ed < me ? ed : me;
-        if(a <= b) total += (a.getTime() === ms.getTime() && b.getTime() === me.getTime()) ? 1 : (Math.floor((b - a) / 86400000) + 1) / dim;
-        cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+    var inclusiveEnd = new Date(ed.getFullYear(), ed.getMonth(), ed.getDate() + 1);
+    var full = 0;
+    while(window.addBillingMonths(sd, full + 1) <= inclusiveEnd) full++;
+    var anchor = window.addBillingMonths(sd, full);
+    if(anchor.getTime() === inclusiveEnd.getTime()) return full || 1;
+    var next = window.addBillingMonths(anchor, 1);
+    var cycleDays = Math.max(1, window.billingDaysBetween(anchor, next));
+    var tailDays = Math.max(0, window.billingDaysBetween(anchor, inclusiveEnd));
+    return Math.round((full + tailDays / cycleDays) * 1000000) / 1000000 || 1;
+};
+
+window.prorateFactor = function(){
+    var manual = document.getElementById("prorationFactor");
+    if(manual && manual.value !== ""){
+        var v = parseFloat(manual.value);
+        if(!isNaN(v) && v >= 0) return v;
     }
-    return total || 1;
+    return window.prorateFactorAuto();
 };
 
 window.factorLabel = function(v){
@@ -55,8 +73,10 @@ window.updateMonthDisplay = function(){
     if(!s.value || !e.value) { mc.textContent = "请选择日期"; return; }
     var sd = window.parseBillingDate(s.value), ed = window.parseBillingDate(e.value);
     if(ed <= sd) { mc.textContent = "截止须大于起始"; return; }
+    var autoFactor = window.prorateFactorAuto();
     var factor = window.prorateFactor();
-    mc.textContent = "服务期折算：" + window.factorLabel(factor);
+    var manual = document.getElementById("prorationFactor");
+    mc.textContent = "服务期折算：" + window.factorLabel(factor) + ((manual && manual.value !== "") ? "（手动，自动为" + window.factorLabel(autoFactor) + "）" : "");
 };
 
 window.showOwnerRooms = function(){

@@ -34,7 +34,7 @@ def fee_applies_to_room(fee_name, room):
     return fee_applies_to_category(fee_name, rcat)
 
 
-def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=None, period_start=None, period_end=None):
+def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=None, period_start=None, period_end=None, proration_factor=None):
     """Return amount details for one room and one active fee type."""
     if custom_amount not in (None, ''):
         custom = float(custom_amount)
@@ -87,6 +87,8 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
     factor = float(month_count)
     if method == 'meter' or is_one_time_fee(fee_type):
         factor = 1.0
+    elif proration_factor not in (None, ''):
+        factor = max(0.0, float(proration_factor))
     elif period_start and period_end:
         factor = prorated_month_factor(period_start, period_end)
     amount = round(float(monthly or 0) * factor, 2)

@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """Date-range proration helpers for manual billing."""
 
-from calendar import monthrange
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
+
+from server.db import add_months
 
 
 def parse_date(value):
@@ -20,20 +21,17 @@ def prorated_month_factor(start_value, end_value):
         return 1.0
     if end < start:
         start, end = end, start
-    total = 0.0
-    cur = date(start.year, start.month, 1)
-    while cur <= end:
-        days_in_month = monthrange(cur.year, cur.month)[1]
-        month_start = cur
-        month_end = date(cur.year, cur.month, days_in_month)
-        seg_start = max(start, month_start)
-        seg_end = min(end, month_end)
-        if seg_start <= seg_end:
-            if seg_start == month_start and seg_end == month_end:
-                total += 1.0
-            else:
-                total += ((seg_end - seg_start).days + 1) / days_in_month
-        cur = month_end + timedelta(days=1)
+    inclusive_end = end + timedelta(days=1)
+    full_months = 0
+    while add_months(start, full_months + 1) <= inclusive_end:
+        full_months += 1
+    anchor = add_months(start, full_months)
+    if anchor == inclusive_end:
+        return float(full_months) or 1.0
+    next_anchor = add_months(anchor, 1)
+    cycle_days = max(1, (next_anchor - anchor).days)
+    tail_days = max(0, (inclusive_end - anchor).days)
+    total = full_months + tail_days / cycle_days
     return round(total, 6) or 1.0
 
 

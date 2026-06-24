@@ -33,6 +33,7 @@ class PaymentMixinPart1Group1(BaseHandler):
         if not period_start or not period_end:
             return self._redirect('/billing?flash=请选择出账日期区间')
         months = _calc_month_count(period_start, period_end)
+        manual_factor = qs(d, 'proration_factor', '').strip()
         period_label = _period_label(period_start, period_end)
         db = get_db()
         if is_period_closed(period_label):
@@ -81,7 +82,7 @@ class PaymentMixinPart1Group1(BaseHandler):
                     continue
                 custom_key = f'custom_amount_{fid}'
                 custom_val = d.get(custom_key, [''])[0] if isinstance(d.get(custom_key), list) else d.get(custom_key, '')
-                calc = calculate_bill_amount(db, rm, ft, period_label, months, custom_val, period_start, period_end)
+                calc = calculate_bill_amount(db, rm, ft, period_label, months, custom_val, period_start, period_end, manual_factor)
                 if calc['amount'] <= 0:
                     continue
                 seq = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period=?", (period_label,)).fetchone()[0] + total_g + 1
@@ -122,7 +123,7 @@ class PaymentMixinPart1Group1(BaseHandler):
                     continue
                 custom_key = f'custom_amount_{fid}'
                 custom_val = d.get(custom_key, [''])[0] if isinstance(d.get(custom_key), list) else d.get(custom_key, '')
-                calc = calculate_bill_amount(db, rm, ft, bill_period_label, bill_months, custom_val, period_start, bill_due_date)
+                calc = calculate_bill_amount(db, rm, ft, bill_period_label, bill_months, custom_val, period_start, bill_due_date, manual_factor)
                 amt = calc['amount']
                 if amt <= 0:
                     continue
