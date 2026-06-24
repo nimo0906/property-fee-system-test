@@ -25,11 +25,11 @@ class MerchantContractAttachmentWorkflowMixin(BaseHandler):
           </div>
         </form>""", "merchant_contracts"))
 
-    def _merchant_contract_renew_post_multipart(self, contract_id):
+    def _merchant_contract_renew_post_multipart(self, contract_id, form=None):
         old = _contract_row(contract_id)
         if not old:
             return self._redirect("/merchant_contracts?flash=合同不存在")
-        form = parse_multipart(self)
+        form = parse_multipart(self, form)
         new_id = create_merchant_contract({
             "project_id": old["project_id"], "room_id": old["room_id"], "owner_id": old["owner_id"],
             "contract_no": form.getfirst("contract_no", ""), "merchant_name": old["merchant_name"],
@@ -48,11 +48,11 @@ class MerchantContractAttachmentWorkflowMixin(BaseHandler):
         self._audit("merchant_contract_renew", "merchant_contract", contract_id, dict(old), {"new_contract_id": new_id, "attachment_id": attachment_id}, "合同续签")
         return self._redirect("/merchant_contracts", flash="合同续签已创建")
 
-    def _merchant_contract_deactivate_multipart(self, contract_id):
+    def _merchant_contract_deactivate_multipart(self, contract_id, form=None):
         old = _contract_row(contract_id)
         if not old:
             return self._redirect("/merchant_contracts?flash=合同不存在")
-        form = parse_multipart(self)
+        form = parse_multipart(self, form)
         db = get_db()
         notes = ((old["notes"] or "") + "；停用原因：" + (form.getfirst("reason", "") or "未填写")).strip("；")
         db.execute("UPDATE merchant_contracts SET status='inactive',notes=? WHERE id=?", (notes, contract_id))

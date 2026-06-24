@@ -4,12 +4,13 @@ from server.bill_snapshots import room_snapshot, apply_snapshot
 from server.money import money_float
 
 class ImportMixinPart2(BaseHandler):
-    def _import_upload(self):
+    def _import_upload(self, form=None):
         """处理上传文件并导入数据（校验格式和大小后解析）"""
-        try:
-            form = parse_form_data(self.rfile, self.headers)
-        except:
-            return self._redirect("/import?flash=文件解析失败")
+        if form is None:
+            try:
+                form = parse_form_data(self.rfile, self.headers)
+            except:
+                return self._redirect("/import?flash=文件解析失败")
         mode = form.getvalue("mode", "preview")
         if mode == "confirm_preview_rows":
             return self._confirm_preview_rows(form)

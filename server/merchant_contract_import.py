@@ -20,11 +20,12 @@ class MerchantContractImportMixin(BaseHandler):
     def _merchant_contract_import_form(self):
         return self._redirect("/import?data_type=commercial_contracts", flash="合同导入已合并到数据导入工作台")
 
-    def _merchant_contract_import_preview(self):
-        try:
-            form = parse_form_data(self.rfile, self.headers)
-        except Exception:
-            return self._redirect("/import?data_type=commercial_contracts&flash=文件解析失败")
+    def _merchant_contract_import_preview(self, form=None):
+        if form is None:
+            try:
+                form = parse_form_data(self.rfile, self.headers)
+            except Exception:
+                return self._redirect("/import?data_type=commercial_contracts&flash=文件解析失败")
         file_item = form.getvalue("file")
         if not file_item:
             return self._redirect("/import?data_type=commercial_contracts&flash=请选择文件")

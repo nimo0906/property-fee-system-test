@@ -28,6 +28,7 @@ class TestIntegration32(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse(); html = resp.read().decode('utf-8'); conn.close()
         token = re.search(r'name="upload_token" value="([^"]+)"', html).group(1)
@@ -69,6 +70,7 @@ class TestIntegration32(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse(); html = resp.read().decode('utf-8'); conn.close()
         self.assertEqual(resp.status, 200)
@@ -128,6 +130,7 @@ class TestIntegration32(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         preview_html = resp.read().decode('utf-8')
@@ -186,6 +189,7 @@ class TestIntegration32(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         preview_html = resp.read().decode('utf-8')

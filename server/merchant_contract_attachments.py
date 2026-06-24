@@ -54,8 +54,8 @@ def _attachment_rows(contract_id):
     return rows
 
 
-def parse_multipart(handler):
-    return parse_form_data(handler.rfile, handler.headers)
+def parse_multipart(handler, form=None):
+    return form if form is not None else parse_form_data(handler.rfile, handler.headers)
 
 
 def save_contract_attachment(contract_id, file_item, attachment_type, uploaded_by=""):
@@ -129,10 +129,10 @@ def render_contract_attachments(contract_id):
 
 
 class MerchantContractAttachmentMixin(BaseHandler):
-    def _merchant_contract_attachment_upload(self, contract_id):
+    def _merchant_contract_attachment_upload(self, contract_id, form=None):
         if not self.headers.get("Content-Type", "").startswith("multipart/form-data"):
             return self._redirect(f"/merchant_contracts/{contract_id}?flash=请选择附件文件")
-        form = parse_multipart(self)
+        form = parse_multipart(self, form)
         file_item = form["file"] if "file" in form else None
         user = self._get_current_user() or {}
         attachment_id, error = save_contract_attachment(contract_id, file_item, form.getfirst("attachment_type", "合同附件"), user.get("username") or "")

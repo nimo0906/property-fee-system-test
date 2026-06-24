@@ -31,6 +31,7 @@ class TestIntegration33(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         preview_html = resp.read().decode('utf-8')
@@ -79,6 +80,7 @@ class TestIntegration33(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         html = resp.read().decode('utf-8')
@@ -171,6 +173,7 @@ class TestIntegration33(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         html = resp.read().decode('utf-8')
@@ -203,6 +206,7 @@ class TestIntegration33(IntegrationTestBase):
             'Content-Type': f'multipart/form-data; boundary={boundary}',
             'Content-Length': str(len(body)),
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         html = resp.read().decode('utf-8')

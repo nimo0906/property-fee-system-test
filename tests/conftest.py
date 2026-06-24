@@ -12,6 +12,7 @@ Usage:
 """
 
 import os, sys, json, http.client, urllib.parse, threading, time, tempfile, shutil
+from server.csrf import csrf_token_for_session, session_token_from_cookie
 
 # ── Ensure project root is on path ──────────────────────────────
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,14 +48,21 @@ def http_get(path, cookie, port=TEST_PORT):
     return resp.status, body
 
 
+def csrf_header_for_cookie(cookie):
+    return csrf_token_for_session(session_token_from_cookie(cookie or ''))
+
+
 def http_post(path, data, cookie, port=TEST_PORT):
     """Make authenticated POST request, return (status, body_str, redirect_url)."""
     conn = http.client.HTTPConnection(BASE_URL, port)
     params = urllib.parse.urlencode(data)
-    conn.request('POST', path, params, {
+    headers = {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': cookie,
-    })
+    }
+    if path not in ('/login', '/register'):
+        headers['X-CSRF-Token'] = csrf_header_for_cookie(cookie)
+    conn.request('POST', path, params, headers)
     resp = conn.getresponse()
     body = resp.read().decode('utf-8')
     location = resp.getheader('Location', '')

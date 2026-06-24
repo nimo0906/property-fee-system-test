@@ -25,7 +25,7 @@ from datetime import date, timedelta
 from unittest import mock
 from tests.conftest import (
     BASE_URL, TEST_PORT,
-    login_and_get_client, http_get, http_post,
+    login_and_get_client, http_get, http_post, csrf_header_for_cookie,
     create_owner, create_room, create_bill, create_payment,
 )
 
@@ -54,11 +54,13 @@ def http_post_multipart(path, fields, files, cookie, port=TEST_PORT):
     chunks.append(f'--{boundary}--\r\n'.encode())
     body = b''.join(chunks)
     conn = http.client.HTTPConnection(BASE_URL, port)
-    conn.request('POST', path, body, {
+    headers = {
         'Cookie': cookie,
         'Content-Type': f'multipart/form-data; boundary={boundary}',
         'Content-Length': str(len(body)),
-    })
+    }
+    headers['X-CSRF-Token'] = csrf_header_for_cookie(cookie)
+    conn.request('POST', path, body, headers)
     resp = conn.getresponse()
     text = resp.read().decode('utf-8', errors='ignore')
     loc = resp.getheader('Location', '')

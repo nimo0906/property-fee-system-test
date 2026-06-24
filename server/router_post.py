@@ -6,6 +6,8 @@ import re
 import urllib.parse
 
 from server.db import qs
+from server.csrf import SAFE_POST_PATHS, csrf_valid
+from server.form_parser import parse_form_data
 from server.permissions import canonical_role, is_readonly_role, required_get_role, required_post_role, role_allows
 
 DISABLED_MODULE_PATTERNS = (
@@ -82,68 +84,71 @@ def _role_blocks_get(role, path):
 
 
 # ── GET routing ────────────────────────────────────────────
+def _reject_csrf(handler):
+    return handler._error(403, 'CSRF token missing or invalid')
+
+
+def _require_user_and_role(handler, path):
+    u = handler._get_current_user()
+    if not u:
+        handler._redirect('/login')
+        return None
+    if is_readonly_role(u.get('role')):
+        handler._redirect('/?flash=无权限执行写操作')
+        return None
+    required_role = required_post_role(path)
+    if not role_allows(u.get('role'), required_role):
+        handler._redirect('/?flash=无权限执行该操作')
+        return None
+    return u
+
+
+def _parse_post_data(handler):
+    if handler.headers.get('Content-Type', '').startswith(('multipart/form-data', 'application/x-www-form-urlencoded')):
+        return parse_form_data(handler.rfile, handler.headers)
+    return handler._post()
+
+
 def handle_post(handler):
     p = urllib.parse.urlparse(handler.path).path
     if _is_disabled_module_path(p):
         return handler._error(404)
-    if p.startswith('/api/v1/'):
-        return handler._api_post(p, handler._post())
     if p.startswith('/owner-portal/') or p == '/owner-portal':
         return handler._error(404)
-    # 文件上传不经过 _post()（multipart 由 _import_upload 自行解析）
+    if p.startswith('/api/v1/owner-portal/'):
+        return handler._api_post(p, handler._post())
+    if p.startswith('/api/v1/'):
+        d = handler._post()
+        if not handler._get_current_user():
+            return handler._api_post(p, d)
+        if not csrf_valid(handler, d):
+            return handler._api_error(403, 'csrf_invalid', 'CSRF token missing or invalid')
+        return handler._api_post(p, d)
+    d = None
+    if p not in SAFE_POST_PATHS:
+        d = _parse_post_data(handler)
+        u = handler._get_current_user()
+        if not u:
+            return handler._redirect('/login')
+        if not csrf_valid(handler, d):
+            return _reject_csrf(handler)
+        if is_readonly_role(u.get('role')):
+            return handler._redirect('/?flash=无权限执行写操作')
+        required_role = required_post_role(p)
+        if not role_allows(u.get('role'), required_role):
+            return handler._redirect('/?flash=无权限执行该操作')
     if p == '/import/upload':
-        u = handler._get_current_user()
-        if not u:
-            return handler._redirect('/login')
-        if is_readonly_role(u.get('role')):
-            return handler._redirect('/?flash=无权限执行写操作')
-        required_role = required_post_role(p)
-        if not role_allows(u.get('role'), required_role):
-            return handler._redirect('/?flash=无权限执行该操作')
-        return handler._import_upload()
+        return handler._import_upload(d)
     if p == '/merchant_contracts/import':
-        u = handler._get_current_user()
-        if not u:
-            return handler._redirect('/login')
-        if is_readonly_role(u.get('role')):
-            return handler._redirect('/?flash=无权限执行写操作')
-        required_role = required_post_role(p)
-        if not role_allows(u.get('role'), required_role):
-            return handler._redirect('/?flash=无权限执行该操作')
-        return handler._merchant_contract_import_preview()
+        return handler._merchant_contract_import_preview(d)
     if (m := re.match(r'^/merchant_contracts/(\d+)/attachments$', p)):
-        u = handler._get_current_user()
-        if not u:
-            return handler._redirect('/login')
-        if is_readonly_role(u.get('role')):
-            return handler._redirect('/?flash=无权限执行写操作')
-        required_role = required_post_role(p)
-        if not role_allows(u.get('role'), required_role):
-            return handler._redirect('/?flash=无权限执行该操作')
-        return handler._merchant_contract_attachment_upload(int(m.group(1)))
+        return handler._merchant_contract_attachment_upload(int(m.group(1)), d)
     if (m := re.match(r'^/merchant_contracts/(\d+)/(renew|deactivate)$', p)) and handler.headers.get('Content-Type', '').startswith('multipart/form-data'):
-        u = handler._get_current_user()
-        if not u:
-            return handler._redirect('/login')
-        if is_readonly_role(u.get('role')):
-            return handler._redirect('/?flash=无权限执行写操作')
-        required_role = required_post_role(p)
-        if not role_allows(u.get('role'), required_role):
-            return handler._redirect('/?flash=无权限执行该操作')
         if m.group(2) == 'renew':
-            return handler._merchant_contract_renew_post_multipart(int(m.group(1)))
-        return handler._merchant_contract_deactivate_multipart(int(m.group(1)))
-    d = handler._post()
-    u = None
-    if p not in ('/login', '/register'):
-        u = handler._get_current_user()
-        if not u:
-            return handler._redirect('/login')
-        if is_readonly_role(u.get('role')):
-            return handler._redirect('/?flash=无权限执行写操作')
-        required_role = required_post_role(p)
-        if not role_allows(u.get('role'), required_role):
-            return handler._redirect('/?flash=无权限执行该操作')
+            return handler._merchant_contract_renew_post_multipart(int(m.group(1)), d)
+        return handler._merchant_contract_deactivate_multipart(int(m.group(1)), d)
+    if d is None:
+        d = handler._post()
     if p == '/login': return handler._login_post(d)
     elif p == '/register': return handler._register_post(d)
     elif p == '/rooms/create': return handler._room_create(d)

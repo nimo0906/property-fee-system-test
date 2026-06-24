@@ -4,6 +4,7 @@
 
 import urllib.parse
 from server.db import h
+from server.csrf import csrf_token_for_handler
 
 def _is_secondary_path(path):
     if path in ('/', '/login', '/logout', '/register'):
@@ -47,6 +48,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         back_btn = f'<a class="btn btn-outline-secondary btn-sm page-back-btn" data-back-button="1" href="{h(back_url)}"><i class="bi bi-arrow-left"></i> 返回</a>'
         top_actions = (back_btn + top_actions) if top_actions else back_btn
     html = handler._load_template('base.html')
+    csrf_token = csrf_token_for_handler(handler)
     cur_user = handler._get_current_user()
     raw_role = cur_user.get("role") if cur_user else ""
     role = {"system_admin": "admin", "finance": "operator", "cashier": "operator", "executive": "readonly"}.get(raw_role, raw_role)
@@ -150,5 +152,6 @@ def render_page(handler, title, content, active='', top_actions=''):
     html = html.replace('{USER_HTML}', user_html)
     html = html.replace('{ICON}', icon)
     html = html.replace('{TOP_ACTIONS}', top_actions)
+    html = html.replace('{CSRF_META}', f'<meta name="csrf-token" content="{h(csrf_token)}">' if csrf_token else '')
     html = html.replace("{FLASH}", flash)
     return html

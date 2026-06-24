@@ -49,6 +49,19 @@ class ParsedForm:
     def __contains__(self, name):
         return name in self._fields
 
+    def get(self, name, default=None):
+        items = self._fields.get(name)
+        if not items:
+            return default
+        return [item.value for item in items]
+
+    def items(self):
+        for name, items in self._fields.items():
+            yield name, [item.value for item in items]
+
+    def keys(self):
+        return self._fields.keys()
+
 
 class FormParseError(ValueError):
     pass

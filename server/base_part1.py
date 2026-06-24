@@ -1,9 +1,11 @@
 from server.base_shared import *
+from server.csrf import csrf_token_for_handler, inject_csrf_fields
 
 class BaseHandlerPart1(BaseHttpHandler):
     def log_message(self, *a): pass
 
     def _html(self, html, code=200):
+        html = inject_csrf_fields(html, csrf_token_for_handler(self))
         b = html.encode('utf-8')
         self.send_response(code)
         self.send_header('Content-Type', 'text/html; charset=utf-8')

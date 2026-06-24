@@ -95,7 +95,9 @@ class TestIntegration25(IntegrationTestBase):
 
         status, html = http_get('/bills?period=2029-10&building=DELETEONE&status=unpaid', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('<form method=POST id="billActionForm"><input type="hidden" name="back" value="/bills?period=2029-10&amp;building=DELETEONE&amp;status=unpaid"></form>', html)
+        self.assertIn('<form method=POST id="billActionForm">', html)
+        self.assertIn('name="_csrf_token"', html)
+        self.assertIn('name="back" value="/bills?period=2029-10&amp;building=DELETEONE&amp;status=unpaid"', html)
         self.assertIn('class=bill-chk form="billActionForm"', html)
         self.assertIn('form="billActionForm" formaction=', html)
         self.assertIn('/delete" style=display:inline', html)
@@ -142,6 +144,7 @@ class TestIntegration25(IntegrationTestBase):
         conn.request('POST', '/bills/print_selected', params, {
             'Content-Type': 'application/x-www-form-urlencoded',
             'Cookie': self.cookie,
+            'X-CSRF-Token': csrf_header_for_cookie(self.cookie),
         })
         resp = conn.getresponse()
         print_html = resp.read().decode('utf-8')
