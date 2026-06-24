@@ -158,6 +158,7 @@ class PaymentMixinPart1Group1(BaseHandler):
             FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE b.id=?''',(bid,)).fetchone()
         if not b:return self._error(404)
         db.close();rem=b['amount']-b['paid']
+        current_operator = _current_operator_name(self)
         if rem <= 0.001 or b['status'] == 'paid':
             return self._html(self._page('缴费', f'''
 <div class="alert alert-info"><strong>该账单已结清</strong>：当前欠费为 ¥0.00，不能重复收款。</div>
@@ -184,7 +185,7 @@ class PaymentMixinPart1Group1(BaseHandler):
 <input name="amount_paid" type="number" class="form-control form-control-lg" value="{m(rem)}" step="0.01" required></div></div>
 <div class="col-md-6"><label>支付方式</label><select name="payment_method" class="form-select form-control-lg">
 <option value="cash">现金</option><option value="transfer">转账</option><option value="wechat">微信</option><option value="alipay">支付宝</option></select></div>
-<div class="col-md-6"><label>收费员</label><input name="operator" class="form-control" value="管理员"></div>
+<div class="col-md-6"><label>收费员</label><input name="operator" class="form-control" value="{h(current_operator)}"></div>
 <div class="col-md-6"><label>备注</label><input name="notes" class="form-control"></div>
 <div class="col-12"><hr><button class="btn btn-success btn-lg"><i class="bi bi-credit-card"></i> 确认缴费</button>
 <a href="/bills/{bid}" class="btn btn-outline-secondary">取消</a></div></form></div></div></div></div>''','bills'))
@@ -213,7 +214,7 @@ class PaymentMixinPart1Group1(BaseHandler):
                 'method': qs(d,'payment_method','cash'),
                 'notes': qs(d,'notes'),
                 'receipt_number': receipt_no,
-            }, Actor(username=qs(d,'operator','管理员'), role='operator'))
+            }, Actor(username=qs(d,'operator') or _current_operator_name(self), role='operator'))
         except ServiceError as exc:
             return self._redirect(f'/bills/{bid}/pay?flash={urllib.parse.quote(str(exc))}')
         self._audit('payment_create', 'bill', bid, {'remaining': rem}, {'amount_paid': amt, 'receipt_number': receipt_no}, qs(d,'notes'))

@@ -62,14 +62,46 @@ class TestIntegration19(IntegrationTestBase):
         payment_id = create_payment(db, bill_id=bill_id, amount=130, method='cash', operator='收据返回员')
         db.close()
 
-        status, receipt_html, _ = http_post('/payments/receipts', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
+        status, confirm_html, _ = http_post('/payments/receipts', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
+        self.assertIn('收据信息确认', confirm_html)
+        self.assertIn('PAYBACK', confirm_html)
+        self.assertIn('action="/bills/receipt_by_ids"', confirm_html)
+        self.assertIn('name="back" value="/payments"', confirm_html)
+        self.assertNotIn('缴费记录打印', confirm_html)
+
+        status, receipt_html, _ = http_post('/bills/receipt_by_ids', {
+            'confirm_receipt': '1',
+            'bill_ids': str(bill_id),
+            'back': '/payments',
+            'summary': '缴费收据摘要',
+            'operator': '收据返回员',
+            'payment_method': 'cash',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
         self.assertIn('收款收据', receipt_html)
-        self.assertIn('PAYBACK', receipt_html)
+        self.assertIn('缴费收据摘要', receipt_html)
         self.assertIn('href="/payments"', receipt_html)
         self.assertNotIn('href="/bills"', receipt_html)
 
+
+
+
+    def test_payments_print_stays_direct_print_without_receipt_confirmation(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '普通打印业主', '13900002224')
+        room_id = create_room(db, building='PAYPRINTONLY', unit='A座', room_number='503', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-04', amount=88, status='paid', owner_id=owner_id)
+        payment_id = create_payment(db, bill_id=bill_id, amount=88, method='transfer', operator='普通打印员')
+        db.close()
+
+        status, print_html, _ = http_post('/payments/print', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('缴费记录打印', print_html)
+        self.assertNotIn('收据信息确认', print_html)
 
     def test_invoices_default_page_shows_all_available_paid_bills(self):
         from server.db import get_db

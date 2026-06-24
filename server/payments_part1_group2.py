@@ -32,7 +32,7 @@ class PaymentMixinPart1Group2(BaseHandler):
             return self._redirect('/bills?flash=' + ','.join(closed_periods) + '已结账，无法批量收费')
 
         method = qs(d, 'payment_method', 'transfer')
-        operator = qs(d, 'operator', '批量缴费')
+        operator = qs(d, 'operator') or _current_operator_name(self)
         total = sum(max(0, float(r['amount'] or 0) - float(r['paid'] or 0)) for r in rows)
         selected_ids = ','.join(str(r['id']) for r in rows)
         if qs(d, 'confirm') != '1':

@@ -166,11 +166,19 @@ class TestIntegration08(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', print_html)
 
-        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+        status, confirm_html, loc = http_post('/bills/receipt_by_ids', {
             'bill_ids': str(bill_id),
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', receipt_html)
+        self.assertIn('收据信息确认', confirm_html)
+        self.assertIn('2026-06-27 至 2026-09-26', confirm_html)
+
+        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+            'confirm_receipt': '1',
+            'bill_ids': str(bill_id),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2026-06-27 至 2026-09-26', receipt_html)
 
         status, csv_body, loc = http_post('/bills/export_selected', {
             'bill_ids': str(bill_id),

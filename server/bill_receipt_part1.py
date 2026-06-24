@@ -1,144 +1,192 @@
 from server.bill_receipt_shared import *
+from server.billing_proration import prorated_month_factor
+
+
+def _receipt_extract_bill_ids(d):
+    raw = d.get('bill_ids', []) if d else []
+    if isinstance(raw, str):
+        raw = [raw]
+    ids = []
+    for item in raw:
+        for part in str(item).split(','):
+            cleaned = part.strip().strip('[]').strip().strip("'\"")
+            if cleaned.isdigit():
+                ids.append(cleaned)
+    return ids
+
+
+def _receipt_back_url(d):
+    back_url = qs(d or {}, 'back', '/bills')
+    return back_url if back_url.startswith('/bills') or back_url.startswith('/payments') else '/bills'
+
+
+def _receipt_load_bills(ids):
+    placeholders = ','.join('?' * len(ids))
+    db = get_db()
+    bills = db.execute(f'''SELECT b.*,f.name ft,f.calc_method,f.unit_price,
+        COALESCE(r.building,'商场') building,
+        CASE WHEN b.commercial_space_id IS NOT NULL THEN '' ELSE r.unit END unit,
+        COALESCE(r.room_number,s.space_no) room_number,
+        COALESCE(r.area,s.area,0) area,
+        COALESCE(b.owner_id,r.owner_id) receipt_owner_id,
+        s.merchant_name space_merchant,s.shop_name space_shop,
+        COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid,
+        (SELECT payment_method FROM payments WHERE bill_id=b.id ORDER BY payment_date DESC,id DESC LIMIT 1) latest_method,
+        (SELECT operator FROM payments WHERE bill_id=b.id ORDER BY payment_date DESC,id DESC LIMIT 1) latest_operator,
+        (SELECT payment_date FROM payments WHERE bill_id=b.id ORDER BY payment_date DESC,id DESC LIMIT 1) latest_payment_date,
+        (SELECT receipt_number FROM payments WHERE bill_id=b.id AND COALESCE(receipt_number,'')<>'' ORDER BY payment_date DESC,id DESC LIMIT 1) latest_receipt_no,
+        COALESCE((SELECT SUM(old_amount-new_amount) FROM bill_adjustments WHERE bill_id=b.id AND new_amount<old_amount),0) waiver_amount
+        FROM bills b JOIN fee_types f ON b.fee_type_id=f.id
+        LEFT JOIN rooms r ON b.room_id=r.id
+        LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
+        WHERE b.id IN ({placeholders})
+        ORDER BY f.sort_order,b.id''', ids).fetchall()
+    owner = None
+    if bills:
+        owner = db.execute("SELECT name,phone FROM owners WHERE id=?", (bills[0]['receipt_owner_id'],)).fetchone()
+    db.close()
+    return bills, owner
+
+
+def _receipt_room_str(row):
+    if row['commercial_space_id']:
+        return f"{h(row['building'])}\\{h(row['room_number'])}"
+    return f"{h(row['building'])}\\{h(row['unit'])}\\{h(row['room_number'])}"
+
+
+def _receipt_rooms_str(bills):
+    seen = []
+    for row in bills:
+        label = _receipt_room_str(row)
+        if label not in seen:
+            seen.append(label)
+    return '、'.join(seen)
+
+
+def _receipt_months_for_bill(row):
+    start = (row['service_start'] or '').strip()
+    end = (row['service_end'] or '').strip()
+    if start and end:
+        return max(1, int(round(prorated_month_factor(start, end))))
+    period = row['billing_period'] or ''
+    if '~' in period:
+        left, right = period.split('~', 1)
+        try:
+            ly, lm = [int(x) for x in left[:7].split('-')]
+            ry, rm = [int(x) for x in right[:7].split('-')]
+            return max(1, (ry - ly) * 12 + rm - lm + 1)
+        except Exception:
+            return 1
+    return 1
+
+
+def _receipt_usage(row):
+    months = _receipt_months_for_bill(row)
+    cm = row['calc_method']
+    if cm in ('area', 'floor'):
+        base = m(row['area'] or 0).rstrip('0').rstrip('.')
+        return f'{base}×{months}' if months > 1 else base
+    if cm == 'household':
+        return f'1×{months}' if months > 1 else '1'
+    if cm == 'meter':
+        return '按抄表'
+    return '1'
+
+
+def _receipt_defaults(bills):
+    operators = sorted({b['latest_operator'] for b in bills if b['latest_operator']})
+    methods = sorted({b['latest_method'] for b in bills if b['latest_method']})
+    pay_dates = sorted({b['latest_payment_date'] for b in bills if b['latest_payment_date']})
+    receipt_numbers = [b['latest_receipt_no'] for b in bills if b['latest_receipt_no']]
+    return {
+        'operator': '、'.join(operators) if operators else '-',
+        'payment_method': '、'.join(methods) if methods else '-',
+        'payment_time': f'{pay_dates[0]} ~ {pay_dates[-1]}' if len(pay_dates) > 1 else (pay_dates[0] if pay_dates else '-'),
+        'receipt_no': receipt_numbers[0] if receipt_numbers else f'JS{datetime.now().strftime("%Y%m%d%H%M%S")}',
+    }
+
 
 class BillReceiptMixinPart1(BaseHandler):
         def _receipt_by_ids(self, d):
             """根据勾选的 bill_ids 生成多模块收据"""
-            back_url = qs(d or {}, 'back', '/bills')
-            if not (back_url.startswith('/bills') or back_url.startswith('/payments')):
-                back_url = '/bills'
-            raw = d.get('bill_ids', [])
-            if isinstance(raw, str):
-                raw = [raw]
-            expanded = []
-            for item in raw:
-                expanded.extend(str(item).split(','))
-            ids = []
-            for x in expanded:
-                cleaned = str(x).strip().strip('[]').strip().strip("'\"")
-                if cleaned.isdigit():
-                    ids.append(cleaned)
+            back_url = _receipt_back_url(d)
+            ids = _receipt_extract_bill_ids(d)
             if not ids:
                 return self._redirect(back_url, '请勾选要生成收据的账单')
-            placeholders = ','.join('?' * len(ids))
-            db = get_db()
-            bills = db.execute(f'''SELECT b.*,f.name ft,f.calc_method,f.unit_price,
-                COALESCE(r.building,'商场') building,
-                CASE WHEN b.commercial_space_id IS NOT NULL THEN '' ELSE r.unit END unit,
-                COALESCE(r.room_number,s.space_no) room_number,
-                COALESCE(r.area,s.area,0) area,
-                COALESCE(b.owner_id,r.owner_id) receipt_owner_id,
-                s.merchant_name space_merchant,s.shop_name space_shop,
-                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid,
-                (SELECT payment_method FROM payments WHERE bill_id=b.id ORDER BY payment_date DESC,id DESC LIMIT 1) latest_method,
-                (SELECT operator FROM payments WHERE bill_id=b.id ORDER BY payment_date DESC,id DESC LIMIT 1) latest_operator,
-                (SELECT payment_date FROM payments WHERE bill_id=b.id ORDER BY payment_date DESC,id DESC LIMIT 1) latest_payment_date
-                FROM bills b JOIN fee_types f ON b.fee_type_id=f.id
-                LEFT JOIN rooms r ON b.room_id=r.id
-                LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
-                WHERE b.id IN ({placeholders})
-                ORDER BY f.sort_order''', ids).fetchall()
+            bills, owner = _receipt_load_bills(ids)
             if not bills:
-                db.close()
                 return self._redirect(back_url, '未找到账单')
-            rm = bills[0]  # 取第一个房间的信息
-            on = db.execute("SELECT name,phone FROM owners WHERE id=?", (rm['receipt_owner_id'],)).fetchone()
-            db.close()
-            owner_name = rm['space_merchant'] or rm['space_shop'] or (on['name'] if on else '')
-            owner_phone = on['phone'] if on else ''
-    
-            period_set = sorted(set(b['billing_period'] for b in bills))
-            period_label = f"{period_set[0]}~{period_set[-1]}" if len(period_set) > 1 else period_set[0]
-            num_periods = len(period_set)
-            operators = sorted({b['latest_operator'] for b in bills if b['latest_operator']})
-            methods = sorted({b['latest_method'] for b in bills if b['latest_method']})
-            pay_dates = sorted({b['latest_payment_date'] for b in bills if b['latest_payment_date']})
-            operator_text = '、'.join(operators) if operators else '-'
-            method_text = '、'.join(methods) if methods else '-'
-            pay_date_text = f'{pay_dates[0]} ~ {pay_dates[-1]}' if len(pay_dates) > 1 else (pay_dates[0] if pay_dates else '-')
-    
-            rows_html = ''
-            total_应收 = 0
-            total_缴费 = 0
-            total_欠费 = 0
-            for b in bills:
-                rem = b['amount'] - b['paid']
-                area = b['area'] or 0
-                cm = b['calc_method']
-                if cm == 'area':
-                    usage_str = f'{area}x{num_periods}' if num_periods > 1 else str(area)
-                elif cm == 'floor':
-                    usage_str = f'{area}x{num_periods}' if num_periods > 1 else str(area)
-                elif cm == 'meter':
-                    usage_str = '按抄表'
-                elif cm == 'household':
-                    usage_str = f'1x{num_periods}' if num_periods > 1 else '1'
-                elif cm == 'fixed':
-                    usage_str = '1'
-                else:
-                    usage_str = ''
-                up = str(b['unit_price']) if b['unit_price'] else ''
-                if b['commercial_space_id']:
-                    row_room = f'{b["building"]}-{b["room_number"]}'
-                else:
-                    row_room = f'{b["building"]}-{b["unit"]}-{b["room_number"]}'
-                rows_html += f'''<tr>
-                    <td>{h(row_room)}</td>
-                    <td>{h(b['ft'])}</td>
-                    <td>{h(_receipt_period_label(b))}{_receipt_service_period(b)}</td>
-                    <td>{usage_str}</td>
-                    <td>1</td>
-                    <td class="amt">{up}</td>
-                    <td class="amt">{m(b['amount'])}</td>
-                    <td class="amt">{m(b['paid'])}</td>
-                    <td class="amt">{m(rem)}</td>
-                </tr>'''
-                total_应收 += b['amount']
-                total_缴费 += b['paid']
-                total_欠费 += rem
-    
-            if rm['commercial_space_id']:
-                room_str = f"{h(rm['building'])}\\{h(rm['room_number'])}"
-            else:
-                room_str = f"{h(rm['building'])}\\{h(rm['unit'])}\\{h(rm['room_number'])}"
-            area_str = f"{rm['area']}m2"
-            today_str = datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')
+            if qs(d, 'confirm_receipt') != '1':
+                return self._receipt_confirm_page(d, bills, owner, back_url)
+            return self._receipt_render_page(d, bills, owner, back_url)
+
+        def _receipt_confirm_page(self, d, bills, owner, back_url):
+            rm = bills[0]
+            defaults = _receipt_defaults(bills)
+            owner_name = rm['space_merchant'] or rm['space_shop'] or (owner['name'] if owner else '')
+            bill_ids = ','.join(str(b['id']) for b in bills)
+            total_due = sum(float(b['amount'] or 0) + float(b['waiver_amount'] or 0) for b in bills)
+            total_paid = sum(float(b['paid'] or 0) for b in bills)
+            preview_rows = ''.join(f'''<tr><td>{h(b['ft'])}</td><td>{h(_receipt_period_label(b))}</td>
+                <td>{h(_receipt_usage(b))}</td><td class="text-end">¥{m(b['amount'])}</td><td class="text-end">¥{m(b['paid'])}</td></tr>''' for b in bills)
             content = f'''
-            <h1>陕西金莎国际物业管理有限公司</h1>
-            <h2 style="margin-top:0">收款收据</h2>
-            <table class="header-info">
-                <tr><td style="width:50%"><strong>套户编号：</strong>{room_str}</td>
-                    <td><strong>客户名称：</strong>{h(owner_name)}</td></tr>
-                <tr><td><strong>流水号：</strong>JS{datetime.now().strftime('%Y%m%d%H%M%S')}</td>
-                    <td><strong>建筑面积：</strong>{area_str}</td></tr>
-            </table>
-            <table class="detail">
-                <thead><tr>
-                    <th style="width:16%">房间</th><th style="width:14%">收费项目</th><th style="width:14%">费用区间</th>
-                    <th style="width:12%">使用量</th><th style="width:7%">系数</th>
-                    <th style="width:9%">单价</th><th class="amt" style="width:10%">应收</th>
-                    <th class="amt" style="width:10%">缴费</th><th class="amt" style="width:8%">欠费</th>
-                </tr></thead>
-                <tbody>
-                    {rows_html}
-                    <tr class="total-row">
-                        <td colspan="6" style="text-align:right"><strong>缴费合计</strong></td>
-                        <td class="amt"><strong>{m(total_应收)}</strong></td>
-                        <td class="amt"><strong>{m(total_缴费)}</strong></td>
-                        <td class="amt"><strong>{m(total_欠费)}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-            <table class="header-info" style="margin-top:10pt">
-                <tr><td colspan="2"><strong>收据核对信息</strong></td></tr>
-                <tr><td style="width:50%"><strong>收费员：</strong>{h(operator_text)}</td><td><strong>支付方式：</strong>{h(method_text)}</td></tr>
-                <tr><td><strong>收款时间：</strong>{h(pay_date_text)}</td><td><strong>备注：</strong>请核对应收、缴费、欠费金额后再交付业主。</td></tr>
-            </table>
-            <table class="signature"><tr><td>收费员</td><td>财务审核</td><td>交款人签字</td></tr></table>
-            <div style="text-align:center;margin-top:10pt;font-size:9pt;color:#666">打印日期：{today_str}</div>
-            '''
-            self._html(print_page(f'收款收据-{room_str}', content, back_url=back_url, body_class='receipt-print'))
+            <div class="alert alert-info"><strong>收据信息确认</strong>：请核对收款收据信息；摘要、备注、凭证号和签字仅用于本次打印，不写入系统。</div>
+            <div class="row g-4"><div class="col-md-7"><div class="card"><div class="card-header">收据预览信息</div>
+            <div class="card-body"><table class="table table-sm"><tbody>
+            <tr><th>套户编号</th><td>{_receipt_rooms_str(bills)}</td></tr><tr><th>客户名称</th><td>{h(owner_name)}</td></tr>
+            <tr><th>建筑面积</th><td>{h(m(rm['area']).rstrip('0').rstrip('.'))}m2</td></tr><tr><th>流水号</th><td>{h(defaults['receipt_no'])}</td></tr>
+            </tbody></table><table class="table table-sm"><thead><tr><th>收费项目</th><th>费用区间</th><th>使用量</th><th class="text-end">应收</th><th class="text-end">缴费</th></tr></thead><tbody>{preview_rows}
+            <tr class="table-light"><td colspan="3" class="text-end"><strong>合计</strong></td><td class="text-end"><strong>¥{m(total_due)}</strong></td><td class="text-end"><strong>¥{m(total_paid)}</strong></td></tr></tbody></table></div></div></div>
+            <div class="col-md-5"><div class="card"><div class="card-header">补充打印信息</div><div class="card-body">
+            <form method="POST" action="/bills/receipt_by_ids" target="_blank" class="row g-3">
+            <input type="hidden" name="confirm_receipt" value="1"><input type="hidden" name="bill_ids" value="{h(bill_ids)}"><input type="hidden" name="back" value="{h(back_url)}">
+            <input type="hidden" name="receipt_no" value="{h(defaults['receipt_no'])}"><input type="hidden" name="payment_time" value="{h(defaults['payment_time'])}">
+            <div class="col-12"><label>摘要</label><input name="summary" class="form-control"></div>
+            <div class="col-12"><label>备注</label><input name="notes" class="form-control" value="请核对应收、缴费、欠费金额后再交付业主。"></div>
+            <div class="col-md-6"><label>凭证号</label><input name="voucher_no" class="form-control"></div>
+            <div class="col-md-6"><label>交款人签字</label><input name="payer_signature" class="form-control"></div>
+            <div class="col-md-6"><label>收费员</label><input name="operator" class="form-control" value="{h(defaults['operator'])}"></div>
+            <div class="col-md-6"><label>支付方式</label><input name="payment_method" class="form-control" value="{h(defaults['payment_method'])}"></div>
+            <div class="col-12"><hr><button class="btn btn-primary btn-lg">生成打印收据</button><a class="btn btn-outline-secondary" href="{h(back_url)}">返回</a></div>
+            </form></div></div></div></div>'''
+            self._html(self._page('收据信息确认', content, 'bills'))
+
+        def _receipt_render_page(self, d, bills, owner, back_url):
+            rm = bills[0]
+            defaults = _receipt_defaults(bills)
+            owner_name = rm['space_merchant'] or rm['space_shop'] or (owner['name'] if owner else '')
+            receipt_no = qs(d, 'receipt_no', defaults['receipt_no']) or defaults['receipt_no']
+            voucher_no = qs(d, 'voucher_no', '')
+            payment_time = qs(d, 'payment_time', defaults['payment_time']) or defaults['payment_time']
+            operator_text = qs(d, 'operator', defaults['operator']) or defaults['operator']
+            method_text = qs(d, 'payment_method', defaults['payment_method']) or defaults['payment_method']
+            summary = qs(d, 'summary', '')
+            notes = qs(d, 'notes', '')
+            payer_signature = qs(d, 'payer_signature', '')
+            rows_html = ''; total_due = total_discount = total_waiver = total_paid = total_rem = 0
+            for b in bills:
+                discount = 0.0; waiver = float(b['waiver_amount'] or 0); paid = float(b['paid'] or 0)
+                due_before_discount = float(b['amount'] or 0) + discount + waiver
+                rem = max(0.0, due_before_discount - discount - waiver - paid)
+                rows_html += f'''<tr><td>{h(b['ft'])}</td><td>{h(_receipt_period_label(b))}</td><td>{h(_receipt_usage(b))}</td>
+                    <td>1</td><td class="amt">{h(str(b['unit_price'] or ''))}</td><td class="amt">{m(due_before_discount)}</td>
+                    <td class="amt">{m(discount)}</td><td class="amt">{m(waiver)}</td><td class="amt">{m(paid)}</td><td class="amt">{m(rem)}</td></tr>'''
+                total_due += due_before_discount; total_discount += discount; total_waiver += waiver; total_paid += paid; total_rem += rem
+            area_str = f"{m(rm['area']).rstrip('0').rstrip('.')}m2"
+            today_str = datetime.now().strftime('%Y-%m-%d　%H:%M:%S')
+            content = f'''
+            <h1>陕西金莎国际物业管理有限公司</h1><h2 style="margin-top:0">收款收据</h2>
+            <table class="header-info receipt-head"><tr><td><strong>套户编号：</strong>{_receipt_rooms_str(bills)}</td><td><strong>客户名称：</strong>{h(owner_name)}</td><td><strong>建筑面积：</strong>{area_str}</td></tr>
+            <tr><td><strong>流水号：</strong>{h(receipt_no)}</td><td><strong>凭证号：</strong>{h(voucher_no)}</td><td><strong>缴费时间：</strong>{h(payment_time)}</td></tr></table>
+            <table class="detail receipt-new-detail"><thead><tr><th style="width:18%">收费项目</th><th style="width:18%">费用区间</th><th style="width:12%">使用量</th><th style="width:7%">系数</th><th style="width:8%">单价</th><th class="amt" style="width:10%">应收</th><th class="amt" style="width:9%">优惠</th><th class="amt" style="width:9%">减免</th><th class="amt" style="width:9%">缴费</th><th class="amt" style="width:9%">欠费</th></tr></thead>
+            <tbody>{rows_html}<tr class="total-row"><td colspan="5" style="text-align:center"><strong>缴费合计</strong></td><td class="amt"><strong>{m(total_due)}</strong></td><td class="amt"><strong>{m(total_discount)}</strong></td><td class="amt"><strong>{m(total_waiver)}</strong></td><td class="amt"><strong>{m(total_paid)}</strong></td><td class="amt"><strong>{m(total_rem)}</strong></td></tr></tbody></table>
+            <table class="header-info receipt-foot"><tr><td colspan="3"><strong>摘要：</strong>{h(summary)}</td></tr><tr><td colspan="3"><strong>备注：</strong>{h(notes)}</td></tr>
+            <tr><td><strong>收费员：</strong>{h(operator_text)}</td><td><strong>支付方式：</strong>{h(method_text)}</td><td><strong>交款人签字：</strong>{h(payer_signature)}</td></tr>
+            <tr><td colspan="2"></td><td><strong>打印日期：</strong>{today_str}</td></tr></table>'''
+            self._html(print_page(f'收款收据-{_receipt_room_str(rm)}', content, back_url=back_url, body_class='receipt-print'))
 
         def _receipt_setup(self, q):
+
             """收据设置页：选择房间和服务日期范围"""
             default_start, default_end = _receipt_date_range(q)
             if not default_start or not default_end:

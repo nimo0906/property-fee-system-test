@@ -221,7 +221,7 @@ class TestIntegration25(IntegrationTestBase):
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('href="/bills?period=2029-11&amp;building=PRINTBACK&amp;status=unpaid"', receipt_html)
-        self.assertNotIn('href="/"', receipt_html)
+        self.assertIn('name="back" value="/bills?period=2029-11&amp;building=PRINTBACK&amp;status=unpaid"', receipt_html)
 
 
     def test_bill_detail_with_formula(self):

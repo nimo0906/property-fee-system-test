@@ -46,6 +46,35 @@ def _bill_row_cells(html, marker):
 
 
 class TestIntegration26(IntegrationTestBase):
+
+    def test_payment_forms_default_operator_to_current_user_display_name(self):
+        operator_cookie = self._create_user_and_login('receipt_operator_default', 'pass123', 'operator', display_name='当前收费员')
+        http_post('/rooms/create', {
+            'building': 'PAYDEFAULTOP', 'unit': 'A座', 'room_number': '921',
+            'floor': '9', 'category': '居民', 'area': '10',
+        }, self.cookie, TEST_PORT)
+        http_post('/bills/generate', {
+            'mode': 'confirm', 'period': '2028-12', 'fee_type_ids': '1',
+            'due_day': '28', 'building': 'PAYDEFAULTOP',
+        }, self.cookie, TEST_PORT)
+
+        import server.db as db_module
+        db = db_module.get_db()
+        bid = str(db.execute("SELECT id FROM bills WHERE billing_period='2028-12' AND bill_number LIKE 'PAYDEFAULTOP%' ORDER BY id DESC LIMIT 1").fetchone()['id'])
+        db.close()
+
+        status, pay_page = http_get(f'/bills/{bid}/pay', operator_cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('name="operator" class="form-control" value="当前收费员"', pay_page)
+
+        status, confirm_html, _ = http_post('/bills/batch_pay', {
+            'bill_ids': bid,
+            'payment_method': 'wechat',
+        }, operator_cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('value="当前收费员"', confirm_html)
+        self.assertNotIn('value="批量缴费"', confirm_html)
+
     def test_batch_pay_confirm_creates_auto_backup_before_writing(self):
         for room_no in ('909', '910'):
             http_post('/rooms/create', {
@@ -133,14 +162,96 @@ class TestIntegration26(IntegrationTestBase):
             'payment_method': 'wechat',
             'operator': '收据测试员',
         }, self.cookie, TEST_PORT)
-        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+        status, confirm_html, loc = http_post('/bills/receipt_by_ids', {
             'bill_ids': ','.join(ids),
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('收据信息确认', confirm_html)
+        self.assertIn('PAYRECEIPT', confirm_html)
+        self.assertIn('38.00', confirm_html)
+
+        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+            'confirm_receipt': '1',
+            'bill_ids': ','.join(ids),
+            'operator': '收据测试员',
+            'payment_method': 'wechat',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('收款收据', receipt_html)
         self.assertIn('PAYRECEIPT', receipt_html)
         self.assertIn('38.00', receipt_html)
 
+
+
+    def test_receipt_confirmation_precedes_new_receipt_template_and_keeps_temp_fields(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '新版收据业主', '13900002601')
+        room_id = create_room(db, building='NEWRECEIPT', unit='B座', room_number='1422', floor=14, category='居民', area=59.42, owner_id=owner_id)
+        property_fee = db.execute("""
+            INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active)
+            VALUES('新版物业费','area',2.4,'元/m²·月','monthly',31,1)
+        """).lastrowid
+        energy_fee = db.execute("""
+            INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active)
+            VALUES('新版公摊能耗费','household',10,'元/户·月','monthly',32,1)
+        """).lastrowid
+        property_bill = db.execute("""INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,service_start,service_end)
+            VALUES(?,?,?,?,?,?,?,?,?,?)""", (room_id, owner_id, property_fee, '2026-07~2026-09', 427.82, '2026-09-30', 'partial', 'NEW-RC-PROP', '2026-07-01', '2026-09-30')).lastrowid
+        energy_bill = db.execute("""INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,service_start,service_end)
+            VALUES(?,?,?,?,?,?,?,?,?,?)""", (room_id, owner_id, energy_fee, '2026-07~2026-09', 30, '2026-09-30', 'unpaid', 'NEW-RC-ENERGY', '2026-07-01', '2026-09-30')).lastrowid
+        db.execute("INSERT INTO payments(bill_id,amount_paid,payment_method,operator,receipt_number) VALUES(?,?,?,?,?)", (property_bill, 100, 'wechat', '新版收费员', 'JS20260624170448'))
+        db.execute("INSERT INTO bill_adjustments(bill_id,old_amount,new_amount,reason,approved_by) VALUES(?,?,?,?,?)", (property_bill, 500, 427.82, '优惠减免测试', '主管'))
+        db.commit(); db.close()
+
+        status, confirm_html, _ = http_post('/bills/receipt_by_ids', {
+            'bill_ids': f'{property_bill},{energy_bill}',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('收据信息确认', confirm_html)
+        self.assertIn('name="summary"', confirm_html)
+        self.assertIn('name="voucher_no"', confirm_html)
+        self.assertIn('NEWRECEIPT\\B座\\1422', confirm_html)
+        self.assertNotIn('<th style="width:16%">房间</th>', confirm_html)
+
+        status, receipt_html, _ = http_post('/bills/receipt_by_ids', {
+            'confirm_receipt': '1',
+            'bill_ids': f'{property_bill},{energy_bill}',
+            'summary': '临时摘要',
+            'notes': '临时备注',
+            'voucher_no': 'PZ-001',
+            'payer_signature': '郝立科',
+            'payment_method': '二维码',
+            'operator': '周丹',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('收款收据', receipt_html)
+        self.assertIn('套户编号：', receipt_html)
+        self.assertIn('NEWRECEIPT\\B座\\1422', receipt_html)
+        self.assertIn('客户名称：', receipt_html)
+        self.assertIn('建筑面积：', receipt_html)
+        self.assertIn('59.42m2', receipt_html)
+        self.assertIn('流水号：', receipt_html)
+        self.assertIn('JS20260624170448', receipt_html)
+        self.assertIn('凭证号：', receipt_html)
+        self.assertIn('PZ-001', receipt_html)
+        self.assertIn('缴费时间：', receipt_html)
+        self.assertIn('<th style="width:18%">收费项目</th>', receipt_html)
+        self.assertNotIn('<th style="width:16%">房间</th>', receipt_html)
+        self.assertIn('优惠', receipt_html)
+        self.assertIn('减免', receipt_html)
+        self.assertIn('59.42×3', receipt_html)
+        self.assertIn('1×3', receipt_html)
+        self.assertIn('72.18', receipt_html)
+        self.assertIn('临时摘要', receipt_html)
+        self.assertIn('临时备注', receipt_html)
+        self.assertIn('收费员：', receipt_html)
+        self.assertIn('周丹', receipt_html)
+        self.assertIn('支付方式：', receipt_html)
+        self.assertIn('二维码', receipt_html)
+        self.assertIn('交款人签字：', receipt_html)
+        self.assertIn('郝立科', receipt_html)
+        self.assertIn('打印日期：', receipt_html)
 
     def test_single_payment_creates_auto_backup_before_writing(self):
         http_post('/rooms/create', {
@@ -386,17 +497,29 @@ class TestIntegration26(IntegrationTestBase):
             'payment_method': 'wechat',
             'operator': '收据核对员',
         }, self.cookie, TEST_PORT)
-        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+        status, confirm_html, loc = http_post('/bills/receipt_by_ids', {
             'bill_ids': ','.join(ids),
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('收据核对信息', receipt_html)
+        self.assertIn('收据信息确认', confirm_html)
+        self.assertIn('收据核对员', confirm_html)
+        self.assertIn('wechat', confirm_html)
+        self.assertIn('PAYRECEIPTROOM\\A座\\907', confirm_html)
+        self.assertIn('PAYRECEIPTROOM\\A座\\908', confirm_html)
+
+        status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
+            'confirm_receipt': '1',
+            'bill_ids': ','.join(ids),
+            'operator': '收据核对员',
+            'payment_method': 'wechat',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
         self.assertIn('收费员', receipt_html)
         self.assertIn('收据核对员', receipt_html)
         self.assertIn('支付方式', receipt_html)
         self.assertIn('wechat', receipt_html)
-        self.assertIn('PAYRECEIPTROOM-A座-907', receipt_html)
-        self.assertIn('PAYRECEIPTROOM-A座-908', receipt_html)
+        self.assertIn('PAYRECEIPTROOM\\A座\\907', receipt_html)
+        self.assertIn('PAYRECEIPTROOM\\A座\\908', receipt_html)
 
 
     def test_bill_payment_workflow(self):

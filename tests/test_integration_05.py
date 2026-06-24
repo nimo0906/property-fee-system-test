@@ -160,12 +160,25 @@ class TestIntegration05(IntegrationTestBase):
         db = get_db()
         payment_id = db.execute("SELECT id FROM payments WHERE bill_id=? ORDER BY id DESC LIMIT 1", (bill_id,)).fetchone()['id']
         db.close()
-        status, receipt_html, _ = http_post('/payments/receipts', {
+        status, confirm_html, _ = http_post('/payments/receipts', {
             'payment_ids': str(payment_id),
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
+        self.assertIn('收据信息确认', confirm_html)
+        self.assertIn('商场\\INT-SP-001', confirm_html)
+        self.assertIn('集成商铺商户', confirm_html)
+        self.assertIn('6000.00', confirm_html)
+
+        status, receipt_html, _ = http_post('/bills/receipt_by_ids', {
+            'confirm_receipt': '1',
+            'bill_ids': str(bill_id),
+            'back': '/payments',
+            'operator': '财务',
+            'payment_method': 'transfer',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
         self.assertIn('收款收据', receipt_html)
-        self.assertIn('商场-INT-SP-001', receipt_html)
+        self.assertIn('商场\\INT-SP-001', receipt_html)
         self.assertIn('集成商铺商户', receipt_html)
         self.assertIn('6000.00', receipt_html)
 

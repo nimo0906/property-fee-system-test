@@ -95,6 +95,11 @@ def _bill_customer_label(row):
     return row['space_merchant'] or row['space_shop'] or row['tenant_name'] or row['owner_name'] or '未知'
 
 
+
+def _current_operator_name(handler, fallback='管理员'):
+    user = handler._get_current_user() or {}
+    return user.get('display_name') or user.get('username') or fallback
+
 def _extract_ids(data, key):
     raw = data.get(key, []) if data else []
     if isinstance(raw, str):
