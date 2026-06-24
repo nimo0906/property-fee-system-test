@@ -44,9 +44,17 @@ class TestIntegration19(IntegrationTestBase):
         status, print_html, _ = http_post('/payments/print', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('缴费记录打印', print_html)
-        self.assertIn('PAYACT-A座-501', print_html)
+        self.assertIn('收款对象', print_html)
+        self.assertIn('PAYACT\\A座\\501', print_html)
+        self.assertIn('<th style="width:18%">收费项目</th>', print_html)
+        self.assertNotIn('<th>对象</th>', print_html)
         self.assertIn('费用区间', print_html)
         self.assertIn('2034-03-01 至 2034-03-31', print_html)
+        self.assertIn('优惠', print_html)
+        self.assertIn('减免', print_html)
+        self.assertIn('缴费', print_html)
+        self.assertIn('欠费', print_html)
+        self.assertIn('打印类型：缴费记录打印', print_html)
         self.assertIn('class="print-toolbar"', print_html)
         self.assertIn('保存为PDF', print_html)
         self.assertIn('href="/payments"', print_html)
@@ -101,6 +109,8 @@ class TestIntegration19(IntegrationTestBase):
 
         self.assertEqual(status, 200)
         self.assertIn('缴费记录打印', print_html)
+        self.assertIn('receipt-new-detail', print_html)
+        self.assertIn('打印类型：缴费记录打印', print_html)
         self.assertNotIn('收据信息确认', print_html)
 
     def test_invoices_default_page_shows_all_available_paid_bills(self):

@@ -148,13 +148,50 @@ class TestIntegration25(IntegrationTestBase):
         conn.close()
 
         self.assertEqual(resp.status, 200)
-        self.assertIn('选中账单合并打印', print_html)
-        self.assertIn('合计应缴', print_html)
-        self.assertIn('¥300.00', print_html)
+        self.assertIn('账单打印', print_html)
+        self.assertIn('打印类型：账单打印', print_html)
+        self.assertIn('缴费合计', print_html)
+        self.assertIn('300.00', print_html)
         self.assertIn('物业费(居民)', print_html)
         self.assertIn('物业费(商户)', print_html)
-        self.assertEqual(print_html.count('物业管理缴费单'), 1)
+        self.assertEqual(print_html.count('陕西金莎国际物业管理有限公司'), 1)
         self.assertNotIn('<div class="page-break"', print_html)
+
+
+
+    def test_print_selected_uses_new_template_but_distinguishes_bill_print(self):
+        http_post('/rooms/create', {
+            'building': 'PRINTNEWTPL', 'unit': 'B座', 'room_number': '1501',
+            'floor': '15', 'category': '居民', 'area': '59.42',
+        }, self.cookie, TEST_PORT)
+        http_post('/bills/generate', {
+            'mode': 'confirm', 'period': '2030-01', 'fee_type_ids': '1',
+            'due_day': '31', 'building': 'PRINTNEWTPL',
+        }, self.cookie, TEST_PORT)
+
+        import server.db as db_module
+        db = db_module.get_db()
+        bid = str(db.execute("SELECT id FROM bills WHERE billing_period='2030-01' AND bill_number LIKE 'PRINTNEWTPL%' ORDER BY id DESC LIMIT 1").fetchone()['id'])
+        db.close()
+
+        status, print_html, _ = http_post('/bills/print_selected', {
+            'bill_ids': bid,
+        }, self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('账单打印', print_html)
+        self.assertIn('打印类型：账单打印', print_html)
+        self.assertIn('套户编号：', print_html)
+        self.assertIn('PRINTNEWTPL\\B座\\1501', print_html)
+        self.assertIn('<th style="width:18%">收费项目</th>', print_html)
+        self.assertNotIn('<th>房间</th>', print_html)
+        self.assertIn('费用区间', print_html)
+        self.assertIn('使用量', print_html)
+        self.assertIn('优惠', print_html)
+        self.assertIn('减免', print_html)
+        self.assertIn('缴费', print_html)
+        self.assertIn('欠费', print_html)
+        self.assertNotIn('收据信息确认', print_html)
 
     def test_print_selected_and_single_bill_show_exact_service_dates(self):
         import server.db as db_module

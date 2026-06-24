@@ -164,7 +164,7 @@ class TestIntegration08(IntegrationTestBase):
             'bill_ids': str(bill_id),
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', print_html)
+        self.assertIn('2026-06-27 至 2026-09-26', print_html)
 
         status, confirm_html, loc = http_post('/bills/receipt_by_ids', {
             'bill_ids': str(bill_id),

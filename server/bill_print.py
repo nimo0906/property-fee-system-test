@@ -5,7 +5,7 @@
 from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs
 from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
-from server.bill_receipt_shared import _receipt_period_label
+from server.bill_receipt_shared import _receipt_period_label, print_style_table
 from datetime import datetime, date
 import urllib.parse, csv, io
 
@@ -76,6 +76,10 @@ def _combined_bill_print_html(rows):
     '''
 
 
+def _selected_bill_print_page(rows, back_url):
+    return print_style_table('账单打印', rows, '账单打印', back_url)
+
+
 class BillPrintMixin(BaseHandler):
 
         def _print_selected(self, d):
@@ -91,8 +95,15 @@ class BillPrintMixin(BaseHandler):
                 return self._redirect(back_url, '请勾选要打印的账单')
             placeholders = ','.join('?' * len(ids))
             db = get_db()
-            rows = db.execute(f'''SELECT b.*,r.building,r.unit,r.room_number,r.area,o.name oname,o.phone ophone,f.name ft
+            rows = db.execute(f'''SELECT b.*,COALESCE(r.building,'商场') building,
+                CASE WHEN b.commercial_space_id IS NOT NULL THEN '' ELSE r.unit END unit,
+                COALESCE(r.room_number,s.space_no) room_number,COALESCE(r.area,s.area,0) area,o.name oname,o.phone ophone,
+                f.name ft,f.calc_method,f.unit_price,
+                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid,
+                COALESCE((SELECT SUM(old_amount-new_amount) FROM bill_adjustments WHERE bill_id=b.id AND new_amount<old_amount),0) waiver_amount,
+                s.space_no,s.shop_name space_shop,s.merchant_name space_merchant
                 FROM bills b LEFT JOIN rooms r ON b.room_id=r.id
+                LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
                 LEFT JOIN owners o ON b.owner_id=o.id
                 LEFT JOIN fee_types f ON b.fee_type_id=f.id
                 WHERE b.id IN ({placeholders})
@@ -100,7 +111,7 @@ class BillPrintMixin(BaseHandler):
             db.close()
             if not rows:
                 return self._redirect(back_url, '未找到账单')
-            self._html(print_page('缴费单-选中', _combined_bill_print_html(rows), back_url=back_url))
+            self._html(_selected_bill_print_page(rows, back_url))
     
         def _bill_print_batch(self, q):
             """批量打印账单"""
