@@ -447,3 +447,46 @@ class TestIntegration26(IntegrationTestBase):
         self.assertEqual(status, 200)
         data = json.loads(body)
         self.assertEqual(data.get('name'), '李四')
+
+    def test_payment_service_rechecks_unpaid_amount_inside_write_transaction(self):
+        import server.db as db_module
+        from server.services import Actor, PaymentService, ServiceError
+
+        db = db_module.get_db()
+        owner_id, room_id, fee_type_id, bill_id = self._create_api_payment_bill('PAYSTALE001', 100.0)
+        db.close()
+        try:
+            db = db_module.get_db()
+            db.execute(
+                "INSERT INTO payments (bill_id, amount_paid, payment_date, payment_method, operator) "
+                "VALUES (?, ?, datetime('now','localtime'), ?, ?)",
+                (bill_id, 80.0, 'cash', '先收款'),
+            )
+            db.commit()
+            db.close()
+
+            service = PaymentService()
+            service.preview_payment = lambda request: {
+                'bill_id': bill_id,
+                'amount': '30.00',
+                'unpaid_before': '100.00',
+                'unpaid_after': '70.00',
+                'will_mark_paid': False,
+            }
+
+            with self.assertRaises(ServiceError) as ctx:
+                service.create_payment(
+                    {'bill_id': bill_id, 'amount': '30.00', 'method': 'cash'},
+                    Actor(username='并发测试员', role='cashier'),
+                )
+            self.assertIn('收款金额不能超过欠费金额', str(ctx.exception))
+
+            db = db_module.get_db()
+            total_paid = db.execute(
+                'SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?',
+                (bill_id,),
+            ).fetchone()[0]
+            db.close()
+            self.assertEqual(total_paid, 80.0)
+        finally:
+            self._cleanup_api_payment_bill(owner_id, room_id, fee_type_id, bill_id)

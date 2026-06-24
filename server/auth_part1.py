@@ -21,8 +21,8 @@ class AuthMixinPart1(BaseHandler):
         if not admin_id:
             return ""
         return f"""<div class="alert alert-warning border-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div><strong><i class="bi bi-shield-exclamation"></i> 默认管理员密码仍在使用</strong>
-            <div class="small mt-1">本地版不需要注册互联网账号，但正式收费前建议先修改 admin 密码，并按岗位创建财务账号、客服业务编辑账号。</div></div>
+            <div><strong><i class="bi bi-shield-exclamation"></i> 检测到默认管理员密码仍在使用</strong>
+            <div class="small mt-1">本地版不需要注册互联网账号；该提示不会影响继续使用，但正式收费前建议先修改 admin 密码，并按岗位创建财务账号、客服业务编辑账号。</div></div>
             <a href="/users/{admin_id}/edit" class="btn btn-sm btn-warning"><i class="bi bi-key"></i> 修改默认密码</a>
         </div>"""
 

@@ -251,3 +251,35 @@ class TestIntegration33(IntegrationTestBase):
         self.assertIn('本地版不需要注册互联网账号', body)
 
 
+
+    def test_default_admin_password_warning_disappears_after_admin_password_change(self):
+        import server.db as db_module
+        from server.passwords import hash_password
+
+        db = db_module.get_db()
+        original_hash = db.execute(
+            "SELECT password_hash FROM users WHERE username=?",
+            ('admin',),
+        ).fetchone()['password_hash']
+        db.execute(
+            "UPDATE users SET password_hash=? WHERE username=?",
+            (hash_password('changed-admin-password-123'), 'admin'),
+        )
+        db.commit()
+        db.close()
+        try:
+            status, home = http_get('/', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertNotIn('默认管理员密码仍在使用', home)
+
+            status, users = http_get('/users', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            self.assertNotIn('默认管理员密码仍在使用', users)
+        finally:
+            db = db_module.get_db()
+            db.execute(
+                "UPDATE users SET password_hash=? WHERE username=?",
+                (original_hash, 'admin'),
+            )
+            db.commit()
+            db.close()

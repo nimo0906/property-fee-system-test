@@ -211,12 +211,35 @@ class PaymentService:
         method = request.get('method') or 'cash'
         db = get_db()
         try:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute(
+                "SELECT amount,billing_period FROM bills WHERE id=?",
+                (bill_id,),
+            ).fetchone()
+            if not row:
+                raise ServiceError('账单不存在')
+            closed = db.execute(
+                "SELECT 1 FROM closing_records WHERE period=? AND status='closed' LIMIT 1",
+                (row['billing_period'],),
+            ).fetchone()
+            if closed:
+                raise ServiceError(f"{row['billing_period']}已结账，无法收费")
+            paid = db.execute(
+                'SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?',
+                (bill_id,),
+            ).fetchone()[0]
+            unpaid = max(Decimal('0.00'), _money(row['amount']) - _money(paid))
+            if amount <= Decimal('0.00'):
+                raise ServiceError('收款金额必须大于0')
+            if amount > unpaid:
+                raise ServiceError('收款金额不能超过欠费金额')
             cur = db.execute(
                 "INSERT INTO payments (bill_id, amount_paid, payment_date, payment_method, operator, notes, receipt_number) "
                 "VALUES (?, ?, datetime('now','localtime'), ?, ?, ?, ?)",
                 (bill_id, float(amount), method, actor.username, request.get('notes') or '', request.get('receipt_number') or None),
             )
-            new_status = 'paid' if preview['will_mark_paid'] else 'partial'
+            unpaid_after = unpaid - amount
+            new_status = 'paid' if unpaid_after == Decimal('0.00') else 'partial'
             if new_status == 'paid':
                 db.execute("UPDATE bills SET status=?, paid_at=datetime('now','localtime') WHERE id=?", (new_status, bill_id))
             else:
@@ -228,6 +251,11 @@ class PaymentService:
                 'amount': str(amount),
                 'method': method,
                 'bill_status': new_status,
+                'unpaid_before': str(unpaid),
+                'unpaid_after': str(unpaid_after),
             }
+        except Exception:
+            db.rollback()
+            raise
         finally:
             db.close()
