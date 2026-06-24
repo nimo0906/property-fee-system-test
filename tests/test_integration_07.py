@@ -47,7 +47,7 @@ class TestIntegration07(IntegrationTestBase):
         self.assertRegex(body, r'已存在 \d+ 笔')
         self.assertRegex(body, r'涉及租户 \d+ 户')
         self.assertRegex(body, r'涉及房间 \d+ 间')
-        self.assertRegex(body, r'应收合计 ¥\d+\.\d{2}')
+        self.assertRegex(body, r'应收合计 ¥\d+\.\d')
         self.assertIn('进入生成确认', body)
         self.assertNotIn('确认生成选中账单', body)
         self.assertIn('页面租户', body)
@@ -152,14 +152,14 @@ class TestIntegration07(IntegrationTestBase):
         self.assertIn('确认后才会写入账单', html)
         self.assertIn(f'name="amount__{item_key}"', html)
         self.assertIn(f'name="due_date__{item_key}"', html)
-        self.assertIn('value="570.00"', html)
+        self.assertIn('value="570.0"', html)
 
         status, body, loc = http_post('/auto_billing/confirm', {
             'advance_days': '30',
             'confirm': '1',
             'item_keys': item_key,
             'fee_ids': str(fee_id),
-            f'amount__{item_key}': '618.88',
+            f'amount__{item_key}': '618.9',
             f'due_date__{item_key}': '2026-07-05',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
@@ -167,7 +167,7 @@ class TestIntegration07(IntegrationTestBase):
 
         db = get_db()
         bill = db.execute("SELECT amount,due_date,auto_batch_no FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
-        self.assertEqual(bill['amount'], 618.88)
+        self.assertEqual(bill['amount'], 618.9)
         self.assertEqual(bill['due_date'], '2026-07-05')
         db.execute("DELETE FROM bills WHERE room_id=?", (room_id,))
         db.execute("DELETE FROM auto_billing_runs WHERE batch_no=?", (bill['auto_batch_no'],))
@@ -202,7 +202,7 @@ class TestIntegration07(IntegrationTestBase):
         self.assertIn('2026-06-27 至 2026-09-26', html)
         self.assertIn('2026-06-26', html)
         self.assertIn('应收合计', html)
-        self.assertIn('¥570.00', html)
+        self.assertIn('¥570.0', html)
         self.assertIn('confirm', html)
         db = get_db()
         count = db.execute("SELECT COUNT(*) FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()[0]

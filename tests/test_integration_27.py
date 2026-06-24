@@ -50,9 +50,9 @@ class TestIntegration27(IntegrationTestBase):
         self.assertIn('部分缴费', html)
         self.assertIn('未缴账单', html)
         self.assertIn('本期回款缺口', html)
-        self.assertIn('240.00', html)
-        self.assertIn('130.00', html)
-        self.assertIn('110.00', html)
+        self.assertIn('240.0', html)
+        self.assertIn('130.0', html)
+        self.assertIn('110.0', html)
         self.assertIn('REPORTA', html)
         self.assertIn('REPORTB', html)
         self.assertIn('RPT-PARTIAL', html)
@@ -88,7 +88,7 @@ class TestIntegration27(IntegrationTestBase):
         self.assertIn('value="2031-12-31"', html)
         self.assertIn('账期对账 <small class="text-muted">(2031-12-01 至 2031-12-31)</small>', html)
         self.assertNotIn('RPT-DATE-OUT', html)
-        self.assertIn('应收合计</div><strong class="money">¥360.00</strong>', html)
+        self.assertIn('应收合计</div><strong class="money">¥360.0</strong>', html)
         self.assertIn('/reports/reconciliation.csv?period_start=2031-12-01&amp;period_end=2031-12-31&amp;building=RPTDATE', html)
 
         status, csv_body = http_get('/reports/reconciliation.csv?period_start=2031-12-01&period_end=2031-12-31&building=RPTDATE', self.cookie, TEST_PORT)
@@ -123,9 +123,9 @@ class TestIntegration27(IntegrationTestBase):
         self.assertIn('张租户', csv_body)
         self.assertIn('测试奶茶店', csv_body)
         self.assertIn('餐饮', csv_body)
-        self.assertIn('300.00', csv_body)
-        self.assertIn('120.00', csv_body)
-        self.assertIn('180.00', csv_body)
+        self.assertIn('300.0', csv_body)
+        self.assertIn('120.0', csv_body)
+        self.assertIn('180.0', csv_body)
 
 
     def test_reports_export_actions_are_grouped_by_business_purpose(self):
@@ -178,29 +178,29 @@ class TestIntegration27(IntegrationTestBase):
         self.assertIn('bill_number,target,customer,phone,fee_type,period,amount,paid,due,status,due_date', arrears_csv)
         self.assertIn('RPT-EXPORT-PART', arrears_csv)
         self.assertIn('RPT-EXPORT-DUE', arrears_csv)
-        self.assertIn('220.00', arrears_csv)
-        self.assertIn('120.00', arrears_csv)
+        self.assertIn('220.0', arrears_csv)
+        self.assertIn('120.0', arrears_csv)
 
         status, payments_csv = http_get('/reports/payment_detail.csv?period=2031-03&building=RPTEXPORT', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('payment_date,receipt_number,bill_number,target,customer,fee_type,method,operator,amount', payments_csv)
         self.assertIn('RC-RPT-EXPORT', payments_csv)
         self.assertIn('流水测试员', payments_csv)
-        self.assertIn('80.00', payments_csv)
+        self.assertIn('80.0', payments_csv)
 
         status, waivers_csv = http_get('/reports/waivers.csv?period=2031-03&building=RPTEXPORT', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('created_at,bill_number,target,customer,fee_type,old_amount,new_amount,waiver_amount,reason,approved_by', waivers_csv)
         self.assertIn('报表导出减免', waivers_csv)
-        self.assertIn('40.00', waivers_csv)
+        self.assertIn('40.0', waivers_csv)
 
         status, summary_csv = http_get('/reports/customer_summary.csv?period=2031-03&building=RPTEXPORT', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('customer,target,phone,bill_count,amount,paid,due,paid_count,partial_count,unpaid_count', summary_csv)
         self.assertIn('导出租户', summary_csv)
-        self.assertIn('420.00', summary_csv)
-        self.assertIn('80.00', summary_csv)
-        self.assertIn('340.00', summary_csv)
+        self.assertIn('420.0', summary_csv)
+        self.assertIn('80.0', summary_csv)
+        self.assertIn('340.0', summary_csv)
 
 
     def test_reports_tenant_arrears_ranking_csv_export(self):
@@ -227,7 +227,7 @@ class TestIntegration27(IntegrationTestBase):
         self.assertIn('tenant,shop,building,room,business_type,bill_count,due,phone', csv_body)
         self.assertIn('欠费租户', csv_body)
         self.assertIn('欠费咖啡店', csv_body)
-        self.assertIn('500.00', csv_body)
+        self.assertIn('500.0', csv_body)
 
 
     def test_reports_fee_arrears_csv_export(self):
@@ -253,7 +253,7 @@ class TestIntegration27(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('fee_type,bill_count,due', csv_body)
         self.assertIn('物业费(居民)', csv_body)
-        self.assertIn('410.00', csv_body)
+        self.assertIn('410.0', csv_body)
 
 
     def test_reports_can_select_multi_month_billing_period(self):
@@ -277,8 +277,8 @@ class TestIntegration27(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('账期对账 <small class="text-muted">(2030-07-01 至 2030-10-31)</small>', html)
         self.assertIn('RANGE-RPT', html)
-        self.assertIn('400.00', html)
-        self.assertIn('150.00', html)
+        self.assertIn('400.0', html)
+        self.assertIn('150.0', html)
         self.assertIn('name="period_start"', html)
         self.assertIn('value="2030-07-01"', html)
         self.assertIn('value="2030-10-31"', html)
@@ -288,7 +288,7 @@ class TestIntegration27(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('RANGE-RPT', inner_html)
         self.assertIn('RANGE_REPORT', inner_html)
-        self.assertIn('应收总额</div><div class="metric-value money">¥400.00</div>', inner_html)
-        self.assertIn('已收总额</div><div class="metric-value money money-paid">¥150.00</div>', inner_html)
-        self.assertRegex(inner_html, r'(?s)楼栋缴费统计.*RANGE_REPORT.*¥400\.00.*¥150\.00')
+        self.assertIn('应收总额</div><div class="metric-value money">¥400.0</div>', inner_html)
+        self.assertIn('已收总额</div><div class="metric-value money money-paid">¥150.0</div>', inner_html)
+        self.assertRegex(inner_html, r'(?s)楼栋缴费统计.*RANGE_REPORT.*¥400\.0.*¥150\.0')
 

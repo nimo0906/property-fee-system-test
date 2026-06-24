@@ -74,8 +74,8 @@ class TestIntegration31(IntegrationTestBase):
         self.assertIn('缴费金额合计', html)
         self.assertIn('BACKUPSUMMARY', html)
         self.assertIn('2029-01', html)
-        self.assertRegex(html, r'账单金额合计</td><td>\d+\.80')
-        self.assertRegex(html, r'缴费金额合计</td><td>\d+\.80')
+        self.assertRegex(html, r'账单金额合计</td><td>\d+\.8')
+        self.assertRegex(html, r'缴费金额合计</td><td>\d+\.8')
 
 
     def test_backup_restore_confirm_page_explains_risk_and_auto_backup(self):

@@ -167,7 +167,7 @@ class TestIntegration05(IntegrationTestBase):
         self.assertIn('收据信息确认', confirm_html)
         self.assertIn('商场\\INT-SP-001', confirm_html)
         self.assertIn('集成商铺商户', confirm_html)
-        self.assertIn('6000.00', confirm_html)
+        self.assertIn('6000.0', confirm_html)
 
         status, receipt_html, _ = http_post('/bills/receipt_by_ids', {
             'confirm_receipt': '1',
@@ -180,7 +180,7 @@ class TestIntegration05(IntegrationTestBase):
         self.assertIn('收款收据', receipt_html)
         self.assertIn('商场\\INT-SP-001', receipt_html)
         self.assertIn('集成商铺商户', receipt_html)
-        self.assertIn('6000.00', receipt_html)
+        self.assertIn('6000.0', receipt_html)
 
         status, reports = http_get('/reports?period=2041-01&building=%E5%95%86%E5%9C%BA', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)

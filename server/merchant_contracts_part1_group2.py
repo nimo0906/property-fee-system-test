@@ -100,9 +100,9 @@ class MerchantContractMixinPart1Group2(BaseHandler):
           <div class="card-body row g-3">
             <div class="col-md-3"><label>计租方式</label><input class="form-control" value="{h(SPECIAL_TYPES.get(rule['rent_mode'], rule['rent_mode']))}" disabled></div>
             <div class="col-md-3"><label>保底/月固定租金</label><input class="form-control" value="{m(rule['fixed_amount'])}" disabled></div>
-            <div class="col-md-3"><label>分成比例</label><input class="form-control" value="{m(float(rule['turnover_rate'] or 0) * 100)}%" disabled></div>
+            <div class="col-md-3"><label>分成比例</label><input class="form-control" value="{n(float(rule['turnover_rate'] or 0) * 100)}%" disabled></div>
             <div class="col-md-3"><label>账期</label><input type="month" name="billing_period" class="form-control" required></div>
-            <div class="col-md-4"><label>本期销售额</label><input type="number" step="0.01" min="0" name="turnover_amount" class="form-control" required></div>
+            <div class="col-md-4"><label>本期销售额</label><input type="number" step="0.1" min="0" name="turnover_amount" class="form-control" required></div>
             <div class="col-md-8"><label>备注</label><input name="notes" class="form-control" placeholder="如：6月销售额分成，财务已核对"></div>
             <div class="col-12"><button class="btn btn-warning">确认生成销售额租金账单</button> <a class="btn btn-outline-secondary" href="/merchant_contracts/{contract_id}">返回</a></div>
           </div>

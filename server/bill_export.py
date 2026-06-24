@@ -7,6 +7,7 @@ from server.base import BaseHandler
 from server.print_helper import print_page, print_header_row
 from server.billing_periods import append_period_filter, append_natural_date_range_filter
 from server.bill_receipt_shared import _receipt_period_label
+from server.money import money_float
 from datetime import datetime, date
 import urllib.parse, csv, io
 from server.print_helper import print_page, print_header_row
@@ -40,7 +41,7 @@ def _write_bill_export_rows(writer, rows):
             r['bill_number'] or '', _export_building(r), _export_object(r),
             _export_customer(r), r['owner_phone'] or '', _export_category(r),
             r['ft'] or '', r['billing_period'], r['service_start'] or '', r['service_end'] or '', r['amount'], r['paid'],
-            round(rem, 2), sn.get(r['status'], r['status']), r['due_date'] or ''
+            money_float(rem), sn.get(r['status'], r['status']), r['due_date'] or ''
         ])
 
 
@@ -201,10 +202,10 @@ class BillExportMixin(BaseHandler):
             for b in bills:
                 rem = b['amount'] - b['paid']
                 sn = {'paid': '已缴', 'unpaid': '未缴', 'overdue': '逾期', 'partial': '部分缴'}
-                w.writerow([b['ft'], _receipt_period_label(b), b['unit_price'], b['amount'], b['paid'], round(rem, 2), sn.get(b['status'], b['status'])])
+                w.writerow([b['ft'], _receipt_period_label(b), b['unit_price'], b['amount'], b['paid'], money_float(rem), sn.get(b['status'], b['status'])])
                 total_amt += b['amount']
                 total_paid += b['paid']
-            w.writerow(['合计', '', '', round(total_amt, 2), round(total_paid, 2), round(total_amt - total_paid, 2), ''])
+            w.writerow(['合计', '', '', money_float(total_amt), money_float(total_paid), money_float(total_amt - total_paid), ''])
             csv_data = buf.getvalue()
             ts = datetime.now().strftime('%Y%m%d_%H%M%S')
             label = '-'.join(periods_raw) if len(periods_raw) <= 3 else f'{periods_raw[0]}-{periods_raw[-1]}'

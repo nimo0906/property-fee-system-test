@@ -39,15 +39,15 @@ class MerchantContractLifecycleMixinPart1Group1(BaseHandler):
           </div>
         </div>
         <div class="metric-grid">
-          <div class="metric-card primary"><div class="metric-label">租金单价</div><div class="metric-value">{m(_rent_unit_price(contract['rent_amount'], contract['area'] if 'area' in contract.keys() else 0))}</div></div>
-          <div class="metric-card success"><div class="metric-label">物业费单价</div><div class="metric-value">{m(contract['property_rate'])}</div></div>
+          <div class="metric-card primary"><div class="metric-label">租金单价</div><div class="metric-value">{n(_rent_unit_price(contract['rent_amount'], contract['area'] if 'area' in contract.keys() else 0))}</div></div>
+          <div class="metric-card success"><div class="metric-label">物业费单价</div><div class="metric-value">{n(contract['property_rate'])}</div></div>
           <div class="metric-card warning"><div class="metric-label">已生成账单</div><div class="metric-value">{len(bills)}</div></div>
           <div class="metric-card danger"><div class="metric-label">账单合计</div><div class="metric-value money">¥{m(bill_total)}</div></div>
         </div>
         <div class="card mb-3"><div class="card-header">合同基础信息</div><div class="card-body row g-2">
           <div class="col-md-3"><span class="text-muted small">合同期</span><div>{h(contract['start_date'])} 至 {h(contract['end_date'])}</div></div>
-          <div class="col-md-3"><span class="text-muted small">合同面积</span><div>{m(contract['contract_area'] or contract['area'])}㎡</div></div>
-          <div class="col-md-3"><span class="text-muted small">建筑面积</span><div>{m(contract['building_area'] or contract['area'])}㎡</div></div>
+          <div class="col-md-3"><span class="text-muted small">合同面积</span><div>{n(contract['contract_area'] or contract['area'])}㎡</div></div>
+          <div class="col-md-3"><span class="text-muted small">建筑面积</span><div>{n(contract['building_area'] or contract['area'])}㎡</div></div>
           <div class="col-md-3"><span class="text-muted small">租金周期</span><div>{h(CYCLE_LABELS.get(contract['rent_cycle'], contract['rent_cycle']))}</div></div>
           <div class="col-md-3"><span class="text-muted small">物业费周期</span><div>{h(CYCLE_LABELS.get(contract['property_cycle'], contract['property_cycle']))}</div></div>
           <div class="col-md-3"><span class="text-muted small">状态</span><div>{h(contract_status_label(contract['status']))}</div></div>

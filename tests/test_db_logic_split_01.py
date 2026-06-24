@@ -42,7 +42,7 @@ class TestDBLogic01(DBLogicTestBase):
 
 
     def test_calc_elevator_fee_rounded(self):
-        self.assertAlmostEqual(calc_elevator_fee(15, 87.5), 91.88)
+        self.assertAlmostEqual(calc_elevator_fee(15, 87.5), 91.9)
 
 
     def test_late_fee_no_bill(self):

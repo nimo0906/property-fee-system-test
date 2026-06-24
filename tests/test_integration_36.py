@@ -24,7 +24,7 @@ class TestIntegration36(IntegrationTestBase):
             self.assertEqual(status, 200)
             data = json.loads(body)['data']
             self.assertEqual(data['status'], 'pending')
-            self.assertEqual(data['amount'], '88.00')
+            self.assertEqual(data['amount'], '88.0')
             self.assertTrue(data['request_no'].startswith('IR'))
 
             status, body = http_get('/api/v1/invoice-requests?status=pending', self.cookie, TEST_PORT)

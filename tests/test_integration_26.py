@@ -129,7 +129,7 @@ class TestIntegration26(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('批量收费结果', html)
         self.assertIn('成功收费', html)
-        self.assertIn('38.00', html)
+        self.assertIn('38.0', html)
         self.assertIn('/bills/receipt_by_ids', html)
 
         db = db_module.get_db()
@@ -168,7 +168,7 @@ class TestIntegration26(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('收据信息确认', confirm_html)
         self.assertIn('PAYRECEIPT', confirm_html)
-        self.assertIn('38.00', confirm_html)
+        self.assertIn('38.0', confirm_html)
 
         status, receipt_html, loc = http_post('/bills/receipt_by_ids', {
             'confirm_receipt': '1',
@@ -179,7 +179,7 @@ class TestIntegration26(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('收款收据', receipt_html)
         self.assertIn('PAYRECEIPT', receipt_html)
-        self.assertIn('38.00', receipt_html)
+        self.assertIn('38.0', receipt_html)
 
 
 
@@ -242,7 +242,7 @@ class TestIntegration26(IntegrationTestBase):
         self.assertIn('减免', receipt_html)
         self.assertIn('59.42×3', receipt_html)
         self.assertIn('1×3', receipt_html)
-        self.assertIn('72.18', receipt_html)
+        self.assertIn('72.2', receipt_html)
         self.assertIn('临时摘要', receipt_html)
         self.assertIn('临时备注', receipt_html)
         self.assertIn('收费员：', receipt_html)
@@ -270,7 +270,7 @@ class TestIntegration26(IntegrationTestBase):
         before = [n for n in os.listdir(db_module.BACKUP_DIR) if n.startswith('auto_before_payment_')] if os.path.exists(db_module.BACKUP_DIR) else []
 
         status, body, loc = http_post(f'/bills/{bid}/pay', {
-            'amount_paid': '19.00',
+            'amount_paid': '19.0',
             'payment_method': 'cash',
             'operator': '单笔备份测试员',
         }, self.cookie, TEST_PORT)
@@ -351,8 +351,8 @@ class TestIntegration26(IntegrationTestBase):
         self.assertEqual(bill['status'], 'unpaid')
         status, detail = http_get(f'/bills/{bill["id"]}', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('已缴</small><h5 class="money money-paid">¥0.00</h5>', detail)
-        self.assertIn('欠费</small><h5 class="money money-due">¥19.00</h5>', detail)
+        self.assertIn('已缴</small><h5 class="money money-paid">¥0.0</h5>', detail)
+        self.assertIn('欠费</small><h5 class="money money-due">¥19.0</h5>', detail)
         self.assertIn(f'/bills/{bill["id"]}/pay', detail)
 
         status, bill_list = http_get('/bills?building=PAYREUSE&keyword=901', self.cookie, TEST_PORT)
@@ -363,9 +363,9 @@ class TestIntegration26(IntegrationTestBase):
         self.assertIn('PAYREUSE', cells[2])
         self.assertIn('901', cells[2])
         self.assertIn('2028-09', cells[4])
-        self.assertEqual(cells[5], '¥19.00')
-        self.assertEqual(cells[6], '¥0.00')
-        self.assertEqual(cells[7], '¥19.00')
+        self.assertEqual(cells[5], '¥19.0')
+        self.assertEqual(cells[6], '¥0.0')
+        self.assertEqual(cells[7], '¥19.0')
         self.assertIn('未缴', cells[8])
         db = db_module.get_db()
         payment_count = db.execute("SELECT COUNT(*) FROM payments WHERE bill_id=?", (bill['id'],)).fetchone()[0]
@@ -389,7 +389,7 @@ class TestIntegration26(IntegrationTestBase):
         db.close()
 
         status, body, loc = http_post(f'/bills/{bid}/pay', {
-            'amount_paid': '20.00',
+            'amount_paid': '20.0',
             'payment_method': 'cash',
             'operator': '超额测试员',
         }, self.cookie, TEST_PORT)
@@ -420,7 +420,7 @@ class TestIntegration26(IntegrationTestBase):
         db.close()
 
         status, html, loc = http_post(f'/bills/{bid}/pay', {
-            'amount_paid': '19.00',
+            'amount_paid': '19.0',
             'payment_method': 'cash',
             'operator': '单笔结果测试员',
         }, self.cookie, TEST_PORT)
@@ -438,7 +438,7 @@ class TestIntegration26(IntegrationTestBase):
         self.assertNotIn('确认缴费', paid_page)
 
         status, html, loc = http_post(f'/bills/{bid}/pay', {
-            'amount_paid': '1.00',
+            'amount_paid': '1.0',
             'payment_method': 'cash',
             'operator': '重复测试员',
         }, self.cookie, TEST_PORT)
@@ -472,7 +472,7 @@ class TestIntegration26(IntegrationTestBase):
         self.assertIn('核对：2项', html)
         self.assertIn('未缴1', html)
         self.assertIn('部分1', html)
-        self.assertIn('欠费¥39.00', html)
+        self.assertIn('欠费¥39.0', html)
 
 
     def test_receipt_by_ids_shows_each_room_and_payment_operator(self):
@@ -591,15 +591,15 @@ class TestIntegration26(IntegrationTestBase):
             service = PaymentService()
             service.preview_payment = lambda request: {
                 'bill_id': bill_id,
-                'amount': '30.00',
-                'unpaid_before': '100.00',
-                'unpaid_after': '70.00',
+                'amount': '30.0',
+                'unpaid_before': '100.0',
+                'unpaid_after': '70.0',
                 'will_mark_paid': False,
             }
 
             with self.assertRaises(ServiceError) as ctx:
                 service.create_payment(
-                    {'bill_id': bill_id, 'amount': '30.00', 'method': 'cash'},
+                    {'bill_id': bill_id, 'amount': '30.0', 'method': 'cash'},
                     Actor(username='并发测试员', role='cashier'),
                 )
             self.assertIn('收款金额不能超过欠费金额', str(ctx.exception))

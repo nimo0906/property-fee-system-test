@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Render editable preview for commercial contract imports."""
 
-from server.db import h, m
+from server.db import h, m, n
 
 
 def _input(i, key, value, typ="text", step=""):
@@ -61,8 +61,8 @@ def _row_html(i, r):
 <td>{_input(i, 'floor', r['floor'], 'number')}</td>
 <td>{_input(i, 'start_date', r['start_date'], 'date')}<div class="small text-muted">{h(r['start_date'])} 至 {h(r['end_date'])}</div></td>
 <td>{_input(i, 'end_date', r['end_date'], 'date')}<div class="small text-muted">期限 {h(r['lease_term'])}</div>{_input(i, 'lease_term', r['lease_term'])}</td>
-<td>{_input(i, 'contract_area', r['contract_area'], 'number', '0.01')}<div class="small text-muted">合同面积 {m(r['contract_area'])}㎡</div></td>
-<td>{_input(i, 'building_area', r['building_area'], 'number', '0.01')}<div class="small text-muted">建筑面积 {m(r['building_area'])}㎡</div></td>
+<td>{_input(i, 'contract_area', r['contract_area'], 'number', '0.01')}<div class="small text-muted">合同面积 {n(r['contract_area'])}㎡</div></td>
+<td>{_input(i, 'building_area', r['building_area'], 'number', '0.01')}<div class="small text-muted">建筑面积 {n(r['building_area'])}㎡</div></td>
 <td>{_input(i, 'rent_rate', r['rent_rate'], 'number', '0.01')}<input type="hidden" name="rent_raw_{i}" value="{h(r.get('rent_raw',''))}"><div class="small text-muted">{h(r.get('rent_raw',''))}</div></td>
 <td><select class="form-select form-select-sm" name="rent_mode_{i}">{_rent_mode_options(r.get('rent_mode','fixed'))}</select>
 <div class="input-group input-group-sm mt-1"><input class="form-control" type="number" step="0.0001" name="turnover_rate_{i}" value="{h(r.get('turnover_rate',0))}"><span class="input-group-text">分成</span></div></td>

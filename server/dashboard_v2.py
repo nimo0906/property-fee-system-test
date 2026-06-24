@@ -6,10 +6,11 @@ from datetime import date
 
 from server.alert_center import get_alert_center
 from server.db import add_months, get_db, period_to_date
+from server.money import money_float
 
 
 def _money(value):
-    return round(float(value or 0), 2)
+    return money_float(value)
 
 
 def _prev_periods(period, months=3):

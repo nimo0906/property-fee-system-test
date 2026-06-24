@@ -36,8 +36,8 @@ class TestIntegration23(IntegrationTestBase):
         self.assertIn('批量修正明细', result_html)
         self.assertIn('原金额', result_html)
         self.assertIn('新金额', result_html)
-        self.assertIn('19.00', result_html)
-        self.assertIn('20.90', result_html)
+        self.assertIn('19.0', result_html)
+        self.assertIn('20.9', result_html)
         self.assertIn('2027-09-28', result_html)
         self.assertIn('2027-09-30', result_html)
         self.assertIn('/bills/review?scope=adjusted', result_html)
@@ -168,7 +168,7 @@ class TestIntegration23(IntegrationTestBase):
         self.assertNotIn(f'href="/bills/{bid}" class="btn btn-outline-secondary">取消</a>', form)
 
         status, body, loc = http_post(f'/bills/{bid}/edit', {
-            'new_amount': '88.88',
+            'new_amount': '88.9',
             'due_date': '2027-06-30',
             'notes': '人工核对修正',
             'approved_by': '测试员',
@@ -178,7 +178,7 @@ class TestIntegration23(IntegrationTestBase):
         db = db_module.get_db()
         bill = db.execute("SELECT amount,due_date,notes FROM bills WHERE id=?", (bid,)).fetchone()
         db.close()
-        self.assertEqual(bill['amount'], 88.88)
+        self.assertEqual(bill['amount'], 88.9)
         self.assertEqual(bill['due_date'], '2027-06-30')
         self.assertEqual(bill['notes'], '人工核对修正')
 

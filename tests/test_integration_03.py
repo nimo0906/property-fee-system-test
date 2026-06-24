@@ -53,8 +53,8 @@ class TestIntegration03(IntegrationTestBase):
         self.assertIn('value="PAY-1423"', body)
         self.assertIn('PAY-1423', body)
         self.assertNotIn('PAY-9999', body)
-        self.assertIn('¥1423.00', body)
-        self.assertNotIn('¥9999.00', body)
+        self.assertIn('¥1423.0', body)
+        self.assertNotIn('¥9999.0', body)
 
         status, tenant_body = http_get('/payments?period=2038-08-01&operator=%E6%90%9C%E7%B4%A2%E7%BB%8F%E6%89%8B%E4%BA%BA&keyword=%E6%90%9C%E7%B4%A2%E7%A7%9F%E6%88%B7%E4%B9%99', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
@@ -83,13 +83,13 @@ class TestIntegration03(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('2038-06', body)
         self.assertIn('2038-07', body)
-        self.assertIn('¥30.00', body)
+        self.assertIn('¥30.0', body)
 
         status, filtered = http_get('/payments?period=2038-06-01&operator=%E9%BB%98%E8%AE%A4%E5%85%A8%E9%83%A8', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('2038-06', filtered)
         self.assertNotIn('2038-07', filtered)
-        self.assertIn('¥10.00', filtered)
+        self.assertIn('¥10.0', filtered)
 
 
     def test_property_billing_excludes_commercial_only_fee_names_even_if_sort_order_is_low(self):

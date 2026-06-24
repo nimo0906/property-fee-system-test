@@ -82,7 +82,7 @@ class DepositMixin(BaseHandler):
         self._html(self._page(t, f'''<form method=POST action="{a}" class="row g-3">
     <div class="col-md-4"><label>关联房间</label><select name="room_id" class="form-select">{rm_opts}</select></div>
     <div class="col-md-4"><label>业主</label><select name="owner_id" class="form-select">{ow_opts}</select></div>
-    <div class="col-md-4"><label>押金金额 <span class="text-danger">*</span></label><div class="input-group"><span class="input-group-text">¥</span><input name="amount" type="number" class="form-control" value="{amt}" step="0.01" min="0" required></div></div>
+    <div class="col-md-4"><label>押金金额 <span class="text-danger">*</span></label><div class="input-group"><span class="input-group-text">¥</span><input name="amount" type="number" class="form-control" value="{amt}" step="0.1" min="0" required></div></div>
     <div class="col-md-4"><label>收取日期</label><input name="deposit_date" type="date" class="form-control" value="{dd}"></div>
     <div class="col-md-4"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>
     <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/deposits" class="btn btn-outline-secondary">取消</a></div></form>''', "deposits"))
@@ -118,7 +118,7 @@ class DepositMixin(BaseHandler):
     <div class="col-md-7"><div class="card"><div class="card-header">办理退还</div>
     <div class="card-body"><form method=POST action="/deposits/{did}/refund" class="row g-3">
     <div class="col-12"><label>退还金额 <span class="text-danger">*</span></label>
-    <div class="input-group"><span class="input-group-text">¥</span><input name="refund_amount" type="number" class="form-control form-control-lg" value="{m(d["amount"] - (d["refund_amount"] or 0))}" step="0.01" min="0" required></div></div>
+    <div class="input-group"><span class="input-group-text">¥</span><input name="refund_amount" type="number" class="form-control form-control-lg" value="{m(d["amount"] - (d["refund_amount"] or 0))}" step="0.1" min="0" required></div></div>
     <div class="col-md-6"><label>退还日期</label><input name="refund_date" type="date" class="form-control" value="{date.today().isoformat()}"></div>
     <div class="col-md-6"><label>备注</label><input name="notes" class="form-control" placeholder="退还原因"></div>
     <div class="col-12"><hr><button class="btn btn-warning btn-lg"><i class="bi bi-arrow-return-left"></i> 确认退还</button>

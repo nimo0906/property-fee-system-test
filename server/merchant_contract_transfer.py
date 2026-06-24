@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from server.backups import create_db_backup
 from server.base import BaseHandler
 from server.contract_billing import create_merchant_contract
-from server.db import get_db, h, m, qs
+from server.db import get_db, h, m, n, qs
 from server.merchant_contract_lifecycle_shared import _contract_row
 
 
@@ -45,7 +45,7 @@ class MerchantContractTransferMixin(BaseHandler):
             <div class="col-md-4"><label>新店铺名称</label><input name="new_shop_name" class="form-control"></div>
             <div class="col-md-4"><label>新合同结束日期 *</label><input name="end_date" type="date" class="form-control" value="{h(c['end_date'])}" required></div>
             <div class="col-12"><label>备注</label><input name="notes" class="form-control" placeholder="转租原因或交接说明"></div>
-            <div class="col-12 small text-muted">租金 {m(c['rent_amount'])} 元/月，物业费 {m(c['property_rate'])} 元/m²·月，面积 {m(c['contract_area'] or c['area'])}㎡ 将沿用到新合同。</div>
+            <div class="col-12 small text-muted">租金 {m(c['rent_amount'])} 元/月，物业费 {n(c['property_rate'])} 元/m²·月，面积 {n(c['contract_area'] or c['area'])}㎡ 将沿用到新合同。</div>
             <div class="col-12 d-flex gap-2"><button class="btn btn-primary">确认转租并新建合同</button><a href="/merchant_contracts/{contract_id}" class="btn btn-outline-secondary">取消</a></div>
           </div>
         </form>''', 'merchant_contracts'))

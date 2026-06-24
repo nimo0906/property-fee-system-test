@@ -84,7 +84,7 @@ def _receipt_usage(row):
     months = _receipt_months_for_bill(row)
     cm = row['calc_method']
     if cm in ('area', 'floor'):
-        base = m(row['area'] or 0).rstrip('0').rstrip('.')
+        base = receipt_number(row['area'] or 0)
         return f'{base}×{months}' if months > 1 else base
     if cm == 'household':
         return f'1×{months}' if months > 1 else '1'
@@ -134,7 +134,7 @@ class BillReceiptMixinPart1(BaseHandler):
             <div class="row g-4"><div class="col-md-7"><div class="card"><div class="card-header">收据预览信息</div>
             <div class="card-body"><table class="table table-sm"><tbody>
             <tr><th>套户编号</th><td>{_receipt_rooms_str(bills)}</td></tr><tr><th>客户名称</th><td>{h(owner_name)}</td></tr>
-            <tr><th>建筑面积</th><td>{h(m(rm['area']).rstrip('0').rstrip('.'))}m2</td></tr><tr><th>流水号</th><td>{h(defaults['receipt_no'])}</td></tr>
+            <tr><th>建筑面积</th><td>{h(receipt_number(rm['area']))}m2</td></tr><tr><th>流水号</th><td>{h(defaults['receipt_no'])}</td></tr>
             </tbody></table><table class="table table-sm"><thead><tr><th>收费项目</th><th>费用区间</th><th>使用量</th><th class="text-end">应收</th><th class="text-end">缴费</th></tr></thead><tbody>{preview_rows}
             <tr class="table-light"><td colspan="3" class="text-end"><strong>合计</strong></td><td class="text-end"><strong>¥{m(total_due)}</strong></td><td class="text-end"><strong>¥{m(total_paid)}</strong></td></tr></tbody></table></div></div></div>
             <div class="col-md-5"><div class="card"><div class="card-header">补充打印信息</div><div class="card-body">
@@ -172,7 +172,7 @@ class BillReceiptMixinPart1(BaseHandler):
                     <td>1</td><td class="amt">{h(str(b['unit_price'] or ''))}</td><td class="amt">{m(due_before_discount)}</td>
                     <td class="amt">{m(discount)}</td><td class="amt">{m(waiver)}</td><td class="amt">{m(paid)}</td><td class="amt">{m(rem)}</td></tr>'''
                 total_due += due_before_discount; total_discount += discount; total_waiver += waiver; total_paid += paid; total_rem += rem
-            area_str = f"{m(rm['area']).rstrip('0').rstrip('.')}m2"
+            area_str = f"{receipt_number(rm['area'])}m2"
             today_str = datetime.now().strftime('%Y-%m-%d　%H:%M:%S')
             content = f'''
             <h1>陕西金莎国际物业管理有限公司</h1><h2 style="margin-top:0">收款收据</h2>

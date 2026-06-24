@@ -110,7 +110,7 @@ class TestIntegration28(IntegrationTestBase):
         self.assertIn('building,room,owner,phone,fee_type,period,amount,paid,due,status,due_date,bill_number', csv)
         self.assertIn('REPORTCSV', csv)
         self.assertIn('RPT-CSV', csv)
-        self.assertIn('88.00', csv)
+        self.assertIn('88.0', csv)
 
 
     def test_reports_page(self):
@@ -142,16 +142,16 @@ class TestIntegration28(IntegrationTestBase):
         status, html = http_get('/reports?period=2026-06&building=WAIVE&status=partial', self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
-        self.assertIn('减免 ¥72.40 · 1笔', html)
+        self.assertIn('减免 ¥72.4 · 1笔', html)
         self.assertIn('href="#reportWaivers"', html)
         self.assertIn('减免明细', html)
         self.assertIn('WAIVE-1501-01', html)
         self.assertIn('减免明细业主', html)
         self.assertIn('困难减免', html)
         self.assertIn('财务主管', html)
-        self.assertIn('¥100.00', html)
-        self.assertIn('¥27.60', html)
-        self.assertIn('¥72.40', html)
+        self.assertIn('¥100.0', html)
+        self.assertIn('¥27.6', html)
+        self.assertIn('¥72.4', html)
 
 
     def test_reports_kpis_link_directly_to_reconciliation_details(self):
@@ -232,7 +232,7 @@ class TestIntegration28(IntegrationTestBase):
         summary_html = html.split('主要收费类型统计', 1)[1].split('收款日报', 1)[0]
         self.assertIn('物业费(居民)', summary_html)
         self.assertIn('其他收费', summary_html)
-        self.assertIn('¥77.00', summary_html)
+        self.assertIn('¥77.0', summary_html)
         self.assertNotIn('测试低频服务费', summary_html)
         self.assertNotIn('测试低频零金额项', html)
 

@@ -4,6 +4,8 @@
 
 import re
 
+from server.money import money_float
+
 
 FEE_RULES = {
     '物业费': ('matched_fee', '可识别为系统收费项目，金额需用户确认'),
@@ -105,14 +107,14 @@ def analyze_payment_ledger(headers, data_rows, rooms):
                 'negative': neg,
                 'zero': zero,
                 'blank': blank,
-                'total': round(total, 2),
+                'total': money_float(total),
             })
 
     return {
         'total_rows': len(data_rows),
         'rows_with_payment': rows_with_payment,
-        'payment_total': round(payment_total, 2),
-        'amount_total': round(amount_total, 2),
+        'payment_total': money_float(payment_total),
+        'amount_total': money_float(amount_total),
         'matched_rooms': matched_rooms,
         'unmatched_rooms': unmatched_rooms,
         'unmatched_examples': examples,

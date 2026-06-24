@@ -5,6 +5,7 @@
 import sqlite3, json
 from datetime import datetime, date, timedelta
 import os
+from server.money import money_display, money_float, number_display
 
 BASE = os.environ.get('PM_RESOURCE_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get('PM_DB_PATH') or os.path.join(BASE, 'property.db')
@@ -131,7 +132,7 @@ def calc_elevator_fee(floor, area):
     tier = db.execute("SELECT rate FROM elevator_fee_tiers WHERE ? BETWEEN floor_from AND floor_to ORDER BY id LIMIT 1", (floor,)).fetchone()
     db.close()
     rate = tier[0] if tier else 1.0
-    return round(rate * area, 2)
+    return money_float(rate * area)
 
 
 def calc_bill_late_fee(bill_id):
@@ -146,8 +147,8 @@ def calc_bill_late_fee(bill_id):
     days = (date.today() - due).days - (cfg['grace_days'] or 0)
     if days <= 0:
         db.close(); return 0
-    fee = round(bill['amount'] * cfg['daily_rate'] * days, 2)
-    max_fee = round(bill['amount'] * cfg['max_rate'], 2)
+    fee = money_float(bill['amount'] * cfg['daily_rate'] * days)
+    max_fee = money_float(bill['amount'] * cfg['max_rate'])
     db.close()
     return min(fee, max_fee)
 
@@ -248,4 +249,8 @@ def h(s):
 
 
 def m(v):
-    return f"{float(v or 0):.2f}"
+    return money_display(v)
+
+
+def n(v, digits=2):
+    return number_display(v, digits)

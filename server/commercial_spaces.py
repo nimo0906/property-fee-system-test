@@ -3,7 +3,7 @@
 """Commercial space master data for mall shops."""
 
 from server.base import BaseHandler
-from server.db import get_db, h, m, qs
+from server.db import get_db, h, m, n, qs
 from server.pagination import pagination_state, query_items, render_pagination
 
 
@@ -53,7 +53,7 @@ class CommercialSpaceMixin(BaseHandler):
         body = ''.join(
             f"""<tr><td><strong>{h(r['space_no'])}</strong></td><td>{h(r['shop_name'] or '-')}</td>
             <td>{h(r['merchant_name'] or '-')}</td><td>{h(r['business_type'] or '-')}</td><td>{r['floor'] or '-'}F</td>
-            <td class="text-end">{m(r['area'])}</td><td>{h(r['water_rate_type'] or '非居民')}</td>
+            <td class="text-end">{n(r['area'])}</td><td>{h(r['water_rate_type'] or '非居民')}</td>
             <td><span class="badge {'status-success' if r['status']=='active' else 'status-neutral'}">{h(r['status'])}</span></td>
             <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/commercial_spaces/{r['id']}/edit">编辑</a></td></tr>"""
             for r in rows

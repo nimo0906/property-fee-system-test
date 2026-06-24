@@ -3,10 +3,11 @@
 """Stable internal service interfaces for v2.0 expansion."""
 
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from server.db import get_db, room_active_in_period
 from server.billing_engine import calculate_bill_amount, fee_applies_to_room
+from server.money import money_decimal, ZERO_MONEY
 
 
 class ServiceError(Exception):
@@ -20,7 +21,7 @@ class Actor:
 
 
 def _money(value):
-    return Decimal(str(value or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return money_decimal(value)
 
 
 def _mask_id_card(value):
@@ -110,7 +111,7 @@ class BillingService:
                 'status': row['status'],
                 'amount': str(amount),
                 'paid_amount': str(paid_amount),
-                'unpaid_amount': str(max(Decimal('0.00'), amount - paid_amount)),
+                'unpaid_amount': str(max(ZERO_MONEY, amount - paid_amount)),
                 'due_date': row['due_date'],
                 'fee_type': {'id': row['fee_type_id'], 'name': row['fee_type_name'] or ''},
                 'room': {
@@ -170,7 +171,7 @@ class BillingService:
                         continue
                     calc = calculate_bill_amount(db, room, fee, period)
                     amount = _money(calc['amount'])
-                    if amount <= Decimal('0.00'):
+                    if amount <= ZERO_MONEY:
                         continue
                     items.append({
                         'room_id': room['id'],
@@ -191,7 +192,7 @@ class PaymentService:
         amount = _money(request.get('amount') or 0)
         bill = BillingService().get_bill(bill_id)
         unpaid = Decimal(bill['unpaid_amount'])
-        if amount <= Decimal('0.00'):
+        if amount <= ZERO_MONEY:
             raise ServiceError('收款金额必须大于0')
         if amount > unpaid:
             raise ServiceError('收款金额不能超过欠费金额')
@@ -228,8 +229,8 @@ class PaymentService:
                 'SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?',
                 (bill_id,),
             ).fetchone()[0]
-            unpaid = max(Decimal('0.00'), _money(row['amount']) - _money(paid))
-            if amount <= Decimal('0.00'):
+            unpaid = max(ZERO_MONEY, _money(row['amount']) - _money(paid))
+            if amount <= ZERO_MONEY:
                 raise ServiceError('收款金额必须大于0')
             if amount > unpaid:
                 raise ServiceError('收款金额不能超过欠费金额')
@@ -239,7 +240,7 @@ class PaymentService:
                 (bill_id, float(amount), method, actor.username, request.get('notes') or '', request.get('receipt_number') or None),
             )
             unpaid_after = unpaid - amount
-            new_status = 'paid' if unpaid_after == Decimal('0.00') else 'partial'
+            new_status = 'paid' if unpaid_after == ZERO_MONEY else 'partial'
             if new_status == 'paid':
                 db.execute("UPDATE bills SET status=?, paid_at=datetime('now','localtime') WHERE id=?", (new_status, bill_id))
             else:

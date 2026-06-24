@@ -12,10 +12,11 @@ from server.backups import create_db_backup
 from server.data_health import cleanup_invalid_payments
 from server.db import get_db, get_period, h, m, qs, is_period_closed, room_active_in_period, date_to_period, period_to_date, add_months
 from server.billing_engine import fee_applies_to_room
+from server.money import MONEY_QUANT, money_decimal
 
 
 def allocate_shared_amount(total_amount, rooms, method='area'):
-    total = Decimal(str(total_amount or 0)).quantize(Decimal('0.01'))
+    total = money_decimal(total_amount)
     if total <= 0 or not rooms:
         return []
     weights = []
@@ -32,7 +33,7 @@ def allocate_shared_amount(total_amount, rooms, method='area'):
         if idx == len(rooms) - 1:
             amount = total - running
         else:
-            amount = (total * weight / weight_sum).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+            amount = (total * weight / weight_sum).quantize(MONEY_QUANT, rounding=ROUND_HALF_UP)
             running += amount
         allocations.append({'room': room, 'amount': float(amount), 'weight': float(weight)})
     return allocations
@@ -144,7 +145,7 @@ class SharedExpenseMixin(BaseHandler):
             <div class="col-md-3"><label>起始日期 *</label><input type="date" name="period_start" class="form-control" value="{h(default_start)}" required><small class="text-muted">财务做账起始日</small></div>
             <div class="col-md-3"><label>截止日期 *</label><input type="date" name="period_end" class="form-control" value="{h(default_end)}" required><small class="text-muted">财务做账截止日，同时作为默认缴费截止日</small></div>
             <div class="col-md-3"><label>收费项目 *</label><select name="fee_type_id" class="form-select" required>{fee_opts}</select></div>
-            <div class="col-md-3"><label>公摊总金额 *</label><div class="input-group"><span class="input-group-text">¥</span><input name="total_amount" type="number" step="0.01" min="0.01" class="form-control" required></div></div>
+            <div class="col-md-3"><label>公摊总金额 *</label><div class="input-group"><span class="input-group-text">¥</span><input name="total_amount" type="number" step="0.1" min="0.1" class="form-control" required></div></div>
             <div class="col-md-3"><label>分摊方式</label><select name="allocation_method" class="form-select"><option value="area">按面积分摊</option><option value="household">按户数平均</option></select></div>
             <div class="col-md-3"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
             <div class="col-md-3"><label>单元/区域</label><select name="unit" class="form-select">{unit_opts}</select></div>

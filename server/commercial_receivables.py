@@ -13,6 +13,7 @@ from server.db import add_months, get_db, h, m, qs
 from server.contract_amendments import amount_for_period
 from server.billing_proration import is_one_time_fee, prorated_month_factor
 from server.billing_rules import fee_in_scope
+from server.money import money_float
 
 
 def _as_date(value):
@@ -76,7 +77,7 @@ def build_receivable_preview(today=None, advance_days=30, keyword='', status='al
                 'contract_no': c['contract_no'], 'merchant_name': c['merchant_name'], 'object_no': c['object_no'],
                 'fee_id': fee_id, 'fee_name': label, 'service_start': start.isoformat(),
                 'service_end': service_end.isoformat(), 'billing_period': _period_label(start, service_end),
-                'due_date': service_end.isoformat(), 'amount': round(amount, 2), 'status': item_status,
+                'due_date': service_end.isoformat(), 'amount': money_float(amount), 'status': item_status,
                 'default_checked': amount > 0})
         for fee in commercial_fees:
             start = _next_start(db, c['id'], c['start_date'], fee['id'], c['property_cycle'], current)
@@ -96,7 +97,7 @@ def build_receivable_preview(today=None, advance_days=30, keyword='', status='al
                 'object_no': c['object_no'], 'fee_id': fee['id'], 'fee_name': fee['name'],
                 'service_start': start.isoformat(), 'service_end': service_end.isoformat(),
                 'billing_period': _period_label(start, service_end), 'due_date': service_end.isoformat(),
-                'amount': round(amount, 2), 'status': item_status, 'default_checked': default_checked})
+                'amount': money_float(amount), 'status': item_status, 'default_checked': default_checked})
     db.close(); return items
 
 
@@ -113,7 +114,7 @@ def _commercial_fee_amount(db, contract, fee, start, service_end, months):
     else:
         monthly = 0.0
     factor = 1.0 if is_one_time_fee(fee) else (prorated_month_factor(start.isoformat(), service_end.isoformat()) or float(months or 1))
-    return round(monthly * factor, 2)
+    return money_float(monthly * factor)
 
 
 def _normalize_keys(item_keys):
@@ -140,7 +141,7 @@ def _edited_item(item, form):
     edited['due_date'] = qs(form, f'due_date__{key}', item['due_date'])
     edited['billing_period'] = _period_label(_as_date(edited['service_start']), _as_date(edited['service_end']))
     amount = qs(form, f'amount__{key}', item['amount'])
-    edited['amount'] = round(float(amount or 0), 2)
+    edited['amount'] = money_float(amount)
     return edited
 
 
@@ -208,7 +209,7 @@ class CommercialReceivableMixin(BaseHandler):
             var total=0,count=0;
             document.querySelectorAll('.receivable-check:checked').forEach(function(x){{ count++; total+=parseFloat(x.dataset.amount||'0')||0; }});
             var c=document.getElementById('selectedReceivableCount'); if(c)c.textContent=count;
-            var t=document.getElementById('selectedReceivableTotal'); if(t)t.textContent='¥'+total.toFixed(2);
+            var t=document.getElementById('selectedReceivableTotal'); if(t)t.textContent='¥'+total.toFixed(1);
         }}
         document.querySelectorAll('.receivable-check').forEach(function(x){{x.addEventListener('change',updateReceivableSummary);}});
         </script>''', 'auto_billing'))
@@ -240,5 +241,5 @@ def _row(x):
     <td><div class="d-flex flex-column gap-1"><input type="date" class="form-control form-control-sm" name="service_start__{h(key)}" value="{h(x['service_start'])}" {disabled}>
     <input type="date" class="form-control form-control-sm" name="service_end__{h(key)}" value="{h(x['service_end'])}" {disabled}></div></td>
     <td><input type="date" class="form-control form-control-sm" name="due_date__{h(key)}" value="{h(x['due_date'])}" {disabled}></td>
-    <td class="text-end"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end" name="amount__{h(key)}" value="{m(x['amount'])}" {disabled}></td>
+    <td class="text-end"><input type="number" step="0.1" min="0" class="form-control form-control-sm text-end" name="amount__{h(key)}" value="{m(x['amount'])}" {disabled}></td>
     <td><span class="badge {badge}">{x['status']}</span></td></tr>'''

@@ -46,7 +46,7 @@ class TestIntegration20(IntegrationTestBase):
         self.assertIn('电子发票', print_page)
         self.assertIn('INV-PRINT-001', print_page)
         self.assertIn('发票打印抬头', print_page)
-        self.assertIn('188.00', print_page)
+        self.assertIn('188.0', print_page)
         self.assertIn('电子发票（普通发票）', print_page)
         self.assertIn('购买方信息', print_page)
         self.assertIn('销售方信息', print_page)
@@ -120,8 +120,8 @@ class TestIntegration20(IntegrationTestBase):
         self.assertIn('data-invoice-section="available"', html)
         self.assertIn('待开票账单', html)
         self.assertIn('INV-SECTION-001', html)
-        self.assertIn('¥180.00', html)
-        self.assertIn('¥220.00', html)
+        self.assertIn('¥180.0', html)
+        self.assertIn('¥220.0', html)
         self.assertIn('筛选范围已开票金额', html)
 
 

@@ -182,11 +182,11 @@ window.calcFees = function(){
         amt = monthly * useFactor;
         var ft = document.getElementById("feeAmt_" + fid);
         if(ft){
-            if(!ft.dataset.edited) ft.value = amt.toFixed(2);
+            if(!ft.dataset.edited) ft.value = amt.toFixed(1);
             else { amt = parseFloat(ft.value) || 0; f = "自定义"; }
         }
         var fm = document.getElementById("formula_" + fid);
-        if(fm) fm.textContent = (ft && ft.dataset.edited || mid == "meter" || feeCycle == "once") ? f + " = ¥" + amt.toFixed(2) : f + " × " + window.factorLabel(useFactor) + " = ¥" + amt.toFixed(2);
+        if(fm) fm.textContent = (ft && ft.dataset.edited || mid == "meter" || feeCycle == "once") ? f + " = ¥" + amt.toFixed(1) : f + " × " + window.factorLabel(useFactor) + " = ¥" + amt.toFixed(1);
         total += amt;
     });
     // Extra rooms
@@ -220,12 +220,12 @@ window.calcFees = function(){
                         var rowId = "er_row_" + rd.id + "_" + fid, nr = document.getElementById(rowId);
                         if(nr){
                             var inp = nr.querySelector(".er-amt");
-                            if(inp && !inp.dataset.edited) inp.value = x.toFixed(2);
+                            if(inp && !inp.dataset.edited) inp.value = x.toFixed(1);
                             var fm = nr.querySelector(".er-fm");
-                            if(fm) fm.textContent = formula + " = ¥" + (inp && inp.dataset.edited ? parseFloat(inp.value).toFixed(2) : x.toFixed(2));
+                            if(fm) fm.textContent = formula + " = ¥" + (inp && inp.dataset.edited ? parseFloat(inp.value).toFixed(1) : x.toFixed(1));
                         } else {
                             nr = document.createElement("tr"); nr.id = rowId; nr.className = "er-row";
-                            nr.innerHTML = '<td><input type="checkbox" name="er_opt_' + rd.id + '_' + fid + '" checked class="er-opt" onchange="updateExtraTotal()"></td><td style="padding-left:20px">' + row.dataset.name + '</td><td></td><td class="text-muted small er-fm">' + formula + ' = ¥' + x.toFixed(2) + '</td><td class="text-end"><input type="number" class="form-control form-control-sm text-end er-amt fee-amount" value="' + x.toFixed(2) + '" step="0.01" style="width:120px;display:inline-block"></td>';
+                            nr.innerHTML = '<td><input type="checkbox" name="er_opt_' + rd.id + '_' + fid + '" checked class="er-opt" onchange="updateExtraTotal()"></td><td style="padding-left:20px">' + row.dataset.name + '</td><td></td><td class="text-muted small er-fm">' + formula + ' = ¥' + x.toFixed(1) + '</td><td class="text-end"><input type="number" class="form-control form-control-sm text-end er-amt fee-amount" value="' + x.toFixed(1) + '" step="0.1" style="width:120px;display:inline-block"></td>';
                             tbody.insertBefore(nr, hdr.nextSibling);
                         }
                     }
@@ -248,10 +248,10 @@ window.calcFees = function(){
     });
     if(extraTotal > 0){
         var sub = document.createElement("tr"); sub.className = "er-subtotal";
-        sub.innerHTML = '<td colspan="5" class="text-end text-primary small p-1" style="border-top:1px solid #999"><strong>额外房间小计: +¥' + extraTotal.toFixed(2) + '</strong></td>';
+        sub.innerHTML = '<td colspan="5" class="text-end text-primary small p-1" style="border-top:1px solid #999"><strong>额外房间小计: +¥' + extraTotal.toFixed(1) + '</strong></td>';
         tbody.appendChild(sub);
     }
-    document.getElementById("totalAmt").textContent = "¥" + total.toFixed(2);
+    document.getElementById("totalAmt").textContent = "¥" + total.toFixed(1);
 };
 
 window.updateExtraTotal = function(){
@@ -273,7 +273,7 @@ window.updateExtraTotal = function(){
             }
         });
     });
-    document.getElementById("totalAmt").textContent = "¥" + total.toFixed(2);
+    document.getElementById("totalAmt").textContent = "¥" + total.toFixed(1);
 };
 
 document.addEventListener("input", function(e){

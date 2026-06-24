@@ -4,6 +4,7 @@
 
 from server.db import get_fee_type_rate, calc_elevator_fee
 from server.billing_proration import prorated_month_factor, factor_label, is_one_time_fee
+from server.money import money_float
 
 
 def fee_applies_to_category(fee_name, room_category):
@@ -39,7 +40,7 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
     if custom_amount not in (None, ''):
         custom = float(custom_amount)
         if custom > 0:
-            amount = round(custom, 2)
+            amount = money_float(custom)
             return {'amount': amount, 'monthly_amount': amount, 'formula': '自定义'}
 
     fid = fee_type['id']
@@ -51,7 +52,7 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
 
     if method == 'area':
         rate = _room_custom_rate(room) if _uses_room_property_rate(fee_name, room) else get_fee_type_rate(fid, rcat)
-        monthly = round(float(room['area']) * float(rate), 2)
+        monthly = money_float(float(room['area']) * float(rate))
         formula = f"面积{float(room['area']):.2f}×单价{float(rate):.2f}" if _uses_room_property_rate(fee_name, room) else f"{room['area']}×{rate}"
     elif method == 'floor':
         monthly = calc_elevator_fee(room['floor'], room['area'])
@@ -74,7 +75,7 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
             ).fetchone()
         rate = get_fee_type_rate(fid, rcat)
         consumption = mr[0] if mr else 0
-        monthly = round(consumption * rate, 2)
+        monthly = money_float(consumption * rate)
         formula = f"用量合计{_fmt_num(consumption)}×{rate}"
     elif method == 'fixed':
         monthly = fee_type['unit_price']
@@ -91,7 +92,7 @@ def calculate_bill_amount(db, room, fee_type, period, months=1, custom_amount=No
         factor = max(0.0, float(proration_factor))
     elif period_start and period_end:
         factor = prorated_month_factor(period_start, period_end)
-    amount = round(float(monthly or 0) * factor, 2)
+    amount = money_float(float(monthly or 0) * factor)
     if formula != '自定义' and method != 'meter':
         if is_one_time_fee(fee_type):
             pass

@@ -6,6 +6,7 @@ from server.bill_snapshots import contract_snapshot, apply_snapshot
 from server.contract_billing import get_contract_fee_type_id
 from server.data_health import cleanup_invalid_payments
 from server.db import get_db
+from server.money import money_float
 
 SPECIAL_TYPES = {
     "fixed_plus_turnover": "固定租金+销售额分成",
@@ -71,10 +72,10 @@ def calc_special_rent(rule, turnover):
     fixed = float(rule["fixed_amount"] or 0)
     share = float(turnover or 0) * float(rule["turnover_rate"] or 0)
     if rule["rent_mode"] == "fixed_plus_turnover":
-        return round(fixed + share, 2)
+        return money_float(fixed + share)
     if rule["rent_mode"] == "higher_of_fixed_or_turnover":
-        return round(max(fixed, share), 2)
-    return round(share, 2)
+        return money_float(max(fixed, share))
+    return money_float(share)
 
 
 def create_turnover_rent_bill(contract_id, billing_period, turnover, operator="", notes=""):

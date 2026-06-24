@@ -1,4 +1,5 @@
 from server.payments_shared import *
+from server.money import money_float
 from server.bill_snapshots import room_snapshot, contract_snapshot, apply_snapshot
 from server.data_health import cleanup_invalid_payments
 
@@ -157,9 +158,9 @@ class PaymentMixinPart1Group1(BaseHandler):
             COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
             FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE b.id=?''',(bid,)).fetchone()
         if not b:return self._error(404)
-        db.close();rem=b['amount']-b['paid']
+        db.close();rem=money_float(b['amount'])-money_float(b['paid'])
         current_operator = _current_operator_name(self)
-        if rem <= 0.001 or b['status'] == 'paid':
+        if rem <= 0 or b['status'] == 'paid':
             return self._html(self._page('缴费', f'''
 <div class="alert alert-info"><strong>该账单已结清</strong>：当前欠费为 ¥0.00，不能重复收款。</div>
 <div class="card"><div class="card-header">账单核对</div><div class="card-body">
@@ -182,7 +183,7 @@ class PaymentMixinPart1Group1(BaseHandler):
 <div class="col-md-7"><div class="card"><div class="card-header">录入缴费</div>
 <div class="card-body"><form method=POST action="/bills/{bid}/pay" class="row g-3">
 <div class="col-md-6"><label>缴费金额 *</label><div class="input-group"><span class="input-group-text">¥</span>
-<input name="amount_paid" type="number" class="form-control form-control-lg" value="{m(rem)}" step="0.01" required></div></div>
+<input name="amount_paid" type="number" class="form-control form-control-lg" value="{m(rem)}" step="0.1" required></div></div>
 <div class="col-md-6"><label>支付方式</label><select name="payment_method" class="form-select form-control-lg">
 <option value="cash">现金</option><option value="transfer">转账</option><option value="wechat">微信</option><option value="alipay">支付宝</option></select></div>
 <div class="col-md-6"><label>收费员</label><input name="operator" class="form-control" value="{h(current_operator)}"></div>
@@ -193,16 +194,16 @@ class PaymentMixinPart1Group1(BaseHandler):
     def _bill_pay_post(self, bid, d):
         db=get_db()
         cleanup_invalid_payments(db)
-        amt=float(qs(d,'amount_paid',0))
+        amt=money_float(qs(d,'amount_paid',0))
         if amt<=0:db.close();return self._redirect(f'/bills/{bid}/pay?flash=金额必须大于0')
         bill=db.execute("SELECT amount,billing_period,COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=bills.id),0) paid FROM bills WHERE id=?",(bid,)).fetchone()
         if not bill:db.close();return self._error(404)
         if is_period_closed(bill['billing_period']):
             db.close();return self._redirect(f'/bills/{bid}?flash={bill["billing_period"]}已结账，无法收费')
-        rem=float(bill['amount'] or 0)-float(bill['paid'] or 0)
-        if rem <= 0.001:
+        rem=money_float(bill['amount'])-money_float(bill['paid'])
+        if rem <= 0:
             db.close();return self._redirect(f'/bills/{bid}?flash=账单已结清，不能重复收费')
-        if amt-rem>0.001:
+        if amt > rem:
             db.close();return self._redirect(f'/bills/{bid}/pay?flash=缴费金额不能超过待缴金额¥{m(rem)}')
         create_db_backup('auto_before_payment')
         receipt_no = f"RC{datetime.now().strftime('%Y%m%d%H%M%S')}{bid}"

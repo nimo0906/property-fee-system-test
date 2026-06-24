@@ -136,7 +136,7 @@ class TestIntegration09(IntegrationTestBase):
         self.assertIn('13911112222', body)
         self.assertIn('2026-03', body)
         self.assertIn('物业服务费', body)
-        self.assertIn('1,500.00', body)
+        self.assertIn('1,500.0', body)
         self.assertIn('高', body)
 
 
@@ -163,9 +163,9 @@ class TestIntegration09(IntegrationTestBase):
         self.assertIn('2034-05-01', body)
         self.assertIn('2034-05-31', body)
         self.assertIn('2034-05', body)
-        self.assertIn('500.00', body)
+        self.assertIn('500.0', body)
         self.assertNotIn('2034-07', body)
-        self.assertNotIn('600.00', body)
+        self.assertNotIn('600.0', body)
         self.assertNotIn('name="period"', body)
 
 

@@ -46,29 +46,30 @@ class TestEscape(unittest.TestCase):
 
 
 class TestMoneyFormat(unittest.TestCase):
-    """m() — money formatting to 2 decimal places"""
+    """m() — money formatting to 1 decimal place"""
 
     def test_formats_integer(self):
-        self.assertEqual(m(100), '100.00')
+        self.assertEqual(m(100), '100.0')
 
     def test_formats_float(self):
-        self.assertEqual(m(123.456), '123.46')
-        self.assertEqual(m(99.1), '99.10')
+        self.assertEqual(m(123.456), '123.5')
+        self.assertEqual(m(99.1), '99.1')
 
     def test_handles_none(self):
-        self.assertEqual(m(None), '0.00')
+        self.assertEqual(m(None), '0.0')
 
     def test_handles_zero(self):
-        self.assertEqual(m(0), '0.00')
+        self.assertEqual(m(0), '0.0')
 
     def test_handles_string_number(self):
-        self.assertEqual(m('50.5'), '50.50')
+        self.assertEqual(m('50.5'), '50.5')
 
     def test_rounds_up(self):
-        self.assertEqual(m(0.005), '0.01')  # round half away from zero
+        self.assertEqual(m(19.04), '19.0')
+        self.assertEqual(m(19.05), '19.1')
 
     def test_large_number(self):
-        self.assertEqual(m(1234567.89), '1234567.89')
+        self.assertEqual(m(1234567.89), '1234567.9')
 
 
 class TestQueryString(unittest.TestCase):

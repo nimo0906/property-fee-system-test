@@ -47,7 +47,7 @@ class ReportMixinPart3(BaseHandler):
             ws.cell(row=rn, column=5, value=r["ft_name"] or "").border = tb
             ws.cell(row=rn, column=6, value=r["amount"]).border = tb
             ws.cell(row=rn, column=7, value=r["paid"]).border = tb
-            ws.cell(row=rn, column=8, value=round(rm, 2)).border = tb
+            ws.cell(row=rn, column=8, value=money_float(rm)).border = tb
             ws.cell(row=rn, column=9, value=sm.get(r["status"], r["status"])).border = tb
             ws.cell(row=rn, column=10, value=r["due_date"] or "").border = tb
             ta += r["amount"]; tp += r["paid"]; td += rm; rn += 1
@@ -55,9 +55,9 @@ class ReportMixinPart3(BaseHandler):
             ws.cell(row=rn, column=c).border = tb
             ws.cell(row=rn, column=c).font = hdr_font
         ws.cell(row=rn, column=1, value="TOTAL")
-        ws.cell(row=rn, column=6, value=round(ta, 2))
-        ws.cell(row=rn, column=7, value=round(tp, 2))
-        ws.cell(row=rn, column=8, value=round(td, 2))
+        ws.cell(row=rn, column=6, value=money_float(ta))
+        ws.cell(row=rn, column=7, value=money_float(tp))
+        ws.cell(row=rn, column=8, value=money_float(td))
         for i, w in enumerate([18, 10, 10, 14, 18, 12, 12, 12, 10, 14], 1):
             ws.column_dimensions[chr(64 + i)].width = w
         ws2 = wb.create_sheet(title="Summary")
@@ -78,8 +78,8 @@ class ReportMixinPart3(BaseHandler):
             rate_str = str(round(fv["paid"] / fv["total"] * 100, 1)) + "%" if fv["total"] > 0 else "0%"
             ws2.cell(row=rn2, column=1, value=fn).border = tb
             ws2.cell(row=rn2, column=2, value=fv["cnt"]).border = tb
-            ws2.cell(row=rn2, column=3, value=round(fv["total"], 2)).border = tb
-            ws2.cell(row=rn2, column=4, value=round(fv["paid"], 2)).border = tb
+            ws2.cell(row=rn2, column=3, value=money_float(fv["total"])).border = tb
+            ws2.cell(row=rn2, column=4, value=money_float(fv["paid"])).border = tb
             ws2.cell(row=rn2, column=5, value=rate_str).border = tb
             rn2 += 1
         for i, w in enumerate([20, 10, 14, 14, 10], 1):

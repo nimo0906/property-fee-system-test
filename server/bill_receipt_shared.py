@@ -56,6 +56,16 @@ def receipt_object_list(rows):
     return '、'.join(seen)
 
 
+def receipt_number(value):
+    try:
+        num = float(value or 0)
+    except Exception:
+        return '0'
+    if num.is_integer():
+        return str(int(num))
+    return f'{num:.2f}'.rstrip('0').rstrip('.')
+
+
 def receipt_months(row):
     start = (row['service_start'] or '').strip()
     end = (row['service_end'] or '').strip()
@@ -77,7 +87,7 @@ def receipt_usage(row):
     months = receipt_months(row)
     cm = row['calc_method']
     if cm in ('area', 'floor'):
-        base = m(row['area'] or 0).rstrip('0').rstrip('.')
+        base = receipt_number(row['area'] or 0)
         return f'{base}×{months}' if months > 1 else base
     if cm == 'household':
         return f'1×{months}' if months > 1 else '1'
@@ -113,7 +123,7 @@ def print_style_table(title, rows, print_type, back_url, payment_mode=False):
             <td class="amt">{m(due_before_discount)}</td><td class="amt">{m(discount)}</td>
             <td class="amt">{m(waiver)}</td><td class="amt">{m(paid)}</td><td class="amt">{m(rem)}</td></tr>'''
         total_due += due_before_discount; total_discount += discount; total_waiver += waiver; total_paid += paid; total_rem += rem
-    area = f"{m(first['area']).rstrip('0').rstrip('.')}m2"
+    area = f"{receipt_number(first['area'])}m2"
     content = f'''<h1>陕西金莎国际物业管理有限公司</h1><h2 style="margin-top:0">{h(title)}</h2>
     <div style="text-align:center;margin-bottom:6pt;font-weight:bold">打印类型：{h(print_type)}</div>
     <table class="header-info receipt-head"><tr><td><strong>套户编号：</strong>{receipt_object_list(rows)}</td><td><strong>客户名称：</strong>{h(customer)}</td><td><strong>建筑面积：</strong>{area}</td></tr>

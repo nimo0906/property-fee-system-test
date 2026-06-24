@@ -1,6 +1,7 @@
 from server.import_data_shared import *
 from server.import_batching import parse_nonnegative_int
 from server.bill_snapshots import room_snapshot, apply_snapshot
+from server.money import money_float
 
 class ImportMixinPart2(BaseHandler):
     def _import_upload(self):
@@ -136,9 +137,9 @@ class ImportMixinPart2(BaseHandler):
                         room_number = gc('room_number', '')
                         fee_type_name = gc('fee_type_name')
                         period = gc('period')
-                        amount = float(gc('amount', '0'))
+                        amount = money_float(gc('amount', '0'))
                         status = gc('status', 'unpaid')
-                        paid_amount = float(gc('paid_amount', '0'))
+                        paid_amount = money_float(gc('paid_amount', '0'))
                         payment_date = gc('payment_date')
                         payment_method = gc('payment_method', 'cash')
                         if not fee_type_name or not period or amount <= 0: continue

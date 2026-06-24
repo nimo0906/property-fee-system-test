@@ -8,7 +8,7 @@ import urllib.parse
 from server.backups import create_db_backup
 from server.base import BaseHandler
 from server.contract_billing import create_merchant_contract
-from server.db import get_db, h, m, qs
+from server.db import get_db, h, m, n, qs
 from server.merchant_contract_attachments import render_contract_attachments
 from server.merchant_contracts import CYCLE_LABELS, contract_status_label, _cycle_options, _deposit_total_from_form, _deposit_unit_price, _rent_mode_options, _rent_monthly_total_from_form, _rent_unit_price, _space_id_from_contract_form
 from server.special_rent import SPECIAL_TYPES, ensure_special_rent_tables, special_rule_for
@@ -121,7 +121,7 @@ def render_special_rent_rule(contract_id):
     <i class="bi bi-percent"></i> 特殊计租</div><div class="card-body row g-2">
     <div class="col-md-3"><span class="text-muted small">计租方式</span><div>{h(SPECIAL_TYPES.get(rule['rent_mode'], rule['rent_mode']))}</div></div>
     <div class="col-md-3"><span class="text-muted small">保底/月固定租金</span><div>¥{m(rule['fixed_amount'])}</div></div>
-    <div class="col-md-3"><span class="text-muted small">销售额分成比例</span><div>{m(float(rule['turnover_rate'] or 0) * 100)}%</div></div>
+    <div class="col-md-3"><span class="text-muted small">销售额分成比例</span><div>{n(float(rule['turnover_rate'] or 0) * 100)}%</div></div>
     <div class="col-md-3 text-end"><a class="btn btn-warning btn-sm" href="/merchant_contracts/{contract_id}/turnover_rent">销售额出账</a></div>
     <div class="col-12 small text-muted">该合同租金需每期录入销售额后人工确认出账，系统不会自动按普通固定租金生成。</div>
     </div></div>"""
@@ -161,7 +161,7 @@ def _contract_target_options(contract):
         selected_id = contract['commercial_space_id'] if 'commercial_space_id' in contract.keys() else None
         opts = "".join(
             f"""<option value="{r['id']}" {"selected" if int(r['id']) == int(selected_id or 0) else ""}>
-            {h(r['space_no'])} / {h(r['shop_name'] or r['merchant_name'] or '-')} / {m(r['area'])}m²</option>"""
+            {h(r['space_no'])} / {h(r['shop_name'] or r['merchant_name'] or '-')} / {n(r['area'])}m²</option>"""
             for r in spaces
         )
         return 'commercial_space_id', opts, '空间来自“空间合同档案”。'
@@ -175,7 +175,7 @@ def _contract_target_options(contract):
     selected_id = contract['room_id'] if 'room_id' in contract.keys() else None
     opts = "".join(
         f"""<option value="{r['id']}" {"selected" if int(r['id']) == int(selected_id or 0) else ""}>
-        {h(r['building'])}-{h(r['room_number'])} / {h(r['shop_name'] or r['owner_name'] or '-')} / {m(r['area'])}m²</option>"""
+        {h(r['building'])}-{h(r['room_number'])} / {h(r['shop_name'] or r['owner_name'] or '-')} / {n(r['area'])}m²</option>"""
         for r in rooms
     )
     return 'room_id', opts, '当前还没有空间档案，临时兼容旧商场房间；建议先到空间合同档案新增空间。'
@@ -237,13 +237,13 @@ def _contract_form_html(contract, action, title, warning="", return_url="/mercha
         <div class="col-12 mt-2"><h3 class="h6 text-muted border-bottom pb-2">合同资料</h3></div>
         <div class="col-md-4"><label>合同编号</label><input name="contract_no" class="form-control" value="{h(contract['contract_no'])}" required></div>
         <input type="hidden" name="owner_id" value="{h(contract['owner_id'] or '')}">
-        <div class="col-md-4"><label>租金单价（元/m²·月）</label><input name="rent_amount" type="number" step="0.01" class="form-control" value="{h(round(_rent_unit_price(contract['rent_amount'], space_val('area', 0)), 4))}" required></div>
+        <div class="col-md-4"><label>租金单价（元/m²·月）</label><input name="rent_amount" type="number" step="0.1" class="form-control" value="{h(round(_rent_unit_price(contract['rent_amount'], space_val('area', 0)), 4))}" required></div>
         <div class="col-md-4"><label>租金周期</label><select name="rent_cycle" class="form-select" required>{_cycle_options(contract['rent_cycle'])}</select></div>
         <div class="col-md-4"><label>特殊计租方式</label><select name="rent_mode" class="form-select">{_rent_mode_options(special_rule['rent_mode'] if special_rule else 'fixed')}</select></div>
         <div class="col-md-4"><label>销售额分成比例</label><input name="turnover_rate" type="number" step="0.0001" min="0" class="form-control" value="{h(special_rule['turnover_rate'] if special_rule else '')}" placeholder="如 0.1 表示10%"></div>
         <div class="col-md-4"><label>物业费单价（元/m²·月）</label><input name="property_rate" type="number" step="0.0001" class="form-control" value="{h(contract['property_rate'])}" required></div>
         <div class="col-md-4"><label>物业费周期</label><select name="property_cycle" class="form-select" required>{_cycle_options(contract['property_cycle'])}</select></div>
-        <div class="col-md-4"><label>押金单价（元/m²）</label><input name="deposit_amount" type="number" step="0.01" class="form-control" value="{h(round(_deposit_unit_price(contract['deposit_amount'], space_val('area', 0)), 4))}" required></div>
+        <div class="col-md-4"><label>押金单价（元/m²）</label><input name="deposit_amount" type="number" step="0.1" class="form-control" value="{h(round(_deposit_unit_price(contract['deposit_amount'], space_val('area', 0)), 4))}" required></div>
         <div class="col-md-4"><label>合同状态</label><select name="status" class="form-select">{status_options}</select></div>
         <div class="col-md-4"><label>开始日期</label><input name="start_date" type="date" class="form-control" value="{h(contract['start_date'])}" required></div>
         <div class="col-md-4"><label>结束日期</label><input name="end_date" type="date" class="form-control" value="{h(contract['end_date'])}" required></div>

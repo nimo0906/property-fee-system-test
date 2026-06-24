@@ -95,7 +95,7 @@ class RepairMixin(BaseHandler):
     <option value="done"{" selected" if r["status"]=="done" else""}>已完成</option>
     <option value="cancelled"{" selected" if r["status"]=="cancelled" else""}>已取消</option></select></div>
     <div class="col-md-6"><label>维修人</label><input name="assignee" class="form-control" value="{h(r["assignee"]or"")}"></div>
-    <div class="col-md-6"><label>维修费</label><div class="input-group"><span class="input-group-text">¥</span><input name="cost" type="number" class="form-control" value="{r["cost"] or 0}" step="0.01"></div></div>
+    <div class="col-md-6"><label>维修费</label><div class="input-group"><span class="input-group-text">¥</span><input name="cost" type="number" class="form-control" value="{r["cost"] or 0}" step="0.1"></div></div>
     <div class="col-12"><label>备注</label><textarea name="notes" class="form-control" rows="2">{h(r["notes"] or "")}</textarea></div>
     <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-save"></i> 更新</button>
     <a href="/repairs" class="btn btn-outline-secondary">返回</a></div></form></div></div></div></div>''','repairs'))

@@ -15,6 +15,7 @@ db_module.DB_PATH = _db_path
 db_module.BACKUP_DIR = os.path.join(os.path.dirname(_db_path), 'backups')
 
 from server.db import db_init, get_db
+from server.billing_engine import calculate_bill_amount
 from server.services import OwnerService, RoomService
 
 
@@ -91,9 +92,9 @@ class TestOwnerAndRoomServices(unittest.TestCase):
 
         self.assertEqual(bill['id'], bill_id)
         self.assertEqual(bill['bill_number'], 'BILL-SVC-1')
-        self.assertEqual(bill['amount'], '177.00')
-        self.assertEqual(bill['paid_amount'], '77.00')
-        self.assertEqual(bill['unpaid_amount'], '100.00')
+        self.assertEqual(bill['amount'], '177.0')
+        self.assertEqual(bill['paid_amount'], '77.0')
+        self.assertEqual(bill['unpaid_amount'], '100.0')
         self.assertEqual(bill['room']['room_number'], '1801')
         self.assertEqual(bill['owner']['name'], '张三')
 
@@ -116,7 +117,7 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         self.assertEqual(before, after)
         self.assertEqual(plan['period'], '2026-06')
         self.assertEqual(plan['items'][0]['room_id'], self.room_id)
-        self.assertEqual(plan['items'][0]['amount'], '265.50')
+        self.assertEqual(plan['items'][0]['amount'], '265.5')
 
     def test_billing_generation_preview_uses_shared_billing_rules_and_filters(self):
         commercial_owner = self.db.execute("INSERT INTO owners (name) VALUES ('商业预览业主')").lastrowid
@@ -147,8 +148,47 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         self.assertIn((self.room_id, household_fee), item_keys)
         self.assertIn((commercial_room, household_fee), item_keys)
         amounts = {x['room_id']: x['amount'] for x in plan['items'] if x['fee_type_id'] == household_fee}
-        self.assertEqual(amounts[self.room_id], '12.00')
-        self.assertEqual(amounts[commercial_room], '12.00')
+        self.assertEqual(amounts[self.room_id], '12.0')
+        self.assertEqual(amounts[commercial_room], '12.0')
+
+    def test_bill_amount_calculation_rounds_final_money_to_jiao(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试按角物业费', 'area', 2.345),
+        ).lastrowid
+        self.db.commit()
+        room = self.db.execute('SELECT * FROM rooms WHERE id=?', (self.room_id,)).fetchone()
+        fee = self.db.execute('SELECT * FROM fee_types WHERE id=?', (fee_type_id,)).fetchone()
+
+        calc = calculate_bill_amount(self.db, room, fee, '2026-12', months=1)
+
+        self.assertEqual(calc['amount'], 207.5)
+        self.assertEqual(calc['monthly_amount'], 207.5)
+
+    def test_payment_service_uses_one_decimal_for_hidden_cent_legacy_amounts(self):
+        fee_type_id = self.db.execute(
+            "INSERT INTO fee_types (name, calc_method, unit_price) VALUES (?, ?, ?)",
+            ('测试历史分位金额', 'fixed', 427.82),
+        ).lastrowid
+        bill_id = self.db.execute(
+            "INSERT INTO bills (room_id, owner_id, fee_type_id, billing_period, amount, due_date, status, bill_number) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (self.room_id, self.owner_id, fee_type_id, '2026-12', 427.82, '2026-12-31', 'unpaid', 'BILL-JIAO-LEGACY'),
+        ).lastrowid
+        self.db.commit()
+
+        from server.services import Actor, PaymentService
+        result = PaymentService().create_payment(
+            {'bill_id': bill_id, 'amount': '427.82', 'method': 'cash'},
+            Actor(username='cashier', role='operator'),
+        )
+
+        bill = self.db.execute('SELECT status FROM bills WHERE id=?', (bill_id,)).fetchone()
+        payment = self.db.execute('SELECT amount_paid FROM payments WHERE id=?', (result['payment_id'],)).fetchone()
+        self.assertEqual(result['amount'], '427.8')
+        self.assertEqual(result['unpaid_after'], '0.0')
+        self.assertEqual(bill['status'], 'paid')
+        self.assertEqual(payment['amount_paid'], 427.8)
 
     def test_invoice_request_service_creates_pending_request_for_paid_bill(self):
         fee_type_id = self.db.execute(
@@ -173,7 +213,7 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         row = self.db.execute('SELECT * FROM invoice_requests WHERE bill_id=?', (bill_id,)).fetchone()
         self.assertEqual(request['status'], 'pending')
         self.assertTrue(request['request_no'].startswith('IR'))
-        self.assertEqual(request['amount'], '120.00')
+        self.assertEqual(request['amount'], '120.0')
         self.assertEqual(row['buyer_name'], '张三')
         self.assertEqual(row['status'], 'pending')
 
@@ -251,7 +291,7 @@ class TestOwnerAndRoomServices(unittest.TestCase):
         bill = self.db.execute('SELECT status, paid_at FROM bills WHERE id=?', (bill_id,)).fetchone()
         payment = self.db.execute('SELECT receipt_number, notes FROM payments WHERE id=?', (result['payment_id'],)).fetchone()
 
-        self.assertEqual(result['amount'], '10.00')
+        self.assertEqual(result['amount'], '10.0')
         self.assertEqual(result['bill_status'], 'paid')
         self.assertEqual(bill['status'], 'paid')
         self.assertIsNotNone(bill['paid_at'])

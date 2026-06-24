@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 
 from server.db import get_db
+from server.money import money_float
 
 CORE_EXPORT_TABLES = (
     "projects",
@@ -32,7 +33,7 @@ def _count(conn, table):
 
 
 def _money(value):
-    return round(float(value or 0), 2)
+    return money_float(value)
 
 
 def _check(name, value, description):
@@ -106,8 +107,8 @@ def build_migration_summary():
             "mall_rooms": int(mall_rooms or 0),
         },
         "reconciliation": {
-            "b_tower_bill_total": round(float(b_tower_bill_total or 0), 2),
-            "mall_bill_total": round(float(mall_bill_total or 0), 2),
+            "b_tower_bill_total": money_float(b_tower_bill_total),
+            "mall_bill_total": money_float(mall_bill_total),
             "service_period_bill_count": int(service_period_bill_count or 0),
         },
         "validation_totals": validation_totals,

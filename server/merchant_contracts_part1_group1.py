@@ -48,10 +48,10 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             return f'''<tr>
             <td><strong>{h(r['room_number'])}</strong><div class="small text-muted">合同 {h(r['contract_no'])}</div></td>
             <td><strong>{h(r['space_shop_name'] or r['shop_name'] or '-')}</strong><div class="small text-muted">{h(r['space_merchant_name'] or r['merchant_name'] or r['owner_name'] or '-')} · {h(r['business_type'])}</div></td>
-            <td>{h(str(r['floor']) + 'F' if r['floor'] is not None else r['unit'])}<div class="small text-muted">合同面积 {m(r['contract_area'] or r['area'])}㎡ · 建筑面积 {m(r['building_area'] or r['area'])}㎡ · 水费 {h(r['water_rate_type'])}</div></td>
-            <td class="text-end">{m(_rent_unit_price(r['rent_amount'], r['area']))} 元/m²<div class="small text-muted">{h(CYCLE_LABELS.get(r['rent_cycle'], r['rent_cycle']))}</div></td>
-            <td class="text-end">{m(r['property_rate'])} 元/m²<div class="small text-muted">{h(CYCLE_LABELS.get(r['property_cycle'], r['property_cycle']))}</div></td>
-            <td class="text-end">{m(_deposit_unit_price(r['deposit_amount'], r['area']))} 元/m²</td>
+            <td>{h(str(r['floor']) + 'F' if r['floor'] is not None else r['unit'])}<div class="small text-muted">合同面积 {n(r['contract_area'] or r['area'])}㎡ · 建筑面积 {n(r['building_area'] or r['area'])}㎡ · 水费 {h(r['water_rate_type'])}</div></td>
+            <td class="text-end">{n(_rent_unit_price(r['rent_amount'], r['area']))} 元/m²<div class="small text-muted">{h(CYCLE_LABELS.get(r['rent_cycle'], r['rent_cycle']))}</div></td>
+            <td class="text-end">{n(r['property_rate'])} 元/m²<div class="small text-muted">{h(CYCLE_LABELS.get(r['property_cycle'], r['property_cycle']))}</div></td>
+            <td class="text-end">{n(_deposit_unit_price(r['deposit_amount'], r['area']))} 元/m²</td>
             <td>{h(r['start_date'])} 至 {h(r['end_date'])}</td>
             <td>{_contract_billing_badges(r)}</td>
             <td>{_contract_service_period(r)}<div>{_contract_expiry_badge(r['end_date'])}</div></td>
@@ -114,7 +114,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
         room_options = ''.join(
             f"""<option value="{r['id']}" data-area="{h(r['area'] or '')}" data-floor="{h(r['floor'] or '')}" data-owner-id="{h(r['owner_id'] or '')}"
             data-merchant="{h(r['tenant_name'] or r['shop_name'] or r['owner_name'] or '')}" data-shop="{h(r['shop_name'] or r['tenant_name'] or '')}">
-            {h(r['building'])}-{h(r['unit'])}-{h(r['room_number'])} / {h(r['tenant_name'] or r['shop_name'] or r['owner_name'] or '-')} / {m(r['area'])}m²</option>"""
+            {h(r['building'])}-{h(r['unit'])}-{h(r['room_number'])} / {h(r['tenant_name'] or r['shop_name'] or r['owner_name'] or '-')} / {n(r['area'])}m²</option>"""
             for r in rooms
         )
         self._html(self._page("新增空间合同档案", f"""
@@ -143,13 +143,13 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             <div class="col-12 mt-2"><h3 class="h6 text-muted border-bottom pb-2">合同资料</h3></div>
             <div class="col-md-4"><label>合同编号 *</label><input name="contract_no" class="form-control" placeholder="如 HT-2026-001" required></div>
             <input type="hidden" name="owner_id" id="ownerId">
-            <div class="col-md-4"><label>租金单价（元/m²·月）</label><input name="rent_amount" type="number" step="0.01" class="form-control" required></div>
+            <div class="col-md-4"><label>租金单价（元/m²·月）</label><input name="rent_amount" type="number" step="0.1" class="form-control" required></div>
             <div class="col-md-4"><label>租金周期</label><select name="rent_cycle" class="form-select" required>{_cycle_options()}</select></div>
             <div class="col-md-4"><label>特殊计租方式</label><select name="rent_mode" class="form-select">{_rent_mode_options()}</select></div>
             <div class="col-md-4"><label>销售额分成比例</label><input name="turnover_rate" type="number" step="0.0001" min="0" class="form-control" placeholder="如 0.1 表示10%"></div>
             <div class="col-md-4"><label>物业费单价（元/m²·月）</label><input name="property_rate" id="propertyRate" type="number" step="0.0001" class="form-control" required></div>
             <div class="col-md-4"><label>物业费周期</label><select name="property_cycle" class="form-select" required>{_cycle_options()}</select></div>
-            <div class="col-md-4"><label>押金单价（元/m²）</label><input name="deposit_amount" type="number" step="0.01" class="form-control" required></div>
+            <div class="col-md-4"><label>押金单价（元/m²）</label><input name="deposit_amount" type="number" step="0.1" class="form-control" required></div>
             <div class="col-md-4"><label>开始日期</label><input name="start_date" type="date" class="form-control" required></div>
             <div class="col-md-4"><label>结束日期</label><input name="end_date" type="date" class="form-control" required></div>
             <div class="col-md-4"><label>合同备注</label><input name="notes" class="form-control"></div>

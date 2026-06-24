@@ -11,7 +11,7 @@ from server.contract_billing import (
     create_merchant_contract,
     generate_contract_bills,
 )
-from server.db import get_db, h, m, qs
+from server.db import get_db, h, m, n, qs
 
 
 CYCLE_LABELS = {

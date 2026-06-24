@@ -151,7 +151,7 @@ class TestIntegration25(IntegrationTestBase):
         self.assertIn('账单打印', print_html)
         self.assertIn('打印类型：账单打印', print_html)
         self.assertIn('缴费合计', print_html)
-        self.assertIn('300.00', print_html)
+        self.assertIn('300.0', print_html)
         self.assertIn('物业费(居民)', print_html)
         self.assertIn('物业费(商户)', print_html)
         self.assertEqual(print_html.count('陕西金莎国际物业管理有限公司'), 1)
@@ -313,7 +313,7 @@ class TestIntegration25(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('批量收费确认', html)
         self.assertIn('确认收款', html)
-        self.assertIn('38.00', html)
+        self.assertIn('38.0', html)
 
         db = db_module.get_db()
         payment_count = db.execute("SELECT COUNT(*) FROM payments WHERE bill_id IN (?, ?)", ids).fetchone()[0]

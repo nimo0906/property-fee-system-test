@@ -1,4 +1,5 @@
 from server.payments_shared import *
+from server.money import money_float
 
 class PaymentMixinPart1Group2(BaseHandler):
     def _batch_pay(self, d):
@@ -33,7 +34,7 @@ class PaymentMixinPart1Group2(BaseHandler):
 
         method = qs(d, 'payment_method', 'transfer')
         operator = qs(d, 'operator') or _current_operator_name(self)
-        total = sum(max(0, float(r['amount'] or 0) - float(r['paid'] or 0)) for r in rows)
+        total = sum(max(0, money_float(r['amount']) - money_float(r['paid'])) for r in rows)
         selected_ids = ','.join(str(r['id']) for r in rows)
         if qs(d, 'confirm') != '1':
             db.close()
@@ -41,7 +42,7 @@ class PaymentMixinPart1Group2(BaseHandler):
                 f'<tr><td>{h(r["bill_number"] or r["id"])}</td><td>{h(_bill_target_label(r))}</td>'
                 f'<td>{h(r["ft"] or "-")}</td><td>{h(r["billing_period"])}</td>'
                 f'<td class="text-end"><span class="money">¥{m(r["amount"])}</span></td><td class="text-end"><span class="money money-paid">¥{m(r["paid"])}</span></td>'
-                f'<td class="text-end"><span class="money money-due">¥{m(float(r["amount"] or 0)-float(r["paid"] or 0))}</span></td></tr>'
+                f'<td class="text-end"><span class="money money-due">¥{m(money_float(r["amount"])-money_float(r["paid"]))}</span></td></tr>'
                 for r in rows
             )
             return self._html(self._page('批量收费确认', f'''
@@ -63,7 +64,7 @@ class PaymentMixinPart1Group2(BaseHandler):
         service_rows = [dict(r) for r in rows]
         db.close()
         for b in service_rows:
-            rem = float(b['amount'] or 0) - float(b['paid'] or 0)
+            rem = money_float(b['amount']) - money_float(b['paid'])
             if rem <= 0:
                 continue
             receipt_no = f"RC{datetime.now().strftime('%Y%m%d%H%M%S')}{b['id']}"

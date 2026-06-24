@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from server.bill_snapshots import contract_snapshot, apply_snapshot
 from server.data_health import cleanup_invalid_payments
 from server.db import get_db, add_months
+from server.money import money_float
 
 
 CONTRACT_FEE_TYPES = (
@@ -131,7 +132,7 @@ def _preview_item(conn, contract, fee_name, amount, start, end, months):
         "owner_id": contract["owner_id"],
         "fee_type_id": fee_type_id,
         "fee_name": fee_name,
-        "amount": round(float(amount or 0), 2),
+        "amount": money_float(amount),
         "billing_period": _period_label(start, end),
         "service_start": start.isoformat(),
         "service_end": end.isoformat(),
@@ -208,11 +209,11 @@ def confirm_contract_billing(contract_id, preview_items, operator="system"):
         conn.execute(
             """INSERT OR IGNORE INTO contract_bill_runs(project_id,contract_id,billing_period,generated_count,total_amount,operator)
                VALUES(?,?,?,?,?,?)""",
-            (contract["project_id"], contract_id, label, generated, round(total, 2), operator),
+            (contract["project_id"], contract_id, label, generated, money_float(total), operator),
         )
     conn.commit()
     conn.close()
-    return {"contract_id": contract_id, "generated_count": generated, "total_amount": round(total, 2), "bill_ids": generated_ids}
+    return {"contract_id": contract_id, "generated_count": generated, "total_amount": money_float(total), "bill_ids": generated_ids}
 
 
 def generate_contract_bills(contract_id, period, operator="system"):

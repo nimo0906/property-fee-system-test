@@ -185,7 +185,7 @@ class BillingUiMixin(BaseHandler):
                     <td style="width:140px" class="text-end">
                         <input type="number" class="form-control form-control-sm text-end fee-amount money-cell"
                             name="custom_amount_{f["id"]}" id="feeAmt_{f["id"]}"
-                            step="0.01" min="0" placeholder="auto"
+                            step="0.1" min="0" placeholder="auto"
                             style="width:120px;display:inline-block">
                     </td>
                 </tr>'''

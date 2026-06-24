@@ -169,7 +169,7 @@ class TestDBLogic02(DBLogicTestBase):
 
         self.assertEqual(result['generated'], 1)
         bill = self.db.execute("SELECT amount,due_date FROM bills WHERE room_id=? AND fee_type_id=?", (room_id, fee_id)).fetchone()
-        self.assertEqual(bill['amount'], 618.88)
+        self.assertEqual(bill['amount'], 618.9)
         self.assertEqual(bill['due_date'], '2026-07-05')
 
 

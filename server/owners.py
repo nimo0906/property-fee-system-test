@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Owner management."""
 
-from server.db import get_db, h, m, qs
+from server.db import get_db, h, m, n, qs
 from server.base import BaseHandler
 from server.pagination import pagination_state, query_items, render_pagination
 
@@ -28,7 +28,7 @@ class OwnerMixin(BaseHandler):
                 cs=(r['contract_start'] or '')[:7]; ce=(r['contract_end'] or '')[:7]
                 ct=(cs+'~'+ce) if cs or ce else '-'
                 rm=h(r['building']or'')+'-'+h(r['unit']or'')+'-'+h(r['room_number']or'')
-                room_detail+=f'<tr class="owner-room-{o["id"]}" style="display:none"><td></td><td></td><td></td><td>{rm}</td><td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"]or"-")}</span></td><td class="text-end">{m(r["area"])}</td><td><small>{ct}</small></td><td><a href="/rooms/'+str(r['id'])+'/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a></td></tr>'
+                room_detail+=f'<tr class="owner-room-{o["id"]}" style="display:none"><td></td><td></td><td></td><td>{rm}</td><td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"]or"-")}</span></td><td class="text-end">{n(r["area"])}</td><td><small>{ct}</small></td><td><a href="/rooms/'+str(r['id'])+'/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a></td></tr>'
             rh+=f'<tr class="table-light" onclick="toggleOwnerRooms({o["id"]})" style="cursor:pointer">'
             rh+=f'<td><i class="bi bi-chevron-right" id="oicon_{o["id"]}"></i> <strong>{h(o["name"])}</strong></td>'
             rh+=f'<td>{h(o["phone"]or"-")}</td><td><small>{h(o["id_card"]or"-")}</small></td>'

@@ -40,7 +40,7 @@ class TestIntegration17(IntegrationTestBase):
         self.assertIn('生成账单预览', preview_html)
         self.assertIn('体检自定义服务费', preview_html)
         self.assertIn('50.0×2.5', preview_html)
-        self.assertIn('125.00', preview_html)
+        self.assertIn('125.0', preview_html)
 
         db = db_module.get_db()
         preview_count = db.execute("SELECT COUNT(*) FROM bills WHERE billing_period='2032-01' AND room_id=?", (room_id,)).fetchone()[0]
@@ -58,7 +58,7 @@ class TestIntegration17(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('账单生成结果', result_html)
         self.assertIn('本次生成账单', result_html)
-        self.assertIn('125.00', result_html)
+        self.assertIn('125.0', result_html)
         self.assertIn('异常核对清单', result_html)
 
         db = db_module.get_db()
@@ -76,21 +76,21 @@ class TestIntegration17(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('主流程业主', list_html)
         self.assertIn('体检自定义服务费', list_html)
-        self.assertIn('125.00', list_html)
+        self.assertIn('125.0', list_html)
 
         status, review_html = http_get('/bills/review?period=2032-01&building=HEALTH&scope=unpaid', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('账单核对工作台', review_html)
         self.assertIn('HEALTH-A座-1201', review_html)
-        self.assertIn('125.00', review_html)
+        self.assertIn('125.0', review_html)
 
         status, pay_html = http_get(f'/bills/{bill["id"]}/pay', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('录入缴费', pay_html)
-        self.assertIn('125.00', pay_html)
+        self.assertIn('125.0', pay_html)
 
         status, body, loc = http_post(f'/bills/{bill["id"]}/pay', {
-            'amount_paid': '125.00',
+            'amount_paid': '125.0',
             'payment_method': 'wechat',
             'operator': '体检收费员',
             'notes': '核心收费体检',
@@ -115,12 +115,12 @@ class TestIntegration17(IntegrationTestBase):
         self.assertIn('收款收据', receipt_html)
         self.assertIn('主流程业主', receipt_html)
         self.assertIn('体检收费员', receipt_html)
-        self.assertIn('125.00', receipt_html)
+        self.assertIn('125.0', receipt_html)
 
         status, report_html = http_get('/reports?period=2032-01&building=HEALTH&status=paid', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('账期对账', report_html)
-        self.assertIn('125.00', report_html)
+        self.assertIn('125.0', report_html)
         self.assertIn('100.0%', report_html)
 
         status, precheck_html, loc = http_post('/closing/close', {
@@ -129,7 +129,7 @@ class TestIntegration17(IntegrationTestBase):
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('结账前检查', precheck_html)
-        self.assertIn('125.00', precheck_html)
+        self.assertIn('125.0', precheck_html)
 
         status, body, loc = http_post('/closing/close', {
             'period': '2032-01',
@@ -191,8 +191,8 @@ class TestIntegration17(IntegrationTestBase):
         self.assertEqual(status, 200)
         for text in ['商业物业费收入', '商业水电收入']:
             self.assertIn(text, reports)
-        self.assertIn('¥600.00', reports)
-        self.assertIn('¥540.00', reports)
+        self.assertIn('¥600.0', reports)
+        self.assertIn('¥540.0', reports)
 
         status, auto_page = http_get('/auto_billing?advance_days=365&period_cycle=tenant&target_scope=all', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Room management."""
 
-from server.db import get_db, get_fee_type_rate, h, m, qs
+from server.db import get_db, get_fee_type_rate, h, m, n, qs
 from server.base import BaseHandler
 from server.pagination import business_area_order_sql, pagination_state, query_items, render_pagination
 
@@ -88,7 +88,7 @@ class RoomMixin(BaseHandler):
                     f'<td>{h(r["building"])}</td><td>{h(r["unit"])}</td><td><strong>{h(r["room_number"])}</strong></td>'
                     f'<td>{h(r["shop_name"] or "-")}</td><td>{h(r["tenant_name"] or "-")}</td><td>{r["floor"] or "-"}F</td>'
                     f'<td><span class="badge status-{"info" if r["category"]=="商户" else "neutral"}">{h(r["category"] or "居民")}</span></td>'
-                    f'<td>{h(r["business_type"] or "-")}</td><td class="text-end">{m(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td>'
+                    f'<td>{h(r["business_type"] or "-")}</td><td class="text-end">{n(r["area"])}</td><td>{h(r["oname"]or"未分配")}</td>'
                     f'<td>{(h(r["contract_start"]) or "")[:7]}{"~" if r["contract_start"] and r["contract_end"] else ""}{(h(r["contract_end"]) or "-")[:7]}</td>'
                     f'<td><a href="/rooms/{r["id"]}/edit" class="btn btn-sm btn-outline-primary" title="编辑"><i class="bi bi-pencil"></i></a>'
                     f'<a href="/rooms/{r["id"]}/tenant_transfer" class="btn btn-sm btn-outline-info" title="转租登记"><i class="bi bi-arrow-left-right"></i> 转租</a>'

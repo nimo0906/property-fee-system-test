@@ -81,7 +81,7 @@ class TestV1InternalFeatures(unittest.TestCase):
         rows = self.db.execute('SELECT * FROM rooms ORDER BY room_number').fetchall()
         allocations = allocate_shared_amount(100, rows, 'household')
         self.assertAlmostEqual(sum(a['amount'] for a in allocations), 100.0)
-        self.assertEqual(allocations[-1]['amount'], 33.34)
+        self.assertEqual(allocations[-1]['amount'], 33.4)
 
 
     def test_shared_expense_room_filter_supports_unit(self):

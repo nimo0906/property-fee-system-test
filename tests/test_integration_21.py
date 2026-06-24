@@ -26,7 +26,7 @@ class TestIntegration21(IntegrationTestBase):
         self.assertIn('结账前预览', preview)
         self.assertIn('本次将结账的账单明细', preview)
         self.assertIn('CLOSEPRE-A座-601', preview)
-        self.assertIn('99.00', preview)
+        self.assertIn('99.0', preview)
         self.assertIn('未缴', preview)
         self.assertIn('确认结账', preview)
         db = db_module.get_db()
@@ -55,8 +55,8 @@ class TestIntegration21(IntegrationTestBase):
         self.assertEqual(status, 200)
         self.assertIn('2034-12-01 至 2034-12-31', preview)
         self.assertIn('CLOSEDATERN-商场-2F-601', preview)
-        self.assertIn('399.00', preview)
-        self.assertNotIn('288.00', preview)
+        self.assertIn('399.0', preview)
+        self.assertNotIn('288.0', preview)
         self.assertIn('name="period_start" value="2034-12-01"', preview)
         self.assertIn('name="period_end" value="2034-12-31"', preview)
 
@@ -158,7 +158,7 @@ class TestIntegration21(IntegrationTestBase):
             'period_end': '2031-02-01',
             'fee_types': '1',
             'custom_amount_1': '19.00',
-            'custom_amount_3': '99.00',
+            'custom_amount_3': '99.0',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
 

@@ -70,14 +70,14 @@ class TestIntegration41(IntegrationTestBase):
             f'service_start__{key}': '2026-01-10',
             f'service_end__{key}': '2026-01-20',
             f'due_date__{key}': '2026-01-25',
-            f'amount__{key}': '1234.56',
+            f'amount__{key}': '1234.6',
         }, self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         db = db_module.get_db()
         row = db.execute("""SELECT amount,service_start,service_end,due_date,billing_period,notes
             FROM bills WHERE source='merchant_contract' AND source_ref=?""", (str(cid),)).fetchone()
         db.close()
-        self.assertEqual(row['amount'], 1234.56)
+        self.assertEqual(row['amount'], 1234.6)
         self.assertEqual(row['service_start'], '2026-01-10')
         self.assertEqual(row['service_end'], '2026-01-20')
         self.assertEqual(row['due_date'], '2026-01-25')
@@ -214,4 +214,4 @@ class TestIntegration41(IntegrationTestBase):
         db = db_module.get_db()
         rows = db.execute("SELECT amount FROM bills WHERE source='merchant_contract' AND source_ref=? ORDER BY amount DESC", (str(cid),)).fetchall()
         db.close()
-        self.assertEqual([r['amount'] for r in rows], [2483.87, 551.61])
+        self.assertEqual([r['amount'] for r in rows], [2483.9, 551.6])

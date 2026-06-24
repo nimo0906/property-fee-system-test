@@ -68,7 +68,7 @@ class ParkingMixin(BaseHandler):
         self._html(self._page(t,f'''<form method=POST action="{a}" class="row g-3">
     <div class="col-md-4"><label>车位号 <span class="text-danger">*</span></label><input name="spot_number" class="form-control" value="{sn}" required></div>
     <div class="col-md-4"><label>区域/楼层</label><input name="floor_zone" class="form-control" value="{fl}" placeholder="如：B1层/东区"></div>
-    <div class="col-md-4"><label>月费(元)</label><input name="monthly_fee" type="number" class="form-control" value="{mf}" step="0.01" min="0"></div>
+    <div class="col-md-4"><label>月费(元)</label><input name="monthly_fee" type="number" class="form-control" value="{mf}" step="0.1" min="0"></div>
     <div class="col-md-6"><label>绑定房间</label><select name="room_id" class="form-select">{opts}</select></div>
     <div class="col-md-3"><label>状态</label><select name="status" class="form-select"><option value="occupied"{" selected" if st=="occupied" else""}>已占用</option><option value="vacant"{" selected" if st=="vacant" else""}>空置</option></select></div>
     <div class="col-md-3"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>

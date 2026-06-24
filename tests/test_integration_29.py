@@ -237,7 +237,7 @@ class TestIntegration29(IntegrationTestBase):
         self.assertIn('CC-PAID', html)
         self.assertIn('CC-PARTIAL', html)
         self.assertIn('CC-UNPAID', html)
-        self.assertIn('240.00', html)
+        self.assertIn('240.0', html)
         self.assertIn('确认结账', html)
         db = db_module.get_db()
         closed = db.execute("SELECT COUNT(*) FROM closing_records WHERE period='2030-03' AND status='closed'").fetchone()[0]
@@ -262,7 +262,7 @@ class TestIntegration29(IntegrationTestBase):
         self.assertIn('2030-05', html)
         self.assertIn('风险提示', html)
         self.assertIn('结账金额', html)
-        self.assertIn('300.00', html)
+        self.assertIn('300.0', html)
         self.assertIn('当前账单摘要', html)
         self.assertIn('确认反结账', html)
         db = db_module.get_db()

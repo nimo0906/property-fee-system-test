@@ -5,6 +5,7 @@
 import os, re
 from datetime import date, timedelta
 from server.billing_proration import prorated_month_factor
+from server.money import money_float
 
 
 def ensure_contract_amendment_tables(db):
@@ -87,7 +88,7 @@ def amount_for_period(db, contract, kind, start, end):
     total = 0.0
     for seg_start, seg_end, monthly in segments:
         total += monthly * prorated_month_factor(seg_start.isoformat(), seg_end.isoformat())
-    return round(total, 2)
+    return money_float(total)
 
 
 def _segments(db, contract, kind, start, end):

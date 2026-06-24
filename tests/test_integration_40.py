@@ -250,7 +250,7 @@ class TestIntegration40(IntegrationTestBase):
         self.assertIsNotNone(bill)
         self.assertEqual(bill['commercial_space_id'], space_id)
         self.assertIsNone(bill['room_id'])
-        self.assertAlmostEqual(float(bill['amount']), 100.55)
+        self.assertAlmostEqual(float(bill['amount']), 100.6)
         self.assertIsNone(wrong_bill)
 
     def test_commercial_billing_can_generate_bill_from_contract_selection(self):
@@ -289,4 +289,4 @@ class TestIntegration40(IntegrationTestBase):
         self.assertEqual(bill['owner_id'], owner_id)
         self.assertEqual(bill['service_start'], '2026-06-14')
         self.assertEqual(bill['service_end'], '2026-06-30')
-        self.assertEqual(bill['amount'], 226.67)  # 80㎡ * 5元 * 17/30天
+        self.assertEqual(bill['amount'], 226.7)  # 80㎡ * 5元 * 17/30天

@@ -32,7 +32,7 @@ class ContractAmendmentMixin(BaseHandler):
         <form method="POST" action="/merchant_contracts/{contract_id}/amendments/{draft_id}/confirm" class="card"><div class="card-header">补充协议识别草案</div>
         <div class="card-body row g-3"><div class="col-md-4"><label>生效日期</label><input type="date" name="effective_date" class="form-control" value="{h(d['effective_date'] or '')}" required></div>
         <div class="col-md-4"><label>租金单价 元/m²·月</label><input name="rent_unit_price" type="number" step="0.0001" class="form-control" value="{h(d['rent_unit_price'] or '')}"></div>
-        <div class="col-md-4"><label>月租金总额</label><input name="rent_amount" type="number" step="0.01" class="form-control" value="{h(d['rent_amount'] or '')}"></div>
+        <div class="col-md-4"><label>月租金总额</label><input name="rent_amount" type="number" step="0.1" class="form-control" value="{h(d['rent_amount'] or '')}"></div>
         <div class="col-md-4"><label>物业费单价 元/m²·月</label><input name="property_rate" type="number" step="0.0001" class="form-control" value="{h(d['property_rate'] or '')}"></div>
         <div class="col-md-4"><label>租金周期</label><input name="rent_cycle" class="form-control" value="{h(d['rent_cycle'] or 'monthly')}"></div>
         <div class="col-md-4"><label>物业周期</label><input name="property_cycle" class="form-control" value="{h(d['property_cycle'] or 'monthly')}"></div>

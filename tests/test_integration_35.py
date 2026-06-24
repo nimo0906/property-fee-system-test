@@ -110,7 +110,7 @@ class TestIntegration35(IntegrationTestBase):
 
         status, body, _ = http_post('/api/v1/payments', {
             'bill_id': str(bill_id),
-            'amount': '90.00',
+            'amount': '90.0',
             'method': 'cash',
             'idempotency_key': 'future-key-1',
         }, self.cookie, TEST_PORT)
@@ -118,7 +118,7 @@ class TestIntegration35(IntegrationTestBase):
         self.assertEqual(status, 200)
         payload = json.loads(body)
         self.assertTrue(payload['ok'])
-        self.assertEqual(payload['data']['amount'], '90.00')
+        self.assertEqual(payload['data']['amount'], '90.0')
         self.assertEqual(payload['data']['bill_status'], 'paid')
         self.assertEqual(payload['data']['idempotency_key'], 'future-key-1')
         self.assertTrue(payload['data']['backup_name'].startswith('auto_before_api_payment_'))

@@ -8,6 +8,7 @@ from server.backups import create_db_backup
 from server.bill_batch_edit import BillBatchEditMixin
 from server.bill_single_print import BillSinglePrintMixin
 from server.data_health import cleanup_invalid_payments
+from server.money import money_float
 
 
 def _bill_target_label(row):
@@ -42,7 +43,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         if b['calc_method'] == 'area':
             rate = b['unit_price']
             area_val = float((b['space_area'] if b['commercial_space_id'] else b['area']) or 0)
-            formula_text = f'面积 {area_val:.2f}m2 * 单价 {rate:.2f} = ¥{b["amount"]:.2f}'
+            formula_text = f'面积 {area_val:.2f}m2 * 单价 {rate:.2f} = ¥{m(b["amount"])}'
         elif b['calc_method'] == 'floor':
             area_val = float(b['area'] or 0)
             floor_val = int(b['floor'] or 1)
@@ -50,7 +51,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
             tier = db2.execute("SELECT rate FROM elevator_fee_tiers WHERE ? BETWEEN floor_from AND floor_to ORDER BY id LIMIT 1", (floor_val,)).fetchone()
             db2.close()
             tier_rate = tier[0] if tier else 1.0
-            formula_text = f'楼层系数 {tier_rate:.2f} * 面积 {area_val:.2f}m2 = ¥{b["amount"]:.2f}'
+            formula_text = f'楼层系数 {tier_rate:.2f} * 面积 {area_val:.2f}m2 = ¥{m(b["amount"])}'
         elif b['calc_method'] == 'meter':
             period_compact = b['billing_period'].replace('-', '')
             db2 = get_db()
@@ -60,11 +61,11 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
                 mr = db2.execute("SELECT consumption FROM meter_readings WHERE room_id=? AND fee_type_id=? AND period=? AND status='confirmed' LIMIT 1", (b['room_id'], b['fee_type_id'], period_compact)).fetchone()
             db2.close()
             cons = mr[0] if mr else 0
-            formula_text = f'用量 {cons} * 单价 {b["unit_price"]:.2f} = ¥{b["amount"]:.2f}'
+            formula_text = f'用量 {cons} * 单价 {b["unit_price"]:.2f} = ¥{m(b["amount"])}'
         elif b['calc_method'] == 'fixed':
-            formula_text = f'固定金额 ¥{b["unit_price"]:.2f}'
+            formula_text = f'固定金额 ¥{m(b["unit_price"])}'
         elif b['calc_method'] == 'household':
-            formula_text = f'按户分摊 ¥{b["unit_price"]:.2f}'
+            formula_text = f'按户分摊 ¥{m(b["unit_price"])}'
         pays=db.execute("SELECT * FROM payments WHERE bill_id=? ORDER BY payment_date",(bid,)).fetchall()
         adjs=db.execute("SELECT * FROM bill_adjustments WHERE bill_id=? ORDER BY created_at DESC",(bid,)).fetchall()
         db.close()
@@ -152,7 +153,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         <form method=POST action="/bills/{bid}/edit" class="row g-3">
         <div class="col-md-6"><label>新金额 (元) <span class="text-danger">*</span></label>
         <div class="input-group"><span class="input-group-text">¥</span>
-        <input name="new_amount" type="number" class="form-control form-control-lg" value="{m(b["amount"])}" step="0.01" min="0.01" required></div>
+        <input name="new_amount" type="number" class="form-control form-control-lg" value="{m(b["amount"])}" step="0.1" min="0.1" required></div>
         <p class="text-muted small mt-2"><i class="bi bi-info-circle"></i> 修改后，如果已有缴费记录，欠费/退款金额将自动重新计算。</p></div>
         <div class="col-md-6"><label>截止日</label>
         <input name="due_date" type="date" class="form-control form-control-lg" value="{h(b["due_date"] or "")}"></div>
@@ -165,7 +166,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
     def _bill_edit_post(self, bid, d):
         db=get_db()
         cleanup_invalid_payments(db)
-        new_amt=float(qs(d,'new_amount',0))
+        new_amt=money_float(qs(d,'new_amount',0))
         if new_amt<=0:db.close();return self._redirect(f'/bills/{bid}/edit?flash=金额必须大于0')
         reason=qs(d,'notes','')
         due_date=qs(d,'due_date','')
@@ -174,13 +175,13 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         if not old:db.close();return self._error(404)
         if is_period_closed(old['billing_period']):
             db.close();return self._redirect(f'/bills/{bid}?flash={old["billing_period"]}已结账，无法修改账单')
-        old_amt=old['amount']
+        old_amt=money_float(old['amount'])
         create_db_backup('auto_before_bill_adjustment')
         db.execute("UPDATE bills SET amount=?,due_date=?,notes=? WHERE id=?",(new_amt,due_date,reason,bid))
-        if abs(new_amt-old_amt) > 0.001:
+        if new_amt != old_amt:
             db.execute("INSERT INTO bill_adjustments(bill_id,old_amount,new_amount,reason,approved_by) VALUES(?,?,?,?,?)",
                        (bid,old_amt,new_amt,reason,approved))
-        paid=db.execute("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?",(bid,)).fetchone()[0]
+        paid=money_float(db.execute("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?",(bid,)).fetchone()[0])
         if paid>=new_amt:
             db.execute("UPDATE bills SET status='paid',paid_at=datetime('now','localtime') WHERE id=?",(bid,))
         elif paid>0:

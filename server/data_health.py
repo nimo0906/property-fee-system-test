@@ -3,6 +3,7 @@
 """System health checks for schema and financial data consistency."""
 
 from server.db import get_db, db_init, h, m
+from server.money import money_float
 
 
 EXPECTED_TABLES = [
@@ -68,7 +69,7 @@ def financial_integrity_issues(db=None, limit=50):
     own_conn = db is None
     db = db or get_db()
     try:
-        paid_under = db.execute(
+        bill_rows = db.execute(
             """SELECT b.id bill_id,b.bill_number,b.billing_period,b.amount,b.status,
                       COALESCE(SUM(p.amount_paid),0) paid,
                       r.building,r.unit,r.room_number,o.name owner_name
@@ -77,36 +78,11 @@ def financial_integrity_issues(db=None, limit=50):
                LEFT JOIN rooms r ON r.id=b.room_id
                LEFT JOIN owners o ON o.id=b.owner_id
                GROUP BY b.id
-               HAVING b.status='paid' AND b.amount-paid>0.005
-               ORDER BY b.id LIMIT ?""",
-            (limit,),
+               ORDER BY b.id"""
         ).fetchall()
-        unpaid_with_paid = db.execute(
-            """SELECT b.id bill_id,b.bill_number,b.billing_period,b.amount,b.status,
-                      COALESCE(SUM(p.amount_paid),0) paid,
-                      r.building,r.unit,r.room_number,o.name owner_name
-               FROM bills b
-               LEFT JOIN payments p ON p.bill_id=b.id
-               LEFT JOIN rooms r ON r.id=b.room_id
-               LEFT JOIN owners o ON o.id=b.owner_id
-               GROUP BY b.id
-               HAVING b.status IN ('unpaid','overdue') AND paid>0.005
-               ORDER BY b.id LIMIT ?""",
-            (limit,),
-        ).fetchall()
-        overpaid = db.execute(
-            """SELECT b.id bill_id,b.bill_number,b.billing_period,b.amount,b.status,
-                      COALESCE(SUM(p.amount_paid),0) paid,
-                      r.building,r.unit,r.room_number,o.name owner_name
-               FROM bills b
-               LEFT JOIN payments p ON p.bill_id=b.id
-               LEFT JOIN rooms r ON r.id=b.room_id
-               LEFT JOIN owners o ON o.id=b.owner_id
-               GROUP BY b.id
-               HAVING paid-b.amount>0.005
-               ORDER BY b.id LIMIT ?""",
-            (limit,),
-        ).fetchall()
+        paid_under = [r for r in bill_rows if r['status'] == 'paid' and money_float(r['amount']) > money_float(r['paid'])][:limit]
+        unpaid_with_paid = [r for r in bill_rows if r['status'] in ('unpaid', 'overdue') and money_float(r['paid']) > 0][:limit]
+        overpaid = [r for r in bill_rows if money_float(r['paid']) > money_float(r['amount'])][:limit]
         orphan_payments = db.execute(
             """SELECT p.id payment_id,p.bill_id,p.amount_paid,p.payment_date,p.created_at
                FROM payments p LEFT JOIN bills b ON b.id=p.bill_id
@@ -177,13 +153,13 @@ def repair_bill_payment_statuses(db=None):
                GROUP BY b.id"""
         ).fetchall()
         for row in rows:
-            amount = float(row['amount'] or 0)
-            paid = float(row['paid'] or 0)
-            if paid - amount > 0.005:
+            amount = money_float(row['amount'])
+            paid = money_float(row['paid'])
+            if paid > amount:
                 continue
-            if paid >= amount - 0.005 and amount > 0:
+            if paid >= amount and amount > 0:
                 status = 'paid'
-            elif paid > 0.005:
+            elif paid > 0:
                 status = 'partial'
             elif row['status'] == 'overdue':
                 status = 'overdue'

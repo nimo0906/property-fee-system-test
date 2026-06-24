@@ -124,8 +124,8 @@ class TestIntegration14(IntegrationTestBase):
         db.close()
         status, preview = http_get(f'/merchant_contracts/{contract_id}/billing?service_start=2038-01-01', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('¥10620.00', preview)
-        self.assertIn('¥17700.00', preview)
+        self.assertIn('¥10620.0', preview)
+        self.assertIn('¥17700.0', preview)
 
         status, page = http_get('/merchant_contracts', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
@@ -187,7 +187,7 @@ class TestIntegration14(IntegrationTestBase):
         status, preview = http_get(f'/merchant_contracts/{contract["id"]}/billing?service_start=2039-01-01', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('BROOM-CONTRACT-001', preview)
-        self.assertIn('¥5800.00', preview)
+        self.assertIn('¥5800.0', preview)
 
         status, _, _ = http_post(f'/merchant_contracts/{contract["id"]}/billing/confirm', {
             'service_start': '2039-01-01',

@@ -7,10 +7,11 @@ from datetime import date, datetime, timedelta
 from server.db import get_db, h, add_months, date_to_period, period_to_date
 from server.billing_periods import append_natural_date_range_filter
 from server.pagination import pagination_state, query_items, render_pagination
+from server.money import money_display
 
 
 def _money(value):
-    return f"{float(value or 0):,.2f}"
+    return money_display(value, comma=True)
 
 
 def _parse_date(value):

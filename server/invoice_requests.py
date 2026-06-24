@@ -3,10 +3,10 @@
 """Electronic invoice request boundary for future provider integrations."""
 
 from datetime import datetime
-from decimal import Decimal, ROUND_HALF_UP
 import secrets
 
 from server.db import get_db
+from server.money import money_decimal
 
 
 class InvoiceRequestError(Exception):
@@ -14,7 +14,7 @@ class InvoiceRequestError(Exception):
 
 
 def _money(value):
-    return Decimal(str(value or 0)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    return money_decimal(value)
 
 
 def _request_no():

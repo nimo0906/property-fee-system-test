@@ -6,6 +6,7 @@ import urllib.parse
 
 from server.backups import create_db_backup
 from server.db import get_db, h, m, qs, is_period_closed
+from server.money import money_float
 
 
 class BillBatchEditMixin:
@@ -71,8 +72,8 @@ class BillBatchEditMixin:
         db.close()
         detail_rows = ''
         for r in rows:
-            old_amt = float(r['amount'])
-            new_amt = round(old_amt * (1 + amount_percent / 100), 2) if amount_mode == 'percent' else old_amt
+            old_amt = money_float(r['amount'])
+            new_amt = money_float(old_amt * (1 + amount_percent / 100)) if amount_mode == 'percent' else old_amt
             new_due_date = due_date or r['due_date'] or '-'
             room = f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}'
             detail_rows += (
@@ -130,7 +131,7 @@ class BillBatchEditMixin:
         details = []
         for bill in bill_rows:
             bid = bill['id']
-            old_amt = float(bill['amount'])
+            old_amt = money_float(bill['amount'])
             new_amt = old_amt
             new_due_date = due_date or bill['due_date']
             updates = []
@@ -142,21 +143,21 @@ class BillBatchEditMixin:
                 updates.append('notes=?')
                 params.append(notes)
             if amount_mode == 'percent':
-                new_amt = round(old_amt * (1 + amount_percent / 100), 2)
+                new_amt = money_float(old_amt * (1 + amount_percent / 100))
                 updates.append('amount=?')
                 params.append(new_amt)
             if updates:
                 params.append(bid)
                 db.execute(f"UPDATE bills SET {','.join(updates)} WHERE id=?", params)
             if amount_mode == 'percent':
-                if abs(new_amt - old_amt) > 0.001:
+                if new_amt != old_amt:
                     reason = notes or f'批量按百分比调整 {amount_percent}%'
                     approved = qs(d, 'approved_by', '管理员')
                     db.execute(
                         "INSERT INTO bill_adjustments(bill_id,old_amount,new_amount,reason,approved_by) VALUES(?,?,?,?,?)",
                         (bid, old_amt, new_amt, reason, approved)
                     )
-                paid = db.execute("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?", (bid,)).fetchone()[0]
+                paid = money_float(db.execute("SELECT COALESCE(SUM(amount_paid),0) FROM payments WHERE bill_id=?", (bid,)).fetchone()[0])
                 if paid >= new_amt:
                     db.execute("UPDATE bills SET status='paid',paid_at=datetime('now','localtime') WHERE id=?", (bid,))
                 elif paid > 0:

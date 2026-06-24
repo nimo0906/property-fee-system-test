@@ -432,9 +432,9 @@ class TestIntegration34(IntegrationTestBase):
         self.assertEqual(status, 200)
         bill_payload = json.loads(bill_body)
         self.assertEqual(bill_payload['data']['bill_number'], 'API-BILL-1')
-        self.assertEqual(bill_payload['data']['amount'], '200.00')
-        self.assertEqual(bill_payload['data']['paid_amount'], '50.00')
-        self.assertEqual(bill_payload['data']['unpaid_amount'], '150.00')
+        self.assertEqual(bill_payload['data']['amount'], '200.0')
+        self.assertEqual(bill_payload['data']['paid_amount'], '50.0')
+        self.assertEqual(bill_payload['data']['unpaid_amount'], '150.0')
 
         db = db_module.get_db()
         db.execute('DELETE FROM payments WHERE bill_id=?', (bill_id,))
@@ -486,16 +486,16 @@ class TestIntegration34(IntegrationTestBase):
 
         status, body, _ = http_post('/api/v1/payments/preview', {
             'bill_id': str(bill_id),
-            'amount': '40.00',
+            'amount': '40.0',
             'method': 'cash',
         }, self.cookie, TEST_PORT)
 
         self.assertEqual(status, 200)
         payload = json.loads(body)
         self.assertTrue(payload['ok'])
-        self.assertEqual(payload['data']['amount'], '40.00')
-        self.assertEqual(payload['data']['unpaid_before'], '120.00')
-        self.assertEqual(payload['data']['unpaid_after'], '80.00')
+        self.assertEqual(payload['data']['amount'], '40.0')
+        self.assertEqual(payload['data']['unpaid_before'], '120.0')
+        self.assertEqual(payload['data']['unpaid_after'], '80.0')
         self.assertFalse(payload['data']['will_mark_paid'])
 
         db = db_module.get_db()

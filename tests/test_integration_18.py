@@ -38,7 +38,7 @@ class TestIntegration18(IntegrationTestBase):
         self.assertIsNotNone(bill)
         self.assertEqual(bill['billing_period'], '2026-06~2026-10')
         self.assertEqual(bill['due_date'], '2026-10-02')
-        self.assertAlmostEqual(float(bill['amount']), 455.24)
+        self.assertAlmostEqual(float(bill['amount']), 455.2)
 
 
     def test_billing_frontend_uses_room_cycle_only_in_commercial_mode(self):
@@ -130,10 +130,10 @@ console.log(context.factorLabel(context.prorateFactor()));
         self.assertEqual(status, 200)
         self.assertIn('2035-06', body)
         self.assertIn('2035-06~2035-09', body)
-        self.assertIn('¥100.00', body)
-        self.assertIn('¥400.00', body)
+        self.assertIn('¥100.0', body)
+        self.assertIn('¥400.0', body)
         self.assertNotIn('2035-05', body)
-        self.assertNotIn('¥50.00', body)
+        self.assertNotIn('¥50.0', body)
         self.assertNotIn('暂无账单', body)
 
 
@@ -264,7 +264,7 @@ console.log(context.factorLabel(context.prorateFactor()));
         db.close()
         self.assertIsNotNone(bill)
         self.assertEqual(bill['billing_period'], '2034-02~2034-04')
-        self.assertAlmostEqual(float(bill['amount']), 203.33)
+        self.assertAlmostEqual(float(bill['amount']), 203.3)
 
 
     def test_commercial_billing_generates_fixed_and_household_commercial_fees(self):
@@ -327,9 +327,9 @@ console.log(context.factorLabel(context.prorateFactor()));
         self.assertIn('收款收据', receipt_html)
         self.assertIn('收据区间业主', receipt_html)
         self.assertIn('2035-05-01 至 2035-05-31', receipt_html)
-        self.assertIn('270.00', receipt_html)
+        self.assertIn('270.0', receipt_html)
         self.assertNotIn('2035-07', receipt_html)
-        self.assertNotIn('360.00', receipt_html)
+        self.assertNotIn('360.0', receipt_html)
 
         status, csv_body = http_get(f'/bills/export_receipt?room_id={room_id}&period_start=2035-05-01&period_end=2035-05-31', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
