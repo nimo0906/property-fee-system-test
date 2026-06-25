@@ -6,6 +6,29 @@ from tests.integration_base import *
 
 
 class TestIntegration19(IntegrationTestBase):
+    def test_payments_page_shows_service_dates_and_room_payment_context(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '历史缴费业主', '13900002220')
+        room_id = create_room(db, building='PAYHIST', unit='B座', room_number='601', owner_id=owner_id)
+        paid_bill = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-06~2034-09', amount=400, status='partial', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2034-06-01', service_end='2034-09-30' WHERE id=?", (paid_bill,))
+        create_payment(db, bill_id=paid_bill, amount=300, method='cash', operator='历史员')
+        unpaid_bill = create_bill(db, room_id=room_id, fee_type_id=1, period='2034-10', amount=100, status='unpaid', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2034-10-01', service_end='2034-10-31' WHERE id=?", (unpaid_bill,))
+        db.commit()
+        db.close()
+
+        status, body = http_get('/payments?keyword=PAYHIST', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('2034-06-01 至 2034-09-30', body)
+        self.assertIn('历史缴费/欠费', body)
+        self.assertIn('已收 ¥300.0', body)
+        self.assertIn('欠费 ¥200.0', body)
+        self.assertIn('已缴至：2034-09-30', body)
+        self.assertIn('下期待缴：2034-10-01 至 2034-10-31', body)
+
+
     def test_payments_page_has_print_receipt_and_export_actions(self):
         from server.db import get_db
         db = get_db()

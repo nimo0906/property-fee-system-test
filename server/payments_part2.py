@@ -2,6 +2,15 @@ from server.payments_shared import *
 from server.pagination import pagination_state, query_items, render_pagination
 from server.bill_receipt_shared import _receipt_period_label, print_style_table
 
+
+def _payment_period_text(row):
+    start = (row['service_start'] or '' ).strip()
+    end = (row['service_end'] or '' ).strip()
+    if start and end:
+        return f"{start} 至 {end}"
+    return row['billing_period'] or '-'
+
+
 class PaymentMixinPart2(BaseHandler):
     def _payments(self, q):
         raw_period = qs(q, 'period', '').strip()
@@ -15,8 +24,8 @@ class PaymentMixinPart2(BaseHandler):
                 period_end = (add_months(date(y, mo, 1), 1) - timedelta(days=1)).isoformat()
             except Exception:
                 period_end = period_start
-        db=get_db();pm=qs(q,'method','');op=qs(q,'operator','');kw=qs(q,'keyword','').strip()
-        sql='''SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.commercial_space_id,b.fee_type_id,
+        db=get_db();pm=qs(q,'method','');op=qs(q,'operator','').strip();kw=qs(q,'keyword','').strip()
+        sql='''SELECT p.*,b.bill_number,b.billing_period,b.service_start,b.service_end,b.amount,b.room_id,b.commercial_space_id,b.fee_type_id,
             r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN owners o ON b.owner_id=o.id
@@ -46,6 +55,53 @@ class PaymentMixinPart2(BaseHandler):
         sql+=" ORDER BY p.payment_date DESC,p.id DESC LIMIT ? OFFSET ?"
         page_vals = vals + [per_page, (pg - 1) * per_page]
         rows=db.execute(sql,page_vals).fetchall()
+        room_ids = sorted({r['room_id'] for r in rows if r['room_id']})
+        space_ids = sorted({r['commercial_space_id'] for r in rows if r['commercial_space_id']})
+        bill_context = {}
+        if room_ids:
+            placeholders = ','.join('?' for _ in room_ids)
+            bill_rows = db.execute(f'''SELECT b.room_id,b.commercial_space_id,b.service_start,b.service_end,b.billing_period,b.amount,b.status,
+                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
+                FROM bills b WHERE b.room_id IN ({placeholders}) ORDER BY COALESCE(b.service_start,b.billing_period),b.id''', room_ids).fetchall()
+            for bill in bill_rows:
+                key = ('space', bill['commercial_space_id']) if bill['commercial_space_id'] else ('room', bill['room_id'] or 0)
+                ctx = bill_context.setdefault(key, {'paid_through': '', 'next_due': '', 'partial_due': '', 'paid_total': 0.0, 'due_total': 0.0})
+                start = (bill['service_start'] or '').strip()
+                end = (bill['service_end'] or '').strip()
+                paid = float(bill['paid'] or 0)
+                amt = float(bill['amount'] or 0)
+                ctx['paid_total'] += paid
+                ctx['due_total'] += max(0.0, amt - paid)
+                if paid > 0 and end and end > ctx['paid_through']:
+                    ctx['paid_through'] = end
+                if paid < amt:
+                    due_label = f"{start} 至 {end}" if start and end else (bill['billing_period'] or '-')
+                    if paid <= 0 and not ctx['next_due']:
+                        ctx['next_due'] = due_label
+                    elif paid > 0 and not ctx.get('partial_due'):
+                        ctx['partial_due'] = due_label
+        if space_ids:
+            placeholders = ','.join('?' for _ in space_ids)
+            bill_rows = db.execute(f'''SELECT b.room_id,b.commercial_space_id,b.service_start,b.service_end,b.billing_period,b.amount,b.status,
+                COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
+                FROM bills b WHERE b.commercial_space_id IN ({placeholders}) ORDER BY COALESCE(b.service_start,b.billing_period),b.id''', space_ids).fetchall()
+            for bill in bill_rows:
+                key = ('space', bill['commercial_space_id']) if bill['commercial_space_id'] else ('room', bill['room_id'] or 0)
+                ctx = bill_context.setdefault(key, {'paid_through': '', 'next_due': '', 'partial_due': '', 'paid_total': 0.0, 'due_total': 0.0})
+                start = (bill['service_start'] or '').strip()
+                end = (bill['service_end'] or '').strip()
+                paid = float(bill['paid'] or 0)
+                amt = float(bill['amount'] or 0)
+                ctx['paid_total'] += paid
+                ctx['due_total'] += max(0.0, amt - paid)
+                if paid > 0 and end and end > ctx['paid_through']:
+                    ctx['paid_through'] = end
+                if paid < amt:
+                    due_label = f"{start} 至 {end}" if start and end else (bill['billing_period'] or '-')
+                    if paid <= 0 and not ctx['next_due']:
+                        ctx['next_due'] = due_label
+                    elif paid > 0 and not ctx.get('partial_due'):
+                        ctx['partial_due'] = due_label
         db.close()
         tc=float(total_amount or 0)
         groups = []
@@ -62,12 +118,19 @@ class PaymentMixinPart2(BaseHandler):
         for idx, g in enumerate(groups, 1):
             safe_id = f"p{idx}_{g['group_kind']}_{g['group_id'] or 0}".replace('-', '_')
             latest = g['rows'][0]['payment_date'] if g['rows'] else ''
-            periods = sorted({x['billing_period'] for x in g['rows'] if x['billing_period']})
+            periods = sorted({_payment_period_text(x) for x in g['rows'] if x['billing_period']})
             period_text = periods[0] if len(periods) == 1 else (periods[0] + ' ~ ' + periods[-1] if periods else '-')
             methods = '、'.join(sorted({x['payment_method'] for x in g['rows'] if x['payment_method']})) or '-'
+            ctx = bill_context.get((g['group_kind'], g['group_id']), {'paid_through': '', 'next_due': '', 'partial_due': '', 'paid_total': 0.0, 'due_total': 0.0})
+            ctx_bits = [f"历史缴费/欠费：已收 ¥{m(ctx.get('paid_total', 0))}，欠费 ¥{m(ctx.get('due_total', 0))}"]
+            if ctx.get('paid_through'): ctx_bits.append(f"已缴至：{ctx['paid_through']}")
+            if ctx.get('next_due'): ctx_bits.append(f"下期待缴：{ctx['next_due']}")
+            elif ctx.get('partial_due'): ctx_bits.append(f"未缴清：{ctx['partial_due']}")
+            ctx_text = ' · '.join(ctx_bits)
+            room_line = f"<br><small class='text-muted'>{h(ctx_text)}</small>" if ctx_text else ''
             rh_parts.append(f'''<tr class="table-light payment-group" style="cursor:pointer" onclick="togglePaymentGroup('{safe_id}')">
 <td><input type="checkbox" class="payment-group-chk" data-payment-group="{safe_id}" onclick="event.stopPropagation();togglePaymentSelection('{safe_id}',this.checked)"></td>
-<td><i class="bi bi-chevron-right" id="pay_icon_{safe_id}"></i> <strong>{h(g['room'])}</strong><br><small class="text-muted">{h(g['owner'])}</small></td>
+<td><i class="bi bi-chevron-right" id="pay_icon_{safe_id}"></i> <strong>{h(g['room'])}</strong><br><small class="text-muted">{h(g['owner'])}</small>{room_line}</td>
 <td><span class="badge status-neutral">汇总</span></td>
 <td>{h(period_text)}</td><td><span class="badge status-neutral">{len(g['rows'])}笔</span></td>
 <td class="text-end"><strong class="money money-paid">+¥{m(g['total'])}</strong></td>
@@ -76,7 +139,7 @@ class PaymentMixinPart2(BaseHandler):
                 rh_parts.append(f'''<tr class="payment-detail-{safe_id}" style="display:none"><td><input form="paymentActionForm" type="checkbox" name="payment_ids" data-payment-group="{safe_id}" value="{r['id']}"></td><td><small>{h(r["payment_date"]or"-")}</small></td>
 <td><small>{h(r["bill_number"]or"-")}</small></td>
 <td>{h(_bill_target_label(r))}</td>
-<td><span class="badge status-info">{h(r["ft"])}</span></td><td>{h(r["billing_period"])}</td>
+<td><span class="badge status-info">{h(r["ft"])}</span></td><td>{h(_payment_period_text(r))}</td>
 <td class="text-end"><span class="money money-paid">+¥{m(r["amount_paid"])}</span></td>
 <td>{h(r["payment_method"])}</td><td>{h(r["operator"]or"-")}</td><td><small>{h(r["receipt_number"] or "-")}</small></td></tr>''')
         rh=''.join(rh_parts)

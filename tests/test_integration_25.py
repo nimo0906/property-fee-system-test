@@ -86,6 +86,29 @@ class TestIntegration25(IntegrationTestBase):
         self.assertNotIn('<strong>账单分组业主</strong>', html)
 
 
+    def test_bill_list_keeps_pay_button_shows_room_hint_and_separates_company_scope(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '账单分区业主', '13900008802')
+        property_room = create_room(db, building='BILLSCOPE', unit='B座', room_number='1401', category='居民', owner_id=owner_id)
+        commercial_room = create_room(db, building='BILLSCOPE', unit='商场', room_number='C101', category='商户', owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='李莉娜' WHERE id=?", (property_room,))
+        db.execute("UPDATE rooms SET tenant_name='商场租户' WHERE id=?", (commercial_room,))
+        create_bill(db, room_id=property_room, owner_id=owner_id, fee_type_id=1, period='2037-02', amount=100, status='paid')
+        create_bill(db, room_id=commercial_room, owner_id=owner_id, fee_type_id=9, period='2037-02', amount=200, status='unpaid')
+        db.close()
+
+        status, html = http_get('/bills?period=2037-02&building=BILLSCOPE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('formaction="/bills/batch_pay"', html)
+        self.assertIn('物业公司收费', html)
+        self.assertIn('商业公司收费', html)
+        self.assertIn('李莉娜', html)
+        self.assertIn('BILLSCOPE-B座-1401', html)
+        self.assertIn('房间：BILLSCOPE-B座-1401', html)
+        self.assertLess(html.index('物业公司收费'), html.index('商业公司收费'))
+
+
     def test_bill_list_delete_buttons_are_not_nested_in_batch_form(self):
         http_post('/rooms/create', {
             'building': 'DELETEONE', 'unit': 'A座', 'room_number': '801',

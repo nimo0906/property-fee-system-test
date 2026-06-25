@@ -17,6 +17,17 @@ def _bill_target_label(row):
     return f"{row['building'] or ''}-{row['unit'] or ''}-{row['room_number'] or ''}"
 
 
+def _bill_scope_label(row):
+    if row['commercial_space_id']:
+        return '商业公司收费'
+    try:
+        if row['unit'] == '商场' or row['category'] in ('商户', '商业') and row['unit'] == '商场':
+            return '商业公司收费'
+    except Exception:
+        pass
+    return '物业公司收费'
+
+
 def _bill_customer_name(row):
     return row['customer_name_snapshot'] or row['space_merchant'] or row['space_shop'] or row['tenant_name'] or row['owner_name'] or '未知'
 
@@ -194,14 +205,21 @@ class BillListMixin(BaseHandler):
         owner_groups={}
         for r in rows:
             on=h(_bill_customer_name(r))
-            if on not in owner_groups: owner_groups[on]={'rooms':{}}
+            scope = _bill_scope_label(r)
+            group_key = f'{scope}|{on}'
+            if group_key not in owner_groups:
+                owner_groups[group_key] = {'scope': scope, 'owner': on, 'rooms': {}}
             rid=('space', r['commercial_space_id']) if r['commercial_space_id'] else ('room', r['room_id'])
             rn=h(_bill_target_label(r))
-            if rid not in owner_groups[on]['rooms']: owner_groups[on]['rooms'][rid]={'name':rn,'bills':[]}
-            owner_groups[on]['rooms'][rid]['bills'].append(r)
+            if rid not in owner_groups[group_key]['rooms']:
+                owner_groups[group_key]['rooms'][rid]={'name':rn,'bills':[]}
+            owner_groups[group_key]['rooms'][rid]['bills'].append(r)
         rh=''
         oidx=0
-        for oname, og in owner_groups.items():
+        def _scope_order(item):
+            og = item[1]
+            return (0 if og['scope'] == '物业公司收费' else 1, og['owner'])
+        for _, og in sorted(owner_groups.items(), key=_scope_order):
             oidx+=1
             owner_group = f'o{oidx}'
             o_total=sum(b['amount'] for rl in og['rooms'].values() for b in rl['bills'])
@@ -210,9 +228,12 @@ class BillListMixin(BaseHandler):
             o_rem_html = f'<strong class="money money-due">¥{m(o_rem)}</strong>' if o_rem>0 else '<span class="money money-paid">¥0.00</span>'
             owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该租户下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
             rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'{owner_group}\')" style="cursor:pointer">'
-            rh+=f'<td>{owner_chk}</td><td><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{oname}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span></td>'
+            room_names = '、'.join(sorted(rl['name'] for rl in og['rooms'].values()))
+            rh+=f'<td>{owner_chk}</td><td><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{og["owner"]}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span><div class="small text-muted">房间：{room_names}</div></td>'
+            rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
+            rh+=f'<td></td><td></td>'
             owner_bills = [b for rl in og['rooms'].values() for b in rl['bills']]
-            rh+=f'<td></td><td></td><td><small class="text-muted">{h(_bill_group_hint(owner_bills))}</small></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
+            rh+=f'<td><small class="text-muted">{h(_bill_group_hint(owner_bills))}</small></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
             rh+=f'<td class="text-end">{o_rem_html}</td>'
             rh+=f'<td></td><td></td></tr>'
             for ridx, (rid, rl) in enumerate(og['rooms'].items(), 1):
@@ -224,7 +245,7 @@ class BillListMixin(BaseHandler):
                 room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
                 rh+=f'<tr class="room-detail-{owner_group} bill-room-row" onclick="toggleBillRoom(\'{room_group}\')" style="display:none;background:#f8f9fa;cursor:pointer">'
                 rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><i class="bi bi-chevron-right" id="icon_{room_group}"></i> <strong>{rl["name"]}</strong></td>'
-                rh+=f'<td></td><td></td><td><small class="text-muted">{h(_bill_group_hint(rl["bills"]))}</small></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
+                rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td><td></td><td></td><td><small class="text-muted">{h(_bill_group_hint(rl["bills"]))}</small></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
                 rh+=f'<td class="text-end">{r_rem_html}</td>'
                 rh+=f'<td></td><td></td></tr>'
                 for b in rl['bills']:
@@ -234,6 +255,7 @@ class BillListMixin(BaseHandler):
                     rh+=f'<tr class="bill-detail-{room_group}" style="display:none">'
                     rh+=f'<td>{chk}</td>'
                     rh+=f'<td><small>{h(b["bill_number"]or"-")}</small></td>'
+                    rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
                     rh+=f'<td>{h(rl["name"])}</td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'
                     period_text = h(b["billing_period"])
@@ -268,7 +290,7 @@ class BillListMixin(BaseHandler):
         tpl=tpl.replace('{TOTAL_AMT}',m(ta)).replace('{TOTAL_PAID}',m(tp))
         tpl=tpl.replace('{UNPAID_CNT}',str(t_unpaid))
         has_unpaid=any(r['status']!='paid' for r in rows)
-        paid_btn='' if not has_unpaid else '<button class="btn btn-sm btn-primary" type="submit" form="billActionForm" formaction="/bills/batch_pay" formtarget="_self" formmethod="POST"><i class="bi bi-credit-card"></i> 缴费</button>'
+        paid_btn='<button class="btn btn-sm btn-primary" type="submit" form="billActionForm" formaction="/bills/batch_pay" formtarget="_self" formmethod="POST"><i class="bi bi-credit-card"></i> 缴费</button>'
         btn=f'''
         <div class="batch-bar">
         <a class="btn btn-sm btn-outline-primary" href="/bills/review?period_start={h(period_start)}&period_end={h(period_end)}"><i class="bi bi-clipboard-check"></i> 核对工作台</a>
