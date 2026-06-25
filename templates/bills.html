@@ -52,6 +52,17 @@ function toggleBillRoom(roomGroup){
 document.getElementById('selAll')?.addEventListener('change', function(){
     document.querySelectorAll('.bill-chk,.owner-group-chk,.room-group-chk').forEach(function(c){ c.checked = this.checked; }, this);
 });
+function appendCsrfToken(form){
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if(!meta || !meta.content){
+        return;
+    }
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = '_csrf_token';
+    input.value = meta.content;
+    form.appendChild(input);
+}
 function submitBillAction(action, target){
     var ids = Array.from(document.querySelectorAll('.bill-chk:checked')).map(function(c){ return c.value; });
     if(ids.length === 0){
@@ -78,6 +89,7 @@ function submitBillAction(action, target){
         backInput.value = back.value;
         form.appendChild(backInput);
     }
+    appendCsrfToken(form);
     document.body.appendChild(form);
     form.submit();
     form.remove();

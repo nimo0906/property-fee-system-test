@@ -29,7 +29,7 @@ class TestIntegration19(IntegrationTestBase):
         self.assertIn('name="payment_ids"', body)
         self.assertIn('class="payment-group-chk"', body)
         self.assertIn('togglePaymentSelection', body)
-        self.assertIn('payment_ui.js?v=20260615receipts', body)
+        self.assertIn('payment_ui.js?v=20260625csrf', body)
         self.assertNotIn("togglePaymentGroup('('", body)
         self.assertNotIn("payment-detail-('", body)
         self.assertRegex(body, r"togglePaymentGroup\('p\d+_room_\d+'\)")
@@ -40,6 +40,9 @@ class TestIntegration19(IntegrationTestBase):
         self.assertIn('payment-detail-', js)
         self.assertIn('window.submitPaymentAction', js)
         self.assertIn("form.method = 'POST'", js)
+        self.assertIn('function appendCsrfToken', js)
+        self.assertIn('meta[name="csrf-token"]', js)
+        self.assertIn("input.name = '_csrf_token'", js)
 
         status, print_html, _ = http_post('/payments/print', {'payment_ids': str(payment_id)}, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)

@@ -11,6 +11,17 @@
   window.toggleAllPayments = function(checked){
     document.querySelectorAll('input[name="payment_ids"],.payment-group-chk').forEach(function(x){ x.checked = checked; });
   };
+  function appendCsrfToken(form){
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if(!meta || !meta.content){
+      return;
+    }
+    var input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = '_csrf_token';
+    input.value = meta.content;
+    form.appendChild(input);
+  }
   window.submitPaymentAction = function(action){
     var checked = Array.from(document.querySelectorAll('input[name="payment_ids"]:checked'));
     if(!checked.length){
@@ -29,6 +40,7 @@
       input.value = x.value;
       form.appendChild(input);
     });
+    appendCsrfToken(form);
     document.body.appendChild(form);
     form.submit();
     setTimeout(function(){ form.remove(); }, 1000);

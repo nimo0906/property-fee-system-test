@@ -96,7 +96,7 @@ class PaymentMixinPart2(BaseHandler):
             '缴费记录分页',
         )
         tpl = tpl.replace('{PAGE_LINKS}', page_links)
-        tpl += '<script src="/static/payment_ui.js?v=20260615receipts"></script>'
+        tpl += '<script src="/static/payment_ui.js?v=20260625csrf"></script>'
         self._html(self._page('缴费记录',tpl,'payments'))
 
     def _payments_print(self, d):

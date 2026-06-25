@@ -78,7 +78,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
 
         self._html(self._page("空间合同档案", f'''
         <div class="alert alert-info"><i class="bi bi-file-earmark-text"></i>
-        合同档案按 B座合同 / 商业合同 分组；作为行政档案/合同备查使用，不局限于商场，空间资料和合同资料在同一份档案中维护。日常收费仍从“物业收费”或“商业收费”生成账单。</div>
+        合同档案按 物业合同 / 商业合同 分组；作为行政档案/合同备查使用，不局限于商场；空间资料和合同资料在同一份档案中维护。日常收费仍从“物业收费”或“商业收费”生成账单。</div>
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-file-earmark-text"></i> 空间合同档案</span>
@@ -94,7 +94,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             </form>
           </div>
           <div class="card-body contract-group-stack">
-            {group('B座合同', 'bi-building', b_rows, 'open')}
+            {group('物业合同', 'bi-building', b_rows, 'open')}
             {group('商业合同', 'bi-shop', commercial_rows, 'open')}
           </div>
           {render_pagination('/merchant_contracts', query_items(q, ['keyword']), pg, total_pages, per_page, total_rows, '合同档案分页')}
@@ -128,7 +128,7 @@ class MerchantContractMixinPart1Group1(BaseHandler):
             </select></div>
             <div class="col-md-8 target-room d-none"><label>选择 B座房间 *</label><select name="room_id" id="contractRoom" class="form-select">
               <option value="">请选择房间</option>{room_options}
-            </select><div class="form-text">B座合同必须绑定房间；出账后账单进入房间账单、收据、催缴和报表体系。</div></div>
+            </select><div class="form-text">物业合同必须绑定房间；出账后账单进入房间账单、收据、催缴和报表体系。</div></div>
             <div class="col-12"><h3 class="h6 text-muted border-bottom pb-2">空间资料</h3></div>
             <div class="col-md-3 target-space"><label>商户编号 *</label><input name="space_no" id="spaceNo" class="form-control" placeholder="如 商场-(-2F)-01A" required></div>
             <div class="col-md-3"><label>店铺名称</label><input name="shop_name" id="shopName" class="form-control"></div>

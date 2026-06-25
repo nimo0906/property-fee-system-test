@@ -141,12 +141,24 @@ class TestIntegration13(IntegrationTestBase):
         status, page = http_get('/merchant_contracts', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('<details class="contract-group" open>', page)
-        self.assertIn('B座合同', page)
+        self.assertIn('物业合同', page)
         self.assertIn('商业合同', page)
         self.assertIn('HT-B-GROUP-001', page)
         self.assertIn('HT-M-GROUP-001', page)
         self.assertIn('B-1801', page)
         self.assertIn('M-001', page)
+
+        status, property_billing = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('物业合同', property_billing)
+        self.assertIn('HT-B-GROUP-001', property_billing)
+        self.assertNotIn('HT-M-GROUP-001', property_billing)
+
+        status, commercial_billing = http_get('/commercial_billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('商业合同', commercial_billing)
+        self.assertIn('HT-M-GROUP-001', commercial_billing)
+        self.assertNotIn('HT-B-GROUP-001', commercial_billing)
 
 
     def test_merchant_contract_archive_searches_and_sorts_by_floor_ascending(self):
@@ -191,4 +203,3 @@ class TestIntegration13(IntegrationTestBase):
         status, _, loc = http_get_with_location('/merchant_contracts/import', self.cookie, TEST_PORT)
         self.assertEqual(status, 302)
         self.assertIn('/import?data_type=commercial_contracts', loc)
-

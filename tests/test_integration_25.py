@@ -43,6 +43,9 @@ class TestIntegration25(IntegrationTestBase):
         self.assertIn('toggleBillGroup', html)
         self.assertIn(".bill-chk[data-owner-group=", html)
         self.assertIn(".bill-chk[data-room-group=", html)
+        self.assertIn('function appendCsrfToken', html)
+        self.assertIn('meta[name="csrf-token"]', html)
+        self.assertIn("input.name = '_csrf_token'", html)
 
 
     def test_bill_list_room_summary_rows_expand_their_bill_details(self):

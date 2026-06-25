@@ -179,11 +179,12 @@ class TestIntegration06(IntegrationTestBase):
         self.assertTrue(fee_applies_to_room('空调费(商业)', {'category': '商业', 'unit': '商场'}))
 
 
-    def test_commercial_billing_only_lists_commercial_room_categories(self):
+    def test_commercial_billing_only_lists_mall_unit_rooms(self):
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '商业过滤业主', '13900000001')
         create_room(db, building='金莎国际', unit='B座', room_number='1901', category='居民', owner_id=owner_id)
+        create_room(db, building='金莎国际', unit='B座', room_number='B-SHOP', category='商户', owner_id=owner_id)
         create_room(db, building='金莎国际', unit='商场', room_number='C101', category='商户', owner_id=owner_id)
         db.close()
 
@@ -192,11 +193,17 @@ class TestIntegration06(IntegrationTestBase):
         self.assertIn('<optgroup label="兼容房间 · 商场">', body)
         self.assertIn('金莎国际-商场-C101', body)
         self.assertNotIn('金莎国际-B座-1901', body)
+        self.assertNotIn('金莎国际-B座-B-SHOP', body)
         self.assertNotIn('商场商业收费已迁移', body)
         self.assertNotIn('商户合同出账', body)
 
+        status, property_body = http_get('/billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('金莎国际-B座-1901', property_body)
+        self.assertIn('金莎国际-B座-B-SHOP', property_body)
+        self.assertNotIn('金莎国际-商场-C101', property_body)
 
-    def test_generic_commercial_billing_uses_room_rate_cycle_and_includes_commercial_units(self):
+    def test_commercial_billing_uses_mall_room_rate_cycle_and_excludes_non_mall_units(self):
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '商场规则业主', '13900008888')
@@ -210,7 +217,7 @@ class TestIntegration06(IntegrationTestBase):
         status, body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('金莎国际-商场-1F-101 / 甲店', body)
-        self.assertIn('金莎国际-A座-A101', body)
+        self.assertNotIn('金莎国际-A座-A101', body)
         self.assertNotIn('金莎国际-B座-B201', body)
         self.assertNotIn('商场商业收费已迁移', body)
 
@@ -233,4 +240,3 @@ class TestIntegration06(IntegrationTestBase):
         self.assertAlmostEqual(float(bill['amount']), 424.80)
         self.assertEqual(a_count, 0)
         self.assertEqual(b_count, 0)
-

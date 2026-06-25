@@ -289,7 +289,7 @@ class TestIntegration34(IntegrationTestBase):
         status, body = http_get('/merchant_contracts?' + query, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('当前筛选共 153 条 / 4 页 / 每页 50 条', body)
-        self.assertIn('B座合同', body)
+        self.assertIn('物业合同', body)
         self.assertIn('商业合同', body)
         self.assertIn('合同同级商业商户', body)
         self.assertIn('合同同级B座商户', body)

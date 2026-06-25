@@ -49,8 +49,11 @@ class PaymentMixinPart1Group1(BaseHandler):
         if contract_id:
             contract = db.execute(
                 """SELECT c.*,COALESCE(s.space_no,r.room_number,'') object_no,
-                          COALESCE(s.area,r.area,0) area,COALESCE(s.floor,r.floor,1) floor,
-                          COALESCE(s.water_rate_type,r.water_rate_type,'非居民') water_rate_type
+                          COALESCE(NULLIF(c.building_area,0),NULLIF(c.contract_area,0),s.area,r.area,0) area,
+                          COALESCE(s.floor,r.floor,1) floor,
+                          COALESCE(s.water_rate_type,r.water_rate_type,'非居民') water_rate_type,
+                          COALESCE(r.building,'商场') building,COALESCE(r.unit,'商场') unit,
+                          COALESCE(r.category,'商户') category
                    FROM merchant_contracts c
                    LEFT JOIN commercial_spaces s ON c.commercial_space_id=s.id
                    LEFT JOIN rooms r ON c.room_id=r.id
@@ -61,8 +64,8 @@ class PaymentMixinPart1Group1(BaseHandler):
                 return self._redirect('/commercial_billing?flash=商业合同不存在或已停用')
             all_rids = []
             room_names.append('合同' + contract['contract_no'])
-            rm = {'id': contract['commercial_space_id'] or contract['room_id'], 'building': '商场', 'unit': '商场',
-                  'room_number': contract['object_no'], 'category': '商户', 'area': contract['area'],
+            rm = {'id': contract['commercial_space_id'] or contract['room_id'], 'building': contract['building'], 'unit': contract['unit'],
+                  'room_number': contract['object_no'], 'category': contract['category'], 'area': contract['area'],
                   'floor': contract['floor'], 'owner_id': contract['owner_id'],
                   'water_rate_type': contract['water_rate_type'], 'custom_rate': contract['property_rate'], 'commercial_space_id': contract['commercial_space_id'],
                   'payment_cycle': contract['property_cycle']}

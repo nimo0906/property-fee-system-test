@@ -159,9 +159,9 @@ console.log(context.factorLabel(context.prorateFactor()));
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '同一业主不同租户', '13900005555')
-        room_a = create_room(db, building='TENANT', unit='B座', room_number='1402', category='商户', owner_id=owner_id)
-        room_b = create_room(db, building='TENANT', unit='B座', room_number='1403', category='商户', owner_id=owner_id)
-        room_c = create_room(db, building='TENANT', unit='B座', room_number='1404', category='商户', owner_id=owner_id)
+        room_a = create_room(db, building='TENANT', unit='商场', room_number='1402', category='商户', owner_id=owner_id)
+        room_b = create_room(db, building='TENANT', unit='商场', room_number='1403', category='商户', owner_id=owner_id)
+        room_c = create_room(db, building='TENANT', unit='商场', room_number='1404', category='商户', owner_id=owner_id)
         db.execute("UPDATE rooms SET tenant_name='奈思美发店', shop_name='奈思美发店' WHERE id IN (?,?)", (room_a, room_b))
         db.execute("UPDATE rooms SET tenant_name='其他租户', shop_name='其他租户' WHERE id=?", (room_c,))
         db.commit(); db.close()
@@ -194,23 +194,28 @@ console.log(context.factorLabel(context.prorateFactor()));
 
 
 
-    def test_generic_commercial_billing_includes_non_mall_commercial_rooms(self):
+    def test_commercial_billing_excludes_non_mall_commercial_rooms(self):
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '通用商业租户', '13900003333')
         room_id = create_room(db, building='通用项目', unit='写字楼', room_number='OFFICE-801', category='商户', area=88, owner_id=owner_id)
         db.execute("UPDATE rooms SET tenant_name='通用商业租户', shop_name='通用科技店', custom_rate=6, payment_cycle='monthly' WHERE id=?", (room_id,))
+        mall_id = create_room(db, building='金莎国际', unit='商场', room_number='MALL-801', category='商户', area=66, owner_id=owner_id)
+        db.execute("UPDATE rooms SET tenant_name='商场商业租户', shop_name='商场科技店', custom_rate=6, payment_cycle='monthly' WHERE id=?", (mall_id,))
         db.commit(); db.close()
 
         status, commercial_body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('通用项目-写字楼-OFFICE-801', commercial_body)
-        self.assertIn('通用科技店', commercial_body)
-        self.assertNotIn('单元/区域为商场', commercial_body)
+        self.assertNotIn('通用项目-写字楼-OFFICE-801', commercial_body)
+        self.assertNotIn('通用科技店', commercial_body)
+        self.assertIn('金莎国际-商场-MALL-801', commercial_body)
+        self.assertIn('商场科技店', commercial_body)
+        self.assertIn('单元/区域为商场', commercial_body)
 
         status, property_body = http_get('/billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertNotIn('通用项目-写字楼-OFFICE-801', property_body)
+        self.assertNotIn('金莎国际-商场-MALL-801', property_body)
 
 
     def test_generic_commercial_bill_generation_scope_is_not_limited_to_mall_unit(self):

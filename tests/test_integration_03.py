@@ -92,7 +92,7 @@ class TestIntegration03(IntegrationTestBase):
         self.assertIn('¥10.0', filtered)
 
 
-    def test_property_billing_excludes_commercial_only_fee_names_even_if_sort_order_is_low(self):
+    def test_property_billing_lists_all_b_tower_rooms_but_excludes_commercial_only_fees(self):
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '物业B座商户业主', '13900000008')
@@ -102,14 +102,14 @@ class TestIntegration03(IntegrationTestBase):
 
         status, property_body = http_get('/billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertNotIn('金莎国际-B座-B-M01', property_body)
+        self.assertIn('金莎国际-B座-B-M01', property_body)
         self.assertNotIn('泄水费', property_body)
         self.assertNotIn('装修押金', property_body)
         self.assertNotIn('空调能源费', property_body)
 
         status, commercial_body = http_get('/commercial_billing', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
-        self.assertIn('金莎国际-B座-B-M01', commercial_body)
+        self.assertNotIn('金莎国际-B座-B-M01', commercial_body)
         self.assertIn('泄水费', commercial_body)
 
 
@@ -199,7 +199,7 @@ class TestIntegration03(IntegrationTestBase):
         from server.db import get_db
         db = get_db()
         owner_id = create_owner(db, '收费页抄表业主', '13900000006')
-        room_id = create_room(db, building='金莎国际', unit='B座', room_number='WM102', category='商户', owner_id=owner_id)
+        room_id = create_room(db, building='金莎国际', unit='商场', room_number='WM102', category='商户', owner_id=owner_id)
         db.execute("UPDATE rooms SET water_rate_type='非居民' WHERE id=?", (room_id,))
         fee_id = db.execute("SELECT id FROM fee_types WHERE name='水费(非居民)'").fetchone()[0]
         db.execute(
@@ -251,5 +251,4 @@ class TestIntegration03(IntegrationTestBase):
         self.assertIn('WM106', body)
         self.assertIn('建议选择：水费(特行)', body)
         self.assertIn('id="waterFeeHint"', body)
-
 

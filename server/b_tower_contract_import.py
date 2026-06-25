@@ -240,7 +240,7 @@ def _validate_row(row, raw_start, raw_end, raw_cycle, raw_rate):
     if not row["room_number"]:
         errors.append("房号为空")
     if not (str(row["building"]).startswith("B") or str(row["unit"]).startswith("B")):
-        errors.append("非 B座合同")
+        errors.append("非物业合同")
     if not row["tenant_name"]:
         errors.append("租户为空")
     if raw_start and not row["contract_start"]:
