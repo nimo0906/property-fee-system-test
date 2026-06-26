@@ -4,7 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
-from server.ui_components import render_form, render_table
+from server.ui_components import render_form, render_kv_table, render_table
 from datetime import date
 
 
@@ -113,21 +113,27 @@ class DepositMixin(BaseHandler):
         d=db.execute("SELECT * FROM deposits WHERE id=?",(did,)).fetchone()
         db.close()
         if not d: return self._error(404)
-        self._html(self._page("退还押金", f'''
-    <div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">押金信息</div>
-    <div class="card-body"><table class="table table-borderless mb-0">
-    <tr><td class="text-muted">押金金额</td><td><strong>¥{m(d["amount"])}</strong></td></tr>
-    <tr><td class="text-muted">已退还</td><td>{"¥"+m(d["refund_amount"]) if d["refund_amount"] else "-"}</td></tr>
-    <tr><td class="text-muted">收取日期</td><td>{h(d["deposit_date"] or "-")}</td></tr>
-    </table></div></div></div>
-    <div class="col-md-7"><div class="card"><div class="card-header">办理退还</div>
-    <div class="card-body"><form method=POST action="/deposits/{did}/refund" class="row g-3">
+        info_table = render_kv_table([
+            ('押金金额', f'<strong>¥{m(d["amount"])}</strong>'),
+            ('已退还', "¥"+m(d["refund_amount"]) if d["refund_amount"] else "-"),
+            ('收取日期', h(d["deposit_date"] or "-")),
+        ])
+        fields_html = f'''
     <div class="col-12"><label>退还金额 <span class="text-danger">*</span></label>
     <div class="input-group"><span class="input-group-text">¥</span><input name="refund_amount" type="number" class="form-control form-control-lg" value="{m(d["amount"] - (d["refund_amount"] or 0))}" step="0.1" min="0" required></div></div>
     <div class="col-md-6"><label>退还日期</label><input name="refund_date" type="date" class="form-control" value="{date.today().isoformat()}"></div>
-    <div class="col-md-6"><label>备注</label><input name="notes" class="form-control" placeholder="退还原因"></div>
-    <div class="col-12"><hr><button class="btn btn-warning btn-lg"><i class="bi bi-arrow-return-left"></i> 确认退还</button>
-    <a href="/deposits" class="btn btn-outline-secondary">取消</a></div></form></div></div></div></div>''', "deposits"))
+    <div class="col-md-6"><label>备注</label><input name="notes" class="form-control" placeholder="退还原因"></div>'''
+        form_html = render_form(
+            fields_html,
+            action=f'/deposits/{did}/refund',
+            submit_text='<i class="bi bi-arrow-return-left"></i> 确认退还',
+            cancel_url='/deposits',
+        )
+        self._html(self._page("退还押金", f'''
+    <div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">押金信息</div>
+    <div class="card-body">{info_table}</div></div></div>
+    <div class="col-md-7"><div class="card"><div class="card-header">办理退还</div>
+    <div class="card-body">{form_html}</div></div></div></div>''', "deposits"))
 
     def _deposit_refund_post(self, did, d):
         db=get_db()
