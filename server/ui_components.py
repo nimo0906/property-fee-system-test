@@ -10,7 +10,8 @@ def _esc(value):
 
 
 def render_table(headers, body_rows_html, *, table_class='table table-hover align-middle',
-                 responsive=True, empty_text='暂无数据', col_count=None):
+                 responsive=True, empty_text='暂无数据', col_count=None,
+                 responsive_class='table-responsive'):
     """Render a common table shell while keeping row generation page-local."""
     col_count = col_count or len(headers)
     th_parts = []
@@ -25,7 +26,7 @@ def render_table(headers, body_rows_html, *, table_class='table table-hover alig
         rows = f'<tr><td colspan="{int(col_count)}" class="text-center text-muted py-3">{_esc(empty_text)}</td></tr>'
     table = f'<table class="{_esc(table_class)}"><thead><tr>{"".join(th_parts)}</tr></thead><tbody>{rows}</tbody></table>'
     if responsive:
-        return f'<div class="table-responsive">{table}</div>'
+        return f'<div class="{_esc(responsive_class)}">{table}</div>'
     return table
 
 

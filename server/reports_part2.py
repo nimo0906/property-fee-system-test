@@ -1,4 +1,5 @@
 from server.reports_shared import *
+from server.ui_components import render_table
 
 class ReportMixinPart2(BaseHandler):
     def _reports_fee_arrears_csv(self, q):
@@ -70,7 +71,7 @@ class ReportMixinPart2(BaseHandler):
             <td class="text-end"><span class="money money-paid">¥{m(r["paid"])}</span></td>
             <td class="text-end"><span class="money money-due">¥{m(float(r["amount"] or 0)-float(r["paid"] or 0))}</span></td></tr>'''
             for r in data['building_rows']
-        ) or '<tr><td colspan="5" class="text-center text-muted py-3">暂无数据</td></tr>'
+        )
         income_rows = ''.join(
             f'''<tr><td>{h(name)}</td><td class="text-end">{vals['count']}</td>
             <td class="text-end"><span class="money">¥{m(vals['amount'])}</span></td>
@@ -85,13 +86,13 @@ class ReportMixinPart2(BaseHandler):
             <td class="text-end"><span class="money money-paid">¥{m(r["paid"])}</span></td>
             <td class="text-end"><span class="money money-due">¥{m(float(r["amount"] or 0)-float(r["paid"] or 0))}</span></td></tr>'''
             for r in data['arrears'][:50]
-        ) or '<tr><td colspan="8" class="text-center text-muted py-3">本账期无欠费</td></tr>'
+        )
         filter_query = self._report_filter_query(period, period_start, period_end, building, status)
         collections = self._collection_summary_data(period, period_start, period_end)
         collection_rows = ''.join(
             f'''<tr><td>{h(r["day"])}</td><td>{h(r["payment_method"])}</td><td>{h(r["operator"] or "-")}</td><td>{h(r["fee_name"] or "-")}</td><td class="text-end">{r["cnt"]}</td><td class="text-end money money-paid">¥{m(r["amount"])}</td></tr>'''
             for r in collections['rows'][:80]
-        ) or '<tr><td colspan="6" class="text-center text-muted py-3">暂无收款</td></tr>'
+        )
         waivers = self._report_waiver_data(period, building, status, period_start, period_end)
         waiver_rows = ''.join(
             f'''<tr><td>{h(r["created_at"] or "")}</td><td>{h(r["bill_number"] or r["id"])}</td><td>{h(r["building"] or "")}-{h(r["room_number"] or "")}</td>
@@ -99,26 +100,75 @@ class ReportMixinPart2(BaseHandler):
             <td class="text-end money">¥{m(r["old_amount"])}</td><td class="text-end money">¥{m(r["new_amount"])}</td>
             <td class="text-end money money-due">¥{m(r["waiver_amount"])}</td><td>{h(r["reason"] or "")}</td><td>{h(r["approved_by"] or "")}</td></tr>'''
             for r in waivers[:100]
-        ) or '<tr><td colspan="10" class="text-center text-muted py-3">当前筛选范围内暂无减免记录</td></tr>'
+        )
         arrears = self._arrears_analysis_data(period, period_start, period_end)
-        arrears_fee_rows = ''.join(f'<tr><td>{h(r["fee_name"] or "-")}</td><td class="text-end">{r["cnt"]}</td><td class="text-end money money-due">¥{m(r["due"])}</td></tr>' for r in arrears['by_fee']) or '<tr><td colspan="3" class="text-center text-muted py-3">暂无欠费</td></tr>'
+        arrears_fee_rows = ''.join(f'<tr><td>{h(r["fee_name"] or "-")}</td><td class="text-end">{r["cnt"]}</td><td class="text-end money money-due">¥{m(r["due"])}</td></tr>' for r in arrears['by_fee'])
         long_due_rows = ''.join(
             f'<tr><td>{h(r["owner_name"] or "未知")}</td><td>{h(r["building"])}-{h(r["room_number"])}</td><td>{h(r["first_period"])}</td><td class="text-end">{r["cnt"]}</td><td class="text-end money money-due">¥{m(r["due"])}</td></tr>'
             for r in arrears['long_due']
-        ) or '<tr><td colspan="5" class="text-center text-muted py-3">暂无长期欠费</td></tr>'
+        )
+        table_wrapper = 'table-responsive report-compact-table'
+        arrears_table = render_table(
+            ['账单号', '房间', '客户', '电话', '项目', ('应收', 'text-end'), ('已收', 'text-end'), ('未收', 'text-end')],
+            arrears_rows,
+            table_class='table table-hover',
+            empty_text='本账期无欠费',
+            responsive_class=table_wrapper,
+        )
+        collection_table = render_table(
+            ['日期', '方式', '操作员', '费用类型', ('笔数', 'text-end'), ('金额', 'text-end')],
+            collection_rows,
+            table_class='table table-hover',
+            empty_text='暂无收款',
+            responsive_class=table_wrapper,
+        )
+        waiver_table = render_table(
+            ['时间', '账单号', '房间/商铺', '客户', '费用项目', ('原金额', 'text-end'), ('新金额', 'text-end'), ('减免', 'text-end'), '原因', '审批人'],
+            waiver_rows,
+            table_class='table table-hover',
+            empty_text='当前筛选范围内暂无减免记录',
+            responsive_class=table_wrapper,
+        )
+        building_table = render_table(
+            ['楼栋', ('账单', 'text-end'), ('应收', 'text-end'), ('已收', 'text-end'), ('未收', 'text-end')],
+            building_rows,
+            table_class='table table-hover',
+            empty_text='暂无数据',
+            responsive_class=table_wrapper,
+        )
+        income_table = render_table(
+            ['收入分类', ('账单', 'text-end'), ('应收', 'text-end'), ('已收', 'text-end'), ('未收', 'text-end')],
+            income_rows,
+            table_class='table table-hover',
+            empty_text='暂无数据',
+            responsive_class=table_wrapper,
+        )
+        arrears_fee_table = render_table(
+            ['项目', ('笔数', 'text-end'), ('欠费', 'text-end')],
+            arrears_fee_rows,
+            table_class='table table-hover',
+            empty_text='暂无欠费',
+            responsive_class=table_wrapper,
+        )
+        long_due_table = render_table(
+            ['客户', '房间', '最早账期', ('笔数', 'text-end'), ('欠费', 'text-end')],
+            long_due_rows,
+            table_class='table table-hover',
+            empty_text='暂无长期欠费',
+            responsive_class=table_wrapper,
+        )
         return f'''
         <div class="accordion report-fold" id="reportDetailFold">
           <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#reportArrears">欠费清单 <span class="badge status-danger ms-2">{len(data['arrears'])}</span></button></h2>
-            <div id="reportArrears" class="accordion-collapse collapse show" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="d-flex justify-content-end p-2"><a class="btn btn-sm btn-outline-secondary" href="/reports/arrears_detail.csv?{filter_query}">导出欠费明细CSV</a></div><div class="table-responsive report-compact-table"><table class="table table-hover">
-            <thead><tr><th>账单号</th><th>房间</th><th>客户</th><th>电话</th><th>项目</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">未收</th></tr></thead><tbody>{arrears_rows}</tbody></table></div></div></div></div>
+            <div id="reportArrears" class="accordion-collapse collapse show" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="d-flex justify-content-end p-2"><a class="btn btn-sm btn-outline-secondary" href="/reports/arrears_detail.csv?{filter_query}">导出欠费明细CSV</a></div>{arrears_table}</div></div></div>
           <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reportCollection">收款对账明细</button></h2>
-            <div id="reportCollection" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="d-flex justify-content-end gap-2 p-2"><a class="btn btn-sm btn-outline-secondary" href="/reports/collections.csv?{filter_query}">导出收款汇总CSV</a><a class="btn btn-sm btn-outline-secondary" href="/reports/payment_detail.csv?{filter_query}">导出收款流水CSV</a></div><div class="table-responsive report-compact-table"><table class="table table-hover"><thead><tr><th>日期</th><th>方式</th><th>操作员</th><th>费用类型</th><th class="text-end">笔数</th><th class="text-end">金额</th></tr></thead><tbody>{collection_rows}</tbody></table></div></div></div></div>
+            <div id="reportCollection" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="d-flex justify-content-end gap-2 p-2"><a class="btn btn-sm btn-outline-secondary" href="/reports/collections.csv?{filter_query}">导出收款汇总CSV</a><a class="btn btn-sm btn-outline-secondary" href="/reports/payment_detail.csv?{filter_query}">导出收款流水CSV</a></div>{collection_table}</div></div></div>
           <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reportWaivers">减免明细 <span class="badge status-warning ms-2">{len(waivers)}</span></button></h2>
-            <div id="reportWaivers" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="d-flex justify-content-end p-2"><a class="btn btn-sm btn-outline-secondary" href="/reports/waivers.csv?{filter_query}">导出减免明细CSV</a></div><div class="table-responsive report-compact-table"><table class="table table-hover"><thead><tr><th>时间</th><th>账单号</th><th>房间/商铺</th><th>客户</th><th>费用项目</th><th class="text-end">原金额</th><th class="text-end">新金额</th><th class="text-end">减免</th><th>原因</th><th>审批人</th></tr></thead><tbody>{waiver_rows}</tbody></table></div></div></div></div>
+            <div id="reportWaivers" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="d-flex justify-content-end p-2"><a class="btn btn-sm btn-outline-secondary" href="/reports/waivers.csv?{filter_query}">导出减免明细CSV</a></div>{waiver_table}</div></div></div>
           <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reportBuilding">楼栋与收入分类</button></h2>
-            <div id="reportBuilding" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="report-section-grid"><div class="table-responsive report-compact-table"><table class="table table-hover"><thead><tr><th>楼栋</th><th class="text-end">账单</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">未收</th></tr></thead><tbody>{building_rows}</tbody></table></div><div class="table-responsive report-compact-table"><table class="table table-hover"><thead><tr><th>收入分类</th><th class="text-end">账单</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">未收</th></tr></thead><tbody>{income_rows}</tbody></table></div></div></div></div></div>
+            <div id="reportBuilding" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="report-section-grid">{building_table}{income_table}</div></div></div></div>
           <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#reportRisk">欠费分析</button></h2>
-            <div id="reportRisk" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="report-section-grid"><div class="table-responsive report-compact-table"><table class="table table-hover"><thead><tr><th>项目</th><th class="text-end">笔数</th><th class="text-end">欠费</th></tr></thead><tbody>{arrears_fee_rows}</tbody></table></div><div class="table-responsive report-compact-table"><table class="table table-hover"><thead><tr><th>客户</th><th>房间</th><th>最早账期</th><th class="text-end">笔数</th><th class="text-end">欠费</th></tr></thead><tbody>{long_due_rows}</tbody></table></div></div></div></div></div>
+            <div id="reportRisk" class="accordion-collapse collapse" data-bs-parent="#reportDetailFold"><div class="accordion-body"><div class="report-section-grid">{arrears_fee_table}{long_due_table}</div></div></div></div>
         </div>'''
 
     def _reports_reconciliation_print(self, q):

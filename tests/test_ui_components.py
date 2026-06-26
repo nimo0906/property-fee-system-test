@@ -58,3 +58,13 @@ def test_render_form_allows_safe_submit_html_for_existing_icon_buttons():
 
     assert '<button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button>' in html
     assert '_csrf_token' not in html
+
+
+def test_render_table_allows_custom_responsive_wrapper_class():
+    html = render_table(
+        ['项目'],
+        '<tr><td>物业费</td></tr>',
+        responsive_class='table-responsive report-compact-table',
+    )
+
+    assert html.startswith('<div class="table-responsive report-compact-table">')
