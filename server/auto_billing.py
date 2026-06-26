@@ -139,7 +139,7 @@ def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None, pe
             items.append({
                 'item_key': f"{room['id']}:{fee['id']}:{service_start.isoformat()}:{service_end.isoformat()}",
                 'room_id': room['id'], 'fee_type_id': fee['id'],
-                'room_name': f"{room['building']}-{room['unit']}-{room['room_number']}",
+                'room_name': f"{room['building'] or ''}-{room['unit'] or ''}-{room['room_number'] or ''}",
                 'tenant_name': room['tenant_name'] or room['shop_name'] or room['owner_name'] or '-',
                 'fee_name': fee['name'], 'cycle': cycle,
                 'service_start': service_start.isoformat(), 'service_end': service_end.isoformat(),

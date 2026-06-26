@@ -129,7 +129,7 @@ class CollectionMixin:
         '''
         rows_html = ""
         for _, due, overdue_days, r, priority, badge in visible_items:
-            room = f'{r["building"]}-{r["unit"]}-{r["room_number"]}'
+            room = f'{r["building"] or ""}-{r["unit"] or ""}-{r["room_number"] or ""}'
             rows_html += f'''
             <tr>
               <td><strong>{h(room)}</strong></td>

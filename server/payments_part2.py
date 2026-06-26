@@ -25,7 +25,7 @@ class PaymentMixinPart2(BaseHandler):
             except Exception:
                 period_end = period_start
         db=get_db();pm=qs(q,'method','');op=qs(q,'operator','').strip();kw=qs(q,'keyword','').strip()
-        sql='''SELECT p.*,b.bill_number,b.billing_period,b.service_start,b.service_end,b.amount,b.room_id,b.commercial_space_id,b.fee_type_id,
+        sql='''SELECT p.*,b.bill_number,b.billing_period,b.service_start,b.service_end,b.amount,b.room_id,b.commercial_space_id,b.fee_type_id,b.customer_name_snapshot,
             r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN owners o ON b.owner_id=o.id
@@ -211,7 +211,7 @@ class PaymentMixinPart2(BaseHandler):
         pm = qs(q, 'method', '')
         op = qs(q, 'operator', '')
         kw = qs(q, 'keyword', '').strip()
-        sql = """SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.commercial_space_id,b.fee_type_id,
+        sql = """SELECT p.*,b.bill_number,b.billing_period,b.amount,b.room_id,b.commercial_space_id,b.fee_type_id,b.customer_name_snapshot,
             r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,o.name owner_name,f.name ft
             FROM payments p JOIN bills b ON p.bill_id=b.id
             LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN owners o ON b.owner_id=o.id

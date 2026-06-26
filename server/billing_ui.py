@@ -59,7 +59,7 @@ class BillingUiMixin(BaseHandler):
             tenant_rooms[tenant_key].append({
                 'id': r['id'],
                 'meterTarget': f"room:{r['id']}",
-                'name': f"{r['building']}-{r['unit']}-{r['room_number']}",
+                'name': f"{r['building'] or ''}-{r['unit'] or ''}-{r['room_number'] or ''}",
                 'cat': r['category'] or '',
                 'area': r['area'],
                 'floor': r['floor'] or '1',

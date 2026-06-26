@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Payment processing, records, and quick billing."""
 
-from server.db import get_db, get_period, calc_bill_late_fee, is_period_closed, h, m, qs, date_to_period, period_to_date, add_months
+from server.db import get_db, get_period, calc_bill_late_fee, is_period_closed, h, m, qs, date_to_period, period_to_date, add_months, customer_name
 from server.billing_periods import append_period_filter, append_natural_date_range_filter
 from server.base import BaseHandler
 from datetime import datetime, date, timedelta
@@ -92,7 +92,7 @@ def _bill_target_label(row):
 
 
 def _bill_customer_label(row):
-    return row['space_merchant'] or row['space_shop'] or row['tenant_name'] or row['owner_name'] or '未知'
+    return customer_name(row)
 
 
 

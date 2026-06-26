@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Bill list with filtering, grouping, and pagination."""
 
-from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date, add_months
+from server.db import get_db, get_period, calc_bill_late_fee, update_overdue_bills, h, m, qs, date_to_period, period_to_date, add_months, customer_name
 from server.billing_periods import append_period_filter, append_natural_date_range_filter
 from server.base import BaseHandler
 from server.data_health import cleanup_invalid_payments
@@ -29,7 +29,7 @@ def _bill_scope_label(row):
 
 
 def _bill_customer_name(row):
-    return row['customer_name_snapshot'] or row['space_merchant'] or row['space_shop'] or row['tenant_name'] or row['owner_name'] or '未知'
+    return customer_name(row)
 
 
 def _bill_group_hint(bills):

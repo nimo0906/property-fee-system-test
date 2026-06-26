@@ -138,25 +138,21 @@ class ReportMixinPart2(BaseHandler):
             )
         rows = ''.join(row_parts) or '<tr><td colspan="8" class="muted">暂无数据</td></tr>'
         back = '/reports?' + self._report_filter_query(period, period_start, period_end, building, status).replace('&amp;', '&')
-        html = f'''<!doctype html><html><head><meta charset="utf-8"><title>对账单打印</title>
+        from server.print_helper import print_page
+        body = f'''
         <style>
-        body{{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#111;margin:24px}}
-        h1{{text-align:center;font-size:22px;margin:0 0 8px}} .meta{{text-align:center;color:#555;margin-bottom:18px}}
-        .summary{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
-        .box{{border:1px solid #ccc;padding:10px;text-align:center}} .box strong{{display:block;font-size:18px;margin-top:4px}}
-        .status-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
-        .section-title{{font-weight:700;margin:14px 0 8px;border-left:4px solid #111;padding-left:8px}}
-        table{{width:100%;border-collapse:collapse;font-size:12px}} th,td{{border:1px solid #999;padding:6px}} th{{background:#f2f2f2}} .amt{{text-align:right}} .muted{{text-align:center;color:#777}}
-        .print-toolbar{{text-align:center;margin-bottom:16px;padding:10px;border:1px solid #ddd;background:#fafafa}}
-        .print-toolbar-tip{{font-size:12px;color:#555;margin-bottom:6px}}
-        .print-toolbar button,.print-toolbar a{{padding:6px 14px;margin:0 4px}}
-        @media print{{.print-toolbar{{display:none}} body{{margin:0}}}}
-        </style></head><body>
-        <div class="print-toolbar"><div class="print-toolbar-tip"><strong>保存为PDF：</strong>点击打印后，在打印对话框中选择“保存为 PDF”。</div><button onclick="window.print()">打印</button> <a href="{back}">返回报表</a></div>
-        <h1>对账单打印</h1><div class="meta">日期范围：{h(period_label)}　楼栋：{h(building or '全部')}　状态：{h(status_label)}</div>
-        <div class="summary"><div class="box">应收合计<strong>{m(data['total'])}</strong></div><div class="box">已收合计<strong>{m(data['paid'])}</strong></div><div class="box">未收合计<strong>{m(data['due'])}</strong></div><div class="box">收缴率<strong>{data['rate']}%</strong></div></div>
-        <div class="section-title">账单状态分布</div>
-        <div class="status-grid"><div class="box">已缴账单<strong>{status_counts['paid']}</strong></div><div class="box">部分缴费<strong>{status_counts['partial']}</strong></div><div class="box">未缴账单<strong>{status_counts['unpaid'] + status_counts['overdue']}</strong></div><div class="box">本期回款缺口<strong>{m(data['due'])}</strong></div></div>
-        <table><thead><tr><th>账单号</th><th>房间</th><th>业主</th><th>电话</th><th>项目</th><th>应收</th><th>已收</th><th>未收</th></tr></thead><tbody>{rows}</tbody></table>
-        </body></html>'''
-        self._html(html)
+        .recon-summary{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
+        .recon-box{{border:1px solid #ccc;padding:10px;text-align:center}} .recon-box strong{{display:block;font-size:18px;margin-top:4px}}
+        .recon-status-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px}}
+        .recon-section-title{{font-weight:700;margin:14px 0 8px;border-left:4px solid #111;padding-left:8px}}
+        .recon-table{{width:100%;border-collapse:collapse;font-size:12px}}
+        .recon-table th,.recon-table td{{border:1px solid #999;padding:6px}} .recon-table th{{background:#f2f2f2}}
+        .recon-table .amt{{text-align:right}} .recon-table .muted{{text-align:center;color:#777}}
+        .recon-meta{{text-align:center;color:#555;margin-bottom:18px}}
+        </style>
+        <h1>对账单打印</h1><div class="recon-meta">日期范围：{h(period_label)}　楼栋：{h(building or '全部')}　状态：{h(status_label)}</div>
+        <div class="recon-summary"><div class="recon-box">应收合计<strong>{m(data['total'])}</strong></div><div class="recon-box">已收合计<strong>{m(data['paid'])}</strong></div><div class="recon-box">未收合计<strong>{m(data['due'])}</strong></div><div class="recon-box">收缴率<strong>{data['rate']}%</strong></div></div>
+        <div class="recon-section-title">账单状态分布</div>
+        <div class="recon-status-grid"><div class="recon-box">已缴账单<strong>{status_counts['paid']}</strong></div><div class="recon-box">部分缴费<strong>{status_counts['partial']}</strong></div><div class="recon-box">未缴账单<strong>{status_counts['unpaid'] + status_counts['overdue']}</strong></div><div class="recon-box">本期回款缺口<strong>{m(data['due'])}</strong></div></div>
+        <table class="recon-table"><thead><tr><th>账单号</th><th>房间</th><th>业主</th><th>电话</th><th>项目</th><th>应收</th><th>已收</th><th>未收</th></tr></thead><tbody>{rows}</tbody></table>'''
+        self._html(print_page('对账单打印', body, show_back=True, back_url=back))

@@ -6,7 +6,7 @@ from datetime import date, timedelta
 
 from server.base import BaseHandler
 from server.billing_periods import natural_date_range_filter_clause
-from server.db import add_months, date_to_period, get_db, h, is_period_closed, m, period_to_date, qs
+from server.db import add_months, date_to_period, get_db, h, is_period_closed, m, period_to_date, qs, customer_name
 
 
 class ClosingMixin(BaseHandler):
@@ -117,11 +117,13 @@ class ClosingMixin(BaseHandler):
             SELECT b.bill_number,b.billing_period,b.amount,b.status,
                    b.customer_name_snapshot,r.building,r.unit,r.room_number,r.tenant_name,
                    o.name owner_name,f.name fee_name,
+                   s.merchant_name space_merchant,s.shop_name space_shop,
                    COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=b.id),0) paid
             FROM bills b
             LEFT JOIN rooms r ON b.room_id=r.id
             LEFT JOIN owners o ON b.owner_id=o.id
             LEFT JOIN fee_types f ON b.fee_type_id=f.id
+            LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id
             WHERE """ + clause + """
             ORDER BY r.building,r.unit,r.room_number,f.name,b.id
         """, vals).fetchall()
@@ -142,7 +144,7 @@ class ClosingMixin(BaseHandler):
         detail_rows = ''
         for b in bill_rows:
             room = '-'.join(x for x in [b['building'], b['unit'], b['room_number']] if x) or '-'
-            payer = b['customer_name_snapshot'] or b['tenant_name'] or b['owner_name'] or '-'
+            payer = customer_name(b, default='-')
             detail_rows += f'''<tr><td>{h(b['bill_number'] or '-')}</td><td>{h(room)}</td><td>{h(payer)}</td>
                 <td>{h(b['fee_name'] or '-')}</td><td>{h(b['billing_period'])}</td>
                 <td class="text-end">¥{m(b['amount'] or 0)}</td><td class="text-end">¥{m(b['paid'] or 0)}</td>

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Bill detail, edit, print, delete."""
 
-from server.db import get_db, update_overdue_bills, is_period_closed, h, m, qs
+from server.db import get_db, update_overdue_bills, is_period_closed, h, m, qs, customer_name
 from server.base import BaseHandler
 from server.backups import create_db_backup
 from server.bill_batch_edit import BillBatchEditMixin
@@ -22,7 +22,7 @@ def _row_value(row, key, default=''):
 
 
 def _bill_customer_label(row):
-    return _row_value(row, 'customer_name_snapshot') or row['space_merchant'] or row['space_shop'] or _row_value(row, 'tenant_name') or row['oname'] or '-'
+    return customer_name(row)
 
 
 class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):

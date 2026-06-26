@@ -254,3 +254,31 @@ def m(v):
 
 def n(v, digits=2):
     return number_display(v, digits)
+
+
+def _row_get(row, key):
+    """Safe field access for sqlite3.Row / dict; returns None when column absent."""
+    try:
+        keys = row.keys()
+    except AttributeError:
+        return row.get(key) if isinstance(row, dict) else None
+    return row[key] if key in keys else None
+
+
+def customer_name(row, default='未知'):
+    """Unified customer-name resolution across all bill/payment views.
+
+    Priority: out-of-bill snapshot first (so renames don't alter historical
+    records), then commercial merchant/shop, then tenant, then owner.
+    Tolerates missing columns and the owner_name / oname alias difference.
+    """
+    return (
+        _row_get(row, 'customer_name_snapshot')
+        or _row_get(row, 'space_merchant')
+        or _row_get(row, 'space_shop')
+        or _row_get(row, 'tenant_name')
+        or _row_get(row, 'owner_name')
+        or _row_get(row, 'oname')
+        or default
+    )
+
