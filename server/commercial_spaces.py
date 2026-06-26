@@ -5,7 +5,7 @@
 from server.base import BaseHandler
 from server.db import get_db, h, m, n, qs
 from server.pagination import pagination_state, query_items, render_pagination
-from server.ui_components import render_table
+from server.ui_components import render_form, render_table
 
 
 def create_commercial_space(data):
@@ -79,8 +79,7 @@ class CommercialSpaceMixin(BaseHandler):
         action = f'/commercial_spaces/{space_id}/edit' if space_id else '/commercial_spaces/create'
         wt = val('water_rate_type', '非居民')
         status = val('status', 'active')
-        self._html(self._page('编辑空间档案' if row else '新增空间档案', f'''
-        <form method="POST" action="{action}" class="card"><div class="card-header">空间档案资料</div><div class="card-body row g-3">
+        fields_html = f'''
         <div class="col-md-3"><label>铺位号 *</label><input name="space_no" class="form-control" value="{val('space_no')}" required></div>
         <div class="col-md-3"><label>店铺名称</label><input name="shop_name" class="form-control" value="{val('shop_name')}"></div>
         <div class="col-md-3"><label>商户名称</label><input name="merchant_name" class="form-control" value="{val('merchant_name')}"></div>
@@ -89,9 +88,11 @@ class CommercialSpaceMixin(BaseHandler):
         <div class="col-md-3"><label>面积(m²) *</label><input name="area" type="number" step="0.01" class="form-control" value="{val('area', 0)}" required></div>
         <div class="col-md-3"><label>水费标准</label><select name="water_rate_type" class="form-select"><option value="非居民" {'selected' if wt=='非居民' else ''}>非居民</option><option value="特行" {'selected' if wt=='特行' else ''}>特行</option></select></div>
         <div class="col-md-3"><label>状态</label><select name="status" class="form-select"><option value="active" {'selected' if status=='active' else ''}>启用</option><option value="inactive" {'selected' if status=='inactive' else ''}>停用</option></select></div>
-        <div class="col-12"><label>备注</label><input name="notes" class="form-control" value="{val('notes')}"></div>
-        <div class="col-12"><hr><button class="btn btn-primary">保存</button> <a href="/merchant_contracts" class="btn btn-outline-secondary">取消</a></div>
-        </div></form>''', 'merchant_contracts'))
+        <div class="col-12"><label>备注</label><input name="notes" class="form-control" value="{val('notes')}"></div>'''
+        form_html = render_form(fields_html, action=action, submit_text='保存', cancel_url='/merchant_contracts')
+        self._html(self._page('编辑空间档案' if row else '新增空间档案', f'''
+        <div class="card"><div class="card-header">空间档案资料</div><div class="card-body">{form_html}</div></div>
+        ''', 'merchant_contracts'))
 
     def _commercial_space_create(self, d):
         create_commercial_space({k: qs(d, k) for k in ['space_no','shop_name','merchant_name','business_type','floor','area','water_rate_type','status','notes']})

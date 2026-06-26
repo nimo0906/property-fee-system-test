@@ -5,6 +5,7 @@
 from server.db import get_db, h, m, n, qs
 from server.base import BaseHandler
 from server.pagination import pagination_state, query_items, render_pagination
+from server.ui_components import render_form
 
 
 class OwnerMixin(BaseHandler):
@@ -61,13 +62,14 @@ class OwnerMixin(BaseHandler):
         n=h(o['name'] if o else '');p=h(o['phone'] or'') if o else ''
         ic=h(o['id_card'] or'') if o else '';md=o['move_in_date'] if o else ''
         nt=h(o['notes'] or'') if o else ''
-        self._html(self._page(t,f'''<form method=POST action="{a}" class="row g-3">
+        fields_html = f'''
     <div class="col-md-6"><label>姓名 *</label><input name="name" class="form-control" value="{n}" required></div>
     <div class="col-md-6"><label>电话</label><input name="phone" class="form-control" value="{p}"></div>
     <div class="col-md-6"><label>身份证</label><input name="id_card" class="form-control" value="{ic}"></div>
     <div class="col-md-6"><label>入住日期</label><input name="move_in_date" type="date" class="form-control" value="{md}"></div>
-    <div class="col-12"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>
-    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/owners" class="btn btn-outline-secondary">取消</a></div></form>''','owners'))
+    <div class="col-12"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>'''
+        form_html = render_form(fields_html, action=a, submit_text='<i class="bi bi-check-lg"></i> 保存', cancel_url='/owners')
+        self._html(self._page(t, form_html, 'owners'))
 
     def _owner_create(self, d):
         db=get_db()

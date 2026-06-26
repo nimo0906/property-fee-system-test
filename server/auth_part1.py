@@ -1,4 +1,5 @@
 from server.auth_shared import *
+from server.ui_components import render_form, render_table
 
 class AuthMixinPart1(BaseHandler):
     def _is_default_admin_password_active(self):
@@ -176,6 +177,12 @@ class AuthMixinPart1(BaseHandler):
             rh += "<a href='/users/" + str(r["id"]) + "/edit' class='btn btn-sm btn-outline-primary'><i class='bi bi-pencil'></i></a> "
             rh += "<form method=POST action='/users/" + str(r["id"]) + "/delete' style=display:inline onsubmit=\"return confirm('确定删除？')\"><button class='btn btn-sm btn-outline-danger'><i class='bi bi-trash'></i></button></form>"
             rh += "</td></tr>"
+        users_table = render_table(
+            ['ID', '用户名', '显示名', '角色', '状态', '创建时间', '操作'],
+            rh,
+            empty_text='暂无操作员',
+            col_count=7,
+        )
         guide = '''<div class="alert alert-info border-info role-guide-grid">
             <h6 class="mb-2"><i class="bi bi-person-gear"></i> 首次账号设置建议</h6>
             <div class="mt-2 d-flex gap-2 flex-wrap">
@@ -190,10 +197,8 @@ class AuthMixinPart1(BaseHandler):
             '<div class="operator-console">' + self._default_password_warning_html() + guide +
             '<div class="d-flex justify-content-between mb-3"><p class="text-muted small mb-0">管理系统操作员账号，<strong>admin</strong>为超级管理员不可删除。</p>'
             '<a href="/users/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加操作员</a></div>'
-            '<div class="alert alert-light border small mb-3"><i class="bi bi-info-circle"></i> 登录页提交的申请账号会显示为“待审核/停用”，管理员编辑账号、勾选“启用”后才能登录。</div>'
-            '<div class="table-responsive"><table class="table table-hover align-middle">'
-            '<thead><tr><th>ID</th><th>用户名</th><th>显示名</th><th>角色</th><th>状态</th><th>创建时间</th><th style="width:100px">操作</th></tr></thead>'
-            '<tbody>' + (rh or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作员</td></tr>') + '</tbody></table></div></div>', "users"))
+            '<div class="alert alert-light border small mb-3"><i class="bi bi-info-circle"></i> 登录页提交的申请账号会显示为“待审核/停用”，管理员编辑账号、勾选“启用”后才能登录。</div>' +
+            users_table + '</div>', "users"))
 
     def _user_form(self, uid):
         """添加/编辑操作员表单"""
@@ -222,7 +227,7 @@ class AuthMixinPart1(BaseHandler):
         if uid and role in ("operator", "readonly"):
             legacy_label = "旧版财务收费" if role == "operator" else "旧版客服只读"
             legacy_option = f'<option value="{role}" selected>{legacy_label}</option>'
-        self._html(self._page(t, f'''<form method=POST action="{a}" class="row g-3">
+        fields_html = f'''
 <div class="col-md-6"><label>用户名 <span class="text-danger">*</span></label><input name="username" class="form-control" value="{un}" required></div>
 <div class="col-md-6"><label>{pw_label}</label><input name="password" type="password" class="form-control" {"required" if not uid else ""} placeholder="留空不修改密码"></div>
 <div class="col-md-6"><label>显示名</label><input name="display_name" class="form-control" value="{dn}"></div>
@@ -234,5 +239,6 @@ class AuthMixinPart1(BaseHandler):
 <option value="executive"{" selected" if role=="executive" else ""}>管理层只读</option>
 {admin_option}
 {legacy_option}</select></div>
-<div class="col-md-3"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="is_active" id="ia" {"checked" if active else ""}><label class="form-check-label" for="ia">启用</label></div></div>
-<div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/users" class="btn btn-outline-secondary">取消</a></div></form>''', "users"))
+<div class="col-md-3"><div class="form-check mt-4"><input class="form-check-input" type="checkbox" name="is_active" id="ia" {"checked" if active else ""}><label class="form-check-label" for="ia">启用</label></div></div>'''
+        form_html = render_form(fields_html, action=a, submit_text='<i class="bi bi-check-lg"></i> 保存', cancel_url='/users')
+        self._html(self._page(t, form_html, "users"))
