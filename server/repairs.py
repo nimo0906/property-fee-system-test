@@ -4,6 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
+from server.ui_components import render_form, render_table
 from datetime import date
 
 
@@ -40,6 +41,11 @@ class RepairMixin(BaseHandler):
     <td><small>{h(r["report_date"]or"")}</small></td>
     <td><a href="/repairs/{r["id"]}" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
     <form method=POST action="/repairs/{r["id"]}/delete" style=display:inline onsubmit="return confirm('确定删除？')"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'''
+        table_html = render_table(
+            ['#', '房间/业主', '报修内容', '类别', '状态', '维修人', ('费用', 'text-end'), '日期', '操作'],
+            rh,
+            empty_text='暂无维修记录',
+        )
         self._html(self._page('维修管理',f'''
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
     <form class="row g-2" method=GET>
@@ -60,9 +66,7 @@ class RepairMixin(BaseHandler):
     <span class="badge bg-secondary p-2">已取消{totals["cancelled"]}</span>
     <span class="badge bg-light text-dark p-2">维修费: ¥{m(total_cost)}</span>
     </div>
-    <div class="table-responsive"><table class="table table-hover align-middle">
-    <thead><tr><th>#</th><th>房间/业主</th><th>报修内容</th><th>类别</th><th>状态</th><th>维修人</th><th class="text-end">费用</th><th>日期</th><th style="width:80px">操作</th></tr></thead>
-    <tbody>{rh or '<tr><td colspan="9" class="text-center text-muted py-4">暂无维修记录</td></tr>'}</tbody></table></div>''','repairs'))
+    {table_html}''','repairs'))
 
     def _repair_form(self, rid=None):
         db=get_db();r=None
@@ -100,8 +104,7 @@ class RepairMixin(BaseHandler):
     <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-save"></i> 更新</button>
     <a href="/repairs" class="btn btn-outline-secondary">返回</a></div></form></div></div></div></div>''','repairs'))
         else:
-            self._html(self._page('新建报修',f'''
-    <form method=POST action="/repairs/create" class="row g-3">
+            fields_html = f'''
     <div class="col-md-6"><label>关联房间</label><select name="room_id" class="form-select">{rms}</select></div>
     <div class="col-md-6"><label>业主姓名</label><input name="owner_name" class="form-control" placeholder="未选房间时手动填写"></div>
     <div class="col-md-6"><label>联系电话</label><input name="phone" class="form-control"></div>
@@ -109,9 +112,9 @@ class RepairMixin(BaseHandler):
     <div class="col-12"><label>报修内容 <span class="text-danger">*</span></label><textarea name="description" class="form-control" rows="3" required></textarea></div>
     <div class="col-md-6"><label>维修类别</label><select name="category" class="form-select">
     <option value="水电">水电</option><option value="门窗">门窗</option><option value="管道">管道</option>
-    <option value="墙面">墙面/地面</option><option value="电器">电器</option><option value="其他">其他</option></select></div>
-    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-plus-lg"></i> 提交报修</button>
-    <a href="/repairs" class="btn btn-outline-secondary">取消</a></div></form>''','repairs'))
+    <option value="墙面">墙面/地面</option><option value="电器">电器</option><option value="其他">其他</option></select></div>'''
+            form_html = render_form(fields_html, action='/repairs/create', submit_text='<i class="bi bi-plus-lg"></i> 提交报修', cancel_url='/repairs')
+            self._html(self._page('新建报修', form_html, 'repairs'))
 
     def _repair_create(self, d):
         db=get_db()

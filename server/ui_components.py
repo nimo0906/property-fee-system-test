@@ -32,7 +32,8 @@ def render_table(headers, body_rows_html, *, table_class='table table-hover alig
 def render_form(fields_html, *, action, method='POST', submit_text='保存', cancel_url=None,
                 form_class='row g-3'):
     """Render a standard form shell; CSRF is injected later by BaseHandler._html()."""
-    buttons = [f'<button type="submit" class="btn btn-primary">{_esc(submit_text)}</button>']
+    # submit_text is trusted static UI copy from server-side code; allow icon HTML.
+    buttons = [f'<button type="submit" class="btn btn-primary">{submit_text or "保存"}</button>']
     if cancel_url:
         buttons.append(f'<a class="btn btn-outline-secondary" href="{_esc(cancel_url)}">取消</a>')
     return (

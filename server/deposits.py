@@ -4,7 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
-from server.ui_components import render_table
+from server.ui_components import render_form, render_table
 from datetime import date
 
 
@@ -83,13 +83,14 @@ class DepositMixin(BaseHandler):
         ow_id = str(dep['owner_id']) if dep and dep['owner_id'] else ''
         rm_opts = '<option value="">--选择--</option>' + ''.join(f'<option value="{r["id"]}"{" selected" if rm_id==str(r["id"]) else""}>{h(r["building"])}-{h(r["room_number"])} ({h(r["oname"]or"")})</option>' for r in rooms)
         ow_opts = '<option value="">--选择--</option>' + ''.join(f'<option value="{o["id"]}"{" selected" if ow_id==str(o["id"]) else""}>{h(o["name"])}</option>' for o in owners)
-        self._html(self._page(t, f'''<form method=POST action="{a}" class="row g-3">
+        fields_html = f'''
     <div class="col-md-4"><label>关联房间</label><select name="room_id" class="form-select">{rm_opts}</select></div>
     <div class="col-md-4"><label>业主</label><select name="owner_id" class="form-select">{ow_opts}</select></div>
     <div class="col-md-4"><label>押金金额 <span class="text-danger">*</span></label><div class="input-group"><span class="input-group-text">¥</span><input name="amount" type="number" class="form-control" value="{amt}" step="0.1" min="0" required></div></div>
     <div class="col-md-4"><label>收取日期</label><input name="deposit_date" type="date" class="form-control" value="{dd}"></div>
-    <div class="col-md-4"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>
-    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/deposits" class="btn btn-outline-secondary">取消</a></div></form>''', "deposits"))
+    <div class="col-md-4"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>'''
+        form_html = render_form(fields_html, action=a, submit_text='<i class="bi bi-check-lg"></i> 保存', cancel_url='/deposits')
+        self._html(self._page(t, form_html, "deposits"))
 
     def _deposit_create(self, d):
         db=get_db()

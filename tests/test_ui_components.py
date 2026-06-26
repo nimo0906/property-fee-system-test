@@ -46,3 +46,15 @@ def test_render_form_builds_standard_post_form_without_duplicating_csrf():
     assert '<a class="btn btn-outline-secondary" href="/owners">取消</a>' in html
     assert '_csrf_token' not in html
     assert 'X-CSRF-Token' not in html
+
+
+def test_render_form_allows_safe_submit_html_for_existing_icon_buttons():
+    html = render_form(
+        '<div class="col-12"><input name="memo"></div>',
+        action='/parking/create',
+        submit_text='<i class="bi bi-check-lg"></i> 保存',
+        cancel_url='/parking',
+    )
+
+    assert '<button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button>' in html
+    assert '_csrf_token' not in html

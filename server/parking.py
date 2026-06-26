@@ -4,7 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
-from server.ui_components import render_table
+from server.ui_components import render_form, render_table
 
 
 class ParkingMixin(BaseHandler):
@@ -69,14 +69,15 @@ class ParkingMixin(BaseHandler):
         rm_sel=''
         if spot and spot['room_id']: rm_sel=str(spot['room_id'])
         opts='<option value="">--不绑定--</option>'+''.join(f'<option value="{r["id"]}"{" selected" if rm_sel==str(r["id"]) else""}>{h(r["building"])}-{h(r["room_number"])} ({h(r["oname"]or"")})</option>' for r in rooms)
-        self._html(self._page(t,f'''<form method=POST action="{a}" class="row g-3">
+        fields_html = f'''
     <div class="col-md-4"><label>车位号 <span class="text-danger">*</span></label><input name="spot_number" class="form-control" value="{sn}" required></div>
     <div class="col-md-4"><label>区域/楼层</label><input name="floor_zone" class="form-control" value="{fl}" placeholder="如：B1层/东区"></div>
     <div class="col-md-4"><label>月费(元)</label><input name="monthly_fee" type="number" class="form-control" value="{mf}" step="0.1" min="0"></div>
     <div class="col-md-6"><label>绑定房间</label><select name="room_id" class="form-select">{opts}</select></div>
     <div class="col-md-3"><label>状态</label><select name="status" class="form-select"><option value="occupied"{" selected" if st=="occupied" else""}>已占用</option><option value="vacant"{" selected" if st=="vacant" else""}>空置</option></select></div>
-    <div class="col-md-3"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>
-    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-check-lg"></i> 保存</button> <a href="/parking" class="btn btn-outline-secondary">取消</a></div></form>''','parking'))
+    <div class="col-md-3"><label>备注</label><input name="notes" class="form-control" value="{nt}"></div>'''
+        form_html = render_form(fields_html, action=a, submit_text='<i class="bi bi-check-lg"></i> 保存', cancel_url='/parking')
+        self._html(self._page(t, form_html, 'parking'))
 
     def _parking_create(self, d):
         db=get_db()
