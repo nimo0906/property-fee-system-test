@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Tests for shared UI shell helpers."""
 
-from server.ui_components import render_form, render_table
+from server.ui_components import render_form, render_kv_table, render_table
 
 
 def test_render_table_wraps_headers_rows_and_responsive_container():
@@ -68,3 +68,15 @@ def test_render_table_allows_custom_responsive_wrapper_class():
     )
 
     assert html.startswith('<div class="table-responsive report-compact-table">')
+
+
+def test_render_kv_table_builds_two_column_detail_table():
+    html = render_kv_table([
+        ('备份文件', '<code>backup.db</code>'),
+        ('创建时间', '2026-06-26'),
+    ])
+
+    assert '<table class="table table-borderless mb-0">' in html
+    assert '<td class="text-muted" style="width:130px">备份文件</td>' in html
+    assert '<td><code>backup.db</code></td>' in html
+    assert '<td class="text-muted">创建时间</td>' in html

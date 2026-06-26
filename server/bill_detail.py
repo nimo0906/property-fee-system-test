@@ -9,7 +9,7 @@ from server.bill_batch_edit import BillBatchEditMixin
 from server.bill_single_print import BillSinglePrintMixin
 from server.data_health import cleanup_invalid_payments
 from server.money import money_float
-from server.ui_components import render_table
+from server.ui_components import render_kv_table, render_table
 
 
 def _bill_target_label(row):
@@ -98,18 +98,23 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         pay_btn = f'<a href="/bills/{bid}/pay" class="btn btn-primary mt-3"><i class="bi bi-credit-card"></i> 缴费</a>' if b['status'] != 'paid' else ''
         progress_pct = round(b['paid']/b['amount']*100,1) if b['amount']>0 else 0
         rem_class = 'text-danger' if rem>0 else 'text-success'
+        bill_info_table = render_kv_table([
+            ('编号', f'<strong>{h(b["bill_number"]or"-")}</strong>'),
+            ('对象', h(_bill_target_label(b))),
+            ('客户', h(_bill_customer_label(b))),
+            ('客户快照', h(_row_value(b, 'customer_name_snapshot') or '-')),
+            ('对象快照', h(_row_value(b, 'object_label_snapshot') or '-')),
+            ('费用类型', f'<span class="badge status-info fs-6">{h(b["ft"])}</span>'),
+            ('账期', h(b["billing_period"])),
+            ('状态', f'<span class="badge {sn.get(b["status"], "status-neutral")} fs-6">{ln.get(b["status"], b["status"])}</span>'),
+        ], label_width='110px')
+        formula_table = render_kv_table([
+            ('计算方式', f'<span class="badge status-info">{h(b["calc_method"])}</span>'),
+            ('计算明细', f'<strong>{formula_text}</strong>'),
+        ], label_width='110px')
         self._html(self._page('账单详情',f'''
         <div class="row g-4"><div class="col-md-6"><div class="card"><div class="card-header">账单信息</div>
-        <div class="card-body"><table class="table table-borderless mb-0">
-        <tr><td class="text-muted" style="width:110px">编号</td><td><strong>{h(b["bill_number"]or"-")}</strong></td></tr>
-        <tr><td class="text-muted">对象</td><td>{h(_bill_target_label(b))}</td></tr>
-        <tr><td class="text-muted">客户</td><td>{h(_bill_customer_label(b))}</td></tr>
-        <tr><td class="text-muted">客户快照</td><td>{h(_row_value(b, 'customer_name_snapshot') or '-')}</td></tr>
-        <tr><td class="text-muted">对象快照</td><td>{h(_row_value(b, 'object_label_snapshot') or '-')}</td></tr>
-	        <tr><td class="text-muted">费用类型</td><td><span class="badge status-info fs-6">{h(b["ft"])}</span></td></tr>
-        <tr><td class="text-muted">账期</td><td>{h(b["billing_period"])}</td></tr>
-	        <tr><td class="text-muted">状态</td><td><span class="badge {sn.get(b["status"],'status-neutral')} fs-6">{ln.get(b["status"],b["status"])}</span></td></tr>
-        </table></div></div></div>
+        <div class="card-body">{bill_info_table}</div></div></div>
         <div class="col-md-6"><div class="card"><div class="card-header">缴费信息</div>
 	        <div class="card-body text-center"><p class="text-muted mb-1">应缴金额</p><h2 class="money">¥{m(b["amount"])}</h2><hr>
 	        <div class="row"><div class="col-6"><small>已缴</small><h5 class="money money-paid">¥{m(b["paid"])}</h5></div>
@@ -119,10 +124,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         {pay_section}
         {adj_section}</div></div>
         <div class="card mt-3"><div class="card-header">费用明细核对</div>
-        <div class="card-body"><table class="table table-borderless mb-0">
-	        <tr><td class="text-muted" style="width:110px">计算方式</td><td><span class="badge status-info">{h(b["calc_method"])}</span></td></tr>
-        <tr><td class="text-muted">计算明细</td><td><strong>{formula_text}</strong></td></tr>
-        </table></div></div>
+        <div class="card-body">{formula_table}</div></div>
         <a href='/bills/{bid}/edit' class='btn btn-outline-warning mt-3'><i class='bi bi-pencil'></i> 修改金额</a>
 	        <a href="/bills/{bid}/print" class="btn btn-outline-secondary mt-3" target="_blank"><i class="bi bi-printer"></i> 打印</a>
         <a class="btn btn-outline-secondary mt-3 bill-detail-back" href="{h(back_url)}" data-back-url="{h(back_url)}"><i class="bi bi-arrow-left"></i> 返回账单管理</a>''','bills'))
@@ -152,15 +154,16 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
             FROM bills b LEFT JOIN rooms r ON b.room_id=r.id LEFT JOIN commercial_spaces s ON b.commercial_space_id=s.id LEFT JOIN fee_types f ON b.fee_type_id=f.id WHERE b.id=?''',(bid,)).fetchone()
         if not b:return self._error(404)
         db.close()
+        bill_info_table = render_kv_table([
+            ('对象', h(_bill_target_label(b))),
+            ('费用', f'<span class="badge bg-info">{h(b["ft"])}</span>'),
+            ('账期', h(b["billing_period"])),
+            ('当前金额', f'<strong>¥{m(b["amount"])}</strong>'),
+            ('截止日', h(b["due_date"] or "-")),
+        ])
         self._html(self._page('修改金额',f'''
         <div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">账单信息</div>
-        <div class="card-body"><table class="table table-borderless mb-0">
-        <tr><td class="text-muted">对象</td><td>{h(_bill_target_label(b))}</td></tr>
-        <tr><td class="text-muted">费用</td><td><span class="badge bg-info">{h(b["ft"])}</span></td></tr>
-        <tr><td class="text-muted">账期</td><td>{h(b["billing_period"])}</td></tr>
-        <tr><td class="text-muted">当前金额</td><td><strong>¥{m(b["amount"])}</strong></td></tr>
-        <tr><td class="text-muted">截止日</td><td>{h(b["due_date"] or "-")}</td></tr>
-        </table></div></div></div>
+        <div class="card-body">{bill_info_table}</div></div></div>
         <div class="col-md-7"><div class="card"><div class="card-header">修正账单</div>
         <div class="card-body">
         <form method=POST action="/bills/{bid}/edit" class="row g-3">

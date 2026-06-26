@@ -8,6 +8,7 @@ from datetime import datetime, date
 import server.db as db_module
 from server.db import get_db, h, m, db_init, qs
 from server.base import BaseHandler
+from server.ui_components import render_kv_table
 
 
 def create_db_backup(prefix='backup'):
@@ -196,6 +197,12 @@ def read_backup_data_summary(path):
 def _backup_summary_html(summary):
     if not summary['ok']:
         return f'<div class="alert alert-warning"><strong>备份数据摘要读取失败</strong>：{h(summary["error"])}</div>'
+    summary_table = render_kv_table([
+        ('账单金额合计', m(summary['bill_amount'])),
+        ('缴费金额合计', m(summary['payment_amount'])),
+        ('最近账期', h(summary['periods'] or '无')),
+        ('主要楼栋', h(summary['buildings'] or '无')),
+    ], table_class='table table-sm mb-0', label_width='140px')
     return f'''
         <div class="card"><div class="card-header">备份数据摘要</div>
         <div class="card-body">
@@ -205,11 +212,6 @@ def _backup_summary_html(summary):
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">账单数</div><div class="fs-4 fw-bold">{summary['bills']}</div></div></div>
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">缴费记录数</div><div class="fs-4 fw-bold">{summary['payments']}</div></div></div>
         </div>
-        <table class="table table-sm mb-0">
-            <tr><td class="text-muted" style="width:140px">账单金额合计</td><td>{m(summary['bill_amount'])}</td></tr>
-            <tr><td class="text-muted">缴费金额合计</td><td>{m(summary['payment_amount'])}</td></tr>
-            <tr><td class="text-muted">最近账期</td><td>{h(summary['periods'] or '无')}</td></tr>
-            <tr><td class="text-muted">主要楼栋</td><td>{h(summary['buildings'] or '无')}</td></tr>
-        </table></div></div>'''
+        {summary_table}</div></div>'''
 
 __all__ = [name for name in globals() if not name.startswith('__')]

@@ -11,6 +11,7 @@ import server.db as db_module
 from server.base import BaseHandler
 from server.db import get_db, h, m
 from server.form_parser import parse_form_data
+from server.ui_components import render_table
 
 
 ALLOWED_EXTS = {".pdf", ".jpg", ".jpeg", ".png"}
@@ -109,7 +110,14 @@ def render_contract_attachments(contract_id):
         <td><a class="btn btn-sm btn-outline-primary" href="/merchant_contracts/{contract_id}/attachments/{r['id']}/download">下载/预览</a>
         {('<form method="POST" action="/merchant_contracts/'+str(contract_id)+'/attachments/'+str(r['id'])+'/recognize" class="d-inline"><button class="btn btn-sm btn-outline-warning">识别协议</button></form>') if (r['attachment_type'] or '') == '补充协议' else ''}</td></tr>"""
         for r in rows
-    ) or '<tr><td colspan="6" class="text-center text-muted py-3">暂无合同附件</td></tr>'
+    )
+    table_html = render_table(
+        ['类型', '文件名', '大小', '上传人', '上传时间', ''],
+        body,
+        table_class='table table-sm mb-0',
+        empty_text='暂无合同附件',
+        col_count=6,
+    )
     return f"""
     <div class="card mb-3"><div class="card-header">合同附件</div>
       <div class="card-body">
@@ -122,9 +130,7 @@ def render_contract_attachments(contract_id):
           <div class="col-12 small text-muted">仅允许 PDF、JPG、JPEG、PNG，单个文件最大 30MB；文件保存在本地数据目录，不允许任意路径读取。</div>
         </form>
       </div>
-      <div class="table-responsive"><table class="table table-sm mb-0">
-        <thead><tr><th>类型</th><th>文件名</th><th>大小</th><th>上传人</th><th>上传时间</th><th></th></tr></thead><tbody>{body}</tbody>
-      </table></div>
+      {table_html}
     </div>"""
 
 

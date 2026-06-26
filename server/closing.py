@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from server.base import BaseHandler
 from server.billing_periods import natural_date_range_filter_clause
 from server.db import add_months, date_to_period, get_db, h, is_period_closed, m, period_to_date, qs, customer_name
-from server.ui_components import render_table
+from server.ui_components import render_kv_table, render_table
 
 
 class ClosingMixin(BaseHandler):
@@ -165,6 +165,12 @@ class ClosingMixin(BaseHandler):
         )
         details_html = f'''<div class="card"><div class="card-header">本次将结账的账单明细</div>
             <div class="card-body p-0">{detail_table}</div></div>'''
+        amount_table = render_kv_table([
+            ('应收合计', f'<span class="float-end">¥{m(stats.get("total_amount") or 0)}</span>'),
+            ('已缴账单金额', f'<span class="float-end">¥{m(stats.get("paid_amount") or 0)}</span>'),
+            ('部分缴费账单金额', f'<span class="float-end">¥{m(stats.get("partial_amount") or 0)}</span>'),
+            ('未缴账单金额', f'<span class="float-end">¥{m(stats.get("unpaid_amount") or 0)}</span>'),
+        ], table_class='table table-sm mb-0', label_width='')
         confirm_form = f'''<form method=POST action="/closing/close" class="d-inline">
             <input type=hidden name="period" value="{h(period)}"><input type=hidden name="period_start" value="{h(period_start or '')}"><input type=hidden name="period_end" value="{h(period_end or '')}"><input type=hidden name="notes" value="{h(notes)}"><input type=hidden name="confirm" value="1">
             <button class="btn btn-danger" onclick="return confirm('确认结账？结账后该日期范围将被锁定。')">确认结账</button>
@@ -181,12 +187,7 @@ class ClosingMixin(BaseHandler):
             <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">部分缴费</div><strong>{stats.get('partial_count') or 0}</strong></div></div>
             <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">未缴账单</div><strong>{stats.get('unpaid_count') or 0}</strong></div></div>
         </div>
-        <div class="card"><div class="card-header">金额核对</div><div class="card-body"><table class="table table-sm mb-0">
-            <tr><td>应收合计</td><td class="text-end">¥{m(stats.get('total_amount') or 0)}</td></tr>
-            <tr><td>已缴账单金额</td><td class="text-end">¥{m(stats.get('paid_amount') or 0)}</td></tr>
-            <tr><td>部分缴费账单金额</td><td class="text-end">¥{m(stats.get('partial_amount') or 0)}</td></tr>
-            <tr><td>未缴账单金额</td><td class="text-end">¥{m(stats.get('unpaid_amount') or 0)}</td></tr>
-        </table></div></div>
+        <div class="card"><div class="card-header">金额核对</div><div class="card-body">{amount_table}</div></div>
         <div class="alert alert-light border"><strong>异常提醒</strong><ul class="mb-0">{warning_html}</ul></div>
         {details_html}
         {actions}
@@ -216,23 +217,25 @@ class ClosingMixin(BaseHandler):
         start, end, label = self._range_from_period(period)
         stats = self._closing_period_stats(db, period, start, end)
         db.close()
+        record_table = render_kv_table([
+            ('日期范围', h(label or period)),
+            ('结账时间', h(rec['close_date'] or '-')),
+            ('操作员', h(rec['operator'] or '-')),
+            ('已缴笔数', rec['paid_count'] or 0),
+            ('结账金额', f'¥{m(rec["total_amount"] or 0)}'),
+            ('备注', h(rec['notes'] or '-')),
+        ])
+        stats_table = render_kv_table([
+            ('账单总数', f'<span class="float-end">{stats.get("total_count") or 0}</span>'),
+            ('已缴账单', f'<span class="float-end">{stats.get("paid_count") or 0}</span>'),
+            ('部分缴费', f'<span class="float-end">{stats.get("partial_count") or 0}</span>'),
+            ('未缴账单', f'<span class="float-end">{stats.get("unpaid_count") or 0}</span>'),
+            ('应收合计', f'<span class="float-end">¥{m(stats.get("total_amount") or 0)}</span>'),
+        ], table_class='table table-sm mb-0', label_width='')
         self._html(self._page('反结账确认', f'''
         <div class="alert alert-danger"><strong>反结账确认</strong>：请确认要重新打开日期范围 <code>{h(label or period)}</code>。</div>
-        <div class="card"><div class="card-header">原结账信息</div><div class="card-body"><table class="table table-borderless mb-0">
-            <tr><td class="text-muted" style="width:130px">日期范围</td><td>{h(label or period)}</td></tr>
-            <tr><td class="text-muted">结账时间</td><td>{h(rec['close_date'] or '-')}</td></tr>
-            <tr><td class="text-muted">操作员</td><td>{h(rec['operator'] or '-')}</td></tr>
-            <tr><td class="text-muted">已缴笔数</td><td>{rec['paid_count'] or 0}</td></tr>
-            <tr><td class="text-muted">结账金额</td><td>¥{m(rec['total_amount'] or 0)}</td></tr>
-            <tr><td class="text-muted">备注</td><td>{h(rec['notes'] or '-')}</td></tr>
-        </table></div></div>
-        <div class="card"><div class="card-header">当前账单摘要</div><div class="card-body"><table class="table table-sm mb-0">
-            <tr><td>账单总数</td><td class="text-end">{stats.get('total_count') or 0}</td></tr>
-            <tr><td>已缴账单</td><td class="text-end">{stats.get('paid_count') or 0}</td></tr>
-            <tr><td>部分缴费</td><td class="text-end">{stats.get('partial_count') or 0}</td></tr>
-            <tr><td>未缴账单</td><td class="text-end">{stats.get('unpaid_count') or 0}</td></tr>
-            <tr><td>应收合计</td><td class="text-end">¥{m(stats.get('total_amount') or 0)}</td></tr>
-        </table></div></div>
+        <div class="card"><div class="card-header">原结账信息</div><div class="card-body">{record_table}</div></div>
+        <div class="card"><div class="card-header">当前账单摘要</div><div class="card-body">{stats_table}</div></div>
         <div class="alert alert-warning"><strong>风险提示</strong>：反结账后该日期范围将重新允许生成账单、收费、修改、删除和批量操作，请确认这是有意操作。</div>
         <form method=POST action="/closing/reopen" onsubmit="return confirm('确认反结账？该日期范围将重新开放修改。')">
             <input type=hidden name="period" value="{h(period)}"><input type=hidden name="confirm" value="1">

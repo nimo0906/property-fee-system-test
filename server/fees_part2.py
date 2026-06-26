@@ -1,4 +1,5 @@
 from server.fees_shared import *
+from server.ui_components import render_table
 
 class FeeMixinPart2(BaseHandler):
     def _fee_type_create(self, d):
@@ -82,9 +83,15 @@ class FeeMixinPart2(BaseHandler):
 <td><input name="floor_to_{t["id"]}" class="form-control form-control-sm" value="{t["floor_to"]}" style="width:70px;display:inline"></td>
 <td><input name="rate_{t["id"]}" class="form-control form-control-sm" value="{t["rate"]}" step="0.01" style="width:100px;display:inline"> 元/m²</td>
 </tr>""" for t in tiers)
+        table_html = render_table(
+            ['起始楼层', '结束楼层', '单价(元/m²)'],
+            rows,
+            table_class='table',
+            responsive=False,
+        )
         self._html(self._page("电梯费阶梯设置",f"""<div class="alert alert-info"><i class="bi bi-info-circle"></i> 电梯费 = 楼层对应单价 × 房屋面积。修改后会影响下次生成的账单。</div>
 <form method=POST action="/elevator_tiers/update" class="card"><div class="card-body">
-<table class="table"><thead><tr><th>起始楼层</th><th>结束楼层</th><th>单价(元/m²)</th></tr></thead><tbody>{rows}</tbody></table>
+{table_html}
 <button class="btn btn-primary"><i class="bi bi-save"></i> 保存修改</button>
 <a href="/fee_types" class="btn btn-outline-secondary">返回费用类型</a>
 </div></form>""","fee_types"))

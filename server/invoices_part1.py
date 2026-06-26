@@ -1,4 +1,5 @@
 from server.invoices_shared import *
+from server.ui_components import render_table
 
 class InvoiceMixinPart1(BaseHandler):
     def _invoice_requests(self, q):
@@ -17,13 +18,18 @@ class InvoiceMixinPart1(BaseHandler):
             <select name="status" class="form-select form-select-sm"><option value="submitted">submitted</option><option value="issued">issued</option><option value="failed">failed</option></select>
             <input name="external_invoice_id" class="form-control form-control-sm" placeholder="外部票据号">
             <button class="btn btn-sm btn-primary">更新</button></form></td></tr>'''
+        table_html = render_table(
+            ['请求号', '抬头', ('金额', 'text-end'), '状态', '外部票据号', '操作'],
+            rows,
+            table_class='table table-hover mb-0',
+            empty_text='暂无电子票据请求',
+            col_count=6,
+        )
         self._html(self._page('电子票据请求', f'''
         <div class="d-flex justify-content-between mb-3"><form method="GET" class="d-flex gap-2">
         <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">{status_options}</select>
         <a href="/invoice_requests" class="btn btn-sm btn-outline-secondary">重置</a></form></div>
-        <div class="card"><div class="card-header">电子票据请求</div><div class="table-responsive"><table class="table table-hover mb-0">
-        <thead><tr><th>请求号</th><th>抬头</th><th class="text-end">金额</th><th>状态</th><th>外部票据号</th><th style="min-width:360px">操作</th></tr></thead>
-        <tbody>{rows or '<tr><td colspan="6" class="text-center text-muted py-3">暂无电子票据请求</td></tr>'}</tbody></table></div></div>
+        <div class="card"><div class="card-header">电子票据请求</div>{table_html}</div>
         ''', 'invoices'))
 
     def _invoice_request_status_post(self, request_no, d):
@@ -104,6 +110,13 @@ class InvoiceMixinPart1(BaseHandler):
             rh+='<td><span class="badge bg-success">已开具</span></td>'
             rh+='<td><a href="/invoices/'+str(r['id'])+'/print" class="btn btn-sm btn-outline-info"><i class="bi bi-printer"></i> 打印</a> '
             rh+='<form method=POST action="/invoices/'+str(r['id'])+'/delete" style=display:inline><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
+        invoice_table = render_table(
+            ['发票号', '房间', '业主', ('金额', 'text-end'), '开票日期', '状态', '操作'],
+            rh,
+            table_class='table table-hover mb-0',
+            empty_text='暂无发票',
+            col_count=7,
+        )
         av_opts = '<option value="">--选择--</option>'
         current_group = None
         for a in avail:
@@ -141,8 +154,7 @@ class InvoiceMixinPart1(BaseHandler):
     </div></section>
     <div class="row g-4">
     <div class="col-md-8"><section class="invoice-section" data-invoice-section="issued"><div class="invoice-section-title"><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({period_label})</small></div>
-    <div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>发票号</th><th>房间</th><th>业主</th><th class="text-end">金额</th><th>开票日期</th><th>状态</th><th style="width:100px">操作</th></tr></thead>
-    <tbody>{rh or '<tr><td colspan="7" class="text-center text-muted py-3">暂无发票</td></tr>'}</tbody></table></div></section></div>
+    {invoice_table}</section></div>
     <div class="col-md-4"><section class="invoice-section" data-invoice-section="available"><div class="invoice-section-title"><i class="bi bi-receipt"></i> 待开票账单</div>
     <div class="card-body"><form method=POST action="/invoices/create" class="row g-3">
     <input type="hidden" name="period_start" value="{h(period_start)}">

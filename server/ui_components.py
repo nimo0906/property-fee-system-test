@@ -43,3 +43,16 @@ def render_form(fields_html, *, action, method='POST', submit_text='保存', can
         f'<div class="col-12 d-flex gap-2">{"".join(buttons)}</div>'
         '</form>'
     )
+
+
+def render_kv_table(rows, *, table_class='table table-borderless mb-0', label_width='130px'):
+    """Render a simple key/value detail table; values are trusted server-side HTML."""
+    body = []
+    first = True
+    for label, value in rows:
+        width = f' style="width:{_esc(label_width)}"' if first and label_width else ''
+        body.append(
+            f'<tr><td class="text-muted"{width}>{_esc(label)}</td><td>{str(value) if value is not None else ""}</td></tr>'
+        )
+        first = False
+    return f'<table class="{_esc(table_class)}">{"".join(body)}</table>'

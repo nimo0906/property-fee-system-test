@@ -1,5 +1,6 @@
 from server.base_shared import *
 from server.csrf import csrf_token_for_handler, inject_csrf_fields
+from server.ui_components import render_table
 
 class BaseHandlerPart1(BaseHttpHandler):
     def log_message(self, *a): pass
@@ -185,7 +186,14 @@ class BaseHandlerPart1(BaseHttpHandler):
             <td>{h(r["entity_type"] or "-")} #{h(r["entity_id"] or "")}</td><td>{h(r["username"] or "系统")}</td>
             <td>{h(r["reason"] or "-")}</td><td><details><summary>查看变更详情（格式化详情）</summary><pre class="small mb-0">old: {h(self._format_audit_value(r["old_value"]))}\nnew: {h(self._format_audit_value(r["new_value"]))}</pre>{self._audit_diff_html(r["old_value"], r["new_value"])}</details></td></tr>'''
             for r in rows
-        ) or '<tr><td colspan="7" class="text-center text-muted py-4">暂无操作日志</td></tr>'
+        )
+        audit_table = render_table(
+            ['选择', '时间', '动作', '对象', '操作人', '原因', '详情'],
+            body,
+            table_class='table table-hover align-middle small',
+            empty_text='暂无操作日志',
+            col_count=7,
+        )
         self._html(self._page('操作日志', f'''
         <div class="alert alert-info"><i class="bi bi-journal-check"></i> 记录金额修改、账单删除、备份恢复、用户登录、数据导入等关键操作，便于内部核对。</div>
         <div class="metric-grid mb-3">
@@ -223,9 +231,7 @@ class BaseHandlerPart1(BaseHttpHandler):
                 </div>
             </section>
         </div>
-        <div class="audit-log-table"><div class="table-responsive"><table class="table table-hover align-middle small">
-        <thead><tr><th>选择</th><th>时间</th><th>动作</th><th>对象</th><th>操作人</th><th>原因</th><th>详情</th></tr></thead><tbody>{body}</tbody></table></div>
-        </div>
+        <div class="audit-log-table">{audit_table}</div>
         ''', 'audit_logs'))
 
     def _audit_logs_csv(self, q):

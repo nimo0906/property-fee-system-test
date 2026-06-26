@@ -1,6 +1,6 @@
 from server.backups_shared import *
 import urllib.parse
-from server.ui_components import render_table
+from server.ui_components import render_kv_table, render_table
 
 class BackupMixinPart1Group2(BaseHandler):
     def _backup_restore_confirm(self, name):
@@ -11,15 +11,16 @@ class BackupMixinPart1Group2(BaseHandler):
         size = _format_size(os.path.getsize(bp))
         mtime = datetime.fromtimestamp(os.path.getmtime(bp)).strftime('%Y-%m-%d %H:%M:%S')
         summary_html = _backup_summary_html(read_backup_data_summary(bp))
+        backup_table = render_kv_table([
+            ('备份文件', f'<code>{h(name)}</code>'),
+            ('备份类型', h(type_label)),
+            ('文件大小', h(size)),
+            ('创建时间', h(mtime)),
+        ])
         self._html(self._page('恢复备份确认', f'''
         <div class="alert alert-danger"><strong>恢复备份确认</strong>：恢复会覆盖当前数据库，请确认选择正确。</div>
         <div class="card"><div class="card-header">将恢复的备份</div>
-        <div class="card-body"><table class="table table-borderless mb-0">
-        <tr><td class="text-muted" style="width:130px">备份文件</td><td><code>{h(name)}</code></td></tr>
-        <tr><td class="text-muted">备份类型</td><td>{h(type_label)}</td></tr>
-        <tr><td class="text-muted">文件大小</td><td>{h(size)}</td></tr>
-        <tr><td class="text-muted">创建时间</td><td>{h(mtime)}</td></tr>
-        </table></div></div>
+        <div class="card-body">{backup_table}</div></div>
         {summary_html}
         <div class="alert alert-warning">当前数据会先自动备份为 <code>auto_before_restore_*.db</code>，恢复后如果发现选错，可以在备份页再恢复该自动备份。</div>
         <form method="POST" action="/backups/{h(name)}/restore" class="row g-2 align-items-end"
@@ -46,6 +47,12 @@ class BackupMixinPart1Group2(BaseHandler):
         self._audit('backup_restore', 'backup', None, {'backup': name}, {'restore_backup': restore_backup_name}, '恢复数据库备份')
         summary = read_backup_data_summary(db_module.DB_PATH)
         if summary['ok']:
+            summary_table = render_kv_table([
+                ('账单金额合计', m(summary['bill_amount'])),
+                ('缴费金额合计', m(summary['payment_amount'])),
+                ('最近账期', h(summary['periods'] or '无')),
+                ('主要楼栋', h(summary['buildings'] or '无')),
+            ], table_class='table table-sm mb-0', label_width='140px')
             summary_html = f'''
         <div class="card"><div class="card-header">当前数据库摘要</div><div class="card-body">
         <div class="row g-3 mb-3">
@@ -54,21 +61,17 @@ class BackupMixinPart1Group2(BaseHandler):
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">账单数</div><div class="fs-4 fw-bold">{summary['bills']}</div></div></div>
             <div class="col-md-3"><div class="border rounded p-3 text-center"><div class="text-muted">缴费记录数</div><div class="fs-4 fw-bold">{summary['payments']}</div></div></div>
         </div>
-        <table class="table table-sm mb-0">
-            <tr><td class="text-muted" style="width:140px">账单金额合计</td><td>{m(summary['bill_amount'])}</td></tr>
-            <tr><td class="text-muted">缴费金额合计</td><td>{m(summary['payment_amount'])}</td></tr>
-            <tr><td class="text-muted">最近账期</td><td>{h(summary['periods'] or '无')}</td></tr>
-            <tr><td class="text-muted">主要楼栋</td><td>{h(summary['buildings'] or '无')}</td></tr>
-        </table></div></div>'''
+        {summary_table}</div></div>'''
         else:
             summary_html = f'<div class="alert alert-warning">当前数据库摘要读取失败：{h(summary["error"])}</div>'
+        result_table = render_kv_table([
+            ('恢复的备份', f'<code>{h(name)}</code>'),
+            ('恢复前自动备份', f'<code>{h(restore_backup_name or "无")}</code>'),
+        ], label_width='150px')
         self._html(self._page('恢复完成', f'''
         <div class="alert alert-success"><strong>恢复完成</strong>：已从 <code>{h(name)}</code> 恢复数据。</div>
         <div class="card"><div class="card-header">恢复结果</div><div class="card-body">
-        <table class="table table-borderless mb-0">
-            <tr><td class="text-muted" style="width:150px">恢复的备份</td><td><code>{h(name)}</code></td></tr>
-            <tr><td class="text-muted">恢复前自动备份</td><td><code>{h(restore_backup_name or '无')}</code></td></tr>
-        </table></div></div>
+        {result_table}</div></div>
         {summary_html}
         <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-primary" href="/">去首页</a>
