@@ -4,6 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
+from server.ui_components import render_table
 from datetime import date
 
 
@@ -48,6 +49,11 @@ class DepositMixin(BaseHandler):
         for v, l in [('active','押金中'),('refunded','已退还')]:
             sel = ' selected' if st == v else ''
             st_opts += f'<option value="{v}"{sel}>{l}</option>'
+        table_html = render_table(
+            ['房间', '业主', ('押金金额', 'text-end'), '收取日期', ('退还金额', 'text-end'), '退还日期', '状态', '备注', '操作'],
+            rh,
+            empty_text='暂无押金记录',
+        )
 
         self._html(self._page("押金管理", f'''
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
@@ -59,9 +65,7 @@ class DepositMixin(BaseHandler):
     <div class="d-flex gap-2 mb-2 flex-wrap">
     <span class="badge bg-light text-dark p-2"><i class="bi bi-cash-stack"></i> 押金中: <strong>¥{m(total_active)}</strong></span>
     <span class="badge bg-secondary p-2">已退还: ¥{m(total_refunded)}</span></div>
-    <div class="table-responsive"><table class="table table-hover align-middle">
-    <thead><tr><th>房间</th><th>业主</th><th class="text-end">押金金额</th><th>收取日期</th><th class="text-end">退还金额</th><th>退还日期</th><th>状态</th><th>备注</th><th style="width:130px">操作</th></tr></thead>
-    <tbody>{rh or '<tr><td colspan="9" class="text-center text-muted py-4">暂无押金记录</td></tr>'}</tbody></table></div>''', "deposits"))
+    {table_html}''', "deposits"))
 
     def _deposit_form(self, did):
         db=get_db();dep=None

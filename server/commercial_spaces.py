@@ -5,6 +5,7 @@
 from server.base import BaseHandler
 from server.db import get_db, h, m, n, qs
 from server.pagination import pagination_state, query_items, render_pagination
+from server.ui_components import render_table
 
 
 def create_commercial_space(data):
@@ -57,11 +58,17 @@ class CommercialSpaceMixin(BaseHandler):
             <td><span class="badge {'status-success' if r['status']=='active' else 'status-neutral'}">{h(r['status'])}</span></td>
             <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/commercial_spaces/{r['id']}/edit">编辑</a></td></tr>"""
             for r in rows
-        ) or '<tr><td colspan="9" class="text-center text-muted py-4">暂无空间档案</td></tr>'
+        )
+        table_html = render_table(
+            ['铺位号', '店铺', '商户', '业态', '楼层', ('面积', 'text-end'), '水费标准', '状态', ('操作', 'text-end')],
+            body,
+            table_class='table table-hover align-middle mb-0',
+            empty_text='暂无空间档案',
+        )
         self._html(self._page('空间合同档案', f'''
         <div class="alert alert-info">空间档案作为行政档案/合同备查使用，不局限于商场；日常收费仍以房间管理和收费入口为准。</div>
         <div class="card"><div class="card-header d-flex justify-content-between"><span><i class="bi bi-shop"></i> 空间/铺位档案</span><a class="btn btn-primary btn-sm" href="/commercial_spaces/create">新增空间档案</a></div>
-        <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>铺位号</th><th>店铺</th><th>商户</th><th>业态</th><th>楼层</th><th class="text-end">面积</th><th>水费标准</th><th>状态</th><th class="text-end">操作</th></tr></thead><tbody>{body}</tbody></table></div></div>
+        {table_html}</div>
         {render_pagination('/commercial_spaces', query_items(q, ['keyword']), pg, total_pages, per_page, total_rows, '商铺档案分页')}
         ''', 'merchant_contracts'))
 

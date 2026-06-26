@@ -4,6 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
+from server.ui_components import render_table
 
 
 class ParkingMixin(BaseHandler):
@@ -41,14 +42,17 @@ class ParkingMixin(BaseHandler):
             rh += "<td>" + status_str + "</td>"
             rh += "<td><small>" + notes + "</small></td>"
             rh += "<td>" + spot_link + del_form + "</td></tr>"
+        table_html = render_table(
+            ['车位号', '区域/楼层', '绑定房间', '业主', ('月费', 'text-end'), '状态', '备注', '操作'],
+            rh,
+            empty_text='暂无车位',
+        )
         self._html(self._page("停车管理",f'''
     <span class="badge bg-light text-dark p-2"><i class="bi bi-car-front"></i> 共{len(rows)}个车位</span>
     <span class="badge bg-success p-2">已占用{occupied}</span>
     <span class="badge bg-secondary p-2">空置{vacant}</span>
     <span class="badge bg-info p-2">月费合计 ¥{m(total_fee)}</span></div>
-    <div class="table-responsive"><table class="table table-hover align-middle">
-    <thead><tr><th>车位号</th><th>区域/楼层</th><th>绑定房间</th><th>业主</th><th class="text-end">月费</th><th>状态</th><th>备注</th><th style="width:100px">操作</th></tr></thead>
-    <tbody>{rh or '<tr><td colspan="8" class="text-center text-muted py-4">暂无车位</td></tr>'}</tbody></table></div>''','parking'))
+    {table_html}''','parking'))
 
     def _parking_form(self, pid):
         db=get_db();spot=None
