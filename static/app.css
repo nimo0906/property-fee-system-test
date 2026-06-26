@@ -1,22 +1,7 @@
-/* Split stylesheet entrypoint. Keep this file small; detailed rules live in app-*.css. */
-@import url('/static/app-core-1-1.css?v=20260614split2');
-@import url('/static/app-core-1-2.css?v=20260614split2');
-@import url('/static/app-core-2-1.css?v=20260614split2');
-@import url('/static/app-core-2-2.css?v=20260614split2');
-@import url('/static/app-core-3-1.css?v=20260614split2');
-@import url('/static/app-core-3-2.css?v=20260614split2');
-@import url('/static/app-core-4.css?v=20260614split');
-@import url('/static/app-polish.css?v=20260614split');
-@import url('/static/app-redesign-1.css?v=20260614split');
-@import url('/static/app-redesign-2.css?v=20260614split');
-@import url('/static/app-readability-1.css?v=20260614split2');
-@import url('/static/app-readability-2.css?v=20260614split2');
-@import url('/static/app-command-1-1.css?v=20260614split2');
-@import url('/static/app-command-1-2.css?v=20260614split2');
-@import url('/static/app-command-2-1.css?v=20260614split2');
-@import url('/static/app-command-2-2.css?v=20260614split2');
-@import url('/static/app-command-3.css?v=20260614split');
-@import url('/static/app-brand-polish.css?v=20260615brand');
+/* Stylesheet entrypoint. Detailed rules are physically merged by responsibility. */
+@import url('/static/app-base.css?v=20260626merge1');
+@import url('/static/app-overrides.css?v=20260626merge1');
+@import url('/static/app-components.css?v=20260626merge1');
 
 @import url('/static/report_refine.css?v=20260614reports');
 
