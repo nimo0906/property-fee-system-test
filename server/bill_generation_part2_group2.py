@@ -1,4 +1,5 @@
 from server.bill_generation_shared import *
+from server.ui_components import render_table
 
 class BillGenerationMixinPart2Group2(BaseHandler):
     def _bill_undo_generated(self, d):
@@ -32,7 +33,14 @@ class BillGenerationMixinPart2Group2(BaseHandler):
     def _render_bill_undo_result(self, period, deleted, skipped):
         skip_rows = ''.join(
             f'<tr><td>{h(bid)}</td><td>{h(reason)}</td></tr>' for bid, reason in skipped
-        ) or '<tr><td colspan="2" class="text-muted text-center">无</td></tr>'
+        )
+        skip_table = render_table(
+            ['账单ID', '原因'],
+            skip_rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+            empty_text='无',
+        )
         self._html(self._page('撤销生成结果', f'''
         <div class="alert alert-info"><strong>撤销生成结果</strong>：已处理本次生成账单撤销请求。</div>
         <div class="row text-center g-2 mb-3">
@@ -40,7 +48,7 @@ class BillGenerationMixinPart2Group2(BaseHandler):
         <div class="col-md-6"><div class="border rounded p-3"><div class="text-muted small">跳过账单</div><strong>{len(skipped)}</strong></div></div>
         </div>
         <div class="card"><div class="card-header">跳过原因</div>
-        <table class="table table-sm mb-0"><thead><tr><th>账单ID</th><th>原因</th></tr></thead><tbody>{skip_rows}</tbody></table></div>
+        {skip_table}</div>
         <div class="mt-3 d-flex gap-2">
             <a class="btn btn-primary" href="/bills?period={h(period)}">返回账单列表</a>
             <a class="btn btn-outline-secondary" href="/bills/generate">重新生成</a>
@@ -68,10 +76,16 @@ class BillGenerationMixinPart2Group2(BaseHandler):
             f'<tr><td>{h(room)}</td><td>{h(fee)}</td><td><span class="badge bg-warning text-dark">{h(reason)}</span></td></tr>'
             for room, fee, reason in warnings[:100]
         )
+        warning_table = render_table(
+            ['房间', '收费项目', '提示'],
+            rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+        )
         return f"""
         <div class="card mt-3 border-warning"><div class="card-header text-warning">异常核对清单</div>
         <div class="card-body"><p class="small text-muted">这些项目不一定是错误，但收费前必须人工确认。</p>
-        <table class="table table-sm mb-0"><thead><tr><th>房间</th><th>收费项目</th><th>提示</th></tr></thead><tbody>{rows}</tbody></table>
+        {warning_table}
         </div></div>"""
 
     def _bill_filter_summary(self, filters):

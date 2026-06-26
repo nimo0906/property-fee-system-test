@@ -9,6 +9,7 @@ import server.db as db_module
 from server.backups import create_db_backup
 from server.base import BaseHandler
 from server.db import get_db, h, m
+from server.ui_components import render_table
 
 BUSINESS_TABLES = [
     'invoice_requests', 'notification_events', 'payment_callbacks', 'payment_orders',
@@ -119,11 +120,25 @@ class TrialDataResetMixin(BaseHandler):
         rows = ''.join(
             f'<tr><td>{h(item["label"])}</td><td class="text-end">{item["count"]}</td></tr>'
             for item in summary['items']
-        ) or '<tr><td colspan="2" class="text-center text-muted">暂无试用数据</td></tr>'
+        )
         contract_rows = ''.join(
             f'<tr><td>{h(item["label"])}</td><td class="text-end">{item["count"]}</td></tr>'
             for item in summary['contract_items']
-        ) or '<tr><td colspan="2" class="text-center text-muted">暂无合同档案数据</td></tr>'
+        )
+        summary_table = render_table(
+            ['类型', ('数量', 'text-end')],
+            rows,
+            table_class='table table-sm',
+            responsive=False,
+            empty_text='暂无试用数据',
+        )
+        contract_table = render_table(
+            ['类型', ('数量', 'text-end')],
+            contract_rows,
+            table_class='table table-sm',
+            responsive=False,
+            empty_text='暂无合同档案数据',
+        )
         self._html(self._page('清空试用业务数据', f'''
         <div class="alert alert-warning"><strong>清空试用业务数据</strong>：仅用于内测/演示环境重新验证流程。它会真实删除数据库中的业务记录，不是隐藏数据。</div>
         <div class="alert alert-light border">
@@ -141,10 +156,10 @@ class TrialDataResetMixin(BaseHandler):
         </div>
         <div class="row g-3"><div class="col-lg-7">
         <div class="small text-muted mb-2">基础业务资料和收费记录</div>
-        <table class="table table-sm"><thead><tr><th>类型</th><th class="text-end">数量</th></tr></thead><tbody>{rows}</tbody></table>
+        {summary_table}
         </div><div class="col-lg-5">
         <div class="small text-muted mb-2">合同档案和商业空间</div>
-        <table class="table table-sm"><thead><tr><th>类型</th><th class="text-end">数量</th></tr></thead><tbody>{contract_rows}</tbody></table>
+        {contract_table}
         </div></div>
         </div></div>
         <form method="POST" action="/trial_data_reset" onsubmit="return confirm('确认按所选范围清空数据？执行前会自动备份，但所选记录会从数据库删除。')" class="card">

@@ -4,6 +4,7 @@
 
 from server.db import get_db, db_init, h, m
 from server.money import money_float
+from server.ui_components import render_table
 
 
 EXPECTED_TABLES = [
@@ -188,14 +189,26 @@ class DataHealthMixin:
         finance = financial_integrity_issues()
         missing_table_rows = ''.join(f'<tr><td><code>{h(x)}</code></td><td>缺失表</td></tr>' for x in schema['missing_tables'])
         missing_col_rows = ''.join(f'<tr><td><code>{h(x["table"])}.{h(x["column"])}</code></td><td>缺失字段</td></tr>' for x in schema['missing_columns'])
-        schema_rows = missing_table_rows + missing_col_rows or '<tr><td colspan="2" class="text-center text-muted py-3">schema 完整</td></tr>'
+        schema_rows = missing_table_rows + missing_col_rows
         finance_rows = self._health_bill_rows(finance['paid_status_but_underpaid'], '已缴状态但收款不足')
         finance_rows += self._health_bill_rows(finance['unpaid_status_but_paid'], '未缴状态但已有收款')
         finance_rows += self._health_bill_rows(finance['overpaid_bills'], '收款超过应收')
         finance_rows += self._health_payment_rows(finance['orphan_payments'], '孤立收款记录')
         finance_rows += self._health_payment_rows(finance['stale_linked_payments'], '疑似串账收款')
-        if not finance_rows:
-            finance_rows = '<tr><td colspan="8" class="text-center text-muted py-3">账单/收款状态一致</td></tr>'
+        schema_table = render_table(
+            ['对象', '问题'],
+            schema_rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+            empty_text='schema 完整',
+        )
+        finance_table = render_table(
+            ['问题', '编号', '房间', '业主', '账期', ('应收', 'text-end'), ('已收', 'text-end'), '状态'],
+            finance_rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+            empty_text='账单/收款状态一致',
+        )
         self._html(self._page('系统健康检查', f'''
         <div class="alert alert-info"><strong>系统健康检查</strong>：用于检查数据库结构、账单状态和收款记录是否一致。修复前建议先备份。</div>
         <div class="row g-3 mb-3">
@@ -204,10 +217,10 @@ class DataHealthMixin:
         </div>
         <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>数据库结构</span>
           <form method="POST" action="/system_health/repair"><input type="hidden" name="repair" value="schema"><button class="btn btn-sm btn-outline-primary">修复结构</button></form></div>
-          <table class="table table-sm mb-0"><thead><tr><th>对象</th><th>问题</th></tr></thead><tbody>{schema_rows}</tbody></table></div>
+          {schema_table}</div>
         <div class="card"><div class="card-header d-flex justify-content-between"><span>账单/收款一致性</span>
           <form method="POST" action="/system_health/repair" onsubmit="return confirm('将按缴费记录重算账单状态，确认修复？')"><input type="hidden" name="repair" value="bill_status"><button class="btn btn-sm btn-outline-warning">修复账单状态</button></form></div>
-          <table class="table table-sm mb-0"><thead><tr><th>问题</th><th>编号</th><th>房间</th><th>业主</th><th>账期</th><th class="text-end">应收</th><th class="text-end">已收</th><th>状态</th></tr></thead><tbody>{finance_rows}</tbody></table></div>
+          {finance_table}</div>
         ''', 'system_health'))
 
     def _health_bill_rows(self, rows, label):
