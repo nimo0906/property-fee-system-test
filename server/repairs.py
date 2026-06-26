@@ -4,7 +4,7 @@
 
 from server.db import get_db, h, m, qs
 from server.base import BaseHandler
-from server.ui_components import render_form, render_table
+from server.ui_components import render_form, render_kv_table, render_table
 from datetime import date
 
 
@@ -77,22 +77,21 @@ class RepairMixin(BaseHandler):
         today=date.today().isoformat()
         if rid:
             sn={'pending':'待处理','processing':'处理中','done':'已完成','cancelled':'已取消'}
-            self._html(self._page('维修工单',f'''
-    <div class="row g-4"><div class="col-md-6"><div class="card"><div class="card-header">工单 #{r["id"]}</div>
-    <div class="card-body"><table class="table table-borderless mb-0">
-    <tr><td class="text-muted">报修内容</td><td>{h(r["description"])}</td></tr>
-    <tr><td class="text-muted">业主</td><td>{h(r["owner_name"]or"-")}</td></tr>
-    <tr><td class="text-muted">电话</td><td>{h(r["phone"]or"-")}</td></tr>
-    <tr><td class="text-muted">类别</td><td><span class="badge bg-secondary">{h(r["category"]or"-")}</span></td></tr>
-    <tr><td class="text-muted">报修日期</td><td>{h(r["report_date"]or"-")}</td></tr>
-    <tr><td class="text-muted">状态</td><td><span class="badge bg-{"warning text-dark" if r["status"]=="pending" else "info" if r["status"]=="processing" else "success" if r["status"]=="done" else "secondary"}">{sn.get(r["status"],r["status"])}</span></td></tr>
-    <tr><td class="text-muted">维修人</td><td>{h(r["assignee"]or"-")}</td></tr>
-    <tr><td class="text-muted">维修费</td><td>{f'¥{m(r["cost"])}' if r["cost"] else '-'}</td></tr>
-    <tr><td class="text-muted">完成日期</td><td>{h(r["complete_date"]or"-")}</td></tr>
-    {r["notes"] and f'<tr><td class="text-muted">备注</td><td>{h(r["notes"])}</td></tr>' or ''}
-    </table></div></div></div>
-    <div class="col-md-6"><div class="card"><div class="card-header">更新状态</div>
-    <div class="card-body"><form method=POST action="/repairs/{rid}/status" class="row g-3">
+            info_rows = [
+                ('报修内容', h(r["description"])),
+                ('业主', h(r["owner_name"]or"-")),
+                ('电话', h(r["phone"]or"-")),
+                ('类别', f'<span class="badge bg-secondary">{h(r["category"]or"-")}</span>'),
+                ('报修日期', h(r["report_date"]or"-")),
+                ('状态', f'<span class="badge bg-{"warning text-dark" if r["status"]=="pending" else "info" if r["status"]=="processing" else "success" if r["status"]=="done" else "secondary"}">{sn.get(r["status"],r["status"])}</span>'),
+                ('维修人', h(r["assignee"]or"-")),
+                ('维修费', f'¥{m(r["cost"])}' if r["cost"] else '-'),
+                ('完成日期', h(r["complete_date"]or"-")),
+            ]
+            if r["notes"]:
+                info_rows.append(('备注', h(r["notes"])))
+            info_table = render_kv_table(info_rows)
+            fields_html = f'''
     <div class="col-12"><label>状态</label><select name="status" class="form-select">
     <option value="pending"{" selected" if r["status"]=="pending" else""}>待处理</option>
     <option value="processing"{" selected" if r["status"]=="processing" else""}>处理中</option>
@@ -100,9 +99,13 @@ class RepairMixin(BaseHandler):
     <option value="cancelled"{" selected" if r["status"]=="cancelled" else""}>已取消</option></select></div>
     <div class="col-md-6"><label>维修人</label><input name="assignee" class="form-control" value="{h(r["assignee"]or"")}"></div>
     <div class="col-md-6"><label>维修费</label><div class="input-group"><span class="input-group-text">¥</span><input name="cost" type="number" class="form-control" value="{r["cost"] or 0}" step="0.1"></div></div>
-    <div class="col-12"><label>备注</label><textarea name="notes" class="form-control" rows="2">{h(r["notes"] or "")}</textarea></div>
-    <div class="col-12"><hr><button class="btn btn-primary"><i class="bi bi-save"></i> 更新</button>
-    <a href="/repairs" class="btn btn-outline-secondary">返回</a></div></form></div></div></div></div>''','repairs'))
+    <div class="col-12"><label>备注</label><textarea name="notes" class="form-control" rows="2">{h(r["notes"] or "")}</textarea></div>'''
+            form_html = render_form(fields_html, action=f'/repairs/{rid}/status', submit_text='<i class="bi bi-save"></i> 更新', cancel_url='/repairs')
+            self._html(self._page('维修工单',f'''
+    <div class="row g-4"><div class="col-md-6"><div class="card"><div class="card-header">工单 #{r["id"]}</div>
+    <div class="card-body">{info_table}</div></div></div>
+    <div class="col-md-6"><div class="card"><div class="card-header">更新状态</div>
+    <div class="card-body">{form_html}</div></div></div></div>''','repairs'))
         else:
             fields_html = f'''
     <div class="col-md-6"><label>关联房间</label><select name="room_id" class="form-select">{rms}</select></div>
