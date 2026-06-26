@@ -1,5 +1,5 @@
 from server.invoices_shared import *
-from server.ui_components import render_table
+from server.ui_components import render_form, render_table
 
 class InvoiceMixinPart1(BaseHandler):
     def _invoice_requests(self, q):
@@ -139,6 +139,18 @@ class InvoiceMixinPart1(BaseHandler):
             )
         if current_group is not None:
             av_opts += '</optgroup>'
+        invoice_form_fields = f'''
+    <input type="hidden" name="period_start" value="{h(period_start)}">
+    <input type="hidden" name="period_end" value="{h(period_end)}">
+    <div class="col-12"><label>选择已缴费账单</label><select name="bill_id" class="form-select" required>{av_opts}</select></div>
+    <div class="col-12"><label>开票日期</label><input name="issue_date" type="date" class="form-control" value="{date.today().isoformat()}"></div>
+    <div class="col-12"><label>购买方名称</label><input name="buyer_name" class="form-control" placeholder="单位名称或个人姓名"></div>
+    <div class="col-12"><label>纳税人识别号</label><input name="buyer_tax_id" class="form-control" placeholder="税号（选填）"></div>'''
+        invoice_form = render_form(
+            invoice_form_fields,
+            action='/invoices/create',
+            submit_text='<i class="bi bi-receipt"></i> 开具发票',
+        )
         # Available bills for invoice
         self._html(self._page("发票管理", f'''
     <div class="invoice-dashboard">
@@ -156,15 +168,7 @@ class InvoiceMixinPart1(BaseHandler):
     <div class="col-md-8"><section class="invoice-section" data-invoice-section="issued"><div class="invoice-section-title"><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({period_label})</small></div>
     {invoice_table}</section></div>
     <div class="col-md-4"><section class="invoice-section" data-invoice-section="available"><div class="invoice-section-title"><i class="bi bi-receipt"></i> 待开票账单</div>
-    <div class="card-body"><form method=POST action="/invoices/create" class="row g-3">
-    <input type="hidden" name="period_start" value="{h(period_start)}">
-    <input type="hidden" name="period_end" value="{h(period_end)}">
-    <div class="col-12"><label>选择已缴费账单</label><select name="bill_id" class="form-select" required>{av_opts}</select></div>
-    <div class="col-12"><label>开票日期</label><input name="issue_date" type="date" class="form-control" value="{date.today().isoformat()}"></div>
-    <div class="col-12"><label>购买方名称</label><input name="buyer_name" class="form-control" placeholder="单位名称或个人姓名"></div>
-    <div class="col-12"><label>纳税人识别号</label><input name="buyer_tax_id" class="form-control" placeholder="税号（选填）"></div>
-    <div class="col-12"><hr><button class="btn btn-success"><i class="bi bi-receipt"></i> 开具发票</button></div>
-    </form></div></section></div></div></div>''', "invoices"))
+    <div class="card-body">{invoice_form}</div></section></div></div></div>''', "invoices"))
 
     def _invoice_redirect(self, flash, period='', period_start='', period_end=''):
         params = {}
