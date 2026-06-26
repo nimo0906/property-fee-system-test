@@ -1,5 +1,6 @@
 from server.backups_shared import *
 import urllib.parse
+from server.ui_components import render_table
 
 class BackupMixinPart1Group2(BaseHandler):
     def _backup_restore_confirm(self, name):
@@ -96,6 +97,18 @@ class BackupMixinPart1Group2(BaseHandler):
             for key, _, label in BACKUP_TYPES
             if key in _automatic_backup_type_keys()
         )
+        summary_table = render_table(
+            ['类型', '规则', '当前保留数'],
+            summary_rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+        )
+        cleanup_table = render_table(
+            ['将删除的备份文件', '类型', '大小', '创建时间'],
+            rows,
+            table_class='table table-hover align-middle',
+            empty_text='没有超过保留数量的自动备份，无需清理',
+        )
         type_opts = '<option value="">全部自动备份类型</option>' + ''.join(
             f'<option value="{key}"{" selected" if selected_type == key else ""}>{label}</option>'
             for key, _, label in BACKUP_TYPES
@@ -119,12 +132,9 @@ class BackupMixinPart1Group2(BaseHandler):
         </form>
         <div class="card mb-3"><div class="card-header">清理统计</div><div class="card-body">
             <p class="mb-2">将删除 <strong>{plan['total_count']}</strong> 个旧自动备份，预计释放 <strong>{h(_format_size(plan['total_size']))}</strong>。</p>
-            <table class="table table-sm mb-0"><thead><tr><th>类型</th><th>规则</th><th>当前保留数</th></tr></thead><tbody>{summary_rows}</tbody></table>
+            {summary_table}
         </div></div>
-        <div class="table-responsive"><table class="table table-hover align-middle">
-            <thead><tr><th>将删除的备份文件</th><th>类型</th><th>大小</th><th>创建时间</th></tr></thead>
-            <tbody>{rows or '<tr><td colspan="4" class="text-center text-muted py-4">没有超过保留数量的自动备份，无需清理</td></tr>'}</tbody>
-        </table></div>
+        {cleanup_table}
         <form method="POST" action="/backups/cleanup" class="d-inline" onsubmit="return confirm('确认清理这些旧自动备份？手动备份不会删除。')">
             <input type="hidden" name="keep" value="{plan['keep']}">
             <input type="hidden" name="type" value="{h(selected_type)}">

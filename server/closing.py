@@ -7,6 +7,7 @@ from datetime import date, timedelta
 from server.base import BaseHandler
 from server.billing_periods import natural_date_range_filter_clause
 from server.db import add_months, date_to_period, get_db, h, is_period_closed, m, period_to_date, qs, customer_name
+from server.ui_components import render_table
 
 
 class ClosingMixin(BaseHandler):
@@ -70,9 +71,16 @@ class ClosingMixin(BaseHandler):
             rhtml += '<tr><td>' + h(r['period']) + '</td><td>' + st + '</td>'
             rhtml += '<td>' + (r['close_date'] or '-') + '</td><td>' + h(r['operator'] or '-') + '</td>'
             rhtml += '<td>' + str(r['paid_count'] or 0) + '笔</td><td class="text-end">¥' + m(r['total_amount'] or 0) + '</td><td>' + redos + '</td></tr>'
+        records_table = render_table(
+            ['日期范围', '状态', '日期', '操作员', '笔数', ('金额', 'text-end'), '操作'],
+            rhtml,
+            table_class='table table-hover mb-0',
+            responsive=False,
+            empty_text='暂无结账记录',
+        )
         html = '''<div class="alert alert-info"><i class="bi bi-info-circle"></i> 期末结账用于锁定某一日期范围，防止已缴账单被误改、误删或重复生成；它不会删除账单、不会自动收款、不会自动开发票。</div>'''
         html += '''<div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">结账操作</div><div class="card-body"><form method=POST action="/closing/close" class="row g-3"><div class="col-12"><label>起始日期</label><input type="date" name="period_start" class="form-control" required></div><div class="col-12"><label>截止日期</label><input type="date" name="period_end" class="form-control" required></div><div class="col-12"><label>备注</label><input name="notes" class="form-control"></div><div class="col-12"><hr><button class="btn btn-outline-primary" name="preview" value="1"><i class="bi bi-search"></i> 提前预览</button> <button class="btn btn-primary" onclick="return confirm('确认结账?')"><i class="bi bi-lock"></i> 执行结账</button></div></form></div></div><p class="text-muted small mt-2">结账后：<br>- 已缴账单不可修改<br>- 不可生成新账单<br>- 反结账后可恢复</p></div>'''
-        html += '''<div class="col-md-7"><div class="card"><div class="card-header">结账记录</div><div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th>日期范围</th><th>状态</th><th>日期</th><th>操作员</th><th>笔数</th><th>金额</th><th>操作</th></tr></thead><tbody>''' + rhtml + '''</tbody></table></div></div></div></div>'''
+        html += '''<div class="col-md-7"><div class="card"><div class="card-header">结账记录</div><div class="card-body p-0">''' + records_table + '''</div></div></div></div>'''
         self._html(self._page('期末结账', html, 'closing'))
 
     def _closing_close(self, d):
@@ -149,12 +157,14 @@ class ClosingMixin(BaseHandler):
                 <td>{h(b['fee_name'] or '-')}</td><td>{h(b['billing_period'])}</td>
                 <td class="text-end">¥{m(b['amount'] or 0)}</td><td class="text-end">¥{m(b['paid'] or 0)}</td>
                 <td>{h(status_names.get(b['status'], b['status'] or '-'))}</td></tr>'''
-        if not detail_rows:
-            detail_rows = '<tr><td colspan="8" class="text-center text-muted">该日期范围暂无账单</td></tr>'
+        detail_table = render_table(
+            ['编号', '房间', '租户/业主', '收费项目', '账期', ('金额', 'text-end'), ('已缴', 'text-end'), '状态'],
+            detail_rows,
+            table_class='table table-sm table-hover mb-0',
+            empty_text='该日期范围暂无账单',
+        )
         details_html = f'''<div class="card"><div class="card-header">本次将结账的账单明细</div>
-            <div class="card-body p-0"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
-            <thead><tr><th>编号</th><th>房间</th><th>租户/业主</th><th>收费项目</th><th>账期</th><th class="text-end">金额</th><th class="text-end">已缴</th><th>状态</th></tr></thead>
-            <tbody>{detail_rows}</tbody></table></div></div></div>'''
+            <div class="card-body p-0">{detail_table}</div></div>'''
         confirm_form = f'''<form method=POST action="/closing/close" class="d-inline">
             <input type=hidden name="period" value="{h(period)}"><input type=hidden name="period_start" value="{h(period_start or '')}"><input type=hidden name="period_end" value="{h(period_end or '')}"><input type=hidden name="notes" value="{h(notes)}"><input type=hidden name="confirm" value="1">
             <button class="btn btn-danger" onclick="return confirm('确认结账？结账后该日期范围将被锁定。')">确认结账</button>
