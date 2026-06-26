@@ -1,4 +1,5 @@
 from server.backups_shared import *
+from server.ui_components import render_table
 
 class BackupMixinPart1Group1(BaseHandler):
     def _backups(self, q=None):
@@ -43,6 +44,13 @@ class BackupMixinPart1Group1(BaseHandler):
             </tr>'''
             for f in files
         )
+        backup_table = render_table(
+            ['备份文件', '类型', '大小', '创建时间', '操作'],
+            rows,
+            table_class='table table-hover align-middle',
+            empty_text='暂无备份文件，点击"创建备份"生成',
+            col_count=5,
+        )
         self._html(self._page('数据备份', f'''
         <div class="alert alert-info">
             <i class="bi bi-info-circle"></i>
@@ -62,16 +70,7 @@ class BackupMixinPart1Group1(BaseHandler):
             </form>
             <a class="btn btn-outline-danger" href="/backups/cleanup?keep=10"><i class="bi bi-trash3"></i> 清理自动备份</a>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr><th>备份文件</th><th>类型</th><th>大小</th><th>创建时间</th><th style="width:180px">操作</th></tr>
-                </thead>
-                <tbody>
-                    {rows or '<tr><td colspan="5" class="text-center text-muted py-4">暂无备份文件，点击"创建备份"生成</td></tr>'}
-                </tbody>
-            </table>
-        </div>
+        {backup_table}
         ''', 'closing'))
 
     def _backup_create(self):

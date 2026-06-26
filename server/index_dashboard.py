@@ -3,6 +3,7 @@
 """Home dashboard render helpers."""
 
 from server.index_shared import *
+from server.ui_components import render_table
 
 
 def _action_block(role, can_finance_write, can_customer_write):
@@ -113,6 +114,20 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
         '''
     primary_actions = _action_block(role, can_finance_write, can_customer_write)
     first_run_steps, first_run_note = _first_run_steps(can_finance_write, can_customer_write)
+    pending_table = render_table(
+        ['编号', '房间', '业主', '项目', ('待收', 'text-end'), '操作'],
+        pending_rows,
+        table_class='table table-hover mb-0 small',
+        empty_text='暂无待收费账单',
+        col_count=6,
+    )
+    contract_table = render_table(
+        ['房间', '业主', '到期', ''],
+        contract_rows,
+        table_class='table table-sm mb-0',
+        empty_text='30天内暂无到期合同',
+        col_count=4,
+    )
     html = f'''
         {handler._default_password_warning_html()}
         <section class="dashboard-focus-shell">
@@ -172,11 +187,10 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
         <div class="row g-3 mb-3 mt-3">
             <div class="col-md-7">
                 <div class="card"><div class="card-header py-2 d-flex justify-content-between"><span><i class="bi bi-list-check"></i> 待收费账单</span><a href="/bills?status=unpaid" class="btn btn-sm btn-outline-primary">查看全部</a></div>
-                <div class="table-responsive"><table class="table table-hover mb-0 small"><thead><tr><th>编号</th><th>房间</th><th>业主</th><th>项目</th><th class="text-end">待收</th><th>操作</th></tr></thead>
-                <tbody>{pending_rows or '<tr><td colspan="6" class="text-center text-muted py-3">暂无待收费账单</td></tr>'}</tbody></table></div></div>
+                {pending_table}</div>
             </div>
             <div class="col-md-5">
-                <div class="card mb-3"><div class="card-header py-2"><i class="bi bi-calendar-check"></i> 即将到期合同</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>房间</th><th>业主</th><th>到期</th><th></th></tr></thead><tbody>{contract_rows}</tbody></table></div></div>
+                <div class="card mb-3"><div class="card-header py-2"><i class="bi bi-calendar-check"></i> 即将到期合同</div>{contract_table}</div>
                 <div class="card"><div class="card-header py-2"><i class="bi bi-pie-chart"></i> 本月收费概况</div>
                 <div class="card-body"><div class="row text-center g-2">
                     <div class="col-6"><div class="summary-tile"><div class="label">待收费账单</div><strong>{pending_cnt}</strong><span class="text-muted small"> 笔</span></div></div>

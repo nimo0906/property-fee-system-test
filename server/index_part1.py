@@ -98,7 +98,7 @@ class IndexMixinPart1(BaseHandler):
             <td>{h(r["owner_name"] or "-")}</td><td>{h(r["contract_end"] or "-")}</td>
             <td><a class="btn btn-sm btn-outline-primary" href="/rooms/{r["id"]}/edit">处理</a></td></tr>"""
             for r in expiring_contracts
-        ) or '<tr><td colspan="4" class="text-center text-muted py-3">30天内暂无到期合同</td></tr>'
+        )
 
         html, primary_actions = render_index_dashboard(
             self,

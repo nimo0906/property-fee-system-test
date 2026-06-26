@@ -5,6 +5,7 @@
 from server.auto_billing_runs import run_row_html
 from server.auto_billing_scope import SCOPE_OPTIONS, grouped_auto_fees
 from server.db import h, m
+from server.ui_components import render_table
 
 
 def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items, runs, preview_status='all', period_cycle='tenant', target_scope='all'):
@@ -13,8 +14,23 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     status_opts = _status_options(preview_status)
     cycle_opts = _cycle_options(period_cycle)
     scope_opts = _scope_options(target_scope)
-    rows = ''.join(_preview_row(x) for x in items) or _empty_preview_row(preview_status)
-    run_rows = ''.join(run_row_html(r) for r in runs) or '<tr><td colspan="7" class="text-center text-muted py-3">暂无自动出账记录</td></tr>'
+    rows = ''.join(_preview_row(x) for x in items)
+    preview_empty = _empty_preview_text(preview_status)
+    preview_table = render_table(
+        ['选择', '租户', '房间/铺位', '收费项目', '服务期', '缴费截止日', ('金额', 'text-end'), '状态'],
+        rows,
+        table_class='table table-hover align-middle small',
+        empty_text=preview_empty,
+        col_count=8,
+    )
+    run_rows = ''.join(run_row_html(r) for r in runs)
+    run_table = render_table(
+        ['批次号', '生成时间', '操作人', ('笔数', 'text-end'), '服务期范围', '状态', '操作'],
+        run_rows,
+        table_class='table table-hover align-middle small mb-0',
+        empty_text='暂无自动出账记录',
+        col_count=7,
+    )
     summary = _preview_summary(items)
     no_can_alert = _no_can_alert(summary['can'])
     submit_button = _submit_button(summary['can'])
@@ -53,15 +69,11 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     {no_can_alert}
     <form method="POST" action="/auto_billing/confirm">
       <input type="hidden" name="advance_days" value="{advance_days}"><input type="hidden" name="period_cycle" value="{h(period_cycle)}"><input type="hidden" name="target_scope" value="{h(target_scope)}"><input type="hidden" name="preview_status" value="{h(preview_status)}">{hidden_fee_ids}
-      <div class="table-responsive"><table class="table table-hover align-middle small">
-      <thead><tr><th>选择</th><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>缴费截止日</th><th class="text-end">金额</th><th>状态</th></tr></thead>
-      <tbody>{rows}</tbody></table></div>
+      {preview_table}
       {submit_button}
     </form>
     <div class="card mt-3 auto-run-history"><div class="card-header">最近自动出账记录</div>
-    <div class="table-responsive"><table class="table table-hover align-middle small mb-0">
-    <thead><tr><th>批次号</th><th>生成时间</th><th>操作人</th><th class="text-end">笔数</th><th>服务期范围</th><th>状态</th><th>操作</th></tr></thead>
-    <tbody>{run_rows}</tbody></table></div></div>
+    {run_table}</div>
     </div>'''
 
 
@@ -94,10 +106,10 @@ def _row_status_text(x):
     return '已存在<br><small class="text-muted">同房间、同收费项目、同服务期已存在账单</small>'
 
 
-def _empty_preview_row(preview_status):
+def _empty_preview_text(preview_status):
     if preview_status == 'can_generate':
-        return '<tr><td colspan="8" class="text-center text-muted py-4">当前筛选条件下没有可生成账单，可切换到“全部”或“只看已存在”查看原因；检查租户合同开始/结束日期、缴费周期、收费项目是否适用。</td></tr>'
-    return '<tr><td colspan="8" class="text-center text-muted py-4">未来指定天数内暂无需要生成的租户账单</td></tr>'
+        return '当前筛选条件下没有可生成账单，可切换到“全部”或“只看已存在”查看原因；检查租户合同开始/结束日期、缴费周期、收费项目是否适用。'
+    return '未来指定天数内暂无需要生成的租户账单'
 
 
 def _preview_summary(items):

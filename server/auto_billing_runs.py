@@ -3,6 +3,7 @@
 """Auto billing batch query, detail, and rollback helpers."""
 
 from server.db import h, m
+from server.ui_components import render_table
 
 
 def recent_auto_billing_runs(db, limit=8):
@@ -75,11 +76,21 @@ def run_detail_html(run, bills):
         return ''
     summary = _batch_summary(bills)
     bill_rows = ''.join(_bill_row_html(b) for b in bills)
-    if not bill_rows:
-        bill_rows = '<tr><td colspan="9" class="text-center text-muted py-4">本批次账单已全部撤回或不存在</td></tr>'
     group_rows = ''.join(_group_row_html(g) for g in _tenant_room_groups(bills))
-    if not group_rows:
-        group_rows = '<tr><td colspan="5" class="text-center text-muted py-3">暂无可分组账单</td></tr>'
+    group_table = render_table(
+        ['租户 / 房间', ('笔数', 'text-end'), ('应收', 'text-end'), ('已收', 'text-end'), ('未收', 'text-end')],
+        group_rows,
+        table_class='table table-sm align-middle mb-0',
+        empty_text='暂无可分组账单',
+        col_count=5,
+    )
+    bill_table = render_table(
+        ['租户', '房间/铺位', '收费项目', '服务期', '截止日', ('金额', 'text-end'), ('已缴', 'text-end'), '状态', '限制'],
+        bill_rows,
+        table_class='table table-hover align-middle small mb-0',
+        empty_text='本批次账单已全部撤回或不存在',
+        col_count=9,
+    )
     rollback = ''
     if run['status'] != 'rolled_back':
         rollback = (
@@ -112,13 +123,9 @@ def run_detail_html(run, bills):
       <a class="btn btn-outline-secondary" href="/auto_billing">返回自动出账</a>
     </div>
     <div class="card mb-3"><div class="card-header">按租户/房间分组</div>
-    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-    <thead><tr><th>租户 / 房间</th><th class="text-end">笔数</th><th class="text-end">应收</th><th class="text-end">已收</th><th class="text-end">未收</th></tr></thead>
-    <tbody>{group_rows}</tbody></table></div></div>
+    {group_table}</div>
     <div class="card"><div class="card-header">批次账单明细</div>
-    <div class="table-responsive"><table class="table table-hover align-middle small mb-0">
-    <thead><tr><th>租户</th><th>房间/铺位</th><th>收费项目</th><th>服务期</th><th>截止日</th><th class="text-end">金额</th><th class="text-end">已缴</th><th>状态</th><th>限制</th></tr></thead>
-    <tbody>{bill_rows}</tbody></table></div></div>'''
+    {bill_table}</div>'''
 
 
 def _bill_row_html(bill):
