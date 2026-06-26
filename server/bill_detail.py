@@ -9,6 +9,7 @@ from server.bill_batch_edit import BillBatchEditMixin
 from server.bill_single_print import BillSinglePrintMixin
 from server.data_health import cleanup_invalid_payments
 from server.money import money_float
+from server.ui_components import render_table
 
 
 def _bill_target_label(row):
@@ -73,13 +74,25 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         pay_section = ''
         if pays:
             pay_rows = ''.join(f'<tr><td><small>{h(p["payment_date"]or"-")}</small></td><td class="text-end"><span class="money money-paid">+¥{m(p["amount_paid"])}</span></td><td>{h(p["payment_method"])}</td><td>{h(p["operator"]or"-")}</td></tr>' for p in pays)
+            pay_table = render_table(
+                ['时间', ('金额', 'text-end'), '方式', '经手人'],
+                pay_rows,
+                table_class='table table-hover mb-0',
+                responsive=False,
+            )
             pay_section = f'''<div class="card mt-3"><div class="card-header">缴费记录</div>
-        <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th>时间</th><th class="text-end">金额</th><th>方式</th><th>经手人</th></tr></thead><tbody>{pay_rows}</tbody></table></div></div>'''
+        <div class="card-body p-0">{pay_table}</div></div>'''
         adj_section=''
         if adjs:
             adj_rows=''.join(f'<tr><td><small>{h(a["created_at"]or"-")}</small></td><td class="text-end"><span class="money-muted">¥{m(a["old_amount"])}</span></td><td class="text-end"><span class="money">¥{m(a["new_amount"])}</span></td><td class="text-end"><span class="money money-due">¥{m(a["old_amount"]-a["new_amount"])}</span></td><td><small>{h(a["reason"])}</small></td><td>{h(a["approved_by"])}</td></tr>' for a in adjs)
+            adj_table = render_table(
+                ['时间', ('原金额', 'text-end'), ('新金额', 'text-end'), ('减免', 'text-end'), '原因', '审批人'],
+                adj_rows,
+                table_class='table table-hover mb-0',
+                responsive=False,
+            )
             adj_section=f'''<div class="card mt-3"><div class="card-header"><i class="bi bi-pencil-square"></i> 调整记录</div>
-        <div class="card-body p-0"><table class="table table-hover mb-0"><thead><tr><th>时间</th><th class="text-end">原金额</th><th class="text-end">新金额</th><th class="text-end">减免</th><th>原因</th><th>审批人</th></tr></thead><tbody>{adj_rows}</tbody></table></div></div>'''
+        <div class="card-body p-0">{adj_table}</div></div>'''
         sn={'paid':'status-paid','unpaid':'status-unpaid','overdue':'status-overdue','partial':'status-partial'}
         ln={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
         pay_btn = f'<a href="/bills/{bid}/pay" class="btn btn-primary mt-3"><i class="bi bi-credit-card"></i> 缴费</a>' if b['status'] != 'paid' else ''

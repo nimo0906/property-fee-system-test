@@ -1,4 +1,5 @@
 from server.bill_generation_shared import *
+from server.ui_components import render_table
 
 class BillGenerationMixinPart2Group1(BaseHandler):
     def _render_bill_generation_preview(self, period, due_day, ft_ids, plan, filters=None, period_start='', period_end='', precheck=False):
@@ -15,6 +16,23 @@ class BillGenerationMixinPart2Group1(BaseHandler):
         detail_rows = ''.join(
             f'<tr><td>{h(x["building"])}-{h(x["room_number"])}</td><td>{h(x["category"])}</td><td>{h(x["fee_name"])}</td><td>{h(x["formula"])}</td><td class="text-end">¥{m(x["amount"])}</td></tr>'
             for x in plan['items'][:50]
+        )
+        fee_table = render_table(
+            ['收费项目', ('金额', 'text-end')],
+            fee_rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+        )
+        cat_table = render_table(
+            ['房间类别', ('金额', 'text-end')],
+            cat_rows,
+            table_class='table table-sm mb-0',
+            responsive=False,
+        )
+        detail_table = render_table(
+            ['房间', '类别', '收费项目', '公式', ('金额', 'text-end')],
+            detail_rows,
+            table_class='table table-sm mb-0',
         )
         ids = ','.join(str(x) for x in ft_ids)
         filter_summary = self._bill_filter_summary(filters)
@@ -43,11 +61,10 @@ class BillGenerationMixinPart2Group1(BaseHandler):
         <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">合同期外跳过</div><strong>{plan.get('inactive', 0)}</strong></div></div>
         </div>
         <div class="row g-3">
-        <div class="col-md-6"><div class="card"><div class="card-header">按收费项目汇总</div><table class="table table-sm mb-0">{fee_rows}</table></div></div>
-        <div class="col-md-6"><div class="card"><div class="card-header">按房间类别汇总</div><table class="table table-sm mb-0">{cat_rows}</table></div></div>
+        <div class="col-md-6"><div class="card"><div class="card-header">按收费项目汇总</div>{fee_table}</div></div>
+        <div class="col-md-6"><div class="card"><div class="card-header">按房间类别汇总</div>{cat_table}</div></div>
         </div>
-        <div class="card mt-3"><div class="card-header">前 50 条账单明细</div><div class="table-responsive">
-        <table class="table table-sm mb-0"><thead><tr><th>房间</th><th>类别</th><th>收费项目</th><th>公式</th><th class="text-end">金额</th></tr></thead><tbody>{detail_rows}</tbody></table></div></div>
+        <div class="card mt-3"><div class="card-header">前 50 条账单明细</div>{detail_table}</div>
         {warning_html}
         <form method="POST" action="/bills/generate" class="mt-3">
             <input type="hidden" name="mode" value="confirm">
@@ -73,8 +90,12 @@ class BillGenerationMixinPart2Group1(BaseHandler):
             f'<td><a class="btn btn-sm btn-outline-warning" href="/bills/{x["bill_id"]}/edit">直接修正</a></td></tr>'
             for x in plan['items'][:100]
         )
-        if not detail_rows:
-            detail_rows = '<tr><td colspan="7" class="text-center text-muted py-3">本次没有新生成账单</td></tr>'
+        detail_table = render_table(
+            ['账单编号', '房间', '类别', '收费项目', '公式', ('金额', 'text-end'), '修正'],
+            detail_rows,
+            table_class='table table-sm mb-0',
+            empty_text='本次没有新生成账单',
+        )
         warning_html = self._render_bill_generation_warnings(plan['items'])
         backup_html = ''
         if backup_name:
@@ -104,9 +125,7 @@ class BillGenerationMixinPart2Group1(BaseHandler):
         <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">合同期外跳过</div><strong>{plan.get('inactive', 0)}</strong></div></div>
         <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">金额合计</div><strong>¥{m(total)}</strong></div></div>
         </div>
-        <div class="card"><div class="card-header">本次生成账单明细</div><div class="table-responsive">
-        <table class="table table-sm mb-0"><thead><tr><th>账单编号</th><th>房间</th><th>类别</th><th>收费项目</th><th>公式</th><th class="text-end">金额</th><th>修正</th></tr></thead><tbody>{detail_rows}</tbody></table>
-        </div></div>{more}
+        <div class="card"><div class="card-header">本次生成账单明细</div>{detail_table}</div>{more}
         {warning_html}
         <div class="mt-3 d-flex gap-2">
             <a class="btn btn-primary" href="/bills/review?{range_query}">去核对工作台</a>
