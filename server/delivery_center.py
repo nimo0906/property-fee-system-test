@@ -3,6 +3,7 @@
 """v2 delivery center pages."""
 
 from server.base import BaseHandler
+from server.ui_components import render_table
 
 
 class DeliveryCenterMixin(BaseHandler):
@@ -13,7 +14,19 @@ class DeliveryCenterMixin(BaseHandler):
     def _delivery_center(self):
         if not self._delivery_allowed():
             return self._redirect("/?flash=无权限访问该页面")
-        self._html(self._page("2.0 交付中心", """
+        role_rows = """
+                  <tr><td><strong>系统管理员</strong></td><td>系统维护、账号、备份、更新、云端技术备查</td><td>保留给内部或客户负责人，不给普通员工</td></tr>
+                  <tr><td><strong>财务</strong></td><td>商业收费、物业收费、账单核对、收费、发票、对账、结账</td><td>不能做系统维护和清空试用数据</td></tr>
+                  <tr><td><strong>收费员</strong></td><td>日常收费、打印收据、查看缴费记录</td><td>不负责合同规则和高风险删除</td></tr>
+                  <tr><td><strong>客服业务编辑</strong></td><td>维护业主、房间、合同、抄表、导入资料并跟进催缴</td><td>不删除资料，不生成账单、不收款、不结账</td></tr>
+                  <tr><td><strong>管理层只读</strong></td><td>查看驾驶舱、报表和风险预警</td><td>只看经营结果，不操作业务数据</td></tr>
+        """
+        role_table = render_table(
+            ['岗位', '主要职责', '关键边界'],
+            role_rows,
+            table_class='table table-sm align-middle',
+        )
+        self._html(self._page("2.0 交付中心", f"""
         <div class="alert alert-info border-info">
           <strong><i class="bi bi-clipboard-check"></i> 2.0 交付中心</strong>
           <div class="small mt-1">2.0 当前业务范围已完成，进入桌面稳定版收口优化；后续停止新增业务板块，优先统一文案、金额口径、权限、防错和打包交付。</div>
@@ -22,16 +35,7 @@ class DeliveryCenterMixin(BaseHandler):
           <div class="col-lg-6">
             <div class="card h-100"><div class="card-header text-primary"><i class="bi bi-person-lock"></i> 岗位权限说明</div>
             <div class="card-body">
-              <div class="table-responsive"><table class="table table-sm align-middle">
-                <thead><tr><th>岗位</th><th>主要职责</th><th>关键边界</th></tr></thead>
-                <tbody>
-                  <tr><td><strong>系统管理员</strong></td><td>系统维护、账号、备份、更新、云端技术备查</td><td>保留给内部或客户负责人，不给普通员工</td></tr>
-                  <tr><td><strong>财务</strong></td><td>商业收费、物业收费、账单核对、收费、发票、对账、结账</td><td>不能做系统维护和清空试用数据</td></tr>
-                  <tr><td><strong>收费员</strong></td><td>日常收费、打印收据、查看缴费记录</td><td>不负责合同规则和高风险删除</td></tr>
-                  <tr><td><strong>客服业务编辑</strong></td><td>维护业主、房间、合同、抄表、导入资料并跟进催缴</td><td>不删除资料，不生成账单、不收款、不结账</td></tr>
-                  <tr><td><strong>管理层只读</strong></td><td>查看驾驶舱、报表和风险预警</td><td>只看经营结果，不操作业务数据</td></tr>
-                </tbody>
-              </table></div>
+              {role_table}
               <a class="btn btn-sm btn-outline-primary" href="/users"><i class="bi bi-people-fill"></i> 去操作员管理</a>
             </div></div>
           </div>
@@ -129,17 +133,7 @@ class DeliveryCenterMixin(BaseHandler):
     def _delivery_checklist(self):
         if not self._delivery_allowed():
             return self._redirect("/?flash=无权限访问该页面")
-        self._html(self._page("2.0 交付验收清单", """
-        <div class="alert alert-primary border-primary">
-          <strong><i class="bi bi-clipboard2-check"></i> 2.0 交付验收清单</strong>
-          <div class="small mt-1">2.0 桌面稳定版收口总入口：把合同、导入、权限、云端技术备查、备份、系统健康和全量测试放在同一张清单里核对。</div>
-        </div>
-        <div class="card mb-3">
-          <div class="card-header text-primary"><i class="bi bi-list-check"></i> 2.0 稳定版必须通过的交付门槛</div>
-          <div class="card-body">
-            <div class="table-responsive"><table class="table table-sm align-middle">
-              <thead><tr><th>验收项</th><th>通过标准</th><th>检查入口</th></tr></thead>
-              <tbody>
+        checklist_rows = """
                 <tr><td><strong>合同闭环</strong></td><td>空间合同档案可新增、编辑、续签、停用、附件和历史账单追溯；日常账单从物业收费/商业收费生成。</td><td><a href="/delivery_center/contracts">合同闭环验收</a></td></tr>
                 <tr><td><strong>导入闭环</strong></td><td>Excel 上传后先字段识别、调整字段映射、数据核对与修正；确认导入后才写库。</td><td><a href="/delivery_center/import">导入核对验收</a></td></tr>
                 <tr><td><strong>权限闭环</strong></td><td>系统管理员、财务、收费员、客服业务编辑、管理层只读按岗位访问；普通岗位不能进入交付中心。</td><td><a href="/users">操作员管理</a></td></tr>
@@ -147,8 +141,21 @@ class DeliveryCenterMixin(BaseHandler):
                 <tr><td><strong>备份恢复</strong></td><td>关键写入前自动备份，人工备份/恢复入口可用，交付前不得缺备份。</td><td><a href="/backups">备份恢复</a></td></tr>
                 <tr><td><strong>系统健康</strong></td><td>数据库、账单、收款、异常数据、权限边界检查无高风险问题。</td><td><a href="/system_health">系统健康</a></td></tr>
                 <tr><td><strong>全量测试</strong></td><td>每完成一个模块都运行底层验证；当前命令：<code>PYTHONPYCACHEPREFIX=/private/tmp/property_pycache python3 -m pytest</code>。</td><td>当前稳定版基线：431 passed, 4 skipped</td></tr>
-              </tbody>
-            </table></div>
+        """
+        checklist_table = render_table(
+            ['验收项', '通过标准', '检查入口'],
+            checklist_rows,
+            table_class='table table-sm align-middle',
+        )
+        self._html(self._page("2.0 交付验收清单", f"""
+        <div class="alert alert-primary border-primary">
+          <strong><i class="bi bi-clipboard2-check"></i> 2.0 交付验收清单</strong>
+          <div class="small mt-1">2.0 桌面稳定版收口总入口：把合同、导入、权限、云端技术备查、备份、系统健康和全量测试放在同一张清单里核对。</div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header text-primary"><i class="bi bi-list-check"></i> 2.0 稳定版必须通过的交付门槛</div>
+          <div class="card-body">
+            {checklist_table}
           </div>
         </div>
         <div class="row g-3">

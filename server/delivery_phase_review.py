@@ -3,23 +3,14 @@
 """v2 phase review pages."""
 
 from server.base import BaseHandler
+from server.ui_components import render_table
 
 
 class DeliveryPhaseReviewMixin(BaseHandler):
     def _delivery_a_phase_review(self):
         if not self._delivery_allowed():
             return self._redirect("/?flash=无权限访问该页面")
-        self._html(self._page("A 阶段完成审查", """
-        <div class="alert alert-success border-success">
-          <strong><i class="bi bi-check2-circle"></i> A 阶段完成审查</strong>
-          <div class="small mt-1">当前目标是把本地 2.0 员工后台交付收口跑稳。以下项目全部可检查后，进入 2.0 桌面稳定版收口，不继续新增业务板块。</div>
-        </div>
-        <div class="card mb-3">
-          <div class="card-header text-success"><i class="bi bi-patch-check"></i> A 阶段审查结论</div>
-          <div class="card-body">
-            <div class="table-responsive"><table class="table table-sm align-middle">
-              <thead><tr><th>审查项</th><th>当前结论</th><th>证据入口</th></tr></thead>
-              <tbody>
+        review_rows = """
                 <tr><td><strong>合同闭环已验收</strong></td><td>商户合同、预览出账、确认生成、押金一次、重复去重、续签/停用/附件已形成闭环。</td><td><a href="/delivery_center/contracts">合同闭环验收</a></td></tr>
                 <tr><td><strong>导入闭环已验收</strong></td><td>导入先识别、映射、核对、修正，确认后才写库，历史金额不会自动入账。</td><td><a href="/delivery_center/import">导入闭环验收</a></td></tr>
                 <tr><td><strong>岗位权限已验收</strong></td><td>交付中心仅管理员和管理层可进入，普通财务/收费员/客服前台不能进入。</td><td><a href="/users">操作员管理</a></td></tr>
@@ -28,8 +19,21 @@ class DeliveryPhaseReviewMixin(BaseHandler):
                 <tr><td><strong>云端技术备查入口已保留</strong></td><td>PostgreSQL schema、seed SQL 和迁移摘要入口保留给管理员/技术人员；当前不作为业务主线。</td><td><a href="/cloud_schema">云端技术备查</a></td></tr>
                 <tr><td><strong>备份恢复入口已准备</strong></td><td>交付前可从备份页检查手动备份、自动备份、恢复入口和清理边界。</td><td><a href="/backups">备份恢复</a></td></tr>
                 <tr><td><strong>系统健康检查入口已准备</strong></td><td>交付前可检查数据库、账单、收款、异常数据和权限边界风险。</td><td><a href="/system_health">系统健康检查</a></td></tr>
-              </tbody>
-            </table></div>
+        """
+        review_table = render_table(
+            ['审查项', '当前结论', '证据入口'],
+            review_rows,
+            table_class='table table-sm align-middle',
+        )
+        self._html(self._page("A 阶段完成审查", f"""
+        <div class="alert alert-success border-success">
+          <strong><i class="bi bi-check2-circle"></i> A 阶段完成审查</strong>
+          <div class="small mt-1">当前目标是把本地 2.0 员工后台交付收口跑稳。以下项目全部可检查后，进入 2.0 桌面稳定版收口，不继续新增业务板块。</div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header text-success"><i class="bi bi-patch-check"></i> A 阶段审查结论</div>
+          <div class="card-body">
+            {review_table}
           </div>
         </div>
         <div class="row g-3">
@@ -65,7 +69,18 @@ class DeliveryPhaseReviewMixin(BaseHandler):
     def _delivery_c_phase_review(self):
         if not self._delivery_allowed():
             return self._redirect("/?flash=无权限访问该页面")
-        self._html(self._page("C 阶段完成审查", """
+        review_rows = """
+                <tr><td><strong>首页经营驾驶舱已增强</strong></td><td>首页已展示本月应收、实收率、B座 / 商场对比、欠费趋势、商户贡献和费用结构。</td><td><a href="/">收费工作台</a></td></tr>
+                <tr><td><strong>报表分析看板已增强</strong></td><td>对账报表页已接入经营分析看板，财务可按自然日期范围查看收缴率、欠费趋势、商户贡献和费用结构。</td><td><a href="/reports">对账报表</a></td></tr>
+                <tr><td><strong>A/B/C 阶段验收链路</strong></td><td>交付收口、云端技术备查、经营分析均有独立审查入口，可逐项回看；当前主线转为桌面稳定版收口。</td><td><a href="/delivery_center">2.0交付中心</a></td></tr>
+                <tr><td><strong>底层安全运行验证</strong></td><td>稳定版收口前已重新运行专项测试和全量回归，确认账单、收款、导入、权限、云端技术备查和报表未被破坏。</td><td><a href="/system_health">系统健康检查</a></td></tr>
+        """
+        review_table = render_table(
+            ['审查项', '当前结论', '证据入口'],
+            review_rows,
+            table_class='table table-sm align-middle',
+        )
+        self._html(self._page("C 阶段完成审查", f"""
         <div class="alert alert-success border-success">
           <strong><i class="bi bi-bar-chart-line"></i> C 阶段完成审查</strong>
           <div class="small mt-1">2.0 当前业务范围已完成，进入桌面稳定版收口优化；本页用于确认后续停止扩业务，转为现有模块统一优化和交付冻结。</div>
@@ -73,15 +88,7 @@ class DeliveryPhaseReviewMixin(BaseHandler):
         <div class="card mb-3">
           <div class="card-header text-success"><i class="bi bi-patch-check"></i> C 阶段审查结论</div>
           <div class="card-body">
-            <div class="table-responsive"><table class="table table-sm align-middle">
-              <thead><tr><th>审查项</th><th>当前结论</th><th>证据入口</th></tr></thead>
-              <tbody>
-                <tr><td><strong>首页经营驾驶舱已增强</strong></td><td>首页已展示本月应收、实收率、B座 / 商场对比、欠费趋势、商户贡献和费用结构。</td><td><a href="/">收费工作台</a></td></tr>
-                <tr><td><strong>报表分析看板已增强</strong></td><td>对账报表页已接入经营分析看板，财务可按自然日期范围查看收缴率、欠费趋势、商户贡献和费用结构。</td><td><a href="/reports">对账报表</a></td></tr>
-                <tr><td><strong>A/B/C 阶段验收链路</strong></td><td>交付收口、云端技术备查、经营分析均有独立审查入口，可逐项回看；当前主线转为桌面稳定版收口。</td><td><a href="/delivery_center">2.0交付中心</a></td></tr>
-                <tr><td><strong>底层安全运行验证</strong></td><td>稳定版收口前已重新运行专项测试和全量回归，确认账单、收款、导入、权限、云端技术备查和报表未被破坏。</td><td><a href="/system_health">系统健康检查</a></td></tr>
-              </tbody>
-            </table></div>
+            {review_table}
           </div>
         </div>
         <div class="row g-3">

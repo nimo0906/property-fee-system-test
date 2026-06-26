@@ -1,5 +1,6 @@
 from server.merchant_contract_lifecycle_shared import *
 from server.special_rent import upsert_special_rent_rule
+from server.ui_components import render_table
 
 class MerchantContractLifecycleMixinPart1Group1(BaseHandler):
     def _merchant_contract_detail(self, contract_id):
@@ -12,7 +13,14 @@ class MerchantContractLifecycleMixinPart1Group1(BaseHandler):
             f"""<tr><td>{h(r['bill_number'])}</td><td>{h(r['fee_name'])}</td><td>{h(r['service_start'] or '-')} 至 {h(r['service_end'] or '-')}</td>
             <td class="text-end">¥{m(r['amount'])}</td><td>{h(contract_status_label(r['status']))}</td></tr>"""
             for r in bills
-        ) or '<tr><td colspan="5" class="text-center text-muted py-3">暂无合同账单</td></tr>'
+        )
+        bill_table = render_table(
+            ['账单号', '费用', '服务期', ('金额', 'text-end'), '状态'],
+            bill_rows,
+            table_class='table table-sm mb-0',
+            empty_text='暂无合同账单',
+            col_count=5,
+        )
         db = get_db()
         audits = db.execute(
             """SELECT * FROM audit_logs
@@ -25,7 +33,14 @@ class MerchantContractLifecycleMixinPart1Group1(BaseHandler):
             f"""<tr><td><small>{h(a['created_at'])}</small></td><td>{h(ACTION_LABELS.get(a['action'], a['action']))}</td>
             <td>{h(a['username'] or '-')}</td><td>{_audit_diff(a['old_value'], a['new_value'])}</td></tr>"""
             for a in audits
-        ) or '<tr><td colspan="4" class="text-center text-muted py-3">暂无合同变更记录</td></tr>'
+        )
+        audit_table = render_table(
+            ['时间', '动作', '操作人', '字段差异'],
+            audit_rows,
+            table_class='table table-sm align-middle mb-0',
+            empty_text='暂无合同变更记录',
+            col_count=4,
+        )
         self._html(self._page("合同详情", f"""
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div><h2 class="h4 mb-1">合同详情</h2><div class="text-muted">{h(contract['contract_no'])} · {h(contract['merchant_name'])}</div></div>
@@ -55,12 +70,8 @@ class MerchantContractLifecycleMixinPart1Group1(BaseHandler):
         {render_special_rent_rule(contract_id)}
         {render_contract_attachments(contract_id)}
         {render_contract_amendments(contract_id)}
-        <div class="card mb-3"><div class="card-header">已生成账单</div><div class="table-responsive"><table class="table table-sm mb-0">
-          <thead><tr><th>账单号</th><th>费用</th><th>服务期</th><th class="text-end">金额</th><th>状态</th></tr></thead><tbody>{bill_rows}</tbody>
-        </table></div></div>
-        <div class="card"><div class="card-header">合同变更记录</div><div class="table-responsive"><table class="table table-sm align-middle mb-0">
-          <thead><tr><th>时间</th><th>动作</th><th>操作人</th><th>字段差异</th></tr></thead><tbody>{audit_rows}</tbody>
-        </table></div></div>
+        <div class="card mb-3"><div class="card-header">已生成账单</div>{bill_table}</div>
+        <div class="card"><div class="card-header">合同变更记录</div>{audit_table}</div>
         """, "merchant_contracts"))
 
     def _merchant_contract_edit_form(self, contract_id):
