@@ -13,6 +13,7 @@ from server.data_health import cleanup_invalid_payments
 from server.db import get_db, get_period, h, m, qs, is_period_closed, room_active_in_period, date_to_period, period_to_date, add_months
 from server.billing_engine import fee_applies_to_room
 from server.money import MONEY_QUANT, money_decimal
+from server.ui_components import render_table
 
 
 def allocate_shared_amount(total_amount, rooms, method='area'):
@@ -137,7 +138,13 @@ class SharedExpenseMixin(BaseHandler):
             f'''<tr><td>{h(r["created_at"])}</td><td>{h(r["period"])}</td><td>{h(r["fee_name"] or r["fee_type_id"])}</td>
             <td>{"按面积" if r["allocation_method"]=="area" else "按户数"}</td><td class="text-end">{r["room_count"]}</td><td class="text-end money">¥{m(r["total_amount"])}</td></tr>'''
             for r in recent
-        ) or '<tr><td colspan="6" class="text-center text-muted py-3">暂无公摊记录</td></tr>'
+        )
+        recent_table = render_table(
+            ['时间', '账期', '项目', '方式', ('户数', 'text-end'), ('总额', 'text-end')],
+            recent_rows,
+            table_class='table table-sm mb-0',
+            empty_text='暂无公摊记录',
+        )
         default_start, default_end, _ = _resolve_shared_period(q)
         self._html(self._page('公摊分摊', f'''
         <div class="alert alert-info"><i class="bi bi-diagram-3"></i> 手动录入公摊总金额，系统按面积或户数分摊到选定房间，并按财务自然日期范围生成公摊账单。建议先预览再确认。</div>
@@ -154,7 +161,7 @@ class SharedExpenseMixin(BaseHandler):
             <div class="col-12"><button name="mode" value="preview" class="btn btn-primary btn-lg">预览分摊</button>
             <button name="mode" value="confirm" class="btn btn-success btn-lg">确认生成账单</button></div>
         </form>
-        <div class="card mt-4"><div class="card-header">最近公摊记录</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>时间</th><th>账期</th><th>项目</th><th>方式</th><th class="text-end">户数</th><th class="text-end">总额</th></tr></thead><tbody>{recent_rows}</tbody></table></div></div>
+        <div class="card mt-4"><div class="card-header">最近公摊记录</div>{recent_table}</div>
         ''', 'shared_expenses'))
 
     def _shared_expense_allocate(self, d):
@@ -207,11 +214,16 @@ class SharedExpenseMixin(BaseHandler):
 
     def _render_shared_preview(self, period, fid, total, method, building, unit, category, due_day, notes, allocations, skipped, period_start='', period_end=''):
         rows = ''.join(f'<tr><td>{h(a["room"]["building"])}-{h(a["room"]["unit"] or "")}-{h(a["room"]["room_number"])}</td><td>{h(a["room"]["category"])}</td><td class="text-end">{m(a["weight"])}</td><td class="text-end money">¥{m(a["amount"])}</td></tr>' for a in allocations[:80])
+        detail_table = render_table(
+            ['房间', '类别', ('权重', 'text-end'), ('金额', 'text-end')],
+            rows,
+            table_class='table table-sm mb-0',
+        )
         hidden = ''.join(f'<input type="hidden" name="{k}" value="{h(v)}">' for k, v in {'period':period,'period_start':period_start,'period_end':period_end,'fee_type_id':fid,'total_amount':total,'allocation_method':method,'building':building,'unit':unit,'category':category,'due_day':due_day,'notes':notes}.items())
         self._html(self._page('公摊分摊预览', f'''
         <div class="alert alert-warning">当前仅预览，不写入账单。服务期 {h(period_start)} 至 {h(period_end)}，确认后会生成 {len(allocations)} 笔公摊账单，跳过已有账单房间 {skipped} 间。</div>
         <div class="row text-center g-2 mb-3"><div class="col-md-4"><div class="summary-tile">房间数<br><strong>{len(allocations)}</strong></div></div><div class="col-md-4"><div class="summary-tile">总金额<br><strong class="money">¥{m(total)}</strong></div></div><div class="col-md-4"><div class="summary-tile">分摊合计<br><strong class="money">¥{m(sum(a["amount"] for a in allocations))}</strong></div></div></div>
-        <div class="card"><div class="card-header">分摊明细</div><div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>房间</th><th>类别</th><th class="text-end">权重</th><th class="text-end">金额</th></tr></thead><tbody>{rows}</tbody></table></div></div>
+        <div class="card"><div class="card-header">分摊明细</div>{detail_table}</div>
         <form method="POST" action="/shared_expenses/allocate" class="mt-3"><input type="hidden" name="mode" value="confirm">{hidden}<button class="btn btn-success btn-lg">确认生成公摊账单</button> <a class="btn btn-outline-secondary btn-lg" href="/shared_expenses">返回修改</a></form>
         ''', 'shared_expenses'))
 

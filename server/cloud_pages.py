@@ -6,6 +6,7 @@ from server.base import BaseHandler
 from server.cloud_migration import build_migration_summary, export_postgres_seed_sql
 from server.cloud_schema import build_postgres_schema
 from server.db import h, m
+from server.ui_components import render_table
 
 
 class CloudPageMixin(BaseHandler):
@@ -21,6 +22,11 @@ class CloudPageMixin(BaseHandler):
             f"<td>{h(item['sqlite_value'])}</td><td>{h(item['postgres_expected'])}</td>"
             f"<td><span class='badge status-warning'>{h(item['status'])}</span></td></tr>"
             for item in summary.get("validation_checks", [])
+        )
+        check_table = render_table(
+            ['核对项', 'SQLite 当前值', 'PostgreSQL 导入后应一致', '状态'],
+            check_rows,
+            table_class='table table-sm align-middle',
         )
         money = summary["money"]
         scope = summary["scope"]
@@ -40,10 +46,7 @@ class CloudPageMixin(BaseHandler):
         <div class="card mb-3"><div class="card-header text-primary"><i class="bi bi-check2-square"></i> 迁移后一致性核对清单</div>
         <div class="card-body">
           <div class="alert alert-light border small mb-3">SQLite 当前值是本地导出前基准；PostgreSQL 导入后应一致。导入云端后逐项核对，状态先保持“待导入后核对”。</div>
-          <div class="table-responsive"><table class="table table-sm align-middle">
-            <thead><tr><th>核对项</th><th>SQLite 当前值</th><th>PostgreSQL 导入后应一致</th><th>状态</th></tr></thead>
-            <tbody>{check_rows}</tbody>
-          </table></div>
+          {check_table}
         </div></div>
         <pre class="cloud-schema-panel"><code>{sql}</code></pre>
         """, "cloud_schema"))

@@ -8,6 +8,7 @@ from server.db import get_db, h, add_months, date_to_period, period_to_date
 from server.billing_periods import append_natural_date_range_filter
 from server.pagination import pagination_state, query_items, render_pagination
 from server.money import money_display
+from server.ui_components import render_table
 
 
 def _money(value):
@@ -143,14 +144,15 @@ class CollectionMixin:
               <td><span class="badge bg-{badge}">{priority}</span></td>
               <td><a class="btn btn-sm btn-outline-primary" href="/bills/{r['id']}">查看账单</a></td>
             </tr>'''
-        if not rows_html:
-            rows_html = '<tr><td colspan="10" class="text-center text-muted py-4">暂无欠费对象</td></tr>'
+        table_html = render_table(
+            ['房间', '业主', '电话', '欠费账期', '欠费项目', ('欠费金额', 'text-end'), '截止日', '欠费天数', '优先级', '操作'],
+            rows_html,
+            table_class='table table-hover align-middle mb-0',
+            empty_text='暂无欠费对象',
+        )
         body += f'''
         <div class="card"><div class="card-header"><i class="bi bi-telephone-outbound"></i> 客服催费对象</div>
-        <div class="table-responsive"><table class="table table-hover align-middle mb-0">
-          <thead><tr><th>房间</th><th>业主</th><th>电话</th><th>欠费账期</th><th>欠费项目</th><th class="text-end">欠费金额</th><th>截止日</th><th>欠费天数</th><th>优先级</th><th>操作</th></tr></thead>
-          <tbody>{rows_html}</tbody>
-        </table></div></div>
+        {table_html}</div>
         {render_pagination('/collections', query_items(q, ['building', 'period_start', 'period_end', 'priority']), pg, total_pages, per_page, total_rows, '客服催收分页')}
         '''
         self._html(self._page("客服催费对象", body, "collections"))
