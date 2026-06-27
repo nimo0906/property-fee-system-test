@@ -1,0 +1,227 @@
+{
+  "main": {
+    "id": "be617cb12681723f",
+    "type": "split",
+    "children": [
+      {
+        "id": "319c1a38d6fa2fef",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "ccda68fc01ab3ba9",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "关系图谱"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "a5a853a88754ea87",
+    "type": "split",
+    "children": [
+      {
+        "id": "09f4a2650a08fbd5",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "7118a407bcdf932b",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
+          },
+          {
+            "id": "685d83ae0c5f547b",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "搜索"
+            }
+          },
+          {
+            "id": "bf520efe74d6160b",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "书签"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "243583f61ffe9f84",
+    "type": "split",
+    "children": [
+      {
+        "id": "af31254a9a3a41f7",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "cdc037ef613b396c",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "反向链接"
+            }
+          },
+          {
+            "id": "91b7f2e025784f47",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "出链"
+            }
+          },
+          {
+            "id": "93b7e5ef38920cc8",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "标签"
+            }
+          },
+          {
+            "id": "40f126a3ba3f6374",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "添加笔记属性"
+            }
+          },
+          {
+            "id": "4c10a84a26e1b561",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "未命名.base",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "未命名 的大纲"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "obsidian-git:Open Git source control": false,
+      "realclaudian:Open Claudian": false,
+      "switcher:打开快速切换": false,
+      "graph:查看关系图谱": false,
+      "canvas:新建白板": false,
+      "daily-notes:打开/创建今天的日记": false,
+      "templates:插入模板": false,
+      "command-palette:打开命令面板": false,
+      "bases:新建数据库": false
+    }
+  },
+  "active": "ccda68fc01ab3ba9",
+  "lastOpenFiles": [
+    "未命名.base",
+    "build/property_fee_system_macos/BUNDLE-00.toc",
+    "dist/物业管理收费系统.app/Contents/_CodeSignature/CodeResources",
+    "dist/物业管理收费系统.app/Contents/_CodeSignature",
+    "dist/物业管理收费系统.app/Contents/Frameworks/Python3.framework/Versions/3.9/_CodeSignature/CodeResources",
+    "dist/物业管理收费系统.app/Contents/Frameworks/Python3.framework/Versions/3.9/_CodeSignature",
+    "dist/物业管理收费系统.app/Contents/Resources/用户快速开始.md",
+    "dist/物业管理收费系统.app/Contents/Resources/新手交付说明.md",
+    "dist/物业管理收费系统.app/Contents/Resources/使用说明.md",
+    "dist/物业管理收费系统.app/Contents/Resources/交付验收清单.md",
+    "dist/物业管理收费系统.app/Contents/Resources/update_manifest.json",
+    "dist/物业管理收费系统.app/Contents/Resources/templates/rooms.html",
+    "dist/物业管理收费系统.app/Contents/Resources/templates/payments.html",
+    "dist/物业管理收费系统.app/Contents/Resources/templates/owners.html",
+    "dist/物业管理收费系统.app/Contents/Resources/templates/meter_list.html",
+    "dist/物业管理收费系统.app/Contents/Resources/static/desktop-app-icon.png",
+    "dist/物业管理收费系统.app/Contents/Resources/static/brand-logo.png",
+    "dist/物业管理收费系统.app/Contents/Resources/static/brand-emblem.png",
+    "dist/物业管理收费系统/_internal/用户快速开始.md",
+    "dist/物业管理收费系统/_internal/新手交付说明.md",
+    "dist/物业管理收费系统/_internal/使用说明.md",
+    "dist/物业管理收费系统/_internal/交付验收清单.md",
+    "dist/物业管理收费系统/_internal/static/desktop-app-icon.png",
+    "dist/物业管理收费系统/_internal/static/brand-logo.png",
+    "dist/物业管理收费系统/_internal/static/brand-emblem.png",
+    "未命名.md",
+    "未命名.canvas",
+    "未命名 1.md",
+    "docs/release-freeze-v2.0.3.md",
+    "docs/local-security-boundary.md",
+    "docs/hidden-module-policy.md",
+    "docs/desktop-release-checklist.md",
+    "docs/release-final-summary-v2.0.md",
+    "static/brand-logo.png",
+    "static/desktop-app-icon.png",
+    "static/brand-emblem.png",
+    "数据备份说明.md",
+    "使用说明.md",
+    "明天Windows打包从这里开始.md",
+    "开发规划.md",
+    "交付验收清单.md",
+    "发展方向建议.md"
+  ]
+}
