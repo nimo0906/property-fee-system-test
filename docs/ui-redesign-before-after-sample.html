@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>物业收费系统 UI / 组件改造对比小样</title>
+  <style>
+    :root{
+      --bg:#eef3f4;
+      --panel:#ffffff;
+      --ink:#16201f;
+      --muted:#63706d;
+      --line:#dce4e2;
+      --brand:#0b7364;
+      --brand-soft:#e8f5f2;
+      --brand-2:#0f8c7b;
+      --warn:#b76e00;
+      --danger:#b42318;
+      --shadow:0 16px 40px rgba(15, 23, 42, .08);
+      --shadow-soft:0 8px 20px rgba(15, 23, 42, .06);
+      --radius:18px;
+      --radius-sm:12px;
+      --radius-xs:10px;
+      --font:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255,255,255,.92), transparent 380px),
+        linear-gradient(180deg, #f8fbfb 0, var(--bg) 260px);
+    }
+    .wrap{max-width:1480px;margin:0 auto;padding:24px 22px 40px}
+    .hero{
+      display:grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap:18px;
+      padding:22px;
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:linear-gradient(135deg,#fff 0%,#fbf8ef 42%,#eef8f5 100%);
+      box-shadow:var(--shadow);
+      margin-bottom:18px;
+    }
+    .kicker{
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.12em;
+      color:var(--brand);
+    }
+    h1{margin:8px 0 10px;font-size:28px;line-height:1.15}
+    .lead{margin:0;color:var(--muted);line-height:1.75}
+    .pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:8px 12px;border-radius:999px;
+      background:var(--brand-soft);color:var(--brand);
+      border:1px solid #cbe5df;font-size:13px;font-weight:650
+    }
+    .plan{
+      padding:18px;
+      border-radius:20px;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(255,255,255,.9);
+      box-shadow:var(--shadow-soft);
+    }
+    .plan h3{margin:0 0 10px;font-size:16px}
+    .plan ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.75}
+    .section{
+      margin-top:18px;
+      padding:18px;
+      border:1px solid var(--line);
+      border-radius:24px;
+      background:rgba(255,255,255,.72);
+      box-shadow:var(--shadow-soft);
+    }
+    .section-head{
+      display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px
+    }
+    .section-head h2{margin:0;font-size:20px}
+    .section-head p{margin:0;color:var(--muted);font-size:13px}
+    .compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .compare-card{
+      min-height:320px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      overflow:hidden;
+      background:linear-gradient(180deg,#fff 0,#fcfdfd 100%);
+      box-shadow:var(--shadow-soft);
+    }
+    .compare-card.old{background:linear-gradient(180deg,#fff 0,#fffaf8 100%)}
+    .compare-card.new{background:linear-gradient(180deg,#fff 0,#f7fbfa 100%)}
+    .compare-tag{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:14px 16px;border-bottom:1px solid var(--line)
+    }
+    .compare-tag strong{font-size:15px}
+    .badge{
+      padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700
+    }
+    .old .badge{background:#fff0ee;color:var(--danger)}
+    .new .badge{background:var(--brand-soft);color:var(--brand)}
+    .mock{
+      padding:16px;
+      display:grid;
+      gap:12px;
+    }
+    .window{
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      overflow:hidden;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+    }
+    .window-head{
+      display:flex;justify-content:space-between;align-items:center;gap:12px;
+      padding:12px 14px;border-bottom:1px solid var(--line);background:#f9fbfb
+    }
+    .window-head .title{font-weight:800}
+    .window-body{padding:14px}
+    .sidebar-sample{
+      display:grid;grid-template-columns:72px 1fr;min-height:180px
+    }
+    .sidebar-old,.sidebar-new{
+      padding:12px 10px;
+    }
+    .sidebar-old{
+      background:linear-gradient(180deg,#171f1d,#101716);
+      color:#d3dfdb;
+    }
+    .sidebar-new{
+      background:linear-gradient(180deg,#eef6f5,#f9fbfb);
+      border-right:1px solid var(--line);
+    }
+    .nav-dot{
+      width:42px;height:42px;border-radius:14px;margin:0 auto 10px;
+      display:flex;align-items:center;justify-content:center;font-weight:800
+    }
+    .sidebar-old .nav-dot{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08)}
+    .sidebar-new .nav-dot{background:#fff;border:1px solid #d8e5e2;color:var(--brand)}
+    .nav-list{display:grid;gap:8px}
+    .nav-item{
+      padding:10px 12px;border-radius:12px;font-size:12px;line-height:1.35
+    }
+    .sidebar-old .nav-item{background:rgba(255,255,255,.04);color:#b7c6c2}
+    .sidebar-old .nav-item.active{background:rgba(11,115,100,.95);color:#fff}
+    .sidebar-new .nav-item{background:#fff;color:var(--ink);border:1px solid var(--line)}
+    .sidebar-new .nav-item.active{background:var(--brand-soft);border-color:#bddfd8;color:var(--brand);font-weight:700}
+    .mock-title{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:700}
+    .toolbar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
+    }
+    .toolbar .left,.toolbar .right{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      height:36px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
+      background:#fff;color:var(--ink);font-size:13px;font-weight:650
+    }
+    .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+    .btn.soft{background:var(--brand-soft);border-color:#c7e4de;color:var(--brand)}
+    .btn.warn{background:#fff7e6;border-color:#efd7a4;color:var(--warn)}
+    .search{
+      min-width:240px;height:36px;padding:0 12px;border-radius:11px;border:1px solid var(--line);
+      background:#fff;color:var(--ink)
+    }
+    .toolbar-old{padding:8px;border:1px dashed #f0d8d2;border-radius:14px;background:#fffaf8}
+    .toolbar-new{padding:8px;border:1px dashed #cfe5df;border-radius:14px;background:#f7fbfa}
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chip{
+      padding:6px 10px;border-radius:999px;font-size:12px;font-weight:650
+    }
+    .chip.old{background:#fff0ee;color:var(--danger)}
+    .chip.new{background:var(--brand-soft);color:var(--brand)}
+    .chip.gray{background:#f2f5f4;color:#5f6d69}
+    .table-shell{
+      border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff
+    }
+    table{width:100%;border-collapse:collapse}
+    thead th{
+      text-align:left;font-size:12px;font-weight:800;color:#566460;background:#f8fbfa;
+      padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap
+    }
+    tbody td{
+      padding:12px 10px;border-bottom:1px solid #edf2f1;font-size:13px;vertical-align:top
+    }
+    tbody tr:last-child td{border-bottom:0}
+    .money{font-weight:800}
+    .money.danger{color:var(--danger)}
+    .money.brand{color:var(--brand)}
+    .receipt{
+      display:grid;gap:12px
+    }
+    .receipt-card{
+      border:1px solid var(--line);border-radius:18px;background:#fff;overflow:hidden
+    }
+    .receipt-top{
+      padding:14px 16px;background:linear-gradient(180deg,#f9fbfb,#fff);border-bottom:1px solid var(--line)
+    }
+    .receipt-top h4{margin:0 0 8px;font-size:16px}
+    .receipt-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px;color:var(--muted)}
+    .receipt-table th,.receipt-table td{font-size:12px;padding:10px 8px}
+    .receipt-foot{
+      padding:12px 16px;background:#fafcfb;border-top:1px solid var(--line);
+      display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:13px;color:var(--muted)
+    }
+    .note{
+      border-left:4px solid var(--brand);
+      background:#f8fcfb;
+      padding:12px 14px;border-radius:14px;color:#47605a;font-size:13px;line-height:1.75
+    }
+    .note strong{color:var(--ink)}
+    .stack{display:grid;gap:12px}
+    .mini-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .mini-card{
+      border:1px solid var(--line);border-radius:16px;background:#fff;padding:14px
+    }
+    .mini-card h4{margin:0 0 8px;font-size:14px}
+    .mini-list{margin:0;padding-left:18px;color:var(--muted);line-height:1.75}
+    .footer{
+      margin-top:16px;padding:12px 2px;color:var(--muted);font-size:12px;text-align:center
+    }
+    @media (max-width: 1080px){
+      .hero,.compare-grid,.mini-grid,.receipt-meta,.receipt-foot{grid-template-columns:1fr}
+      .sidebar-sample{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div>
+        <div class="kicker">UI / COMPONENT REVIEW</div>
+        <h1>物业收费系统页面与组件改造对比小样</h1>
+        <p class="lead">
+          结合最新 <strong>codex.md</strong>，我建议先把“桌面端高频页”的视觉层级、按钮结构、表格密度、表单分组和详情页信息组织统一起来。
+          目标不是做更花哨的界面，而是让收费员、财务和管理层在高频操作里更快找到重点。
+        </p>
+        <div class="pill-row">
+          <span class="pill">桌面 App 优先</span>
+          <span class="pill">先验证再完成</span>
+          <span class="pill">组件复用</span>
+          <span class="pill">减少重复操作</span>
+          <span class="pill">高频页优先</span>
+        </div>
+      </div>
+      <div class="plan">
+        <h3>我建议优先改这 4 类</h3>
+        <ul>
+          <li><strong>侧边栏</strong>：收拢分组、弱化干扰、突出当前模块。</li>
+          <li><strong>工具栏</strong>：把主操作、次操作、筛选分区，不要一排全堆。</li>
+          <li><strong>表格 / 详情</strong>：提升行内层级，状态、金额、操作要更清晰。</li>
+          <li><strong>表单</strong>：按业务步骤分区，减少“长一坨”式编辑页。</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>1. 侧边栏与导航层级</h2>
+          <p>当前更像“功能清单”，建议改成“工作分区 + 当前任务入口”。</p>
+        </div>
+        <p>重点：减少视觉噪音，突出高频入口。</p>
+      </div>
+      <div class="compare-grid">
+        <article class="compare-card old">
+          <div class="compare-tag">
+            <strong>现状</strong><span class="badge">信息密、辨识度一般</span>
+          </div>
+          <div class="mock">
+            <div class="window">
+              <div class="window-head"><span class="title">物业收费系统</span><span>功能很多，视觉很重</span></div>
+              <div class="window-body sidebar-sample">
+                <div class="sidebar-old">
+                  <div class="nav-dot">P</div>
+                  <div class="nav-list">
+                    <div class="nav-item active">收费工作台</div>
+                    <div class="nav-item">物业收费</div>
+                    <div class="nav-item">商业收费</div>
+                    <div class="nav-item">账单管理</div>
+                  </div>
+                </div>
+                <div>
+                  <p class="mock-title">问题</p>
+                  <div class="chips">
+                    <span class="chip old">分组信息弱</span>
+                    <span class="chip old">按钮感太重</span>
+                    <span class="chip old">层级不清</span>
+                    <span class="chip gray">当前模块不够突出</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="compare-card new">
+          <div class="compare-tag">
+            <strong>建议</strong><span class="badge">更轻、更清楚</span>
+          </div>
+          <div class="mock">
+            <div class="window">
+              <div class="window-head"><span class="title">物业收费系统</span><span>工作区 / 财务核对 / 系统维护</span></div>
+              <div class="window-body sidebar-sample">
+                <div class="sidebar-new">
+                  <div class="nav-dot">P</div>
+                  <div class="nav-list">
+                    <div class="nav-item active">收费工作台</div>
+                    <div class="nav-item">账单管理</div>
+                    <div class="nav-item">缴费记录</div>
+                    <div class="nav-item">合同档案</div>
+                  </div>
+                </div>
+                <div>
+                  <p class="mock-title">改造后</p>
+                  <div class="chips">
+                    <span class="chip new">分区更明确</span>
+                    <span class="chip new">当前入口突出</span>
+                    <span class="chip new">减少干扰色</span>
+                    <span class="chip gray">更适合桌面高频操作</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>2. 工具栏与表格区</h2>
+          <p>把“主按钮 / 次按钮 / 筛选条件”分层，不要所有按钮平铺。</p>
+        </div>
+        <p>重点：减少误触，提升扫描速度。</p>
+      </div>
+      <div class="compare-grid">
+        <article class="compare-card old">
+          <div class="compare-tag">
+            <strong>现状</strong><span class="badge">按钮堆叠感强</span>
+          </div>
+          <div class="mock">
+            <div class="toolbar toolbar-old">
+              <div class="left">
+                <button class="btn primary">收费登记</button>
+                <button class="btn">打印</button>
+                <button class="btn">收据</button>
+                <button class="btn">导出</button>
+              </div>
+              <div class="right">
+                <input class="search" value="李莉娜 / B座 / 6-9月" />
+              </div>
+            </div>
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>房间</th><th>客户</th><th>账期</th><th>应收</th><th>状态</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>B座-1203</td><td>李莉娜</td><td>2026-06-01 ~ 2026-09-30</td><td class="money">¥2,400.00</td><td>未缴</td><td>…</td></tr>
+                  <tr><td>B座-1205</td><td>王先生</td><td>2026-06-01 ~ 2026-09-30</td><td class="money">¥1,980.00</td><td>部分缴费</td><td>…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+        <article class="compare-card new">
+          <div class="compare-tag">
+            <strong>建议</strong><span class="badge">主次按钮分层</span>
+          </div>
+          <div class="mock">
+            <div class="toolbar toolbar-new">
+              <div class="left">
+                <button class="btn primary">收费登记</button>
+                <button class="btn soft">打印本次收据</button>
+                <button class="btn">导出</button>
+              </div>
+              <div class="right">
+                <input class="search" value="李莉娜 / B座 / 6-9月" />
+              </div>
+            </div>
+            <div class="chips">
+              <span class="chip new">收费员</span>
+              <span class="chip new">账期</span>
+              <span class="chip new">状态</span>
+              <span class="chip gray">筛选条件单独一行</span>
+            </div>
+            <div class="table-shell">
+              <table>
+                <thead>
+                  <tr>
+                    <th>套户编号</th><th>客户</th><th>房间 / 商户信息</th><th>账期</th><th>应收</th><th>状态</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>B座-1203</td><td>李莉娜</td><td>B座 1203 / 住宅</td><td>2026-06-01 ~ 2026-09-30</td><td class="money brand">¥2,400.0</td><td><span class="chip new">未缴</span></td><td>查看 / 收费</td></tr>
+                  <tr><td>B座-1205</td><td>王先生</td><td>B座 1205 / 住宅</td><td>2026-06-01 ~ 2026-09-30</td><td class="money brand">¥1,980.0</td><td><span class="chip new">部分缴费</span></td><td>查看 / 收费</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>3. 表单与详情页</h2>
+          <p>长表单要分区，详情页要先给结论，再给明细。</p>
+        </div>
+        <p>重点：减少来回找字段。</p>
+      </div>
+      <div class="compare-grid">
+        <article class="compare-card old">
+          <div class="compare-tag">
+            <strong>现状</strong><span class="badge">字段挤在一起</span>
+          </div>
+          <div class="mock">
+            <div class="window">
+              <div class="window-head"><span class="title">修改账单</span><span>信息很多，区块不明显</span></div>
+              <div class="window-body">
+                <div class="stack">
+                  <div class="table-shell">
+                    <table>
+                      <tbody>
+                        <tr><td style="width:120px;color:#6f7b78">客户</td><td>李莉娜</td></tr>
+                        <tr><td style="color:#6f7b78">账期</td><td>2026-06-01 ~ 2026-09-30</td></tr>
+                        <tr><td style="color:#6f7b78">应收</td><td><span class="money">¥2,400.00</span></td></tr>
+                        <tr><td style="color:#6f7b78">备注</td><td>……</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="chips">
+                    <span class="chip old">信息堆叠</span>
+                    <span class="chip old">缺少优先级</span>
+                    <span class="chip gray">用户要反复扫描</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="compare-card new">
+          <div class="compare-tag">
+            <strong>建议</strong><span class="badge">先摘要，再明细</span>
+          </div>
+          <div class="mock">
+            <div class="window">
+              <div class="window-head"><span class="title">修改账单</span><span>摘要 / 明细 / 备注 三段式</span></div>
+              <div class="window-body">
+                <div class="mini-grid">
+                  <div class="mini-card">
+                    <h4>摘要</h4>
+                    <ul class="mini-list">
+                      <li>客户：李莉娜</li>
+                      <li>房间：B座 1203</li>
+                      <li>账期：2026-06-01 ~ 2026-09-30</li>
+                    </ul>
+                  </div>
+                  <div class="mini-card">
+                    <h4>关键金额</h4>
+                    <ul class="mini-list">
+                      <li>应收：<strong>¥2,400.0</strong></li>
+                      <li>已缴：<strong>¥1,200.0</strong></li>
+                      <li>欠费：<strong>¥1,200.0</strong></li>
+                    </ul>
+                  </div>
+                </div>
+                <div style="height:10px"></div>
+                <div class="note">
+                  <strong>建议：</strong>把“摘要、备注、凭证号、交款人签字、支付方式”这类本次打印可编辑项放进确认页，
+                  账单基础数据和业务数据保持稳定，不要混在同一屏里。
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>4. 收据 / 打印页建议</h2>
+          <p>重点不是装饰，而是把金额、账期、优惠、减免、欠费看得更快。</p>
+        </div>
+        <p>适合桌面打印预览。</p>
+      </div>
+      <div class="compare-grid">
+        <article class="compare-card old">
+          <div class="compare-tag">
+            <strong>现状</strong><span class="badge">信息不够聚焦</span>
+          </div>
+          <div class="mock">
+            <div class="receipt-card">
+              <div class="receipt-top">
+                <h4>收据</h4>
+                <div class="receipt-meta">
+                  <div>套户编号：B座-1203</div>
+                  <div>客户名称：李莉娜</div>
+                  <div>缴费时间：2026-06-27</div>
+                </div>
+              </div>
+              <div class="table-shell" style="border:0;border-top:1px solid var(--line);border-radius:0">
+                <table class="receipt-table">
+                  <thead>
+                    <tr>
+                      <th>房间</th><th>项目</th><th>使用量</th><th>单价</th><th>应收</th><th>缴费</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>B座-1203</td><td>物业费</td><td>59.4×3</td><td>¥1.2</td><td>¥213.84</td><td>¥213.84</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="receipt-foot">
+                <div>摘要：……</div><div>备注：……</div>
+              </div>
+            </div>
+          </div>
+        </article>
+        <article class="compare-card new">
+          <div class="compare-tag">
+            <strong>建议</strong><span class="badge">更像“可核对单据”</span>
+          </div>
+          <div class="mock">
+            <div class="receipt-card">
+              <div class="receipt-top">
+                <h4>收据 / 打印预览</h4>
+                <div class="receipt-meta">
+                  <div>套户编号：B座-1203</div>
+                  <div>客户名称：李莉娜</div>
+                  <div>缴费时间：2026-06-27</div>
+                  <div>流水号：P20260627001</div>
+                  <div>凭证号：20260627-01</div>
+                  <div>建筑面积：59.4㎡</div>
+                </div>
+              </div>
+              <div class="table-shell" style="border:0;border-top:1px solid var(--line);border-radius:0">
+                <table class="receipt-table">
+                  <thead>
+                    <tr>
+                      <th>收费项目</th><th>费用区间</th><th>使用量</th><th>单价</th><th>应收</th><th>优惠</th><th>减免</th><th>缴费</th><th>欠费</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>物业费</td><td>2026-06 ~ 2026-09</td><td>59.4×3</td><td>¥1.2</td>
+                      <td class="money">¥213.8</td><td>¥0.0</td><td>¥0.0</td><td class="money brand">¥213.8</td><td>¥0.0</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="receipt-foot">
+                <div>摘要：本次批量收费</div><div>备注：按月核对</div>
+                <div>收费员：yuheng</div><div>交款人签字：________</div>
+              </div>
+            </div>
+            <div class="note">
+              <strong>建议：</strong>打印页和普通页统一模板，但保留“确认页”作为可编辑过渡页。
+              这样既能减少样式分裂，也能让摘要、备注、凭证号等只影响本次打印。
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>我建议你下一步优先改的顺序</h2>
+          <p>先改高频页，再扩到全系统。</p>
+        </div>
+      </div>
+      <div class="mini-grid">
+        <div class="mini-card">
+          <h4>优先级 1：收费工作台 / 账单管理 / 缴费记录</h4>
+          <ul class="mini-list">
+            <li>统一按钮层级</li>
+            <li>统一表格密度</li>
+            <li>统一状态标签</li>
+          </ul>
+        </div>
+        <div class="mini-card">
+          <h4>优先级 2：合同档案 / 导入核对 / 打印确认页</h4>
+          <ul class="mini-list">
+            <li>表单分区</li>
+            <li>详情摘要优先</li>
+            <li>减少页面跳转成本</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      说明：这是内部评审用 HTML 小样，重点是“前后对比”和“组件方向”，不是最终视觉稿。
+    </div>
+  </div>
+</body>
+</html>
