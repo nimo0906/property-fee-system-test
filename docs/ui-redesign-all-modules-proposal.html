@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>物业收费系统 · 其他模块 UI 组件升级小样对比图</title>
+  <style>
+    :root{
+      --bg:#eef5fb;--paper:#ffffff;--ink:#132235;--muted:#64748b;--line:#dbe7f1;
+      --blue:#3f78af;--deep:#10243a;--green:#23866d;--gold:#b7791f;--red:#cf3f4f;
+      --shadow:0 24px 70px rgba(31,67,103,.16);--r:24px;--r2:16px;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 8% -10%,#fff 0 16rem,transparent 30rem),linear-gradient(180deg,#edf6ff,#f7fafc);font-family:var(--font);color:var(--ink)}
+    a{color:inherit}.shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}.side{position:sticky;top:0;height:100vh;padding:22px;background:linear-gradient(180deg,#10243a,#173553);color:#dcecff;overflow:auto}.brand{font-weight:950;font-size:20px;letter-spacing:.02em;margin-bottom:18px}.side small{display:block;color:#9fb8d0;line-height:1.7}.nav-title{margin:18px 0 8px;color:#8fb0cc;font-size:12px;font-weight:900;letter-spacing:.12em}.nav a{display:flex;gap:9px;align-items:center;padding:9px 10px;border-radius:13px;text-decoration:none;color:#dcecff;font-weight:800;font-size:13px}.nav a.active,.nav a:hover{background:rgba(255,255,255,.12)}
+    main{padding:28px}.hero{border-radius:34px;padding:26px;background:linear-gradient(135deg,rgba(255,255,255,.92),rgba(220,237,252,.78));border:1px solid rgba(255,255,255,.9);box-shadow:var(--shadow);margin-bottom:20px}.kicker{font-size:12px;font-weight:950;letter-spacing:.18em;color:var(--blue);text-transform:uppercase}.hero h1{margin:7px 0 8px;font-size:34px;letter-spacing:-.05em}.hero p{margin:0;color:var(--muted);line-height:1.8}.pill-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 11px;background:#eef6ff;border:1px solid #d7e7f5;color:#315f8f;font-size:12px;font-weight:900}.pill.green{background:#e8f8f3;color:#20745f}.pill.gold{background:#fff4dc;color:#8a5b13}.pill.dark{background:#10243a;color:#fff;border-color:#10243a}.pill.red{background:#fff0f1;color:#b83245}.section{margin:20px 0}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:12px}.section h2{margin:0;font-size:24px;letter-spacing:-.03em}.section-head p{margin:5px 0 0;color:var(--muted)}
+    .matrix{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.module-card{background:rgba(255,255,255,.78);border:1px solid rgba(255,255,255,.95);border-radius:20px;padding:14px;box-shadow:0 12px 36px rgba(48,86,123,.10);min-height:180px}.module-card h3{font-size:16px;margin:0 0 8px}.module-card .meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}.module-card p{font-size:12px;color:var(--muted);line-height:1.65;margin:0}.component{margin-top:10px;padding:9px;border-radius:14px;background:#f8fbfe;border:1px solid var(--line);font-size:12px;line-height:1.6}.component b{color:var(--deep)}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}.panel{background:rgba(255,255,255,.82);border:1px solid rgba(255,255,255,.95);border-radius:24px;box-shadow:0 16px 46px rgba(48,86,123,.11);overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--line);background:rgba(248,251,254,.75);font-weight:950}.panel-body{padding:16px}.old .panel-head{color:#6f4d12}.new .panel-head{color:#174d80}.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.field{height:32px;border:1px solid #dce7f0;background:#fff;border-radius:10px;padding:7px 10px;color:#64748b;font-size:12px}.btn{height:32px;border:0;border-radius:10px;background:#3f78af;color:#fff;padding:0 12px;font-weight:900}.btn.soft{background:#eef6ff;color:#315f8f;border:1px solid #d7e7f5}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}.stat{border-radius:16px;padding:12px;background:linear-gradient(180deg,#fff,#f6fbff);border:1px solid #dce7f0}.stat span{font-size:12px;color:var(--muted);font-weight:850}.stat b{display:block;font-size:22px;margin-top:5px}.seg{display:inline-grid;grid-auto-flow:column;gap:4px;background:#eef5fb;border:1px solid #dbe7f1;padding:5px;border-radius:16px;margin-bottom:12px}.seg span{padding:8px 12px;border-radius:12px;font-weight:900;font-size:12px;color:#55718b}.seg .active{background:#10243a;color:#fff}.table{width:100%;border-collapse:collapse;font-size:12px}.table th{color:#64748b;background:#f8fbfe;text-align:left;font-size:11px}.table th,.table td{padding:10px;border-bottom:1px solid #e5edf4}.table td b{font-size:13px}.tag{display:inline-flex;border-radius:999px;padding:3px 8px;background:#e8f1fb;color:#315f8f;font-weight:900;font-size:11px}.tag.green{background:#e8f8f3;color:#20745f}.tag.red{background:#fff0f1;color:#b83245}.tag.gold{background:#fff4dc;color:#8a5b13}.split{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.drawer{border-left:4px solid var(--blue);background:#f8fbfe;border-radius:16px;padding:12px}.steps{display:grid;gap:8px}.step{display:flex;gap:9px;align-items:center}.dot{width:24px;height:24px;border-radius:999px;background:#e8f1fb;color:#315f8f;font-weight:950;display:grid;place-items:center;font-size:12px}.step.active .dot{background:#10243a;color:#fff}.chart{height:150px;border-radius:18px;background:linear-gradient(180deg,#f8fbfe,#fff);border:1px solid #dbe7f1;padding:12px;display:flex;align-items:end;gap:9px}.bar{flex:1;border-radius:10px 10px 0 0;background:linear-gradient(180deg,#5f9bd2,#3f78af);min-height:20px}.bar.gold{background:linear-gradient(180deg,#e9bd5d,#b7791f)}.bar.green{background:linear-gradient(180deg,#51b99c,#23866d)}.timeline{display:grid;gap:10px}.timeline .item{display:grid;grid-template-columns:24px 1fr;gap:8px}.timeline .line{width:10px;height:10px;border-radius:999px;background:var(--blue);margin:4px auto}.note{border-radius:16px;padding:12px;background:#fff8e9;border:1px solid #f1d79a;color:#735111;font-size:12px;line-height:1.7}.source-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.source{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}.source h3{margin:0 0 8px;font-size:16px}.source ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.9;font-size:13px}.footer{color:#6b7d8f;text-align:center;padding:24px;font-size:12px}
+    @media(max-width:1100px){.shell{grid-template-columns:1fr}.side{position:relative;height:auto}.matrix{grid-template-columns:repeat(2,1fr)}.compare,.source-grid{grid-template-columns:1fr}}@media(max-width:640px){main{padding:14px}.matrix,.stats,.split{grid-template-columns:1fr}.hero h1{font-size:26px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">金沙国际 · UI提案</div>
+    <small>本文件是菜单其他模块的 HTML 小样对比图。只做样式与布局提案，不改真实业务页面。</small>
+    <div class="nav">
+      <div class="nav-title">对比图目录</div>
+      <a class="active" href="#references">参考来源</a>
+      <a href="#map">全模块组件地图</a>
+      <a href="#billing">收费与导入</a>
+      <a href="#masterdata">基础资料</a>
+      <a href="#finance">财务核对</a>
+      <a href="#system">系统维护</a>
+      <a href="#batch">实施批次</a>
+    </div>
+  </aside>
+  <main>
+    <section class="hero">
+      <div class="kicker">Formal proposal · other modules</div>
+      <h1>菜单其他模块：组件参考 + UI页面小样对比图</h1>
+      <p>目标：沿用今天已确定的“正式提案版”方法，先给每个模块找到组件与成熟 UI 模式，再把它们落成可确认的 HTML 小样。确认后再改真实页面。</p>
+      <div class="pill-row"><span class="pill dark">不改真实页面</span><span class="pill">Ant Design 组件优先</span><span class="pill green">21st.dev 可复用样式</span><span class="pill gold">Pageflows / Mobbin 模式参考</span></div>
+    </section>
+
+    <section id="references" class="section">
+      <div class="section-head"><div><h2>1. 这次实际用到的组件网址和 UI 网址</h2><p>小样里的组件结构全部来自这些参考方向，再套回本系统的桌面业务密度。</p></div></div>
+      <div class="source-grid">
+        <div class="source"><h3>组件库参考</h3><ul>
+          <li><a href="https://ant.design/components/table/">Ant Design Table</a>：长列表、筛选、排序、固定列。</li>
+          <li><a href="https://procomponents.ant.design/en-US/components/table/">Ant Design ProTable</a>：查询表单 + 表格一体。</li>
+          <li><a href="https://ant.design/components/form/">Ant Design Form</a>：录入、校验、表单布局。</li>
+          <li><a href="https://ant.design/components/upload/">Ant Design Upload</a>：导入文件和进度。</li>
+          <li><a href="https://ant.design/components/steps/">Ant Design Steps</a>：导入、结账、备份流程。</li>
+          <li><a href="https://ant.design/components/drawer/">Ant Design Drawer</a>：详情侧滑，不离开列表上下文。</li>
+        </ul></div>
+        <div class="source"><h3>21st.dev 参考</h3><ul>
+          <li><a href="https://21st.dev/community/components/s/dashboard">Dashboard Components</a>：经营看板和指标卡。</li>
+          <li><a href="https://21st.dev/community/components/s/table">Table Components</a>：密集表格样式。</li>
+          <li><a href="https://21st.dev/community/components/ruixenui/flexi-filter-table/default">Flexi Filter Table</a>：筛选条 + 数据表。</li>
+          <li><a href="https://21st.dev/community/components/ruixenui/fixed-header-footer-table">Fixed Header Footer Table</a>：长表固定表头/汇总。</li>
+          <li><a href="https://21st.dev/community/components/s/admin-panel">Admin Panel Components</a>：后台管理模块布局。</li>
+        </ul></div>
+        <div class="source"><h3>成熟 UI 模式参考</h3><ul>
+          <li><a href="https://pageflows.com/web/elements/dashboard/">Pageflows Dashboard</a>：看板信息优先级。</li>
+          <li><a href="https://pageflows.com/web/elements/table/">Pageflows Table</a>：列表页操作密度。</li>
+          <li><a href="https://pageflows.com/web/elements/search-bar/">Pageflows Search Bar</a>：搜索与筛选入口。</li>
+          <li><a href="https://mobbin.com/explore/web/app-categories/finance">Mobbin Finance Web</a>：财务类 Web 页面。</li>
+          <li><a href="https://mobbin.com/explore/web/ui-elements/drawer">Mobbin Drawer</a>：详情和编辑侧栏。</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="map" class="section">
+      <div class="section-head"><div><h2>2. 全菜单模块组件地图</h2><p>首页、账单、合同已进入真实页面改造；下面是其他模块的提案方向。</p></div></div>
+      <div class="matrix">
+        <div class="module-card"><h3>物业收费</h3><div class="meta"><span class="pill">Form</span><span class="pill">Drawer</span></div><p>收费对象、同租户房间、待收项目集中到一个收银台。</p><div class="component"><b>复刻：</b>AntD Form + Drawer 详情。</div></div>
+        <div class="module-card"><h3>商业收费</h3><div class="meta"><span class="pill">Tabs</span><span class="pill">Table</span></div><p>先选商户/空间，再看租金、物业费、水电费。</p><div class="component"><b>复刻：</b>ProTable + Segment Tabs。</div></div>
+        <div class="module-card"><h3>智能预警</h3><div class="meta"><span class="pill gold">Timeline</span><span class="pill red">Badge</span></div><p>合同到期、欠费、异常金额按风险等级聚合。</p><div class="component"><b>复刻：</b>Timeline + Status Card。</div></div>
+        <div class="module-card"><h3>催缴管理</h3><div class="meta"><span class="pill">Kanban</span><span class="pill">Drawer</span></div><p>催缴对象按未联系、已联系、承诺付款分栏。</p><div class="component"><b>复刻：</b>CRM pipeline + drawer。</div></div>
+        <div class="module-card"><h3>数据导入</h3><div class="meta"><span class="pill green">Upload</span><span class="pill">Steps</span></div><p>上传、预览、问题行、确认导入四步清楚分离。</p><div class="component"><b>复刻：</b>Upload.Dragger + Steps。</div></div>
+        <div class="module-card"><h3>业主管理</h3><div class="meta"><span class="pill">Table</span><span class="pill">Descriptions</span></div><p>左表右详情，业主、手机号、名下房间一眼可查。</p><div class="component"><b>复刻：</b>Table + Detail Drawer。</div></div>
+        <div class="module-card"><h3>房间管理</h3><div class="meta"><span class="pill">Tree/Segment</span><span class="pill">Table</span></div><p>B座/商场先分区，房号、面积、合同状态进入主列。</p><div class="component"><b>复刻：</b>Segmented + Filter Table。</div></div>
+        <div class="module-card"><h3>收费项目</h3><div class="meta"><span class="pill">Editable Table</span><span class="pill">Tag</span></div><p>项目启用、适用范围、排序、单价规则在一张表内管理。</p><div class="component"><b>复刻：</b>Editable cells + Tags。</div></div>
+        <div class="module-card"><h3>抄表管理</h3><div class="meta"><span class="pill">Statistic</span><span class="pill">Table</span></div><p>本期待抄、已抄、异常用量、待确认固定在顶部。</p><div class="component"><b>复刻：</b>Metric cards + Input table。</div></div>
+        <div class="module-card"><h3>批量更新</h3><div class="meta"><span class="pill gold">Steps</span><span class="pill">Confirm</span></div><p>选择范围、字段、预览影响、确认提交四步化。</p><div class="component"><b>复刻：</b>Wizard + Diff table。</div></div>
+        <div class="module-card"><h3>自动出账</h3><div class="meta"><span class="pill">Console</span><span class="pill">Run history</span></div><p>规则、预览、执行、历史记录做成控制台。</p><div class="component"><b>复刻：</b>Admin console + timeline。</div></div>
+        <div class="module-card"><h3>公摊分摊</h3><div class="meta"><span class="pill">Formula Card</span><span class="pill">Table</span></div><p>分摊规则、对象范围、金额试算、生成账单连续展示。</p><div class="component"><b>复刻：</b>Formula panel + result table。</div></div>
+        <div class="module-card"><h3>缴费记录</h3><div class="meta"><span class="pill green">Ledger</span><span class="pill">Drawer</span></div><p>收款流水、支付方式、收据、冲红入口靠右固定。</p><div class="component"><b>复刻：</b>Fixed footer table。</div></div>
+        <div class="module-card"><h3>客服催费对象</h3><div class="meta"><span class="pill">List</span><span class="pill gold">Timeline</span></div><p>对象清单 + 跟进记录时间线。</p><div class="component"><b>复刻：</b>Contact list + timeline。</div></div>
+        <div class="module-card"><h3>发票管理</h3><div class="meta"><span class="pill">Tabs</span><span class="pill">Status</span></div><p>待开票、已开票、作废三个稳定分区。</p><div class="component"><b>复刻：</b>Tabs + invoice table。</div></div>
+        <div class="module-card"><h3>对账报表</h3><div class="meta"><span class="pill green">Charts</span><span class="pill">Export</span></div><p>摘要、趋势、结构、明细四块，不再一页只有表。</p><div class="component"><b>复刻：</b>Finance dashboard。</div></div>
+        <div class="module-card"><h3>期末结账</h3><div class="meta"><span class="pill red">Lock</span><span class="pill">Checklist</span></div><p>结账前检查、差异、确认锁账分步。</p><div class="component"><b>复刻：</b>Steps + checklist。</div></div>
+        <div class="module-card"><h3>系统维护</h3><div class="meta"><span class="pill">Audit</span><span class="pill">Backup</span></div><p>日志、备份、用户、健康、更新合并成维护控制台。</p><div class="component"><b>复刻：</b>Settings dashboard。</div></div>
+      </div>
+    </section>
+
+    <section id="billing" class="section">
+      <div class="section-head"><div><h2>3. 高频业务模块小样：收费 / 预警 / 导入</h2><p>把操作从“表格里找按钮”改为“左边选对象，右边处理”。</p></div></div>
+      <div class="compare">
+        <div class="panel old"><div class="panel-head">现状：收费页信息分散 <span class="pill gold">旧</span></div><div class="panel-body"><div class="toolbar"><span class="field">房号/业主</span><span class="field">费用类型</span><button class="btn">查询</button></div><table class="table"><tr><th>房间</th><th>业主</th><th>金额</th><th>操作</th></tr><tr><td>B座-1402</td><td>周孟莉</td><td>¥982.5</td><td>缴费</td></tr><tr><td>商场-5F-18A</td><td>刘策</td><td>¥15680</td><td>缴费</td></tr></table><div class="note" style="margin-top:12px">问题：收费对象、应收项目、同租户其他房间、收款动作不在同一个视觉重心。</div></div></div>
+        <div class="panel new"><div class="panel-head">小样：收银台式 Console <span class="pill green">新</span></div><div class="panel-body"><div class="seg"><span class="active">物业收费</span><span>商业收费</span></div><div class="split"><div><div class="toolbar"><span class="field">搜索房号 / 商户 / 手机</span><button class="btn">定位对象</button><button class="btn soft">扫码收款</button></div><table class="table"><tr><th>对象</th><th>待收</th><th>状态</th></tr><tr><td><b>周孟莉</b><br><span class="tag">B座-1402</span></td><td>¥982.5</td><td><span class="tag red">未缴4项</span></td></tr><tr><td><b>刘策</b><br><span class="tag green">商场-5F-18A</span></td><td>¥0.00</td><td><span class="tag green">已结清</span></td></tr></table></div><div class="drawer"><b>收费抽屉</b><p style="color:var(--muted);line-height:1.7">应收明细、减免、收款方式、收据打印固定在右侧，不跳出当前对象。</p><button class="btn">确认收款</button></div></div></div></div>
+      </div>
+      <div class="compare">
+        <div class="panel old"><div class="panel-head">现状：导入和批量操作像普通表单</div><div class="panel-body"><div class="toolbar"><span class="field">选择文件</span><button class="btn">上传</button></div><table class="table"><tr><th>行号</th><th>内容</th><th>问题</th></tr><tr><td>5</td><td>D11-01</td><td>需核对</td></tr></table></div></div>
+        <div class="panel new"><div class="panel-head">小样：Upload + Steps 复刻</div><div class="panel-body"><div class="steps"><div class="step active"><span class="dot">1</span><b>上传模板</b><span class="pill">basic.xlsx</span></div><div class="step active"><span class="dot">2</span><b>预览核对</b><span class="pill gold">3 行需处理</span></div><div class="step"><span class="dot">3</span><b>确认导入</b></div><div class="step"><span class="dot">4</span><b>生成结果</b></div></div><div class="toolbar" style="margin-top:12px"><button class="btn">继续确认</button><button class="btn soft">下载问题行</button></div></div></div>
+      </div>
+    </section>
+
+    <section id="masterdata" class="section">
+      <div class="section-head"><div><h2>4. 基础资料模块小样：业主 / 房间 / 收费项目 / 抄表</h2><p>统一成“筛选条 + 主表 + 详情抽屉”，不要每页各做各的。</p></div></div>
+      <div class="compare">
+        <div class="panel old"><div class="panel-head">现状：资料页以长表为主</div><div class="panel-body"><div class="toolbar"><span class="field">楼栋</span><span class="field">关键字</span><button class="btn">筛选</button></div><table class="table"><tr><th>楼栋</th><th>房间</th><th>业主</th><th>面积</th><th>操作</th></tr><tr><td>B座</td><td>1402</td><td>周孟莉</td><td>88㎡</td><td>编辑</td></tr><tr><td>商场</td><td>1F-06</td><td>东更道</td><td>80㎡</td><td>编辑</td></tr></table></div></div>
+        <div class="panel new"><div class="panel-head">小样：ProTable + Detail Drawer</div><div class="panel-body"><div class="stats"><div class="stat"><span>业主</span><b>428</b></div><div class="stat"><span>B座房间</span><b>376</b></div><div class="stat"><span>商场铺位</span><b>112</b></div><div class="stat"><span>资料异常</span><b>3</b></div></div><div class="toolbar"><span class="field">B座 / 商场</span><span class="field">合同状态</span><span class="field">搜索业主/房号/手机</span><button class="btn">筛选</button><button class="btn soft">新增</button></div><table class="table"><tr><th>对象</th><th>归属</th><th>合同</th><th>费用规则</th><th>操作</th></tr><tr><td><b>周孟莉</b><br><span class="tag">B座-1402</span></td><td>物业</td><td><span class="tag green">有效</span></td><td>物业费 + 电梯费</td><td>详情 / 编辑</td></tr><tr><td><b>东更道点心行</b><br><span class="tag green">商场-1F-06</span></td><td>商业</td><td><span class="tag gold">待出账</span></td><td>租金 + 物业费</td><td>详情 / 编辑</td></tr></table></div></div>
+      </div>
+    </section>
+
+    <section id="finance" class="section">
+      <div class="section-head"><div><h2>5. 财务核对模块小样：缴费 / 发票 / 报表 / 结账</h2><p>财务页统一强调“金额、状态、可追溯”。</p></div></div>
+      <div class="compare">
+        <div class="panel old"><div class="panel-head">现状：财务页偏明细列表</div><div class="panel-body"><table class="table"><tr><th>编号</th><th>对象</th><th>金额</th><th>状态</th></tr><tr><td>PAY-001</td><td>李莉娜</td><td>¥6766.1</td><td>已收</td></tr><tr><td>INV-014</td><td>刘策</td><td>¥15680</td><td>待开票</td></tr></table></div></div>
+        <div class="panel new"><div class="panel-head">小样：财务 Ledger + 图表</div><div class="panel-body"><div class="seg"><span class="active">流水</span><span>待开票</span><span>报表</span><span>结账</span></div><div class="stats"><div class="stat"><span>今日收款</span><b>¥0.0</b></div><div class="stat"><span>本月已收</span><b>¥22,446</b></div><div class="stat"><span>待开票</span><b>14</b></div><div class="stat"><span>差异</span><b>0</b></div></div><div class="chart"><i class="bar" style="height:42%"></i><i class="bar green" style="height:64%"></i><i class="bar gold" style="height:30%"></i><i class="bar" style="height:82%"></i><i class="bar green" style="height:52%"></i></div></div></div>
+      </div>
+    </section>
+
+    <section id="system" class="section">
+      <div class="section-head"><div><h2>6. 系统维护模块小样：日志 / 备份 / 用户 / 健康 / 更新</h2><p>这些页面不追求花哨，重点是安全状态和下一步动作清楚。</p></div></div>
+      <div class="compare">
+        <div class="panel old"><div class="panel-head">现状：维护入口分散</div><div class="panel-body"><table class="table"><tr><th>模块</th><th>状态</th><th>操作</th></tr><tr><td>数据备份</td><td>正常</td><td>备份</td></tr><tr><td>操作日志</td><td>正常</td><td>查看</td></tr></table></div></div>
+        <div class="panel new"><div class="panel-head">小样：Settings Dashboard</div><div class="panel-body"><div class="stats"><div class="stat"><span>备份状态</span><b>正常</b></div><div class="stat"><span>管理员密码</span><b>待改</b></div><div class="stat"><span>系统健康</span><b>通过</b></div><div class="stat"><span>更新</span><b>本地版</b></div></div><div class="timeline"><div class="item"><span class="line"></span><div><b>10:32 生成备份</b><br><span style="color:var(--muted)">backup-20260627.zip</span></div></div><div class="item"><span class="line"></span><div><b>09:48 财务登录</b><br><span style="color:var(--muted)">本机 127.0.0.1</span></div></div><div class="item"><span class="line"></span><div><b>09:10 健康检查</b><br><span style="color:var(--muted)">数据库、模板、静态资源正常</span></div></div></div></div></div>
+      </div>
+    </section>
+
+    <section id="batch" class="section">
+      <div class="section-head"><div><h2>7. 建议确认后的实施批次</h2><p>确认这个小样方向后，再逐页改代码，仍按今天的方式：先测、再开真实页面核对。</p></div></div>
+      <div class="matrix">
+        <div class="module-card"><h3>第一批：高频操作</h3><p>物业收费、商业收费、数据导入、业主管理、房间管理。</p><div class="component"><b>原因：</b>员工每天用，改完感知最强。</div></div>
+        <div class="module-card"><h3>第二批：财务核对</h3><p>缴费记录、发票管理、对账报表、期末结账。</p><div class="component"><b>原因：</b>金额、状态、追溯链要统一。</div></div>
+        <div class="module-card"><h3>第三批：规则与自动化</h3><p>收费项目、抄表管理、批量更新、自动出账、公摊分摊。</p><div class="component"><b>原因：</b>需要更多业务边界核对。</div></div>
+        <div class="module-card"><h3>第四批：系统维护</h3><p>操作日志、数据备份、用户、云端技术备查、健康、更新、清空试用数据。</p><div class="component"><b>原因：</b>更偏安全和桌面交付。</div></div>
+      </div>
+      <div class="note" style="margin-top:14px"><b>需要你确认：</b>如果这个小样方向认可，我下一步先从“第一批：高频操作”开始，把真实页面逐个改成一致组件结构；每改完一页都跑测试并打开页面给你看。</div>
+    </section>
+    <div class="footer">生成日期：2026-06-27 · 文件：docs/ui-redesign-all-modules-proposal.html</div>
+  </main>
+</div>
+</body>
+</html>

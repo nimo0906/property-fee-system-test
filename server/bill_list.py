@@ -18,14 +18,51 @@ def _bill_target_label(row):
 
 
 def _bill_scope_label(row):
-    if row['commercial_space_id']:
-        return '商业公司收费'
     try:
-        if row['unit'] == '商场' or row['category'] in ('商户', '商业') and row['unit'] == '商场':
+        if row['commercial_space_id']:
+            return '商业公司收费'
+        if row['building'] == '商场' or row['unit'] == '商场':
             return '商业公司收费'
     except Exception:
         pass
     return '物业公司收费'
+
+
+def _bill_room_label(row):
+    if row['commercial_space_id']:
+        room = f"商场-{row['space_no'] or ''}"
+    else:
+        room = f"{row['building'] or ''}-{row['unit'] or ''}-{row['room_number'] or ''}"
+    return room
+
+
+def _bill_object_code(row):
+    if row['commercial_space_id']:
+        return row['space_no'] or _bill_room_label(row)
+    return row['room_number'] or _bill_room_label(row)
+
+
+def _bill_scope_condition(scope):
+    if scope == 'property':
+        return " AND b.commercial_space_id IS NULL AND COALESCE(r.building,'')<>'商场' AND COALESCE(r.unit,'')<>'商场'"
+    if scope == 'commercial':
+        return " AND (b.commercial_space_id IS NOT NULL OR r.building='商场' OR r.unit='商场')"
+    return ''
+
+
+def _bill_scope_url(scope, period_start, period_end, status, fee_type_id, building, category, keyword, auto_batch_no):
+    params = []
+    for key, value in [
+        ('period_start', period_start), ('period_end', period_end), ('status', status),
+        ('fee_type_id', fee_type_id), ('building', building), ('category', category),
+        ('keyword', keyword), ('auto_batch_no', auto_batch_no),
+    ]:
+        if value:
+            params.append((key, value))
+    if scope:
+        params.append(('company_scope', scope))
+    query = urllib.parse.urlencode(params)
+    return '/bills' + (f'?{query}' if query else '')
 
 
 def _bill_customer_name(row):
@@ -155,6 +192,9 @@ class BillListMixin(BaseHandler):
             except Exception:
                 period_end = period_end[:7] + '-31'
         kw=qs(q,'keyword');bld=qs(q,'building');cat=qs(q,'category');auto_batch_no=qs(q,'auto_batch_no')
+        company_scope=qs(q,'company_scope')
+        if company_scope not in ('property', 'commercial'):
+            company_scope=''
         current_query = urllib.parse.urlencode([
             (k, v)
             for k, vals in q.items()
@@ -177,6 +217,9 @@ class BillListMixin(BaseHandler):
         if cat:sql+=" AND (r.category=? OR (? IN ('商户','商业') AND b.commercial_space_id IS NOT NULL))";vals.extend([cat,cat])
         if auto_batch_no:sql+=" AND b.auto_batch_no=?";vals.append(auto_batch_no)
         if kw:sql+=" AND (r.building LIKE ? OR r.room_number LIKE ? OR r.unit LIKE ? OR s.space_no LIKE ? OR s.shop_name LIKE ? OR s.merchant_name LIKE ?)";vals.extend([f'%{kw}%']*6)
+        base_sql_for_scope_summary = sql
+        base_vals_for_scope_summary = list(vals)
+        sql += _bill_scope_condition(company_scope)
         area_order = business_area_order_sql("COALESCE(r.building,'商场')", "COALESCE(r.unit,'商场')")
         sql += f" ORDER BY {area_order},COALESCE(r.building,'商场'),r.unit,COALESCE(r.room_number,s.space_no),b.fee_type_id"
         pg=parse_page(qs(q,'page','1'))
@@ -187,6 +230,16 @@ class BillListMixin(BaseHandler):
             "COALESCE(SUM(paid),0) paid,SUM(CASE WHEN status IN ('unpaid','overdue') THEN 1 ELSE 0 END) unpaid,"
             "SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) paid_count FROM ("+sql+")",
             vals,
+        ).fetchone()
+        scope_summary_order = f" ORDER BY {area_order},COALESCE(r.building,'商场'),r.unit,COALESCE(r.room_number,s.space_no),b.fee_type_id"
+        scope_summary = db.execute(
+            "SELECT "
+            "SUM(CASE WHEN commercial_space_id IS NOT NULL OR building='商场' OR unit='商场' THEN 0 ELSE 1 END) property_count,"
+            "SUM(CASE WHEN commercial_space_id IS NOT NULL OR building='商场' OR unit='商场' THEN 1 ELSE 0 END) commercial_count,"
+            "COALESCE(SUM(CASE WHEN commercial_space_id IS NOT NULL OR building='商场' OR unit='商场' THEN 0 ELSE amount-paid END),0) property_due,"
+            "COALESCE(SUM(CASE WHEN commercial_space_id IS NOT NULL OR building='商场' OR unit='商场' THEN amount-paid ELSE 0 END),0) commercial_due "
+            "FROM ("+base_sql_for_scope_summary+scope_summary_order+")",
+            base_vals_for_scope_summary,
         ).fetchone()
         total_pages=max(1,(total_rows+per_page-1)//per_page)
         pg=clamp_page(pg,total_pages)
@@ -199,6 +252,10 @@ class BillListMixin(BaseHandler):
         t_unpaid=summary['unpaid'] or 0
         t_paid=summary['paid_count'] or 0
         t_rooms=summary['rooms'] or 0
+        property_count = scope_summary['property_count'] or 0
+        commercial_count = scope_summary['commercial_count'] or 0
+        property_due = scope_summary['property_due'] or 0
+        commercial_due = scope_summary['commercial_due'] or 0
         db.close()
         sn={'paid':'status-paid','unpaid':'status-unpaid','overdue':'status-overdue','partial':'status-partial'}
         ln={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
@@ -229,9 +286,12 @@ class BillListMixin(BaseHandler):
             owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该租户下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
             rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'{owner_group}\')" style="cursor:pointer">'
             room_names = '、'.join(sorted(rl['name'] for rl in og['rooms'].values()))
-            rh+=f'<td>{owner_chk}</td><td><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{og["owner"]}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span><div class="small text-muted">房间：{room_names}</div></td>'
+            object_chips = ''.join(f'<span class="bill-object-chip">{h(name)}</span>' for name in sorted(rl['name'] for rl in og['rooms'].values()))
+            object_label = '商户号/铺位：' if og['scope'] == '商业公司收费' else '房间：'
+            rh+=f'<td>{owner_chk}</td><td><div class="bill-owner-line"><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{og["owner"]}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span><span class="bill-object-chips">{object_chips}</span></div><div class="small text-muted">{object_label}{room_names}</div></td>'
             rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
-            rh+=f'<td></td><td></td>'
+            rh+=f'<td></td>'
+            rh+=f'<td></td>'
             owner_bills = [b for rl in og['rooms'].values() for b in rl['bills']]
             rh+=f'<td><small class="text-muted">{h(_bill_group_hint(owner_bills))}</small></td><td class="text-end"><span class="money">¥{m(o_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(o_paid)}</span></td>'
             rh+=f'<td class="text-end">{o_rem_html}</td>'
@@ -245,18 +305,21 @@ class BillListMixin(BaseHandler):
                 room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
                 rh+=f'<tr class="room-detail-{owner_group} bill-room-row" onclick="toggleBillRoom(\'{room_group}\')" style="display:none;background:#f8f9fa;cursor:pointer">'
                 rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><i class="bi bi-chevron-right" id="icon_{room_group}"></i> <strong>{rl["name"]}</strong></td>'
-                rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td><td></td><td></td><td><small class="text-muted">{h(_bill_group_hint(rl["bills"]))}</small></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
+                rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
+                rh+=f'<td>{h(_bill_room_label(rl["bills"][0]))}</td><td><small class="text-muted">{h(_bill_group_hint(rl["bills"]))}</small></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
                 rh+=f'<td class="text-end">{r_rem_html}</td>'
-                rh+=f'<td></td><td></td></tr>'
+                rh+=f'<td></td>'
+                rh+=f'<td></td>'
+                rh+=f'<td></td></tr>'
                 for b in rl['bills']:
                     rem=b['amount']-b['paid']
                     rem_html = f'<strong class="money money-due">¥{m(rem)}</strong>' if rem>0 else '<span class="money money-paid">¥0.00</span>'
                     chk=f'<input type=checkbox name=bill_ids value="{b["id"]}" class=bill-chk form="billActionForm" data-owner-group="{owner_group}" data-room-group="{room_group}">'
                     rh+=f'<tr class="bill-detail-{room_group}" style="display:none">'
                     rh+=f'<td>{chk}</td>'
-                    rh+=f'<td><small>{h(b["bill_number"]or"-")}</small></td>'
+                    rh+=f'<td><small>{h(b["bill_number"]or"-")}</small><div class="small text-muted">{h(_bill_customer_name(b))} <span class="bill-inline-code">{h(_bill_object_code(b))}</span></div></td>'
                     rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
-                    rh+=f'<td>{h(rl["name"])}</td>'
+                    rh+=f'<td>{h(_bill_room_label(b))}</td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'
                     period_text = h(b["billing_period"])
                     if b['source'] == 'auto_contract' and b['service_start'] and b['service_end']:
@@ -281,6 +344,7 @@ class BillListMixin(BaseHandler):
         tpl = batch_notice + tpl
         tpl=tpl.replace('{PERIOD_START}',h(period_start)).replace('{PERIOD_END}',h(period_end)).replace('{FT_OPTS}',ft_opts).replace('{BLD_OPTS}',bld_opts)
         tpl=tpl.replace('{KW}',h(kw))
+        tpl=tpl.replace('{COMPANY_SCOPE_FIELD}', f'<input type="hidden" name="company_scope" value="{h(company_scope)}">' if company_scope else '')
         tpl=tpl.replace('<form method=POST id="billActionForm"></form>',
                         f'<form method=POST id="billActionForm"><input type="hidden" name="back" value="{h(current_path)}"></form>')
         tpl=tpl.replace('{SUN}',' selected' if s=='unpaid' else '').replace('{SPA}',' selected' if s=='paid' else '')
@@ -289,6 +353,18 @@ class BillListMixin(BaseHandler):
         tpl=tpl.replace('{TOTAL_ROWS}',str(total_rows)).replace('{PAGE}',str(pg)).replace('{TOTAL_PAGES}',str(total_pages))
         tpl=tpl.replace('{TOTAL_AMT}',m(ta)).replace('{TOTAL_PAID}',m(tp))
         tpl=tpl.replace('{UNPAID_CNT}',str(t_unpaid))
+        property_url = _bill_scope_url('property', period_start, period_end, s, fid, bld, cat, kw, auto_batch_no)
+        commercial_url = _bill_scope_url('commercial', period_start, period_end, s, fid, bld, cat, kw, auto_batch_no)
+        all_url = _bill_scope_url('', period_start, period_end, s, fid, bld, cat, kw, auto_batch_no)
+        active_all = ' active' if not company_scope else ''
+        active_property = ' active' if company_scope == 'property' else ''
+        active_commercial = ' active' if company_scope == 'commercial' else ''
+        scope_summary_html = f'''
+        <a class="ledger-scope-chip all{active_all}" href="{h(all_url)}"><i class="bi bi-layers"></i> 全部账单 <strong>{property_count + commercial_count}笔</strong></a>
+        <a class="ledger-scope-chip property{active_property}" href="{h(property_url)}"><i class="bi bi-building"></i> 物业公司收费 <strong>{property_count}笔</strong><em>欠费¥{m(property_due)}</em></a>
+        <a class="ledger-scope-chip commercial{active_commercial}" href="{h(commercial_url)}"><i class="bi bi-shop"></i> 商业公司收费 <strong>{commercial_count}笔</strong><em>欠费¥{m(commercial_due)}</em></a>
+        '''
+        tpl=tpl.replace('{BILL_SCOPE_SUMMARY}',scope_summary_html)
         has_unpaid=any(r['status']!='paid' for r in rows)
         paid_btn='<button class="btn btn-sm btn-primary" type="submit" form="billActionForm" formaction="/bills/batch_pay" formtarget="_self" formmethod="POST"><i class="bi bi-credit-card"></i> 缴费</button>'
         btn=f'''
@@ -306,7 +382,7 @@ class BillListMixin(BaseHandler):
         tpl=tpl.replace('{BTN_TOP}',btn).replace('{BTN_BOTTOM}',btn)
         tpl=tpl.replace('{SUN}',' selected' if s=='unpaid' else '').replace('{SPA}',' selected' if s=='paid' else '')
         tpl=tpl.replace('{SOV}',' selected' if s=='overdue' else '').replace('{SPT}',' selected' if s=='partial' else '')
-        page_query=[('period_start',period_start),('period_end',period_end),('status',s),('fee_type_id',fid),('building',bld),('category',cat),('keyword',kw)]
+        page_query=[('period_start',period_start),('period_end',period_end),('status',s),('fee_type_id',fid),('building',bld),('category',cat),('keyword',kw),('company_scope',company_scope)]
         if auto_batch_no:
             page_query.append(('auto_batch_no', auto_batch_no))
         page_links=render_pagination('/bills', page_query, pg, total_pages, per_page, total_rows, '账单分页')

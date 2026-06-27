@@ -1,10 +1,14 @@
 from server.merchant_contracts_shared import *
 from server.special_rent import upsert_special_rent_rule
+import urllib.parse
 from server.pagination import business_area_order_sql, pagination_state, query_items, render_pagination
 
 class MerchantContractMixinPart1Group1(BaseHandler):
     def _merchant_contracts(self, q):
         keyword = qs(q, 'keyword').strip()
+        contract_scope = qs(q, 'contract_scope').strip() or 'all'
+        if contract_scope not in ('all', 'property', 'commercial'):
+            contract_scope = 'all'
         db = get_db()
         sql = """SELECT c.*,COALESCE(r.building,'商场') building,COALESCE(r.unit,'商场') unit,
                       COALESCE(s.space_no,r.room_number) room_number,COALESCE(NULLIF(c.contract_area,0),s.area,r.area,0) area,
@@ -36,6 +40,22 @@ class MerchantContractMixinPart1Group1(BaseHandler):
                 OR o.name LIKE ?
             )"""
             vals.extend([like] * 11)
+        base_sql = sql
+        base_vals = list(vals)
+        base_counts = db.execute(
+            """SELECT
+                   COALESCE(SUM(CASE WHEN COALESCE(building,'') LIKE 'B%' OR COALESCE(unit,'') LIKE 'B%' THEN 1 ELSE 0 END),0) property_count,
+                   COALESCE(SUM(CASE WHEN COALESCE(building,'') LIKE 'B%' OR COALESCE(unit,'') LIKE 'B%' THEN 0 ELSE 1 END),0) commercial_count
+               FROM (""" + base_sql + ")",
+            base_vals,
+        ).fetchone()
+        scope_clause = ''
+        if contract_scope == 'property':
+            scope_clause = "(COALESCE(r.building,'') LIKE 'B%' OR COALESCE(r.unit,'') LIKE 'B%')"
+        elif contract_scope == 'commercial':
+            scope_clause = "NOT (COALESCE(r.building,'') LIKE 'B%' OR COALESCE(r.unit,'') LIKE 'B%')"
+        if scope_clause:
+            sql += (' AND ' if keyword else ' WHERE ') + scope_clause
         total_rows = db.execute("SELECT COUNT(*) FROM (" + sql + ")", vals).fetchone()[0]
         pg, per_page, total_pages = pagination_state(q, total_rows)
         area_order = business_area_order_sql("COALESCE(r.building,'商场')", "COALESCE(r.unit,'商场')")
@@ -69,35 +89,82 @@ class MerchantContractMixinPart1Group1(BaseHandler):
         search_tip = f'搜索结果：{total_rows} 份合同档案' if keyword else '默认按楼层从低到高排序'
         headers = '<thead><tr><th>空间/合同</th><th>店铺/使用方</th><th>楼层/面积</th><th class="text-end">租金单价</th><th class="text-end">物业单价</th><th class="text-end">押金单价</th><th>合同期</th><th>出账状态</th><th>最近服务期/到期提醒</th><th>状态</th><th class="text-end">操作</th></tr></thead>'
 
-        def group(title, icon, items, open_attr):
+        def group(title, icon, items, open_attr, anchor):
             body = ''.join(row_html(r) for r in items) or '<tr><td colspan="11" class="text-center text-muted py-4">暂无合同档案</td></tr>'
-            return f'''<details class="contract-group" {open_attr}>
+            return f'''<details class="contract-group" {open_attr} id="{anchor}">
               <summary><span><i class="bi {icon}"></i> {title}</span><span class="badge status-info">{len(items)} 份</span></summary>
               <div class="table-responsive"><table class="table table-hover align-middle mb-0">{headers}<tbody>{body}</tbody></table></div>
             </details>'''
 
+        total_property = int(base_counts['property_count'] or 0)
+        total_commercial = int(base_counts['commercial_count'] or 0)
+        total_contracts = total_property + total_commercial
+
+        def scope_url(scope, keep_keyword=True):
+            params = []
+            if keep_keyword and keyword:
+                params.append(('keyword', keyword))
+            if scope and scope != 'all':
+                params.append(('contract_scope', scope))
+            query = urllib.parse.urlencode(params)
+            return '/merchant_contracts' + (f'?{query}' if query else '')
+
+        active_all = ' active' if contract_scope == 'all' else ''
+        active_property = ' active' if contract_scope == 'property' else ''
+        active_commercial = ' active' if contract_scope == 'commercial' else ''
+        contract_scope_tabs = f'''
+              <div class="contract-scope-tabs" data-testid="contract-scope-tabs" aria-label="合同分类切换">
+                <a class="contract-scope-tab all{active_all}" href="{h(scope_url('all'))}"><i class="bi bi-layers"></i><span>全部合同</span><strong>{total_contracts}份</strong></a>
+                <a class="contract-scope-tab property{active_property}" href="{h(scope_url('property'))}"><i class="bi bi-building"></i><span>物业合同</span><strong>{total_property}份</strong></a>
+                <a class="contract-scope-tab commercial{active_commercial}" href="{h(scope_url('commercial'))}"><i class="bi bi-shop"></i><span>商业合同</span><strong>{total_commercial}份</strong></a>
+              </div>
+        '''
+        group_sections = []
+        if contract_scope in ('all', 'property'):
+            group_sections.append(group('物业合同', 'bi-building', b_rows, 'open', 'property-contracts'))
+        if contract_scope in ('all', 'commercial'):
+            group_sections.append(group('商业合同', 'bi-shop', commercial_rows, 'open', 'commercial-contracts'))
+        groups_html = ''.join(group_sections)
+        reset_href = scope_url(contract_scope, keep_keyword=False)
+        hidden_scope = '' if contract_scope == 'all' else f'<input type="hidden" name="contract_scope" value="{h(contract_scope)}">'
         self._html(self._page("空间合同档案", f'''
-        <div class="alert alert-info"><i class="bi bi-file-earmark-text"></i>
-        合同档案按 物业合同 / 商业合同 分组；作为行政档案/合同备查使用，不局限于商场；空间资料和合同资料在同一份档案中维护。日常收费仍从“物业收费”或“商业收费”生成账单。</div>
+        <div class="alert alert-info mt-0 mb-3"><i class="bi bi-info-circle"></i> 合同档案作为行政档案/合同备查使用，不局限于商场；空间资料和合同资料在同一份档案中维护。日常收费仍从“物业收费”或“商业收费”生成账单。</div>
+        <div class="page-proposal-summary">
+          <div class="summary-stats">
+            <div class="summary-stat primary"><div class="k">总合同档案</div><div class="v">{total_contracts}</div></div>
+            <div class="summary-stat"><div class="k">物业合同</div><div class="v">{total_property}</div></div>
+            <div class="summary-stat"><div class="k">商业合同</div><div class="v">{total_commercial}</div></div>
+          </div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="formal-section-title">
+              <h3>合同档案总览</h3>
+              <div class="hint">默认按楼层从低到高排序</div>
+            </div>
+            <div class="contract-overview-actions">
+              <a class="btn btn-primary btn-sm" href="/merchant_contracts/create"><i class="bi bi-plus-lg"></i> 新增合同档案</a>
+              <span class="page-proposal-pill"><i class="bi bi-info-circle"></i> 搜索后保留当前分类视图</span>
+            </div>
+            {contract_scope_tabs}
+          </div>
+        </div>
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <span><i class="bi bi-file-earmark-text"></i> 空间合同档案</span>
-            <div class="d-flex flex-wrap gap-2">
-              <a class="btn btn-primary btn-sm" href="/merchant_contracts/create"><i class="bi bi-plus-lg"></i> 新增合同档案</a>
-            </div>
+            <small class="text-muted">{h(search_tip)}</small>
           </div>
           <div class="card-body border-bottom">
             <form method="GET" action="/merchant_contracts" class="row g-2 align-items-end">
+              {hidden_scope}
               <div class="col-md-8"><label class="form-label">搜索合同档案</label><input name="keyword" class="form-control" value="{h(keyword)}" placeholder="输入商户编号、合同编号、店铺/使用方、业态、楼层"></div>
-              <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> 搜索</button><a class="btn btn-outline-secondary" href="/merchant_contracts">重置</a></div>
-              <div class="col-12 small text-muted">{h(search_tip)}</div>
+              <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> 搜索</button><a class="btn btn-outline-secondary" href="{h(reset_href)}">重置</a></div>
             </form>
           </div>
           <div class="card-body contract-group-stack">
-            {group('物业合同', 'bi-building', b_rows, 'open')}
-            {group('商业合同', 'bi-shop', commercial_rows, 'open')}
+            {groups_html}
           </div>
-          {render_pagination('/merchant_contracts', query_items(q, ['keyword']), pg, total_pages, per_page, total_rows, '合同档案分页')}
+          {render_pagination('/merchant_contracts', query_items(q, ['keyword', 'contract_scope']), pg, total_pages, per_page, total_rows, '合同档案分页')}
         </div>
         ''', "merchant_contracts"))
 

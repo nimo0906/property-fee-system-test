@@ -168,9 +168,19 @@
               "icon": "git-pull-request",
               "title": "Source Control"
             }
+          },
+          {
+            "id": "f0319e888c000c4a",
+            "type": "leaf",
+            "state": {
+              "type": "smart-connections-view",
+              "state": {},
+              "icon": "smart-connections",
+              "title": "Connections"
+            }
           }
         ],
-        "currentTab": 5
+        "currentTab": 6
       }
     ],
     "direction": "horizontal",
@@ -186,11 +196,32 @@
       "daily-notes:打开/创建今天的日记": false,
       "templates:插入模板": false,
       "command-palette:打开命令面板": false,
-      "bases:新建数据库": false
+      "bases:新建数据库": false,
+      "copilot:Open Copilot Chat": false,
+      "smart-connections:Smart Connections: Open connections view": false,
+      "smart-connections:Toggle Footer Connections": false,
+      "smart-connections:Smart Connections: Open random connection": false
     }
   },
-  "active": "ccda68fc01ab3ba9",
+  "active": "f0319e888c000c4a",
   "lastOpenFiles": [
+    "copilot/copilot-custom-prompts/Clip Web Page.md",
+    "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
+    "copilot/copilot-custom-prompts/Rewrite as tweet thread.md",
+    "copilot/copilot-custom-prompts/Rewrite as tweet.md",
+    "copilot/copilot-custom-prompts/Remove URLs.md",
+    "copilot/copilot-custom-prompts/Generate glossary.md",
+    "copilot/copilot-custom-prompts/Generate table of contents.md",
+    "copilot/copilot-custom-prompts/Make longer.md",
+    "copilot/copilot-custom-prompts/Make shorter.md",
+    "copilot/copilot-custom-prompts/Emojify.md",
+    "copilot/copilot-custom-prompts/Explain like I am 5.md",
+    "copilot/copilot-custom-prompts/Simplify.md",
+    "copilot/copilot-custom-prompts/Summarize.md",
+    "copilot/copilot-custom-prompts/Translate to Chinese.md",
+    "copilot/copilot-custom-prompts/Fix grammar and spelling.md",
+    "copilot/copilot-custom-prompts",
+    "copilot",
     "未命名.base",
     "build/property_fee_system_macos/BUNDLE-00.toc",
     "dist/物业管理收费系统.app/Contents/_CodeSignature/CodeResources",
@@ -203,9 +234,6 @@
     "dist/物业管理收费系统.app/Contents/Resources/交付验收清单.md",
     "dist/物业管理收费系统.app/Contents/Resources/update_manifest.json",
     "dist/物业管理收费系统.app/Contents/Resources/templates/rooms.html",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/payments.html",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/owners.html",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/meter_list.html",
     "dist/物业管理收费系统.app/Contents/Resources/static/desktop-app-icon.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-logo.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-emblem.png",
@@ -220,18 +248,8 @@
     "未命名.canvas",
     "未命名 1.md",
     "docs/release-freeze-v2.0.3.md",
-    "docs/local-security-boundary.md",
-    "docs/hidden-module-policy.md",
-    "docs/desktop-release-checklist.md",
-    "docs/release-final-summary-v2.0.md",
     "static/brand-logo.png",
     "static/desktop-app-icon.png",
-    "static/brand-emblem.png",
-    "数据备份说明.md",
-    "使用说明.md",
-    "明天Windows打包从这里开始.md",
-    "开发规划.md",
-    "交付验收清单.md",
-    "发展方向建议.md"
+    "static/brand-emblem.png"
   ]
 }

@@ -41,7 +41,7 @@ class BillingUiMixin(BaseHandler):
         db = get_db()
         room_sql = "SELECT r.*,o.name oname FROM rooms r LEFT JOIN owners o ON r.owner_id=o.id"
         if mode == 'commercial':
-            room_sql += " WHERE r.unit='商场'"
+            room_sql += " WHERE (r.unit='商场' OR r.building='商场')"
         else:
             room_sql += " WHERE (r.unit='B座' OR r.building='B座')"
         rooms = db.execute(room_sql + " ORDER BY r.building,r.unit,r.room_number").fetchall()

@@ -44,3 +44,9 @@ release_packages/
 *.app/
 *.dmg
 *.exe
+
+
+
+
+# Ignore Smart Environment folder
+.smart-env

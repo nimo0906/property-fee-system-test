@@ -128,61 +128,96 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
         empty_text='30天内暂无到期合同',
         col_count=4,
     )
-    html = f'''
-        {handler._default_password_warning_html()}
-        <section class="dashboard-focus-shell">
-            <div class="dashboard-focus-head">
-                <div>
-                    <div class="focus-kicker">PROPERTY FINANCE COMMAND</div>
-                    <h2>经营看板</h2>
+    html = f"""
+        <section class="workbench-command-shell dashboard-focus-shell">
+            <div class="workbench-command-hero">
+                <button class="workbench-menu-chip d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileNav" aria-label="打开菜单"><i class="bi bi-list"></i> 菜单</button>
+                <div class="workbench-title-block">
+                    <div class="focus-kicker">PROPERTY FINANCE</div>
+                    <h2>收费工作台</h2>
                 </div>
-                <div class="workbench-primary-actions">{primary_actions}</div>
+                <div class="workbench-command-actions workbench-primary-actions">{primary_actions}</div>
             </div>
-            <div class="dashboard-focus-hero">
-                <div class="focus-card focus-summary-card">
-                    <div class="focus-card-inner focus-summary-grid">
+            {handler._default_password_warning_html()}
+            <div class="workbench-proposal-grid">
+                <section class="workbench-main-panel">
+                    <div class="panel-heading">
                         <div>
-                            <div class="focus-eyebrow">本月应收</div>
-                            <div class="focus-money">¥{m(ta)}</div>
-                            <div class="focus-stat-grid">
-                                <a class="focus-stat" href="{paid_link}"><span>已收</span><b>¥{m(tp)}</b></a>
-                                <a class="focus-stat red" href="/bills?status=unpaid&period_start={month_start}&period_end={month_end}"><span>未收</span><b>¥{m(month_due)}</b></a>
-                                <a class="focus-stat gold" href="{contract_alert_link}"><span>合同预警</span><b>{contract_risks["contracts_expiring_30d"]} 份</b></a>
-                            </div>
+                            <div class="focus-kicker">PROPERTY FINANCE COMMAND</div>
+                            <h2>经营看板</h2>
                         </div>
-                        <div class="focus-ring" style="--rate:{pct_width(rate)}%"><div><b>{rate}%</b><span>收缴率</span></div></div>
+                        <div class="period-pill">{p}</div>
                     </div>
-                </div>
-                <div class="focus-card">
-                    <div class="focus-card-inner">
-                        <div class="focus-section-title"><b>优先处理</b><span>今日</span></div>
-                        <div class="focus-risk-list">{priority_cards}</div>
+                    <nav class="workbench-view-tabs" data-testid="workbench-view-tabs" aria-label="收费工作台视图">
+                        <a class="active" href="#today-focus"><i class="bi bi-lightning-charge"></i> 今日</a>
+                        <a href="#month-summary"><i class="bi bi-calendar3"></i> 本月</a>
+                        <a href="/bills?building=B%E5%BA%A7&period_start={month_start}&period_end={month_end}"><i class="bi bi-building"></i> B座</a>
+                        <a href="/bills?building=%E5%95%86%E5%9C%BA&period_start={month_start}&period_end={month_end}"><i class="bi bi-shop"></i> 商场</a>
+                    </nav>
+                    <div class="today-command-grid" id="today-focus">
+                        <a class="today-command-item" href="/bills?status=unpaid&period_start={month_start}&period_end={month_end}">
+                            <span>待收费账单</span><strong>{pending_cnt}</strong><em>今日优先</em>
+                        </a>
+                        <a class="today-command-item warn" href="{contract_alert_link}">
+                            <span>合同预警</span><strong>{contract_risks["contracts_expiring_30d"]}</strong><em>30天内</em>
+                        </a>
+                        <a class="today-command-item blue" href="/meter_readings">
+                            <span>待抄表确认</span><strong>{meter_needed}</strong><em>本月</em>
+                        </a>
                     </div>
-                </div>
+                    <div class="focus-card focus-summary-card" id="month-summary">
+                        <div class="focus-card-inner focus-summary-grid">
+                            <div>
+                                <div class="focus-eyebrow">本月应收</div>
+                                <div class="focus-money">¥{m(ta)}</div>
+                                <div class="focus-stat-grid">
+                                    <a class="focus-stat" href="{paid_link}"><span>已收</span><b>¥{m(tp)}</b></a>
+                                    <a class="focus-stat red" href="/bills?status=unpaid&period_start={month_start}&period_end={month_end}"><span>未收</span><b>¥{m(month_due)}</b></a>
+                                    <a class="focus-stat gold" href="{contract_alert_link}"><span>合同预警</span><b>{contract_risks["contracts_expiring_30d"]} 份</b></a>
+                                </div>
+                            </div>
+                            <div class="focus-ring" style="--rate:{pct_width(rate)}%"><div><b>{rate}%</b><span>收缴率</span></div></div>
+                        </div>
+                    </div>
+                </section>
+                <aside class="workbench-side-panel">
+                    <div class="focus-section-title"><b>快捷入口</b><span>财务操作</span></div>
+                    <div class="focus-actions side-actions">{quick_actions}</div>
+                    <div class="focus-card"><div class="focus-card-inner">
+                        <div class="focus-section-title"><b>B座 / 商场</b><span>收缴率</span></div>
+                        <div class="focus-bars">
+                            <div class="focus-bar-row"><span>B座</span><div class="focus-track"><div class="focus-fill" style="width:{pct_width(b_rate)}%"></div></div><b>{b_rate}%</b></div>
+                            <div class="focus-bar-row"><span>商场</span><div class="focus-track"><div class="focus-fill gold" style="width:{pct_width(mall_rate)}%"></div></div><b>{mall_rate}%</b></div>
+                            <div class="focus-bar-row"><span>欠费</span><div class="focus-track"><div class="focus-fill red" style="width:{due_width}%"></div></div><b>{pending_cnt}</b></div>
+                        </div>
+                    </div></div>
+                    <div class="focus-card"><div class="focus-card-inner">
+                        <div class="focus-section-title"><b>业务动态</b><span>实时</span></div>
+                        <div class="focus-mini-list">
+                            <a class="focus-mini" href="{paid_link}"><b>今日收款 <em>¥{m(today_paid)}</em></b></a>
+                            <a class="focus-mini" href="{invoice_link}"><b>待开票 <em>{invoice_todo_cnt} 笔</em></b></a>
+                            <a class="focus-mini" href="/meter_readings"><b>待抄表 <em>{meter_needed} 项</em></b></a>
+                        </div>
+                    </div></div>
+                </aside>
             </div>
-            <div class="dashboard-focus-grid">
-                <div class="focus-card"><div class="focus-card-inner">
-                    <div class="focus-section-title"><b>B座 / 商场</b><span>收缴率</span></div>
-                    <div class="focus-bars">
-                        <div class="focus-bar-row"><span>B座</span><div class="focus-track"><div class="focus-fill" style="width:{pct_width(b_rate)}%"></div></div><b>{b_rate}%</b></div>
-                        <div class="focus-bar-row"><span>商场</span><div class="focus-track"><div class="focus-fill gold" style="width:{pct_width(mall_rate)}%"></div></div><b>{mall_rate}%</b></div>
-                        <div class="focus-bar-row"><span>欠费</span><div class="focus-track"><div class="focus-fill red" style="width:{due_width}%"></div></div><b>{pending_cnt}</b></div>
-                    </div>
-                </div></div>
+            <div class="dashboard-focus-grid workbench-lower-grid">
                 <div class="focus-card"><div class="focus-card-inner">
                     <div class="focus-section-title"><b>收入结构</b><span>本月</span></div>
                     <div class="focus-bars">{fee_rows}</div>
                 </div></div>
                 <div class="focus-card"><div class="focus-card-inner">
-                    <div class="focus-section-title"><b>业务动态</b><span>实时</span></div>
-                    <div class="focus-mini-list">
-                        <a class="focus-mini" href="{paid_link}"><b>今日收款 <em>¥{m(today_paid)}</em></b></a>
-                        <a class="focus-mini" href="{invoice_link}"><b>待开票 <em>{invoice_todo_cnt} 笔</em></b></a>
-                        <a class="focus-mini" href="/meter_readings"><b>待抄表 <em>{meter_needed} 项</em></b></a>
+                    <div class="focus-section-title"><b>本月收费概况</b><span>看板</span></div>
+                    <div class="row text-center g-2">
+                        <div class="col-6"><div class="summary-tile"><div class="label">待收费账单</div><strong>{pending_cnt}</strong><span class="text-muted small"> 笔</span></div></div>
+                        <div class="col-6"><div class="summary-tile"><div class="label">收缴率</div><strong>{rate}%</strong></div></div>
                     </div>
                 </div></div>
+                <div class="focus-card"><div class="focus-card-inner">
+                    <div class="focus-section-title"><b>优先处理</b><span>今日</span></div>
+                    <div class="focus-risk-list">{priority_cards}</div>
+                </div></div>
             </div>
-            <div class="focus-actions">{quick_actions}</div>
         </section>
         <div class="row g-3 mb-3 mt-3">
             <div class="col-md-7">
@@ -191,12 +226,7 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
             </div>
             <div class="col-md-5">
                 <div class="card mb-3"><div class="card-header py-2"><i class="bi bi-calendar-check"></i> 即将到期合同</div>{contract_table}</div>
-                <div class="card"><div class="card-header py-2"><i class="bi bi-pie-chart"></i> 本月收费概况</div>
-                <div class="card-body"><div class="row text-center g-2">
-                    <div class="col-6"><div class="summary-tile"><div class="label">待收费账单</div><strong>{pending_cnt}</strong><span class="text-muted small"> 笔</span></div></div>
-                    <div class="col-6"><div class="summary-tile"><div class="label">收缴率</div><strong>{rate}%</strong></div></div>
-                </div></div></div>
             </div>
         </div>
-    '''
+    """
     return html, primary_actions

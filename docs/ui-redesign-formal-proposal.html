@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>物业收费系统 UI / 组件优化正式提案</title>
+  <style>
+    :root{
+      --bg:#dbe2eb;
+      --panel:rgba(255,255,255,.72);
+      --panel-strong:#fff;
+      --ink:#18212c;
+      --muted:#667587;
+      --line:rgba(76,96,119,.14);
+      --brand:#4f77a3;
+      --brand-soft:rgba(79,119,163,.12);
+      --dark:#101820;
+      --good:#0f8b72;
+      --warn:#c08a30;
+      --danger:#c45c55;
+      --shadow:0 20px 50px rgba(28,45,66,.10);
+      --shadow-soft:0 8px 24px rgba(28,45,66,.08);
+      --radius:24px;
+      --radius-sm:16px;
+      --font:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,BlinkMacSystemFont,sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--font);
+      color:var(--ink);
+      background:
+        radial-gradient(circle at 18% 14%, rgba(255,255,255,.92), transparent 360px),
+        radial-gradient(circle at 76% 10%, rgba(238,244,251,.72), transparent 420px),
+        linear-gradient(135deg,#b8c4d5 0%,#e8eef5 46%,#a7b7ca 100%);
+    }
+    .shell{display:grid;grid-template-columns:92px 1fr;min-height:100vh}
+    .sidebar{
+      position:sticky;top:0;height:100vh;
+      padding:18px 12px;
+      background:rgba(240,246,253,.42);
+      border-right:1px solid rgba(255,255,255,.56);
+      backdrop-filter:blur(18px);
+    }
+    .brand{
+      width:54px;height:54px;border-radius:18px;margin:6px auto 18px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(255,255,255,.62);
+      border:1px solid rgba(255,255,255,.76);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.8);
+      font-weight:900;color:#a47f28;font-size:20px;
+    }
+    .nav-group{margin:14px 0}
+    .nav-group .label{
+      text-align:center;font-size:10px;letter-spacing:.08em;
+      color:#687a8d;font-weight:800;margin:10px 0 8px;
+    }
+    .nav-item{
+      width:52px;height:52px;border-radius:18px;margin:0 auto 10px;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(255,255,255,.52);border:1px solid rgba(255,255,255,.7);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.72);
+      color:#677a8b;font-size:18px;font-weight:800
+    }
+    .nav-item.active{background:#121a23;color:#fff;border-color:#121a23}
+    .content{padding:20px 22px 36px}
+    .page-title{
+      display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+      padding:18px 20px;margin-bottom:16px;
+      border:1px solid rgba(255,255,255,.82);border-radius:28px;
+      background:linear-gradient(135deg, rgba(255,255,255,.62), rgba(248,251,253,.82));
+      box-shadow:var(--shadow);
+    }
+    .eyebrow{font-size:12px;letter-spacing:.16em;color:var(--brand);font-weight:900}
+    h1{margin:4px 0 8px;font-size:28px;line-height:1.15}
+    .lead{margin:0;color:var(--muted);line-height:1.8;max-width:1120px}
+    .tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .tag{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:7px 12px;border-radius:999px;
+      background:var(--brand-soft);border:1px solid rgba(79,119,163,.18);
+      color:var(--brand);font-size:13px;font-weight:650
+    }
+    .hero-note{
+      max-width:380px;
+      padding:14px 16px;border-left:4px solid var(--brand);border-radius:16px;
+      background:#f7fbfd;color:#415866;line-height:1.75;font-size:13px
+    }
+    .section{
+      margin-top:16px;padding:18px;
+      border:1px solid rgba(255,255,255,.8);border-radius:26px;
+      background:rgba(255,255,255,.56);box-shadow:var(--shadow-soft)
+    }
+    .section-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;margin-bottom:14px}
+    .section-head h2{margin:0;font-size:20px}
+    .section-head p{margin:0;color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{
+      border:1px solid var(--line);border-radius:24px;overflow:hidden;
+      background:linear-gradient(180deg, rgba(255,255,255,.95), rgba(250,252,253,.92));
+      box-shadow:var(--shadow-soft)
+    }
+    .card .head{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      padding:14px 16px;border-bottom:1px solid var(--line);background:rgba(247,250,252,.92)
+    }
+    .card .head strong{font-size:15px}
+    .badge{
+      padding:5px 10px;border-radius:999px;font-size:12px;font-weight:800
+    }
+    .badge.old{background:#fff0ee;color:var(--danger)}
+    .badge.new{background:var(--brand-soft);color:var(--brand)}
+    .badge.gray{background:#eef3f3;color:#637170}
+    .mock{padding:16px;display:grid;gap:12px}
+    .frame{border:1px solid var(--line);border-radius:22px;overflow:hidden;background:#fff}
+    .frame-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);background:#f8fafc}
+    .frame-bar .title{font-weight:900}
+    .frame-body{padding:14px}
+    .dashboard-sample{display:grid;grid-template-columns:92px 1fr;min-height:220px}
+    .sidebar-sample{
+      background:linear-gradient(180deg, rgba(245,248,252,.75), rgba(238,244,250,.95));
+      border-right:1px solid var(--line);padding:14px 10px
+    }
+    .sidebar-sample .nav-item{margin-bottom:10px}
+    .workspace{background:linear-gradient(180deg,#fdfefe,#f7fbfd);padding:16px}
+    .workspace h3{margin:0 0 8px;font-size:15px}
+    .mini-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{
+      height:36px;padding:0 12px;border-radius:12px;border:1px solid var(--line);
+      background:#fff;color:var(--ink);font-weight:700;font-size:13px
+    }
+    .btn.primary{background:#6b90b9;border-color:#6b90b9;color:#fff}
+    .btn.dark{background:#111923;border-color:#111923;color:#fff}
+    .btn.soft{background:#eff5fb;border-color:#c7d6e4;color:#53779a}
+    .metric-grid{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-top:12px}
+    .metric-panel,.todo-panel,.table-panel,.collapse,.summary-panel{
+      border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.72)
+    }
+    .metric-panel{padding:16px;min-height:168px}
+    .todo-panel{padding:16px}
+    .summary-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+    .summary{
+      flex:1;min-width:140px;padding:12px;border-radius:14px;background:linear-gradient(180deg,#f6f8fb,#eef3f7);
+      border:1px solid #dde6ef
+    }
+    .summary .label{font-size:12px;color:var(--muted)}
+    .summary .value{font-size:22px;font-weight:900;margin-top:4px}
+    .circle{
+      width:124px;height:124px;border-radius:50%;border:12px solid #dfe7f0;margin-left:auto;
+      display:flex;align-items:center;justify-content:center;flex-direction:column;color:#2a3440
+    }
+    .circle strong{font-size:30px}
+    .todo-item{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #eef2f5}
+    .todo-item:last-child{border-bottom:0}
+    .todo-item .bar{width:6px;height:34px;border-radius:999px;background:var(--brand)}
+    .todo-item .name{font-weight:800}
+    .todo-item .num{font-size:24px;font-weight:900}
+    .pill-row{display:flex;flex-wrap:wrap;gap:8px}
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700
+    }
+    .pill.blue{background:#e8f0f8;color:#5980aa}
+    .pill.gray{background:#f1f4f7;color:#68707b}
+    .pill.green{background:#e8f6f2;color:#0f8b72}
+    .pill.orange{background:#fff3e1;color:#c07c1a}
+    .table{width:100%;border-collapse:collapse}
+    .table th,.table td{padding:12px 10px;border-bottom:1px solid #edf2f5;text-align:left;vertical-align:top}
+    .table th{font-size:12px;color:#5f6d7b;background:#f8fafc;font-weight:900;white-space:nowrap}
+    .table td{font-size:13px}
+    .money{font-weight:900}
+    .money.brand{color:var(--brand)}
+    .money.danger{color:#d05b52}
+    .row-title{font-weight:800}
+    .sub{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.45}
+    .space-compact{
+      display:flex;gap:0;align-items:center;flex-wrap:wrap;
+      border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff
+    }
+    .space-compact > div,.space-compact > input,.space-compact > .btn,.space-compact > select{
+      border:0;border-right:1px solid var(--line);border-radius:0;height:36px
+    }
+    .space-compact > *:last-child{border-right:0}
+    .field{padding:0 10px;display:flex;align-items:center;color:var(--muted);background:#fff}
+    .input{min-width:180px;padding:0 12px;color:var(--ink)}
+    .seg{
+      display:inline-flex;gap:0;border-radius:999px;padding:4px;background:#eef3f8;border:1px solid #d4dee9
+    }
+    .seg span{padding:7px 14px;border-radius:999px;font-size:13px;font-weight:800;color:#5f728a}
+    .seg .active{background:#101820;color:#fff}
+    .receipt{border:1px solid var(--line);border-radius:20px;background:#fff;overflow:hidden}
+    .receipt-top{padding:14px 16px;background:linear-gradient(180deg,#f9fbfc,#fff);border-bottom:1px solid var(--line)}
+    .receipt-top h4{margin:0 0 8px;font-size:16px}
+    .receipt-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:13px;color:var(--muted)}
+    .receipt-foot{
+      padding:12px 16px;background:#fafcfd;border-top:1px solid var(--line);
+      display:grid;grid-template-columns:repeat(2,1fr);gap:8px;font-size:13px;color:var(--muted)
+    }
+    .note{
+      padding:12px 14px;border-left:4px solid var(--brand);border-radius:14px;
+      background:#f7fbfd;color:#415866;line-height:1.75;font-size:13px
+    }
+    .note strong{color:var(--ink)}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .tab{
+      padding:7px 12px;border-radius:999px;border:1px solid #d7e1ea;background:#fff;color:#5d718a;font-size:12px;font-weight:800
+    }
+    .tab.active{background:#121a23;color:#fff;border-color:#121a23}
+    .collapse .header{
+      padding:12px 14px;background:#f8fbfc;border-bottom:1px solid var(--line);font-weight:900
+    }
+    .compare-note{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .small-card{
+      padding:14px;border:1px solid var(--line);border-radius:18px;background:#fff
+    }
+    .small-card h4{margin:0 0 8px;font-size:14px}
+    .small-card ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.8}
+    .summary-box{
+      padding:14px 16px;border-radius:18px;border:1px solid var(--line);background:#fff
+    }
+    .summary-box h3{margin:0 0 8px;font-size:14px}
+    .summary-box ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.8}
+    .footer{margin-top:18px;text-align:center;color:var(--muted);font-size:12px}
+    @media (max-width: 1100px){
+      .grid,.compare-note,.receipt-meta,.receipt-foot,.metric-grid,.dashboard-sample{grid-template-columns:1fr}
+      .shell{grid-template-columns:1fr}
+      .sidebar{position:relative;height:auto;display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;overflow:auto}
+      .nav-group{margin:0;display:flex;gap:8px;align-items:center}
+      .nav-group .label{display:none}
+      .content{padding:14px}
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">金</div>
+      <div class="nav-group">
+        <div class="label">工作台</div>
+        <div class="nav-item active">⌂</div>
+        <div class="nav-item">☰</div>
+        <div class="nav-item">▦</div>
+      </div>
+      <div class="nav-group">
+        <div class="label">财务核对</div>
+        <div class="nav-item">≣</div>
+        <div class="nav-item">￥</div>
+        <div class="nav-item">⌂</div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="page-title">
+        <div>
+          <div class="eyebrow">UI / COMPONENT PROPOSAL</div>
+          <h1>物业收费系统 UI 与组件正式提案</h1>
+          <p class="lead">
+            本提案基于你当前的真实页面状态整理，目标不是重做一套新系统，而是保留现有桌面端风格，
+            在 <strong>信息层级、分区方式、表格密度、按钮语义、详情页组织</strong> 上做收敛。
+          </p>
+          <div class="tags">
+            <span class="tag">桌面 App 优先</span>
+            <span class="tag">高频页优先</span>
+            <span class="tag">物业 / 商业分区</span>
+            <span class="tag">组件统一</span>
+            <span class="tag">先验证再落地</span>
+          </div>
+        </div>
+        <div class="hero-note">
+          <strong>提案结论：</strong><br>
+          现有视觉基调可以保留，不建议大改品牌色。
+          重点应放在 <strong>更清晰的业务分区</strong> 和 <strong>更稳定的组件语义</strong>。
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>一、总判断</h2>
+            <p>当前系统已具备统一风格，但高频页面的信息密度仍偏“平均用力”。</p>
+          </div>
+        </div>
+        <div class="compare-note">
+          <div class="summary-box">
+            <h3>现有页面的优点</h3>
+            <ul>
+              <li>桌面端层级完整，侧栏、内容区、卡片系统已成型。</li>
+              <li>整体浅蓝玻璃感统一，视觉辨识度较高。</li>
+              <li>收费工作台、账单管理、合同档案都有基本的模块边界。</li>
+            </ul>
+          </div>
+          <div class="summary-box">
+            <h3>当前最需要改的点</h3>
+            <ul>
+              <li>账单页中物业/商业混看，靠目测区分，扫描成本高。</li>
+              <li>合同档案表格首列信息量大，但分类入口不够硬。</li>
+              <li>收费工作台的快捷动作与核心经营信息权重接近，主次不够清楚。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>二、页面级建议</h2>
+            <p>以下是按页面拆开的改造方向。</p>
+          </div>
+        </div>
+
+        <div class="grid">
+          <article class="card">
+            <div class="head"><strong>收费工作台</strong><span class="badge gray">保留风格，强化主任务</span></div>
+            <div class="mock">
+              <div class="frame">
+                <div class="frame-bar"><span class="title">收费工作台</span><span class="badge gray">今日 / 本月 / B座 / 商场</span></div>
+                <div class="frame-body">
+                  <div class="dashboard-sample">
+                    <div class="sidebar-sample">
+                      <div class="nav-item active">①</div>
+                      <div class="nav-item">②</div>
+                      <div class="nav-item">③</div>
+                      <div class="nav-item">④</div>
+                    </div>
+                    <div class="workspace">
+                      <div class="mini-actions">
+                        <button class="btn primary">生成账单</button>
+                        <button class="btn dark">收费登记</button>
+                        <button class="btn soft">打印收据</button>
+                      </div>
+                      <div class="metric-grid">
+                        <div class="metric-panel">
+                          <h3 style="margin:0 0 8px">经营看板</h3>
+                          <div class="summary-row">
+                            <div class="summary"><div class="label">本月应收</div><div class="value">¥0.0</div></div>
+                            <div class="summary"><div class="label">已收</div><div class="value">¥0.0</div></div>
+                            <div class="summary"><div class="label">未收</div><div class="value">¥0.0</div></div>
+                          </div>
+                          <div style="height:10px"></div>
+                          <div class="note"><strong>建议：</strong>把“今日必须处理”的任务移到更靠上的位置，快捷按钮保持一行，但视觉权重低于经营指标。</div>
+                        </div>
+                        <div class="todo-panel">
+                          <div class="row-title">优先处理</div>
+                          <div class="todo-item"><div><div class="bar"></div></div><div style="flex:1;margin-left:12px"><div class="name">待收费账单</div><div class="sub">今日</div></div><div class="num">0</div></div>
+                          <div class="todo-item"><div><div class="bar" style="background:var(--warn)"></div></div><div style="flex:1;margin-left:12px"><div class="name">合同预警</div><div class="sub">今日</div></div><div class="num">1</div></div>
+                          <div class="todo-item"><div><div class="bar" style="background:#4c77a2"></div></div><div style="flex:1;margin-left:12px"><div class="name">待抄表确认</div><div class="sub">今日</div></div><div class="num">3</div></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <div class="head"><strong>账单管理</strong><span class="badge new">最优先改造</span></div>
+            <div class="mock">
+              <div class="seg"><span class="active">物业公司收费</span><span>商业公司收费</span></div>
+              <div class="space-compact" style="margin-top:10px;margin-bottom:10px">
+                <div class="field">起始日期</div><div class="field">YYYY-MM-DD</div>
+                <div class="field">截止日期</div><div class="field">YYYY-MM-DD</div>
+                <div class="field">状态</div><div class="field">全部状态</div>
+                <div class="field">楼栋</div><div class="field">全部楼栋</div>
+                <input class="input" value="房号 / 业主 / 商户" />
+                <button class="btn primary">筛选</button>
+              </div>
+              <div class="table-panel">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>编号</th><th>房间</th><th>归属</th><th>账期</th><th>应收</th><th>已缴</th><th>欠费</th><th>状态</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><div class="row-title">周孟莉</div><div class="sub">B座 1402</div></td>
+                      <td><span class="pill gray">金莎国际-B座-1402</span></td>
+                      <td><span class="pill blue">物业公司收费</span></td>
+                      <td class="sub">2026-06-01 ~ 2026-09-30</td>
+                      <td class="money">¥982.5</td><td class="money" style="color:#5e86b1">¥0.0</td><td class="money danger">¥982.5</td><td><span class="pill gray">未缴</span></td>
+                    </tr>
+                    <tr>
+                      <td><div class="row-title">刘策</div><div class="sub">商场 5F 18A</div></td>
+                      <td><span class="pill gray">商场-5F-18A</span></td>
+                      <td><span class="pill blue">商业公司收费</span></td>
+                      <td class="sub">2026-06-01 ~ 2026-09-30</td>
+                      <td class="money">¥15680.0</td><td class="money" style="color:#5e86b1">¥15680.0</td><td class="money">¥0.00</td><td><span class="pill green">已缴</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note"><strong>建议：</strong>把“物业公司收费 / 商业公司收费”做成稳定分区；姓名旁边显示房间号或商户号，避免反复点进详情确认。</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>三、合同档案</h2>
+            <p>建议继续用折叠，但把“分类入口”提到更前面。</p>
+          </div>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <div class="head"><strong>现状</strong><span class="badge old">分组有了，但筛选感不强</span></div>
+            <div class="mock">
+              <div class="collapse">
+                <div class="header">商业合同</div>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>空间/合同</th><th>店铺/使用方</th><th>楼层/面积</th><th>租金单价</th><th>物业单价</th><th>押金单价</th><th>合同期</th><th>出账状态</th><th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><div class="row-title">1F-06 / 合同 D38</div></td>
+                      <td><div class="row-title">东更道点心行</div><div class="sub">西安辰信餐饮服务有限公司</div></td>
+                      <td class="sub">1F · 合同面积 80㎡ · 建筑面积 80㎡</td>
+                      <td>780.00 元/m²</td><td>20.00 元/m²</td><td>625.00 元/m²</td><td class="sub">2025-06-27 至 2030-06-26</td><td><span class="pill gray">未出账</span></td><td>详情 / 编辑</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </article>
+          <article class="card">
+            <div class="head"><strong>建议</strong><span class="badge new">Tabs + Collapse + 更轻表头</span></div>
+            <div class="mock">
+              <div class="tabs">
+                <span class="tab active">物业合同</span>
+                <span class="tab">商业合同</span>
+              </div>
+              <div class="space-compact" style="margin-bottom:10px">
+                <div class="field">搜索合同档案</div>
+                <input class="input" value="商户编号 / 合同编号 / 店铺 / 楼层" />
+                <button class="btn primary">搜索</button>
+                <button class="btn">重置</button>
+              </div>
+              <div class="collapse">
+                <div class="header">商业合同 · 50 份</div>
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>空间/合同</th><th>店铺/使用方</th><th>楼层/面积</th><th>租金单价</th><th>物业单价</th><th>押金单价</th><th>合同期</th><th>出账状态</th><th>状态</th><th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><div class="row-title">1F-06 <span class="pill gray">合同 D38</span></div></td>
+                      <td><div class="row-title">东更道点心行</div><div class="sub">西安辰信餐饮服务有限公司</div></td>
+                      <td class="sub">1F · 合同面积 80㎡ · 建筑面积 80㎡</td>
+                      <td>780.00 元/m²</td><td>20.00 元/m²</td><td>625.00 元/m²</td><td class="sub">2025-06-27 至 2030-06-26</td><td><span class="pill gray">未出账</span></td><td><span class="pill green">启用</span></td><td>详情 / 编辑 / 转租</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="note"><strong>建议：</strong>把“物业合同 / 商业合同”做成先选分类再看内容的结构，减少用户在大表里滚动寻找。</div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>四、组件落地建议</h2>
+            <p>下面这些组件最适合接下来统一复用。</p>
+          </div>
+        </div>
+        <div class="compare-note">
+          <div class="summary-box">
+            <h3>推荐优先统一的组件</h3>
+            <ul>
+              <li><strong>Layout / Sider / Menu</strong>：侧栏与导航结构保持统一。</li>
+              <li><strong>Space.Compact</strong>：筛选条、日期选择、按钮组合。</li>
+              <li><strong>Table</strong>：账单、合同、缴费记录统一表格语义。</li>
+              <li><strong>Tabs / Collapse</strong>：物业 / 商业分区与档案分类。</li>
+              <li><strong>Card / Tag / Descriptions</strong>：摘要、状态、单据信息块。</li>
+            </ul>
+          </div>
+          <div class="summary-box">
+            <h3>落地顺序</h3>
+            <ul>
+              <li>优先改 <strong>账单管理</strong>。</li>
+              <li>再改 <strong>合同档案</strong>。</li>
+              <li>最后微调 <strong>收费工作台</strong>。</li>
+              <li>所有页面统一按钮、标签、表头、间距、状态展示。</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">
+        正式提案稿 · 仅用于内部评审与方向确认
+      </div>
+    </main>
+  </div>
+</body>
+</html>

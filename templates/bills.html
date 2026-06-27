@@ -1,6 +1,7 @@
 <div class="filter-bar ledger-toolbar">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
+{COMPANY_SCOPE_FIELD}
 <div class="col-auto"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{PERIOD_START}" onchange="this.form.submit()"></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{PERIOD_END}" onchange="this.form.submit()"></div>
 <div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部状态</option><option value="unpaid"{SUN}>未缴</option><option value="paid"{SPA}>已缴</option><option value="overdue"{SOV}>逾期</option></select></div>
@@ -21,12 +22,15 @@
 <form method=POST id="billActionForm"></form>
 {BTN_TOP}
 <div class="card billing-ledger">
-<div class="card-header d-flex justify-content-between align-items-center">
-<span><i class="bi bi-receipt"></i> 账单明细</span>
+<div class="card-header billing-ledger-header">
+<div class="ledger-title-wrap">
+<span class="ledger-title"><i class="bi bi-receipt"></i> 账单明细</span>
 <small class="text-muted">共 {TOTAL_ROWS} 条，第 {PAGE} / {TOTAL_PAGES} 页；按租户和房间折叠展示</small>
 </div>
+<div class="ledger-scope-area"><div class="ledger-scope-heading">收费公司分区</div><div class="ledger-scope-tabs" data-testid="bill-scope-summary" aria-label="账单收费公司切换">{BILL_SCOPE_SUMMARY}</div></div>
+</div>
 <div class="table-responsive"><table class="table table-hover align-middle">
-<thead><tr><th style="width:34px"><input type=checkbox id=selAll></th><th>编号</th><th>归属</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th class="text-end">已缴</th><th class="text-end">欠费</th><th>状态</th><th style="width:130px">操作</th></tr></thead>
+<thead><tr><th style="width:34px"><input type=checkbox id=selAll></th><th>编号</th><th>收费公司</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th class="text-end">已缴</th><th class="text-end">欠费</th><th>状态</th><th style="width:130px">操作</th></tr></thead>
 <tbody>{ROWS}</tbody></table></div>
 </div>
 {PAGE_LINKS}

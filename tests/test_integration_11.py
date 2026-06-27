@@ -30,6 +30,13 @@ class TestIntegration11(IntegrationTestBase):
         self.assertIn('收费登记', body)
         self.assertIn('打印收据', body)
         self.assertIn('经营看板', body)
+        self.assertIn('data-testid="workbench-view-tabs"', body)
+        for text in ['今日', '本月', 'B座', '商场']:
+            self.assertIn(text, body)
+        self.assertIn('/bills?building=B%E5%BA%A7', body)
+        self.assertIn('/bills?building=%E5%95%86%E5%9C%BA', body)
+        self.assertIn('id="today-focus"', body)
+        self.assertIn('id="month-summary"', body)
         self.assertIn('对账报表', body)
         self.assertIn('发票管理', body)
         self.assertNotIn('维修', body)

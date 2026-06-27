@@ -148,6 +148,7 @@ def render_page(handler, title, content, active='', top_actions=''):
     icon = icons.get(active, 'bi-speedometer2')
     html = html.replace('{TITLE}', h(title))
     html = html.replace('{CONTENT}', content)
+    html = html.replace('{PAGE_CLASS}', 'index-main-content' if active == 'index' else '')
     html = html.replace('{NAV}', nav_html)
     html = html.replace('{USER_HTML}', user_html)
     html = html.replace('{ICON}', icon)
