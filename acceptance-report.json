@@ -54,12 +54,12 @@
     "/meter_readings/ledger",
     "/meter_readings/create",
     "/backups/cleanup?keep=10",
-    "/backups/auto_startup_20260628_190452_019953.db/preview",
-    "/backups/auto_startup_20260628_190452_019953.db/restore",
-    "/backups/auto_startup_20260628_190452_019953.db/delete",
-    "/backups/auto_daily_20260628_190452_020931.db/preview",
-    "/backups/auto_daily_20260628_190452_020931.db/restore",
-    "/backups/auto_daily_20260628_190452_020931.db/delete",
+    "/backups/auto_startup_20260628_190817_314134.db/preview",
+    "/backups/auto_startup_20260628_190817_314134.db/restore",
+    "/backups/auto_startup_20260628_190817_314134.db/delete",
+    "/backups/auto_daily_20260628_190817_315071.db/preview",
+    "/backups/auto_daily_20260628_190817_315071.db/restore",
+    "/backups/auto_daily_20260628_190817_315071.db/delete",
     "/backups/.daily_2026-06-28/preview",
     "/backups/.daily_2026-06-28/restore",
     "/backups/.daily_2026-06-28/delete",
@@ -109,5 +109,5 @@
     "/bills/review",
     "/reports?period_start=2026-06-01&period_end=2026-06-30"
   ],
-  "generated_at": "2026-06-28 19:05:03"
+  "generated_at": "2026-06-28 19:08:27"
 }

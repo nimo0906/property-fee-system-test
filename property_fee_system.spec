@@ -2,6 +2,19 @@
 """PyInstaller one-folder build spec for Windows desktop delivery."""
 
 from PyInstaller.utils.hooks import collect_submodules
+from pathlib import Path
+
+
+def clean_tree(src, dest):
+    result = []
+    for path in Path(src).rglob('*'):
+        if not path.is_file():
+            continue
+        if '__pycache__' in path.parts or path.suffix in {'.pyc', '.pyo'} or path.name == '.DS_Store':
+            continue
+        target = Path(dest) / path.relative_to(src).parent
+        result.append((str(path), str(target)))
+    return result
 
 block_cipher = None
 
@@ -9,10 +22,7 @@ a = Analysis(
     ['desktop_app.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('server', 'server'),
-        ('templates', 'templates'),
-        ('static', 'static'),
+    datas=clean_tree('server', 'server') + clean_tree('templates', 'templates') + clean_tree('static', 'static') + [
         ('requirements.txt', '.'),
         ('使用说明.md', '.'),
         ('用户快速开始.md', '.'),
