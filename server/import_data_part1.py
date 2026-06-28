@@ -18,6 +18,7 @@ class ImportMixinPart1(BaseHandler):
             </div>
             <div class="d-flex gap-2 align-items-center">
                 <a class="btn btn-outline-secondary" href="/backups"><i class="bi bi-cloud-check"></i> 备份记录</a>
+                <a class="btn btn-outline-primary" href="/backups?sort=latest"><i class="bi bi-clock-history"></i> 最近备份</a>
             </div>
         </div>
     </div>

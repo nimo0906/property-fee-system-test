@@ -24,7 +24,7 @@ class TestIntegration21(IntegrationTestBase):
         status, preview, loc = http_post('/closing/close', {'period': '2034-05', 'preview': '1'}, self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('结账前预览', preview)
-        self.assertIn('本次将结账的账单明细', preview)
+        self.assertIn('本次将结账的账单', preview)
         self.assertIn('CLOSEPRE-A座-601', preview)
         self.assertIn('99.0', preview)
         self.assertIn('未缴', preview)

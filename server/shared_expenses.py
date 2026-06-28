@@ -147,20 +147,38 @@ class SharedExpenseMixin(BaseHandler):
         )
         default_start, default_end, _ = _resolve_shared_period(q)
         self._html(self._page('公摊分摊', f'''
-        <div class="alert alert-info"><i class="bi bi-diagram-3"></i> 手动录入公摊总金额，系统按面积或户数分摊到选定房间，并按财务自然日期范围生成公摊账单。建议先预览再确认。</div>
-        <form method="POST" action="/shared_expenses/allocate" class="row g-3">
-            <div class="col-md-3"><label>起始日期 *</label><input type="date" name="period_start" class="form-control" value="{h(default_start)}" required><small class="text-muted">财务做账起始日</small></div>
-            <div class="col-md-3"><label>截止日期 *</label><input type="date" name="period_end" class="form-control" value="{h(default_end)}" required><small class="text-muted">财务做账截止日，同时作为默认缴费截止日</small></div>
-            <div class="col-md-3"><label>收费项目 *</label><select name="fee_type_id" class="form-select" required>{fee_opts}</select></div>
-            <div class="col-md-3"><label>公摊总金额 *</label><div class="input-group"><span class="input-group-text">¥</span><input name="total_amount" type="number" step="0.1" min="0.1" class="form-control" required></div></div>
-            <div class="col-md-3"><label>分摊方式</label><select name="allocation_method" class="form-select"><option value="area">按面积分摊</option><option value="household">按户数平均</option></select></div>
-            <div class="col-md-3"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
-            <div class="col-md-3"><label>单元/区域</label><select name="unit" class="form-select">{unit_opts}</select></div>
-            <div class="col-md-3"><label>类别</label><select name="category" class="form-select">{cat_opts}</select></div>
-            <div class="col-md-3"><label>说明</label><input name="notes" class="form-control" placeholder="如：5月公共电费"></div>
-            <div class="col-12"><button name="mode" value="preview" class="btn btn-primary btn-lg">预览分摊</button>
-            <button name="mode" value="confirm" class="btn btn-success btn-lg">确认生成账单</button></div>
-        </form>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">公摊分摊</h2>
+            <div class="small text-muted">按财务自然日期范围生成公摊账单</div>
+          </div>
+          <div class="export-actions">
+            <a class="btn btn-outline-secondary btn-sm" href="/bills"><i class="bi bi-receipt"></i> 账单管理</a>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">最近记录</div><strong>{len(recent)}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">默认起始</div><strong>{h(default_start)}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">默认截止</div><strong>{h(default_end)}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">最近总额</div><strong class="money">¥{m(sum(float(r["total_amount"] or 0) for r in recent))}</strong></div></div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-funnel"></i> 分摊条件</span></div>
+          <div class="card-body">
+            <form method="POST" action="/shared_expenses/allocate" class="row g-3">
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">起始日期 *</label><input type="date" name="period_start" class="form-control form-control-sm" value="{h(default_start)}" required></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">截止日期 *</label><input type="date" name="period_end" class="form-control form-control-sm" value="{h(default_end)}" required></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">收费项目 *</label><select name="fee_type_id" class="form-select form-select-sm" required>{fee_opts}</select></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">公摊总金额 *</label><div class="input-group input-group-sm"><span class="input-group-text">¥</span><input name="total_amount" type="number" step="0.1" min="0.1" class="form-control" required></div></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">分摊方式</label><select name="allocation_method" class="form-select form-select-sm"><option value="area">按面积分摊</option><option value="household">按户数平均</option></select></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm">{bld_opts}</select></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">单元/区域</label><select name="unit" class="form-select form-select-sm">{unit_opts}</select></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">类别</label><select name="category" class="form-select form-select-sm">{cat_opts}</select></div>
+                <div class="col-md-3"><label class="form-label small text-muted mb-1">说明</label><input name="notes" class="form-control form-control-sm" placeholder="如：5月公共电费"></div>
+                <div class="col-12 d-flex gap-2"><button name="mode" value="preview" class="btn btn-primary">预览分摊</button><button name="mode" value="confirm" class="btn btn-success">确认生成账单</button></div>
+            </form>
+          </div>
+        </div>
         <div class="card mt-4"><div class="card-header">最近公摊记录</div>{recent_table}</div>
         ''', 'shared_expenses'))
 
@@ -221,17 +239,25 @@ class SharedExpenseMixin(BaseHandler):
         )
         hidden = ''.join(f'<input type="hidden" name="{k}" value="{h(v)}">' for k, v in {'period':period,'period_start':period_start,'period_end':period_end,'fee_type_id':fid,'total_amount':total,'allocation_method':method,'building':building,'unit':unit,'category':category,'due_day':due_day,'notes':notes}.items())
         self._html(self._page('公摊分摊预览', f'''
-        <div class="alert alert-warning">当前仅预览，不写入账单。服务期 {h(period_start)} 至 {h(period_end)}，确认后会生成 {len(allocations)} 笔公摊账单，跳过已有账单房间 {skipped} 间。</div>
-        <div class="row text-center g-2 mb-3"><div class="col-md-4"><div class="summary-tile">房间数<br><strong>{len(allocations)}</strong></div></div><div class="col-md-4"><div class="summary-tile">总金额<br><strong class="money">¥{m(total)}</strong></div></div><div class="col-md-4"><div class="summary-tile">分摊合计<br><strong class="money">¥{m(sum(a["amount"] for a in allocations))}</strong></div></div></div>
-        <div class="card"><div class="card-header">分摊明细</div>{detail_table}</div>
-        <form method="POST" action="/shared_expenses/allocate" class="mt-3"><input type="hidden" name="mode" value="confirm">{hidden}<button class="btn btn-success btn-lg">确认生成公摊账单</button> <a class="btn btn-outline-secondary btn-lg" href="/shared_expenses">返回修改</a></form>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">公摊分摊预览</h2>
+          </div>
+        </div>
+        <div class="row g-2 mb-3"><div class="col-md-4 col-6"><div class="summary-tile"><div class="label">房间数</div><strong>{len(allocations)}</strong></div></div><div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">总金额</div><strong class="money">¥{m(total)}</strong></div></div><div class="col-md-4 col-6"><div class="summary-tile success"><div class="label">分摊合计</div><strong class="money">¥{m(sum(a["amount"] for a in allocations))}</strong></div></div></div>
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-eye"></i> 预览结果</span></div><div class="card-body"><div class="table-responsive">{detail_table}</div></div></div>
+        <form method="POST" action="/shared_expenses/allocate" class="mt-3"><input type="hidden" name="mode" value="confirm">{hidden}<div class="d-flex justify-content-end gap-2"><button class="btn btn-success btn-lg">确认生成公摊账单</button> <a class="btn btn-outline-secondary btn-lg" href="/shared_expenses">返回修改</a></div></form>
         ''', 'shared_expenses'))
 
     def _render_shared_result(self, period, total, method, allocations, backup_name, bill_ids, period_start='', period_end='', use_range_links=True):
         query = f'period_start={h(period_start)}&amp;period_end={h(period_end)}' if use_range_links and period_start and period_end else f'period={h(period)}'
         self._html(self._page('公摊分摊结果', f'''
-        <div class="alert alert-success">公摊账单生成完成：{len(bill_ids)} 笔，合计 ¥{m(sum(a['amount'] for a in allocations))}。</div>
-        <div class="alert alert-light border"><strong>自动备份：</strong><code>{h(backup_name)}</code></div>
-        <div class="alert alert-light border">服务期：{h(period_start)} 至 {h(period_end)}</div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">公摊分摊完成</h2>
+          </div>
+        </div>
+        <div class="row g-2 mb-3"><div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">生成笔数</div><strong>{len(bill_ids)}</strong></div></div><div class="col-md-4 col-6"><div class="summary-tile success"><div class="label">总金额</div><strong class="money">¥{m(sum(a['amount'] for a in allocations))}</strong></div></div><div class="col-md-4 col-6"><div class="summary-tile warning"><div class="label">自动备份</div><strong>{h(backup_name)}</strong></div></div></div>
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-check-circle"></i> 公摊生成完成</span></div><div class="card-body"><div class="alert alert-success mb-2">公摊账单生成完成：{len(bill_ids)} 笔，合计 ¥{m(sum(a['amount'] for a in allocations))}。</div><div class="alert alert-light border mb-2"><strong>自动备份：</strong><code>{h(backup_name)}</code></div></div></div>
         <div class="export-actions"><a class="btn btn-primary" href="/bills?{query}">查看账单</a><a class="btn btn-outline-success" href="/bills/export_generated?ids={h(','.join(str(x) for x in bill_ids))}">导出本次公摊CSV</a><a class="btn btn-outline-secondary" href="/shared_expenses">继续分摊</a></div>
         ''', 'shared_expenses'))

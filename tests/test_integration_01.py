@@ -13,7 +13,7 @@ class TestIntegration01(IntegrationTestBase):
         self.assertIn('系统更新', body)
         self.assertIn(APP_VERSION, body)
         self.assertIn('检查更新', body)
-        self.assertIn('半自动更新', body)
+        self.assertIn('运行模式', body)
 
 
     def test_system_update_check_uses_manifest_url_and_reports_latest_version(self):

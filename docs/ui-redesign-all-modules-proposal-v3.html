@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>物业收费系统 · 全模块 UI 升级小样 v3</title>
+  <style>
+    :root{--bg:#f4f7fb;--paper:#fff;--ink:#10243a;--muted:#64748b;--line:#dbe5ef;--brand:#315f8f;--brand2:#17324d;--green:#23866d;--gold:#9c6a16;--red:#b83b4e;--shadow:0 16px 46px rgba(35,61,92,.10);--r:18px;--font:ui-sans-serif,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif}
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%} body{font-family:var(--font);background:linear-gradient(180deg,#eef4fb 0%,#f7fafc 100%);color:var(--ink)} a{color:inherit}
+    .wrap{display:grid;grid-template-columns:240px 1fr;min-height:100vh}.side{position:sticky;top:0;height:100vh;overflow:auto;padding:20px;background:#10243a;color:#dcecff}.brand{font-weight:950;font-size:20px;margin-bottom:10px}.side p{margin:0;color:#99b2ca;line-height:1.75;font-size:13px}.group{margin-top:18px}.group h4{margin:0 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#86a8c6}.nav a{display:flex;gap:8px;align-items:center;padding:9px 10px;border-radius:12px;text-decoration:none;color:#e3f0ff;font-size:13px;font-weight:800}.nav a:hover,.nav a.active{background:rgba(255,255,255,.10)} main{padding:22px 22px 30px;max-width:1600px}
+    .hero,.card{background:var(--paper);border:1px solid rgba(255,255,255,.92);border-radius:22px;box-shadow:var(--shadow)} .hero{padding:22px 24px;margin-bottom:16px;background:linear-gradient(180deg,#fff,#f9fbfe)} .kicker{font-size:12px;font-weight:950;letter-spacing:.18em;text-transform:uppercase;color:var(--brand)} .hero h1{margin:8px 0 8px;font-size:28px;line-height:1.15;letter-spacing:-.05em} .hero p{margin:0;color:var(--muted);line-height:1.8;max-width:1100px} .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px} .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;color:#315f8f;font-size:12px;font-weight:900} .chip.dark{background:#17324d;color:#fff;border-color:#17324d} .chip.green{background:#e9f8f3;color:#20745f} .chip.gold{background:#fff4dc;color:#8a5b13}
+    .section{margin-top:18px} .section-head{display:flex;justify-content:space-between;gap:14px;align-items:end;margin-bottom:12px} .section-head h2{margin:0;font-size:22px;letter-spacing:-.03em} .section-head p{margin:4px 0 0;color:var(--muted);line-height:1.75}
+    .references,.modules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.box{padding:14px}.box h3{margin:0 0 8px;font-size:15px}.box ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.8;font-size:12px}.box li{margin-bottom:4px}.box p{margin:0;color:var(--muted);line-height:1.7;font-size:12px}
+    .compare{display:grid;grid-template-columns:1fr 1fr;gap:14px}.panel{overflow:hidden}.panel-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);background:#f8fbfe;font-weight:950}.panel-body{padding:14px}.subtle{color:var(--muted);font-size:12px;line-height:1.75}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.field{height:34px;border:1px solid #d8e3ed;background:#fff;border-radius:10px;padding:8px 11px;color:#667587;font-size:12px;min-width:120px}.btn{height:34px;border:0;border-radius:10px;padding:0 13px;font-weight:900;background:var(--brand);color:#fff}.btn.soft{background:#eff5fb;color:var(--brand);border:1px solid #d7e3ef}.btn.green{background:var(--green)}
+    .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.stat{border:1px solid #dce6ef;border-radius:14px;background:#fff;padding:11px}.stat span{display:block;color:var(--muted);font-size:12px;font-weight:850}.stat b{display:block;margin-top:6px;font-size:21px;letter-spacing:-.03em}.seg{display:inline-grid;grid-auto-flow:column;gap:4px;padding:5px;border-radius:14px;background:#eef4fb;border:1px solid #dbe5ef}.seg span{padding:8px 12px;border-radius:11px;font-size:12px;font-weight:900;color:#55718b}.seg .active{background:#17324d;color:#fff}
+    .table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:10px;border-bottom:1px solid #e5edf5;text-align:left;vertical-align:top}.table th{background:#f8fbfe;color:#64748b;font-size:11px;font-weight:900;letter-spacing:.02em}.table td b{font-size:13px}.tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:900;border:1px solid #dbe5ef;background:#f4f8fc;color:#315f8f}.tag.green{background:#e8f8f3;color:#20745f;border-color:#cdeee3}.tag.gold{background:#fff4dc;color:#8a5b13;border-color:#f4e0b0}.tag.red{background:#fff0f1;color:#b83245;border-color:#f3c6ce}
+    .drawer{border-radius:16px;background:#fbfdff;border:1px solid #dbe5ef;padding:13px}.drawer h4{margin:0 0 8px;font-size:15px}.steps{display:grid;gap:8px}.step{display:grid;grid-template-columns:26px 1fr auto;gap:9px;align-items:center}.dot{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;background:#e9f1fa;color:#315f8f;font-weight:950}.step.active .dot{background:#17324d;color:#fff}.step span{font-size:12px;color:var(--muted)}
+    .chart{display:flex;align-items:end;gap:8px;height:140px;padding:10px;border-radius:16px;border:1px solid #dbe5ef;background:#fff}.bar{flex:1;border-radius:10px 10px 0 0;background:#5f9bd2;min-height:18px}.bar.green{background:#23866d}.bar.gold{background:#b7791f}
+    .split{display:grid;grid-template-columns:1.18fr .82fr;gap:12px}.timeline{display:grid;gap:10px}.time{display:grid;grid-template-columns:18px 1fr;gap:10px;align-items:start}.time i{width:10px;height:10px;border-radius:999px;background:var(--brand);margin-top:5px}.time b{display:block;font-size:13px}.time small{color:var(--muted);line-height:1.65}
+    .footer{margin-top:16px;padding:12px 0;color:#6c7c8f;text-align:center;font-size:12px}
+    @media (max-width:1200px){.wrap{grid-template-columns:1fr}.side{position:relative;height:auto}.references,.modules,.stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.compare,.split{grid-template-columns:1fr}}@media (max-width:700px){main{padding:14px}.references,.modules,.stat-grid,.compare,.split{grid-template-columns:1fr}.hero h1{font-size:24px}.field{min-width:0;flex:1}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="side">
+    <div class="brand">金沙国际 UI 提案</div>
+    <p>v3 进一步靠近“企业后台 + ProCard + ProTable”的审美，减少装饰，增加可执行信息。</p>
+    <div class="group">
+      <h4>目录</h4>
+      <div class="nav">
+        <a class="active" href="#refs">参考来源</a>
+        <a href="#map">模块地图</a>
+        <a href="#ops">高频模块</a>
+        <a href="#data">基础资料</a>
+        <a href="#finance">财务核对</a>
+        <a href="#system">系统维护</a>
+        <a href="#sequence">实施顺序</a>
+      </div>
+    </div>
+  </aside>
+  <main>
+    <section class="hero">
+      <div class="kicker">Formal proposal · module wide</div>
+      <h1>菜单其他模块：更稳、更像成熟后台的 UI 小样 v3</h1>
+      <p>这版的方向更明确：以 Ant Design / ProComponents 的后台语义为主，结合 Pageflows 的信息结构，把所有模块做得“少一点展演，多一点操作”。</p>
+      <div class="chips"><span class="chip dark">ProCard / ProTable</span><span class="chip">Segmented / Tabs</span><span class="chip green">Statistic / Card / Drawer</span><span class="chip gold">Pageflows 模式</span></div>
+    </section>
+
+    <section id="refs" class="section">
+      <div class="section-head"><div><h2>1. 参考来源：这次更偏这几类模式</h2><p>除了组件文档，这次把“成熟后台页面结构”也收进来，避免画得太像展示页。</p></div></div>
+      <div class="references">
+        <div class="card box"><h3>组件语义</h3><ul>
+          <li><a href="https://ant.design/components/card/">Card</a>：单一主题容器。</li>
+          <li><a href="https://procomponents.ant.design/components/card/">ProCard</a>：卡片、栅格、Tabs 组合。</li>
+          <li><a href="https://ant.design/components/segmented/">Segmented</a>：分区切换。</li>
+          <li><a href="https://procomponents.ant.design/components/table/">ProTable</a>：查询 + 表格一体。</li>
+        </ul></div>
+        <div class="card box"><h3>数值与状态</h3><ul>
+          <li><a href="https://ant.design/components/statistic/">Statistic</a>：核心数字高亮。</li>
+          <li><a href="https://ant.design/components/tag/">Tag</a>：状态与归属标记。</li>
+          <li><a href="https://ant.design/components/drawer/">Drawer</a>：详情与操作侧边化。</li>
+        </ul></div>
+        <div class="card box"><h3>页面模式</h3><ul>
+          <li><a href="https://pageflows.com/web/elements/dashboard/">Dashboard</a>：指标先行。</li>
+          <li><a href="https://pageflows.com/web/elements/table/">Table</a>：高密度列表。</li>
+          <li><a href="https://pageflows.com/web/elements/search-bar/">Search bar</a>：筛选前置。</li>
+        </ul></div>
+        <div class="card box"><h3>这版结论</h3><ul>
+          <li>主视觉更白、更像后台。</li>
+          <li>减少大块渐变、装饰性标题。</li>
+          <li>高频页统一为：筛选条 + 统计卡 + 表格 + 抽屉。</li>
+        </ul></div>
+      </div>
+    </section>
+
+    <section id="map" class="section">
+      <div class="section-head"><div><h2>2. 全模块组件地图（v3 收敛）</h2><p>把每个模块对应到最合适的组件组合，避免每页都长得像不同产品。</p></div></div>
+      <div class="modules">
+        <div class="card box"><h3>物业/商业收费</h3><div class="chips" style="margin:0 0 8px"><span class="chip">ProTable</span><span class="chip green">Drawer</span><span class="chip">Statistic</span></div><p>分段入口 + 表格明细 + 右侧结算抽屉。</p></div>
+        <div class="card box"><h3>数据导入</h3><div class="chips" style="margin:0 0 8px"><span class="chip green">Upload</span><span class="chip gold">Steps</span></div><p>四步流程固定，问题行单独高亮。</p></div>
+        <div class="card box"><h3>业主 / 房间</h3><div class="chips" style="margin:0 0 8px"><span class="chip">ProTable</span><span class="chip green">Drawer</span></div><p>主表只做索引，详情去抽屉。</p></div>
+        <div class="card box"><h3>收费项目 / 抄表</h3><div class="chips" style="margin:0 0 8px"><span class="chip">Editable Table</span><span class="chip">Tag</span></div><p>规则类页面统一表格编辑化。</p></div>
+        <div class="card box"><h3>自动出账 / 公摊</h3><div class="chips" style="margin:0 0 8px"><span class="chip gold">Steps</span><span class="chip">Console</span></div><p>流程、预览、执行、历史全部可追溯。</p></div>
+        <div class="card box"><h3>缴费 / 发票</h3><div class="chips" style="margin:0 0 8px"><span class="chip green">Ledger</span><span class="chip">Tabs</span></div><p>按状态分区，避免列表混杂。</p></div>
+        <div class="card box"><h3>报表 / 结账</h3><div class="chips" style="margin:0 0 8px"><span class="chip green">Statistic</span><span class="chip gold">Checklist</span></div><p>先看结果，再看差异，再确认。</p></div>
+        <div class="card box"><h3>系统维护</h3><div class="chips" style="margin:0 0 8px"><span class="chip">Settings</span><span class="chip">Audit</span></div><p>健康、备份、日志、用户、更新合成一个控制台。</p></div>
+      </div>
+    </section>
+
+    <section id="ops" class="section">
+      <div class="section-head"><div><h2>3. 高频模块：更像真正后台的写法</h2><p>这部分是我觉得最值得再优化的一组，样式需要更像企业后台而不是“海报化展示”。</p></div></div>
+      <div class="compare">
+        <div class="card panel"><div class="panel-head">现状：列表里找动作 <span class="chip gold">旧</span></div><div class="panel-body"><div class="toolbar" style="margin-bottom:12px"><span class="field">房号 / 业主 / 商户</span><span class="field">日期范围</span><button class="btn">筛选</button></div><table class="table"><tr><th>对象</th><th>待收</th><th>状态</th><th>操作</th></tr><tr><td><b>周孟莉</b><br><span class="tag">B座-1402</span></td><td>¥982.5</td><td><span class="tag red">未缴</span></td><td>缴费</td></tr><tr><td><b>刘策</b><br><span class="tag green">商场-5F-18A</span></td><td>¥0.0</td><td><span class="tag green">已缴</span></td><td>收据</td></tr></table></div></div>
+        <div class="card panel"><div class="panel-head">建议：段控 + 搜索 + 抽屉 <span class="chip green">新</span></div><div class="panel-body"><div class="seg"><span class="active">物业收费</span><span>商业收费</span></div><div class="split" style="margin-top:12px"><div><div class="chips" style="margin:0 0 10px"><span class="chip">待收费 0</span><span class="chip green">收缴情率 0%</span><span class="chip gold">待抄表 3</span></div><div class="toolbar" style="margin-bottom:12px"><span class="field" style="flex:1">搜索房号 / 商户 / 电话</span><button class="btn">定位对象</button><button class="btn soft">扫码</button></div><table class="table"><tr><th>对象</th><th>归属</th><th>待收</th><th>状态</th></tr><tr><td><b>周孟莉</b></td><td><span class="tag">B座-1402</span></td><td>¥982.5</td><td><span class="tag red">未缴4项</span></td></tr><tr><td><b>刘策</b></td><td><span class="tag green">商场-5F-18A</span></td><td>¥0.0</td><td><span class="tag green">已结清</span></td></tr></table></div><div class="drawer"><h4>收费抽屉</h4><div class="subtle">把应收明细、减免、收款方式、收据打印和备注都收起来，表格只保留索引。</div><div class="chips" style="margin:10px 0"><span class="chip">应收 4 项</span><span class="chip gold">可打印收据</span></div><button class="btn green">确认收款</button></div></div></div></div>
+      </div>
+      <div class="compare" style="margin-top:14px">
+        <div class="card panel"><div class="panel-head">现状：导入像普通表单</div><div class="panel-body"><div class="toolbar"><span class="field">选择文件</span><button class="btn">上传</button></div><table class="table" style="margin-top:12px"><tr><th>行号</th><th>内容</th><th>问题</th></tr><tr><td>5</td><td>D11-01</td><td>需核对</td></tr></table></div></div>
+        <div class="card panel"><div class="panel-head">建议：Steps 清晰化</div><div class="panel-body"><div class="steps"><div class="step active"><span class="dot">1</span><div><b>上传模板</b><span>basic_info_template.xlsx</span></div><span class="tag">已选</span></div><div class="step active"><span class="dot">2</span><div><b>预览核对</b><span>3 行需处理</span></div><span class="tag gold">问题行</span></div><div class="step"><span class="dot">3</span><div><b>确认导入</b><span>生成结果</span></div><span class="tag green">下一步</span></div></div><div class="toolbar" style="margin-top:12px"><button class="btn">继续确认</button><button class="btn soft">下载问题行</button></div></div></div>
+      </div>
+    </section>
+
+    <section id="data" class="section">
+      <div class="section-head"><div><h2>4. 基础资料：统一成“统计 + 筛选 + 主表 + 详情”</h2><p>这一版更像 ProTable 场景，少一点装饰，多一点数据处理感。</p></div></div>
+      <div class="compare">
+        <div class="card panel"><div class="panel-head">现状：长表直出</div><div class="panel-body"><div class="toolbar"><span class="field">楼栋</span><span class="field">关键字</span><button class="btn">筛选</button></div><table class="table" style="margin-top:12px"><tr><th>楼栋</th><th>房间</th><th>业主</th><th>面积</th><th>操作</th></tr><tr><td>B座</td><td>1402</td><td>周孟莉</td><td>88㎡</td><td>编辑</td></tr><tr><td>商场</td><td>1F-06</td><td>东更道</td><td>80㎡</td><td>编辑</td></tr></table></div></div>
+        <div class="card panel"><div class="panel-head">建议：ProTable + 统计卡</div><div class="panel-body"><div class="stat-grid" style="margin-bottom:12px"><div class="stat"><span>业主</span><b>428</b></div><div class="stat"><span>B座房间</span><b>376</b></div><div class="stat"><span>商场铺位</span><b>112</b></div><div class="stat"><span>异常资料</span><b>3</b></div></div><div class="toolbar"><span class="field">B座 / 商场</span><span class="field">合同状态</span><span class="field" style="flex:1">搜索业主 / 房号 / 手机</span><button class="btn">筛选</button><button class="btn soft">新增</button></div><table class="table" style="margin-top:12px"><tr><th>对象</th><th>归属</th><th>合同</th><th>费用规则</th><th>操作</th></tr><tr><td><b>周孟莉</b><br><span class="tag">B座-1402</span></td><td>物业</td><td><span class="tag green">有效</span></td><td>物业费 + 电梯费</td><td>详情 / 编辑</td></tr><tr><td><b>东更道点心行</b><br><span class="tag green">商场-1F-06</span></td><td>商业</td><td><span class="tag gold">待出账</span></td><td>租金 + 物业费</td><td>详情 / 编辑</td></tr></table></div></div>
+      </div>
+    </section>
+
+    <section id="finance" class="section">
+      <div class="section-head"><div><h2>5. 财务核对：更像 Ledger / Dashboard</h2><p>财务模块建议更冷静：数字、状态、趋势、差异，像控制台而不是营销页。</p></div></div>
+      <div class="compare">
+        <div class="card panel"><div class="panel-head">现状：财务页偏列表</div><div class="panel-body"><table class="table"><tr><th>编号</th><th>对象</th><th>金额</th><th>状态</th></tr><tr><td>PAY-001</td><td>李莉娜</td><td>¥6766.1</td><td><span class="tag green">已收</span></td></tr><tr><td>INV-014</td><td>刘策</td><td>¥15680</td><td><span class="tag gold">待开票</span></td></tr></table></div></div>
+        <div class="card panel"><div class="panel-head">建议：指标先行</div><div class="panel-body"><div class="seg"><span class="active">流水</span><span>待开票</span><span>报表</span><span>结账</span></div><div class="stat-grid" style="margin:12px 0"><div class="stat"><span>今日收款</span><b>¥0.0</b></div><div class="stat"><span>本月已收</span><b>¥22,446</b></div><div class="stat"><span>待开票</span><b>14</b></div><div class="stat"><span>差异</span><b>0</b></div></div><div class="chart"><i class="bar" style="height:40%"></i><i class="bar green" style="height:62%"></i><i class="bar gold" style="height:34%"></i><i class="bar" style="height:80%"></i><i class="bar green" style="height:56%"></i></div></div></div>
+      </div>
+    </section>
+
+    <section id="system" class="section">
+      <div class="section-head"><div><h2>6. 系统维护：保守、稳定、可追踪</h2><p>这组页面用最少的视觉语言，把安全状态和操作痕迹说清楚。</p></div></div>
+      <div class="compare">
+        <div class="card panel"><div class="panel-head">现状：维护入口分散</div><div class="panel-body"><table class="table"><tr><th>模块</th><th>状态</th><th>操作</th></tr><tr><td>数据备份</td><td>正常</td><td>备份</td></tr><tr><td>操作日志</td><td>正常</td><td>查看</td></tr></table></div></div>
+        <div class="card panel"><div class="panel-head">建议：Settings Dashboard</div><div class="panel-body"><div class="stat-grid" style="margin-bottom:12px"><div class="stat"><span>备份状态</span><b>正常</b></div><div class="stat"><span>默认密码</span><b>待改</b></div><div class="stat"><span>健康检查</span><b>通过</b></div><div class="stat"><span>更新</span><b>本地版</b></div></div><div class="timeline"><div class="time"><i></i><div><b>10:32 生成备份</b><small>backup-20260627.zip</small></div></div><div class="time"><i></i><div><b>09:48 财务登录</b><small>本机 127.0.0.1</small></div></div><div class="time"><i></i><div><b>09:10 健康检查</b><small>数据库、模板、静态资源正常</small></div></div></div></div></div>
+      </div>
+    </section>
+
+    <section id="sequence" class="section">
+      <div class="section-head"><div><h2>7. 建议实施顺序</h2><p>确认 v3 后，再按高频程度逐页落地，保持改一页、测一页、看一页。</p></div></div>
+      <div class="modules">
+        <div class="card box"><h3>第一批：高频操作</h3><p>物业收费、商业收费、数据导入、业主管理、房间管理。</p></div>
+        <div class="card box"><h3>第二批：财务核对</h3><p>缴费记录、发票管理、对账报表、期末结账。</p></div>
+        <div class="card box"><h3>第三批：规则与自动化</h3><p>收费项目、抄表管理、批量更新、自动出账、公摊分摊。</p></div>
+        <div class="card box"><h3>第四批：系统维护</h3><p>操作日志、备份、用户、健康、更新、试用数据清空。</p></div>
+      </div>
+      <div class="chip" style="margin-top:14px;display:inline-flex">如果你认可 v3 的方向，我就按这套更稳的样式开始改真实页面。</div>
+    </section>
+
+    <div class="footer">文件：docs/ui-redesign-all-modules-proposal-v3.html · 生成日期：2026-06-27</div>
+  </main>
+</div>
+</body>
+</html>

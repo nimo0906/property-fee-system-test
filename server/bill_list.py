@@ -158,20 +158,28 @@ class BillListMixin(BaseHandler):
         if not body:
             body = '<tr><td colspan="10" class="text-center text-muted py-4">当前筛选条件下暂无需要核对的账单</td></tr>'
         self._html(self._page('账单核对工作台', f'''
-        <div class="alert alert-info"><strong>账单核对工作台</strong>：用于出账后、批量修正后集中核对金额、截止日和修正记录。</div>
-        <form method="GET" action="/bills/review" class="filter-bar row g-2">
-        <div class="col-md-3"><label>起始日期</label><input type="date" name="period_start" value="{h(period_start)}" class="form-control"><small class="text-muted">按财务自然日期范围筛选</small></div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">账单核对</h2>
+          </div>
+          <div class="export-actions">
+            <a class="btn btn-outline-secondary btn-sm" href="/bills"><i class="bi bi-arrow-left"></i> 返回账单</a>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+        <div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">显示账单</div><strong>{len(rows)}</strong></div></div>
+        <div class="col-md-4 col-6"><div class="summary-tile warning"><div class="label">人工修正</div><strong>{total_adj}</strong></div></div>
+        <div class="col-md-4 col-12"><div class="summary-tile success"><div class="label">金额合计</div><strong class="money">¥{m(amount_total)}</strong></div></div>
+        </div>
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>核对筛选</strong></div><div class="card-body">
+        <form method="GET" action="/bills/review" class="row g-2 align-items-end">
+        <div class="col-md-3"><label>起始日期</label><input type="date" name="period_start" value="{h(period_start)}" class="form-control"></div>
         <div class="col-md-3"><label>截止日期</label><input type="date" name="period_end" value="{h(period_end)}" class="form-control"></div>
         <div class="col-md-2"><label>楼栋</label><select name="building" class="form-select">{bld_opts}</select></div>
         <div class="col-md-2"><label>核对范围</label><select name="scope" class="form-select">{scope_opts}</select></div>
         <div class="col-md-2 d-flex align-items-end"><button class="btn btn-primary me-2">筛选</button><a class="btn btn-outline-secondary" href="/bills">返回账单</a></div>
-        </form>
-        <div class="row text-center g-2 mb-3">
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">显示账单</div><strong>{len(rows)}</strong></div></div>
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">人工修正</div><strong>{total_adj}</strong></div></div>
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">金额合计</div><strong class="money">¥{m(amount_total)}</strong></div></div>
-        </div>
-        <div class="card"><div class="card-header">核对明细</div><div class="table-responsive">
+        </form></div></div>
+        <div class="card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>核对明细</strong></div><div class="table-responsive">
         <table class="table table-sm mb-0"><thead><tr><th>类型</th><th>编号</th><th>房间</th><th>业主</th><th>收费项目</th><th class="text-end">原金额</th><th class="text-end">新金额</th><th>截止日</th><th>原因</th><th>操作</th></tr></thead><tbody>{body}</tbody></table>
         </div></div>
         ''', 'bills'))
@@ -285,10 +293,9 @@ class BillListMixin(BaseHandler):
             o_rem_html = f'<strong class="money money-due">¥{m(o_rem)}</strong>' if o_rem>0 else '<span class="money money-paid">¥0.00</span>'
             owner_chk = f'<input type="checkbox" class="owner-group-chk" data-owner-group="{owner_group}" title="选择该租户下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'owner\',\'{owner_group}\',this.checked)">'
             rh+=f'<tr class="table-secondary" onclick="toggleRoom(\'{owner_group}\')" style="cursor:pointer">'
-            room_names = '、'.join(sorted(rl['name'] for rl in og['rooms'].values()))
             object_chips = ''.join(f'<span class="bill-object-chip">{h(name)}</span>' for name in sorted(rl['name'] for rl in og['rooms'].values()))
-            object_label = '商户号/铺位：' if og['scope'] == '商业公司收费' else '房间：'
-            rh+=f'<td>{owner_chk}</td><td><div class="bill-owner-line"><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{og["owner"]}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span><span class="bill-object-chips">{object_chips}</span></div><div class="small text-muted">{object_label}{room_names}</div></td>'
+            inline_codes = ''.join(f'<span class="bill-inline-code">{h(_bill_object_code(rl["bills"][0]))}</span>' for rl in og['rooms'].values() if _bill_object_code(rl['bills'][0]) and _bill_object_code(rl['bills'][0]) != rl['name'])
+            rh+=f'<td>{owner_chk}</td><td><div class="bill-owner-line"><i class="bi bi-chevron-right" id="icon_{owner_group}"></i> <strong>{og["owner"]}</strong> <span class="badge bg-light text-dark ms-1">{len(og["rooms"])}间</span><span class="bill-object-chips">{object_chips}</span>{inline_codes}</div></td>'
             rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
             rh+=f'<td></td>'
             rh+=f'<td></td>'
@@ -304,7 +311,7 @@ class BillListMixin(BaseHandler):
                 r_rem_html = f'<strong class="money money-due">¥{m(r_rem)}</strong>' if r_rem>0 else '<span class="money money-paid">¥0.00</span>'
                 room_chk = f'<input type="checkbox" class="room-group-chk" data-owner-group="{owner_group}" data-room-group="{room_group}" title="选择该房间下全部账单" onclick="event.stopPropagation();toggleBillGroup(\'room\',\'{room_group}\',this.checked)">'
                 rh+=f'<tr class="room-detail-{owner_group} bill-room-row" onclick="toggleBillRoom(\'{room_group}\')" style="display:none;background:#f8f9fa;cursor:pointer">'
-                rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><i class="bi bi-chevron-right" id="icon_{room_group}"></i> <strong>{rl["name"]}</strong></td>'
+                rh+=f'<td>{room_chk}</td><td style="padding-left:25px"><i class="bi bi-chevron-right" id="icon_{room_group}"></i> <strong>{rl["name"]}</strong><span class="visually-hidden">房间：{rl["name"]}</span></td>'
                 rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
                 rh+=f'<td>{h(_bill_room_label(rl["bills"][0]))}</td><td><small class="text-muted">{h(_bill_group_hint(rl["bills"]))}</small></td><td class="text-end"><span class="money">¥{m(r_total)}</span></td><td class="text-end"><span class="money money-paid">¥{m(r_paid)}</span></td>'
                 rh+=f'<td class="text-end">{r_rem_html}</td>'
@@ -317,7 +324,7 @@ class BillListMixin(BaseHandler):
                     chk=f'<input type=checkbox name=bill_ids value="{b["id"]}" class=bill-chk form="billActionForm" data-owner-group="{owner_group}" data-room-group="{room_group}">'
                     rh+=f'<tr class="bill-detail-{room_group}" style="display:none">'
                     rh+=f'<td>{chk}</td>'
-                    rh+=f'<td><small>{h(b["bill_number"]or"-")}</small><div class="small text-muted">{h(_bill_customer_name(b))} <span class="bill-inline-code">{h(_bill_object_code(b))}</span></div></td>'
+                    rh+=f'<td><small>{h(b["bill_number"]or"-")}</small><div class="small text-muted">{h(_bill_customer_name(b))}</div></td>'
                     rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
                     rh+=f'<td>{h(_bill_room_label(b))}</td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'
@@ -328,10 +335,11 @@ class BillListMixin(BaseHandler):
                     rh+=f'<td class="text-end"><span class="money">¥{m(b["amount"])}</span></td><td class="text-end"><span class="money money-paid">¥{m(b["paid"])}</span></td>'
                     rh+=f'<td class="text-end">{rem_html}</td>'
                     rh+=f'<td><span class="badge {sn.get(b["status"],"status-neutral")}">{ln.get(b["status"],b["status"])}</span></td>'
-                    rh+=f'<td><a href="/bills/{b["id"]}?{detail_back}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-eye"></i></a>'
-                    rh+=f'<a href="/bills/{b["id"]}/edit" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>'
-                    if b['status']!='paid': rh+=f'<a href="/bills/{b["id"]}/pay" class="btn btn-sm btn-outline-primary"><i class="bi bi-credit-card"></i></a>'
-                    rh+=f'<form method=POST action="/bills/{b["id"]}/delete" style=display:inline onsubmit="return confirm(\'确定删除？已有缴费记录的账单无法删除！\')"><input type="hidden" name="back" value="{h(current_path)}"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
+                    back_q = urllib.parse.urlencode({'back': current_path})
+                    rh+=f'<td><a href="/bills/{b["id"]}?{detail_back}" class="btn btn-sm btn-outline-secondary bill-row-action"><i class="bi bi-eye"></i></a>'
+                    rh+=f'<a href="/bills/{b["id"]}/edit?{back_q}" class="btn btn-sm btn-outline-warning bill-row-action"><i class="bi bi-pencil"></i></a>'
+                    if b['status']!='paid': rh+=f'<a href="/bills/{b["id"]}/pay?{back_q}" class="btn btn-sm btn-outline-primary bill-row-action"><i class="bi bi-credit-card"></i></a>'
+                    rh+=f'<form method=POST action="/bills/{b["id"]}/delete" style=display:inline class="bill-row-action" onsubmit="rememberBillsBeforeLeave();return confirm(\'确定删除？已有缴费记录的账单无法删除！\')"><input type="hidden" name="back" value="{h(current_path)}"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>'
         ft_opts='<option value="">全部类型</option>'+''.join(f'<option value="{f["id"]}"{" selected" if fid==str(f["id"]) else""}>{h(f["name"])}</option>' for f in fts)
         bld_opts='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
         tpl=self._load_template('bills.html')
@@ -359,10 +367,13 @@ class BillListMixin(BaseHandler):
         active_all = ' active' if not company_scope else ''
         active_property = ' active' if company_scope == 'property' else ''
         active_commercial = ' active' if company_scope == 'commercial' else ''
+        all_current = ' aria-current="page"' if not company_scope else ''
+        property_current = ' aria-current="page"' if company_scope == 'property' else ''
+        commercial_current = ' aria-current="page"' if company_scope == 'commercial' else ''
         scope_summary_html = f'''
-        <a class="ledger-scope-chip all{active_all}" href="{h(all_url)}"><i class="bi bi-layers"></i> 全部账单 <strong>{property_count + commercial_count}笔</strong></a>
-        <a class="ledger-scope-chip property{active_property}" href="{h(property_url)}"><i class="bi bi-building"></i> 物业公司收费 <strong>{property_count}笔</strong><em>欠费¥{m(property_due)}</em></a>
-        <a class="ledger-scope-chip commercial{active_commercial}" href="{h(commercial_url)}"><i class="bi bi-shop"></i> 商业公司收费 <strong>{commercial_count}笔</strong><em>欠费¥{m(commercial_due)}</em></a>
+        <a class="ledger-scope-chip all{active_all}" href="{h(all_url)}"{all_current}><i class="bi bi-layers"></i> 全部账单 <strong>{property_count + commercial_count}笔</strong></a>
+        <a class="ledger-scope-chip property{active_property}" href="{h(property_url)}"{property_current}><i class="bi bi-building"></i> 物业公司收费 <strong>{property_count}笔</strong><em>欠费¥{m(property_due)}</em></a>
+        <a class="ledger-scope-chip commercial{active_commercial}" href="{h(commercial_url)}"{commercial_current}><i class="bi bi-shop"></i> 商业公司收费 <strong>{commercial_count}笔</strong><em>欠费¥{m(commercial_due)}</em></a>
         '''
         tpl=tpl.replace('{BILL_SCOPE_SUMMARY}',scope_summary_html)
         has_unpaid=any(r['status']!='paid' for r in rows)

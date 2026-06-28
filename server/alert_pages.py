@@ -47,19 +47,22 @@ class AlertCenterMixin(BaseHandler):
         unpaid_table = render_table(['账单', '合同', '商户', '费用', ('金额', 'text-end'), '状态', ''], unpaid_rows, table_class='table table-sm mb-0', empty_text='暂无合同欠费账单')
         zero_table = render_table(['账单', '房间', '费用', '状态', ''], zero_rows, table_class='table table-sm mb-0', empty_text='暂无零金额账单')
         self._html(self._page("智能预警中心", f"""
-        <div class="alert {severity_class}"><i class="bi bi-exclamation-triangle"></i>
-        当前账期 {h(period)}：合同、欠费和异常账单已自动汇总。优先处理红色风险，再处理黄色提醒。</div>
-        <div class="d-flex justify-content-end mb-3">
-          <a class="btn btn-outline-primary" href="/commercial_receivables">
-            <i class="bi bi-shop"></i> 查看商业合同应收
-          </a>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">智能预警中心</h2>
+          </div>
+          <div class="export-actions">
+            <a class="btn btn-outline-primary btn-sm" href="/merchant_contracts"><i class="bi bi-folder"></i> 合同档案</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/bills"><i class="bi bi-receipt"></i> 账单管理</a>
+          </div>
         </div>
-        <div class="metric-grid">
-          <div class="metric-card warning"><div class="metric-label">30天内到期合同</div><div class="metric-value">{s['contracts_expiring_30d']}</div></div>
-          <div class="metric-card danger"><div class="metric-label">已过期合同</div><div class="metric-value">{s['expired_contracts']}</div></div>
-          <div class="metric-card danger"><div class="metric-label">合同欠费账单</div><div class="metric-value">{s['unpaid_contract_bills']}</div></div>
-          <div class="metric-card danger"><div class="metric-label">零金额账单</div><div class="metric-value">{s['zero_amount_bills']}</div></div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">30天内到期</div><strong>{s['contracts_expiring_30d']}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile danger"><div class="label">已过期</div><strong>{s['expired_contracts']}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile danger"><div class="label">合同欠费</div><strong>{s['unpaid_contract_bills']}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile danger"><div class="label">零金额</div><strong>{s['zero_amount_bills']}</strong></div></div>
         </div>
+        <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-shop"></i> 商业合同应收</span><a class="btn btn-sm btn-outline-primary" href="/commercial_receivables">进入</a></div></div>
         <div class="row g-3">
           <div class="col-lg-6"><div class="card"><div class="card-header">即将到期合同</div>{expiring_table}</div></div>
           <div class="col-lg-6"><div class="card border-danger"><div class="card-header text-danger">已过期合同</div>{expired_table}</div></div>

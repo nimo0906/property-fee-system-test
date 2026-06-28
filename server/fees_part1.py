@@ -26,6 +26,19 @@ class FeeMixinPart1(BaseHandler):
         all_rows = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         period = get_period()
         calc_n = {'area':'按面积×单价','meter':'按用量×单价','floor':'电梯阶梯','fixed':'固定金额','household':'按户分摊'}
+        summary_map = {
+            'property': {'value': 0, 'label': '物业公司'},
+            'commercial': {'value': 0, 'label': '商业公司'},
+            'other': {'value': 0, 'label': '其他'},
+        }
+        for row in all_rows:
+            for key in summary_map:
+                if fee_in_scope(row, key):
+                    summary_map[key]['value'] += 1
+        summary_html = ''.join(
+            '<div class="col-md-4 col-6"><div class="summary-tile ' + ('primary' if key == selected_group else '') + '"><div class="label">' + item['label'] + '</div><strong>' + str(item['value']) + '</strong></div></div>'
+            for key, item in summary_map.items()
+        )
 
         def metric_for(fid):
             bc = db.execute("SELECT COUNT(*) FROM bills WHERE fee_type_id=? AND billing_period=?", (fid, period)).fetchone()[0]
@@ -69,21 +82,26 @@ class FeeMixinPart1(BaseHandler):
                 if _belongs_to_fee_group(r, selected_group, group_defs) and r not in ordered:
                     ordered.append(r)
             rh = ''.join(card_for(r) for r in ordered)
-            header = '<div class="page-intro"><div><p class="text-muted mb-1 small">收费标准分组</p><h4 class="mb-0"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</h4><p class="text-muted small mb-0 mt-2">' + gd['desc'] + '</p></div><div class="export-actions"><a href="/fee_types" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回分组</a><a href="/fee_types/create?group=' + h(selected_group) + '" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加</a></div></div>'
+            header = '<div class="page-intro"><div><h2 class="mb-1"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</h2></div><div class="export-actions"><a href="/fee_types" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回总览</a><a href="/fee_types/create?group=' + h(selected_group) + '" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加</a></div></div>'
             content = header + '<div class="row">' + (rh or '<div class="col-12 text-center text-muted py-5">该分组暂无收费项目</div>') + '</div>'
             db.close()
             return self._html(self._page(gd['title'], content, 'fee_types'))
+
+        group_tabs = ''
+        for key, gd in group_defs.items():
+            active = ' active' if selected_group == key else ''
+            group_tabs += '<a class="contract-scope-tab ' + key + active + '" href="/fee_types?group=' + key + '"><i class="bi ' + gd['icon'] + '"></i><span>' + gd['title'] + '</span><strong>' + str(summary_map[key]['value']) + '项</strong></a>'
 
         group_cards = ''
         for key, gd in group_defs.items():
             present = [r for r in all_rows if _belongs_to_fee_group(r, key, group_defs)]
             names_preview = '、'.join([h(r['name']) for r in present[:6]]) or '暂无项目'
-            group_cards += '<div class="col-md-4 mb-3"><a href="/fee_types?group=' + key + '" class="text-decoration-none text-reset"><div class="card fee-card h-100"><div class="card-body">'
-            group_cards += '<div class="d-flex align-items-center gap-3 mb-3"><div class="page-icon"><i class="bi ' + gd['icon'] + '"></i></div><div><h4 class="mb-1">' + gd['title'] + '</h4><small class="text-muted">' + str(len(present)) + ' 个收费项目</small></div></div>'
-            group_cards += '<p class="text-muted small">' + gd['desc'] + '</p><hr><div class="small text-muted">' + names_preview + '</div><div class="mt-3"><span class="btn btn-sm btn-outline-primary">进入查看 <i class="bi bi-arrow-right"></i></span></div>'
-            group_cards += '</div></div></a></div>'
+            active = ' primary' if selected_group == key else ''
+            group_cards += '<div class="col-md-4"><a href="/fee_types?group=' + key + '" class="text-decoration-none text-reset"><div class="summary-tile ' + active + ' h-100"><div class="label"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</div><strong>' + str(len(present)) + ' 项</strong><div class="text-muted small mt-2">' + gd['desc'] + '</div><div class="small text-muted mt-2">' + names_preview + '</div></div></a></div>'
         db.close()
         content = self._load_template('fee_types.html')
+        content = content.replace('{SUMMARY}', summary_html)
+        content = content.replace('{GROUP_TABS}', group_tabs)
         content = content.replace('{CARDS}', group_cards)
         self._html(self._page('收费标准', content, 'fee_types'))
 

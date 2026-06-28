@@ -109,10 +109,6 @@ class CollectionMixin:
             for p, label in [("", "全部优先级"), ("高", "高优先级"), ("中", "中优先级"), ("低", "低优先级")]
         )
         body = f'''
-        <div class="alert alert-info">
-          <i class="bi bi-info-circle"></i>
-          本页给客服部查看重点催费对象，只展示欠费信息，不提供财务修改入口。
-        </div>
         <div class="row g-3 mb-3">
           <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted small">欠费对象</div><div class="h4 mb-0">{len(items)}</div></div></div></div>
           <div class="col-md-4"><div class="card"><div class="card-body"><div class="text-muted small">欠费金额</div><div class="h4 mb-0">¥{_money(total_due)}</div></div></div></div>

@@ -19,7 +19,16 @@ class BatchOpsMixin(BaseHandler):
         cat_opts = '<option value="">全部类别</option>' + ''.join(f'<option value="{h(r["category"])}">{h(r["category"])}</option>' for r in cats)
         ft_opts = ''.join(f'<option value="{f["id"]}">{h(f["name"])} 当前¥{m(f["unit_price"])}</option>' for f in fts)
         self._html(self._page('批量更新', f'''
-        <div class="alert alert-info"><i class="bi bi-pencil-square"></i> 用于内部批量调价/更新。系统会先预览影响范围，确认执行前自动备份。</div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">批量更新</h2>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">房间楼栋</div><strong>{len(blds)}</strong></div></div>
+          <div class="col-md-4 col-6"><div class="summary-tile success"><div class="label">收费项目</div><strong>{len(fts)}</strong></div></div>
+          <div class="col-md-4 col-6"><div class="summary-tile warning"><div class="label">更新对象</div><strong>2 类</strong></div></div>
+        </div>
         <div class="row g-3">
         <div class="col-lg-6"><div class="card"><div class="card-header">批量修改房间物业费单价</div><div class="card-body">
         <form method="POST" action="/batch_ops/room_rate" class="row g-3">

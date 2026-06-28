@@ -34,24 +34,34 @@ class SystemUpdateMixin(BaseHandler):
             else:
                 result_html = '<div class="alert alert-success">当前已经是最新版本。</div>'
         packaged_note = '当前为桌面打包版，可以准备半自动更新。' if packaged else '当前是源码运行模式：可检查更新，但自动替换请在打包后的 Mac/Windows 桌面版中执行。'
+        status_strip = '''
+            <div class="maintenance-role-strip mb-3">
+              <div class="maintenance-role-pill"><span>当前版本</span><strong>{}</strong></div>
+              <div class="maintenance-role-pill"><span>当前平台</span><strong>{}</strong></div>
+              <div class="maintenance-role-pill"><span>运行模式</span><strong>{}</strong></div>
+              <div class="maintenance-role-pill muted"><span>更新目录</span><strong>updates/</strong></div>
+            </div>
+        '''.format(h(APP_VERSION), h(service.platform_key), '桌面版' if packaged else '源码模式')
         self._html(self._page('系统更新', f'''
-        <div class="alert alert-light border"><strong>半自动更新</strong>：系统会检查 GitHub 最新版本，下载更新包，校验后生成更新助手。更新只替换程序文件，不覆盖本机 property.db 和 backups。</div>
-        <div class="row g-3 mb-3">
-            <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">当前版本</div><strong>{h(APP_VERSION)}</strong></div></div>
-            <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">当前平台</div><strong>{h(service.platform_key)}</strong></div></div>
-            <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">运行模式</div><strong>{'桌面版' if packaged else '源码模式'}</strong></div></div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">系统更新</h2>
+          </div>
+          <div class="export-actions">
+            <a href="/backups" class="btn btn-outline-secondary btn-sm"><i class="bi bi-folder2-open"></i> 备份恢复</a>
+          </div>
         </div>
-        <form method="POST" action="/system_update/check" class="card mb-3"><div class="card-header">更新来源</div><div class="card-body">
+        {status_strip}
+        <form method="POST" action="/system_update/check" class="card mb-3 maintenance-console-card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>更新来源</strong></div><div class="card-body">
             <label class="form-label">更新清单地址</label>
             <input name="manifest_url" class="form-control" value="{h(service.manifest_url)}">
-            <p class="text-muted small mt-2 mb-0">内测时可使用默认 GitHub Release 地址；如果仓库保持私有，也可以粘贴公司服务器、对象存储或其他公开地址上的 update_manifest.json。{h(packaged_note)}</p>
             <button class="btn btn-primary mt-3"><i class="bi bi-arrow-repeat"></i> 检查更新</button>
         </div></form>
         {result_html}
         <div class="d-flex gap-2 flex-wrap">
             <form method="POST" action="/system_update/open_folder"><button class="btn btn-outline-secondary">打开更新目录</button></form>
         </div>
-        <div class="card mt-3"><div class="card-header">更新步骤</div><div class="card-body small text-muted">
+        <div class="card mt-3 maintenance-console-card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>更新步骤</strong><span class="badge status-neutral">5 steps</span></div><div class="card-body small text-muted">
             1. 点击检查更新；2. 下载并准备更新；3. 关闭当前系统；4. 运行生成的更新助手；5. 自动备份旧版本并启动新版。
         </div></div>
         ''', 'system_update'))

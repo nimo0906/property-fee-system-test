@@ -80,15 +80,20 @@
   },
   "settingsProvider": "claude",
   "savedProviderModel": {
-    "claude": "haiku"
+    "claude": "haiku",
+    "codex": "gpt-5.5"
   },
   "savedProviderEffort": {
-    "claude": "high"
+    "claude": "high",
+    "codex": "high"
   },
-  "savedProviderServiceTier": {},
+  "savedProviderServiceTier": {
+    "codex": "default"
+  },
   "savedProviderThinkingBudget": {},
   "savedProviderPermissionMode": {
-    "claude": "yolo"
+    "claude": "yolo",
+    "codex": "yolo"
   },
   "lastCustomModel": "",
   "maxTabs": 3,

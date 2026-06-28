@@ -140,19 +140,24 @@ class TrialDataResetMixin(BaseHandler):
             empty_text='暂无合同档案数据',
         )
         self._html(self._page('清空试用业务数据', f'''
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">清空试用业务数据</h2>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">账单金额</div><strong>¥{m(summary['bill_amount'])}</strong></div></div>
+          <div class="col-md-4 col-6"><div class="summary-tile success"><div class="label">缴费金额</div><strong>¥{m(summary['payment_amount'])}</strong></div></div>
+          <div class="col-md-4 col-12"><div class="summary-tile warning"><div class="label">主要楼栋</div><strong>{h(summary['buildings'] or '-')}</strong></div></div>
+        </div>
+        <div class="card mb-3 maintenance-console-card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>清理说明</strong></div>
+        <div class="card-body">
         <div class="alert alert-warning"><strong>清空试用业务数据</strong>：仅用于内测/演示环境重新验证流程。它会真实删除数据库中的业务记录，不是隐藏数据。</div>
         <div class="alert alert-light border">
         <div><strong>默认会删除：</strong>业主、房间、账单、缴费、抄表、发票、结账、公摊等业务记录。</div>
         <div><strong>可选删除：</strong>合同档案、商业空间、合同附件、合同出账批次。</div>
         <div><strong>不会删除：</strong>操作员账号、收费项目/单价配置、备份文件、系统更新文件、程序文件。</div>
         <div><strong>安全保护：</strong>执行前会自动生成数据库备份，可通过数据备份页面恢复。</div>
-        </div>
-        <div class="card mb-3"><div class="card-header">将清理的数据摘要</div>
-        <div class="card-body">
-        <div class="row g-3 mb-3">
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">账单金额</div><strong>¥{m(summary['bill_amount'])}</strong></div></div>
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">缴费金额</div><strong>¥{m(summary['payment_amount'])}</strong></div></div>
-        <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">主要楼栋</div><strong>{h(summary['buildings'] or '-')}</strong></div></div>
         </div>
         <div class="row g-3"><div class="col-lg-7">
         <div class="small text-muted mb-2">基础业务资料和收费记录</div>
@@ -162,7 +167,7 @@ class TrialDataResetMixin(BaseHandler):
         {contract_table}
         </div></div>
         </div></div>
-        <form method="POST" action="/trial_data_reset" onsubmit="return confirm('确认按所选范围清空数据？执行前会自动备份，但所选记录会从数据库删除。')" class="card">
+        <form method="POST" action="/trial_data_reset" onsubmit="return confirm('确认按所选范围清空数据？执行前会自动备份，但所选记录会从数据库删除。')" class="card maintenance-console-card">
         <div class="card-body">
         <div class="mb-3"><label class="form-label fw-semibold">清空范围</label>
         <input type="hidden" name="scope_form" value="1">

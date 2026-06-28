@@ -25,6 +25,10 @@ class RoomMixin(BaseHandler):
         rows=db.execute(sql + " LIMIT ? OFFSET ?", vals + [per_page, (pg - 1) * per_page]).fetchall()
         blds=db.execute("SELECT DISTINCT building FROM rooms ORDER BY building").fetchall()
         cats=db.execute("SELECT DISTINCT category FROM rooms WHERE category IS NOT NULL AND category<>'' ORDER BY category").fetchall()
+        room_total = db.execute("SELECT COUNT(*) FROM rooms").fetchone()[0] or 0
+        owner_total = db.execute("SELECT COUNT(DISTINCT owner_id) FROM rooms WHERE owner_id IS NOT NULL").fetchone()[0] or 0
+        b_tower_total = db.execute("SELECT COUNT(*) FROM rooms WHERE unit LIKE 'B座%' OR building LIKE '%B座%'").fetchone()[0] or 0
+        mall_total = db.execute("SELECT COUNT(*) FROM rooms WHERE unit='商场' OR building LIKE '%商场%'").fetchone()[0] or 0
         db.close()
         rh = self._render_room_rows_by_unit(rows)
         bo='<option value="">全部楼栋</option>'+''.join(f'<option value="{h(b["building"])}"{" selected" if bld==b["building"] else""}>{h(b["building"])}</option>' for b in blds)
@@ -36,6 +40,10 @@ class RoomMixin(BaseHandler):
         cat_opts = '<option value="">全部房间类型</option>' + ''.join(f'<option value="{h(x)}"{" selected" if cat==x else""}>{h(x)}</option>' for x in cat_values)
         tpl=self._load_template('rooms.html')
         tpl=tpl.replace('{BOPTS}',bo).replace('{KW}',h(kw)).replace('{CAT_OPTS}', cat_opts)
+        tpl=tpl.replace('{ROOM_TOTAL}',str(room_total))
+        tpl=tpl.replace('{OWNER_TOTAL}',str(owner_total))
+        tpl=tpl.replace('{B_TOWER_TOTAL}',str(b_tower_total))
+        tpl=tpl.replace('{MALL_TOTAL}',str(mall_total))
         empty = """<tr><td colspan="13" class="text-center text-muted py-5">
         <div><i class="bi bi-door-open" style="font-size:2rem;color:#adb5bd"></i></div>
         <h6 class="mt-2">还没有房间资料</h6>

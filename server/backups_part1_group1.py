@@ -51,7 +51,7 @@ class BackupMixinPart1Group1(BaseHandler):
             empty_text='暂无备份文件，点击"创建备份"生成',
             col_count=5,
         )
-        self._html(self._page('数据备份', f'''
+        self._html(self._page('备份记录', f'''
         <div class="alert alert-info">
             <i class="bi bi-info-circle"></i>
             备份文件保存在 <code>backups/</code> 目录。系统启动和每日首次使用会自动备份；
@@ -71,7 +71,7 @@ class BackupMixinPart1Group1(BaseHandler):
             <a class="btn btn-outline-danger" href="/backups/cleanup?keep=10"><i class="bi bi-trash3"></i> 清理自动备份</a>
         </div>
         {backup_table}
-        ''', 'closing'))
+        ''', 'backups'))
 
     def _backup_create(self):
         try:

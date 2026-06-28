@@ -111,12 +111,19 @@ class ImportPreviewMixin:
             filename, headers, data_rows[batch_start:batch_end], col_map, data_type, header_idx, result, type_names, len(data_rows)
         )
         self._html(self._page('导入预览', f'''
-        <div class="import-hero import-hero-pro import-hero-compact">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                <div><div class="page-kicker">IMPORT REVIEW</div><h4 class="mb-2">确认即将导入的数据</h4>
-                <p class="mb-0 text-muted">当前页面只预览，不写入数据库。请先核对映射结果，确认后才会导入并自动备份。</p></div>
-                <a href="/import" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回导入页</a>
+        <div class="page-intro">
+            <div>
+                <h2 class="mb-1">确认即将导入的数据</h2>
             </div>
+            <div class="export-actions">
+                <a href="/import" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回导入页</a>
+            </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">文件类型</div><strong>{h(type_names.get(data_type, data_type))}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">数据行</div><strong>{len(data_rows)}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">批次进度</div><strong>{batch_no}/{batch_total}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">问题行</div><strong>{len(problem_rows)}</strong></div></div>
         </div>
         {detected_tip}
         {warning}
@@ -126,7 +133,6 @@ class ImportPreviewMixin:
             <span><i class="bi bi-pencil-square"></i> 数据核对与修正</span>
             <span class="badge status-info">映射后的结果，不是原始 Excel 杂表</span>
         </div><div class="card-body">
-        <p class="small text-muted mb-2">按房间管理字段顺序展示；左侧“动作、楼栋、单元/座、房号/铺位”会固定，横向查看右侧字段时不容易丢失当前户。</p>
         <div class="import-batch-panel {'has-next' if has_next else 'is-final'}">
             <div class="import-batch-head">
                 <div><div class="import-batch-kicker">批次进度</div><strong>{h(batch_label)}</strong></div>
@@ -239,7 +245,7 @@ class ImportPreviewMixin:
         body = ''.join('<tr>' + ''.join(f'<td>{h(x)}</td>' for x in row) + '</tr>' for row in summarize_rows(data_rows, headers))
         total = len(data_rows) if total_data_rows is None else total_data_rows
         return f'''<details class="card mb-3 import-review-card advanced-import-info"><summary class="card-header"><i class="bi bi-info-circle"></i> 高级识别信息</summary>
-        <div class="card-body"><div class="row text-center g-2 mb-3"><div class="col-md-3"><div class="summary-tile"><div class="label">文件类型</div><strong>{h(type_names.get(data_type,data_type))}</strong></div></div><div class="col-md-3"><div class="summary-tile"><div class="label">列头行</div><strong>第 {header_idx+1} 行</strong></div></div><div class="col-md-3"><div class="summary-tile"><div class="label">数据行</div><strong>{total}</strong></div></div><div class="col-md-3"><div class="summary-tile"><div class="label">匹配字段</div><strong>{len(col_map)}</strong></div></div></div>
+        <div class="card-body"><div class="row text-center g-2 mb-3"><div class="col-md-3"><div class="summary-tile"><div class="label">文件类型</div><strong>{h(type_names.get(data_type,data_type))}</strong></div></div><div class="col-md-3"><div class="summary-tile"><div class="label">列头行</div><strong>第 {header_idx+1} 行</strong></div></div><div class="col-md-3"><div class="summary-tile"><div class="label">数据行</div><strong>{len(data_rows)}</strong></div></div><div class="col-md-3"><div class="summary-tile"><div class="label">匹配字段</div><strong>{len(col_map)}</strong></div></div></div>
         <div class="row g-3"><div class="col-md-5"><div class="table-responsive"><table class="table table-sm"><thead><tr><th>系统字段</th><th>表格列</th></tr></thead><tbody>{mapped}</tbody></table></div></div><div class="col-md-7"><div class="table-responsive"><table class="table table-sm"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div></div></div></div></details>'''
 
     def _render_basic_info_analysis(self, headers, data_rows):

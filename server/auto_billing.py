@@ -49,14 +49,15 @@ def _billing_period(start, end):
 
 
 def next_service_period(contract_start, contract_end, cycle, today=None):
-    """Return the next complete contract period whose start is after today."""
+    """Return the next complete contract period whose start is not before today."""
     start = _as_date(contract_start)
     end = _as_date(contract_end)
     cursor = start
     current = _as_date(today or date.today())
-    while cursor <= current:
-        cursor = add_months(cursor, _months(cycle))
     service_end = add_months(cursor, _months(cycle)) - timedelta(days=1)
+    while cursor + timedelta(days=1) < current:
+        cursor = add_months(cursor, _months(cycle))
+        service_end = add_months(cursor, _months(cycle)) - timedelta(days=1)
     if service_end > end:
         return None
     return cursor, service_end, cursor - timedelta(days=1)

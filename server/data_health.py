@@ -210,15 +210,22 @@ class DataHealthMixin:
             empty_text='账单/收款状态一致',
         )
         self._html(self._page('系统健康检查', f'''
-        <div class="alert alert-info"><strong>系统健康检查</strong>：用于检查数据库结构、账单状态和收款记录是否一致。修复前建议先备份。</div>
-        <div class="row g-3 mb-3">
-          <div class="col-md-6"><div class="metric-card"><div class="metric-label">Schema 问题</div><div class="metric-value">{len(schema['missing_tables']) + len(schema['missing_columns'])}</div></div></div>
-          <div class="col-md-6"><div class="metric-card warning"><div class="metric-label">账单状态问题</div><div class="metric-value">{sum(len(v) for v in finance.values())}</div></div></div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">系统健康检查</h2>
+          </div>
+          <div class="export-actions">
+            <a href="/backups" class="btn btn-outline-secondary btn-sm"><i class="bi bi-folder2-open"></i> 备份恢复</a>
+          </div>
         </div>
-        <div class="card mb-3"><div class="card-header d-flex justify-content-between"><span>数据库结构</span>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6 col-6"><div class="summary-tile primary"><div class="label">Schema 问题</div><strong>{len(schema['missing_tables']) + len(schema['missing_columns'])}</strong></div></div>
+          <div class="col-md-6 col-6"><div class="summary-tile warning"><div class="label">账单状态问题</div><strong>{sum(len(v) for v in finance.values())}</strong></div></div>
+        </div>
+        <div class="card mb-3 maintenance-console-card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>数据库结构</strong>
           <form method="POST" action="/system_health/repair"><input type="hidden" name="repair" value="schema"><button class="btn btn-sm btn-outline-primary">修复结构</button></form></div>
           {schema_table}</div>
-        <div class="card"><div class="card-header d-flex justify-content-between"><span>账单/收款一致性</span>
+        <div class="card maintenance-console-card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>账单 / 收款一致性</strong>
           <form method="POST" action="/system_health/repair" onsubmit="return confirm('将按缴费记录重算账单状态，确认修复？')"><input type="hidden" name="repair" value="bill_status"><button class="btn btn-sm btn-outline-warning">修复账单状态</button></form></div>
           {finance_table}</div>
         ''', 'system_health'))

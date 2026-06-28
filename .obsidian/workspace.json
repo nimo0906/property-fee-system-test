@@ -4,17 +4,21 @@
     "type": "split",
     "children": [
       {
-        "id": "319c1a38d6fa2fef",
+        "id": "e6daa701657c38af",
         "type": "tabs",
         "children": [
           {
-            "id": "ccda68fc01ab3ba9",
+            "id": "f0788ab97f72f82c",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "关系图谱"
+              "type": "markdown",
+              "state": {
+                "file": "Windows打包操作步骤.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Windows打包操作步骤"
             }
           }
         ]
@@ -178,9 +182,29 @@
               "icon": "smart-connections",
               "title": "Connections"
             }
+          },
+          {
+            "id": "a16a2e966d5fc417",
+            "type": "leaf",
+            "state": {
+              "type": "claudian-view",
+              "state": {},
+              "icon": "bot",
+              "title": "Claudian"
+            }
+          },
+          {
+            "id": "d9a2c917434f47b4",
+            "type": "leaf",
+            "state": {
+              "type": "copilot-chat-view",
+              "state": {},
+              "icon": "message-square",
+              "title": "Copilot"
+            }
           }
         ],
-        "currentTab": 6
+        "currentTab": 7
       }
     ],
     "direction": "horizontal",
@@ -203,8 +227,23 @@
       "smart-connections:Smart Connections: Open random connection": false
     }
   },
-  "active": "f0319e888c000c4a",
+  "active": "f0788ab97f72f82c",
   "lastOpenFiles": [
+    "docs/release-update-policy.md",
+    "2026-06-27.md",
+    "未命名.base",
+    "未命名 1.base",
+    "未命名.canvas",
+    "docs/前后端分工规范.md",
+    "docs/codex交接-1-CSS合并.md",
+    "docs/codex交接-2-表格表单收敛.md",
+    "docs/desktop-release-checklist.md",
+    "docs/local-security-boundary.md",
+    "docs/release-final-summary-v2.0.md",
+    "docs/release-freeze-v2.0.2.md",
+    "docs/release-freeze-v2.0.3.md",
+    "docs/release-freeze-v2.0.4.md",
+    "docs/reusable-development-lessons.md",
     "copilot/copilot-custom-prompts/Clip Web Page.md",
     "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
     "copilot/copilot-custom-prompts/Rewrite as tweet thread.md",
@@ -218,36 +257,20 @@
     "copilot/copilot-custom-prompts/Explain like I am 5.md",
     "copilot/copilot-custom-prompts/Simplify.md",
     "copilot/copilot-custom-prompts/Summarize.md",
-    "copilot/copilot-custom-prompts/Translate to Chinese.md",
-    "copilot/copilot-custom-prompts/Fix grammar and spelling.md",
     "copilot/copilot-custom-prompts",
     "copilot",
-    "未命名.base",
     "build/property_fee_system_macos/BUNDLE-00.toc",
     "dist/物业管理收费系统.app/Contents/_CodeSignature/CodeResources",
     "dist/物业管理收费系统.app/Contents/_CodeSignature",
     "dist/物业管理收费系统.app/Contents/Frameworks/Python3.framework/Versions/3.9/_CodeSignature/CodeResources",
     "dist/物业管理收费系统.app/Contents/Frameworks/Python3.framework/Versions/3.9/_CodeSignature",
-    "dist/物业管理收费系统.app/Contents/Resources/用户快速开始.md",
-    "dist/物业管理收费系统.app/Contents/Resources/新手交付说明.md",
-    "dist/物业管理收费系统.app/Contents/Resources/使用说明.md",
-    "dist/物业管理收费系统.app/Contents/Resources/交付验收清单.md",
     "dist/物业管理收费系统.app/Contents/Resources/update_manifest.json",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/rooms.html",
     "dist/物业管理收费系统.app/Contents/Resources/static/desktop-app-icon.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-logo.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-emblem.png",
-    "dist/物业管理收费系统/_internal/用户快速开始.md",
-    "dist/物业管理收费系统/_internal/新手交付说明.md",
-    "dist/物业管理收费系统/_internal/使用说明.md",
-    "dist/物业管理收费系统/_internal/交付验收清单.md",
     "dist/物业管理收费系统/_internal/static/desktop-app-icon.png",
     "dist/物业管理收费系统/_internal/static/brand-logo.png",
     "dist/物业管理收费系统/_internal/static/brand-emblem.png",
-    "未命名.md",
-    "未命名.canvas",
-    "未命名 1.md",
-    "docs/release-freeze-v2.0.3.md",
     "static/brand-logo.png",
     "static/desktop-app-icon.png",
     "static/brand-emblem.png"

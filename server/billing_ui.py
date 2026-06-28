@@ -109,6 +109,16 @@ class BillingUiMixin(BaseHandler):
                    LEFT JOIN rooms r ON c.room_id=r.id
                    WHERE {contract_where} ORDER BY c.start_date DESC,c.id DESC"""
         ).fetchall()
+        property_pool_count = db.execute(
+            "SELECT COUNT(*) FROM rooms WHERE unit='B座' OR building='B座'"
+        ).fetchone()[0]
+        commercial_pool_count = db.execute(
+            """SELECT COUNT(*) FROM merchant_contracts c
+               LEFT JOIN commercial_spaces s ON c.commercial_space_id=s.id
+               LEFT JOIN rooms r ON c.room_id=r.id
+               WHERE c.status='active'
+                 AND (c.commercial_space_id IS NOT NULL OR r.unit='商场' OR r.building='商场')"""
+        ).fetchone()[0]
         space_ids = [c['commercial_space_id'] for c in contracts if c['commercial_space_id']]
         if space_ids:
             placeholders = ','.join('?' for _ in space_ids)
@@ -219,8 +229,29 @@ class BillingUiMixin(BaseHandler):
         default_end = date(end_y, end_m, min(today.day, 28)).isoformat()
 
         tpl = self._load_template('billing.html')
-        mode_note = '商业收费显示房间管理中单元/区域为商场的收费对象，并显示合同档案中的商业合同。' if mode == 'commercial' else '物业收费显示房间管理中 B座 的全部收费对象，并显示合同档案中的物业合同。'
+        mode_note = '起始日和截止日均计入服务期；物业收费只看 B座 对象。保持同一套收银流程，只切换收费池。' if mode == 'property' else '商业收费只看单元/区域为商场的对象；物业收费仍保留在同页入口。保持同一套收银流程，只切换收费池。'
+        mode_title = title
+        mode_other_title = '商业收费' if mode == 'property' else '物业收费'
+        mode_other_href = '/commercial_billing' if mode == 'property' else '/billing'
+        room_pool_label = 'B座' if mode == 'property' else '商场'
+        contract_count = len(contracts)
+        fee_count = len(fts)
+        tenant_group_count = len(tenant_rooms)
+        mode_active_property = 'active' if mode == 'property' else ''
+        mode_active_commercial = 'active' if mode == 'commercial' else ''
         tpl = tpl.replace('{MODE_NOTE}', mode_note)
+        tpl = tpl.replace('{PAGE_TITLE}', mode_title)
+        tpl = tpl.replace('{OTHER_MODE_LABEL}', mode_other_title)
+        tpl = tpl.replace('{OTHER_MODE_HREF}', mode_other_href)
+        tpl = tpl.replace('{ROOM_POOL_LABEL}', room_pool_label)
+        tpl = tpl.replace('{PROPERTY_POOL_COUNT}', str(property_pool_count))
+        tpl = tpl.replace('{COMMERCIAL_POOL_COUNT}', str(commercial_pool_count))
+        tpl = tpl.replace('{CONTRACT_COUNT}', str(contract_count))
+        tpl = tpl.replace('{FEE_COUNT}', str(fee_count))
+        tpl = tpl.replace('{TENANT_GROUP_COUNT}', str(tenant_group_count))
+        tpl = tpl.replace('{PROPERTY_ACTIVE}', mode_active_property)
+        tpl = tpl.replace('{COMMERCIAL_ACTIVE}', mode_active_commercial)
+        tpl = tpl.replace('{MODE_LABEL}', '物业收费' if mode == 'property' else '商业收费')
         tpl = tpl.replace('{OPTS}', opts)
         tpl = tpl.replace('{FEE_HTML}', fee_html or '<div class="text-center text-muted py-4">暂无费用类型</div>')
         tpl = tpl.replace('{ELEVATOR_DATA}', elevator_json)

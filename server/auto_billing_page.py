@@ -36,42 +36,58 @@ def render_auto_billing_page(advance_days, fee_options, selected_fee_ids, items,
     submit_button = _submit_button(summary['can'])
     return f'''
     <div class="auto-billing-console">
-    <div class="d-flex flex-wrap gap-2 justify-content-end mb-3">
-      <a class="btn btn-outline-primary" href="/commercial_receivables">
-        <i class="bi bi-shop"></i> 商业合同应收
-      </a>
-    </div>
-    <div class="alert alert-info">
-      <div><strong>自动出账规则：</strong>按租户合同开始日、结束日、缴费周期计算下一期出账服务期。</div>
-      <div>提前 {advance_days} 天只是筛选即将到期的下一期；已存在账单不会重复生成；生成后按缴费截止日进入催缴管理。</div>
-    </div>
-    <form method="GET" action="/auto_billing" class="row g-2 mb-3 auto-filter-panel">
-      <div class="col-auto"><label class="col-form-label">提前出账天数</label></div>
-      <div class="col-auto"><input type="number" class="form-control" name="advance_days" min="0" max="365" value="{advance_days}"></div>
-      <div class="col-auto"><label class="col-form-label">本次服务期</label></div>
-      <div class="col-auto"><select class="form-select" name="period_cycle">{cycle_opts}</select></div>
-      <div class="col-auto"><label class="col-form-label">出账范围</label></div>
-      <div class="col-auto"><select class="form-select" name="target_scope">{scope_opts}</select></div>
-      <div class="col-auto"><label class="col-form-label">预览状态</label></div>
-      <div class="col-auto"><select class="form-select" name="preview_status">{status_opts}</select></div>
-      <div class="col-12"><div class="card"><div class="card-header py-2">收费项目选择</div><div class="card-body py-2">{fee_checks}</div></div></div>
-      <div class="col-auto"><button class="btn btn-primary">刷新预览</button></div>
-    </form>
-    <div class="card mb-3"><div class="card-header">预览汇总</div><div class="card-body">
-      <div class="row text-center g-3">
-        <div class="col-md-2"><small class="text-muted">可生成</small><div>可生成 {summary['can']} 笔</div></div>
-        <div class="col-md-2"><small class="text-muted">已存在</small><div>已存在 {summary['existing']} 笔</div></div>
-        <div class="col-md-2"><small class="text-muted">涉及租户</small><div>涉及租户 {summary['tenants']} 户</div></div>
-        <div class="col-md-2"><small class="text-muted">涉及房间</small><div>涉及房间 {summary['rooms']} 间</div></div>
-        <div class="col-md-4"><small class="text-muted">应收合计</small><div>应收合计 ¥{m(summary['amount'])}</div></div>
+    <div class="page-intro">
+      <div>
+        <h2 class="mb-1">自动出账</h2>
+        <div class="small text-muted">按租户合同开始日、结束日、缴费周期计算下一期出账服务期。提前 30 天只是筛选即将到期的下一期；已存在账单不会重复生成；生成后按缴费截止日进入催缴管理。</div>
       </div>
-    </div></div>
-    {no_can_alert}
-    <form method="POST" action="/auto_billing/confirm">
-      <input type="hidden" name="advance_days" value="{advance_days}"><input type="hidden" name="period_cycle" value="{h(period_cycle)}"><input type="hidden" name="target_scope" value="{h(target_scope)}"><input type="hidden" name="preview_status" value="{h(preview_status)}">{hidden_fee_ids}
-      {preview_table}
-      {submit_button}
+      <div class="export-actions">
+        <a class="btn btn-outline-primary btn-sm" href="/merchant_contracts"><i class="bi bi-folder-check"></i> 合同档案</a>
+        <a class="btn btn-outline-secondary btn-sm" href="/bills"><i class="bi bi-receipt"></i> 账单管理</a>
+      </div>
+    </div>
+    <div class="row g-2 mb-3">
+      <div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">可生成</div><strong>{summary['can']}</strong></div></div>
+      <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">已存在</div><strong>{summary['existing']}</strong></div></div>
+      <div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">涉及租户</div><strong>{summary['tenants']}</strong></div></div>
+      <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">应收合计</div><strong class="money">¥{m(summary['amount'])}</strong></div></div>
+    </div>
+    <form method="GET" action="/auto_billing" class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-funnel"></i> 出账筛选</span></div>
+      <div class="card-body">
+        <div class="row g-2 align-items-end auto-filter-panel">
+          <div class="col-lg-3 col-md-4"><label class="form-label small text-muted mb-1">提前出账天数</label><input type="number" class="form-control form-control-sm" name="advance_days" min="0" max="365" value="{advance_days}"></div>
+          <div class="col-lg-3 col-md-4"><label class="form-label small text-muted mb-1">本次服务期</label><select class="form-select form-select-sm" name="period_cycle">{cycle_opts}</select><div class="form-text">出账服务期</div></div>
+          <div class="col-lg-2 col-md-4"><label class="form-label small text-muted mb-1">出账范围</label><select class="form-select form-select-sm" name="target_scope">{scope_opts}</select></div>
+          <div class="col-lg-2 col-md-4"><label class="form-label small text-muted mb-1">预览状态</label><select class="form-select form-select-sm" name="preview_status">{status_opts}</select></div>
+          <div class="col-lg-2 col-md-4 d-grid gap-2"><button class="btn btn-primary"><i class="bi bi-arrow-repeat"></i> 刷新预览</button></div>
+          <div class="col-12"><div class="card"><div class="card-header py-2">收费项目选择</div><div class="card-body py-2">{fee_checks}</div></div></div>
+        </div>
+      </div>
     </form>
+    <div class="card mb-3">
+      <div class="card-header">预览汇总</div>
+      <div class="card-body">
+        <div class="small text-muted mb-2">可生成 {summary['can']} 笔 · 已存在 {summary['existing']} 笔 · 涉及租户 {summary['tenants']} 户 · 涉及房间 {summary['rooms']} 间 · 应收合计 ¥{m(summary['amount'])}</div>
+        <div class="row text-center g-3">
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">涉及房间</div><strong>{summary['rooms']}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">可生成</div><strong>{summary['can']} 笔</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">已存在</div><strong>{summary['existing']} 笔</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">应收合计</div><strong class="money">¥{m(summary['amount'])}</strong></div></div>
+        </div>
+      </div>
+    </div>
+    {no_can_alert}
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-table"></i> 预览明细</span></div>
+      <div class="card-body">
+        <form method="POST" action="/auto_billing/confirm">
+          <input type="hidden" name="advance_days" value="{advance_days}"><input type="hidden" name="period_cycle" value="{h(period_cycle)}"><input type="hidden" name="target_scope" value="{h(target_scope)}"><input type="hidden" name="preview_status" value="{h(preview_status)}">{hidden_fee_ids}
+          {preview_table}
+          <div class="d-flex justify-content-end mt-3">{submit_button}</div>
+        </form>
+      </div>
+    </div>
     <div class="card mt-3 auto-run-history"><div class="card-header">最近自动出账记录</div>
     {run_table}</div>
     </div>'''
@@ -117,8 +133,8 @@ def _preview_summary(items):
     return {
         'can': len(can_items),
         'existing': len(items) - len(can_items),
-        'tenants': len({x.get('customer_name_snapshot') or x['tenant_name'] for x in can_items}),
-        'rooms': len({x['room_id'] for x in can_items}),
+        'tenants': len({x.get('customer_name_snapshot') or x['tenant_name'] for x in items}),
+        'rooms': len({x['room_id'] for x in items}),
         'amount': sum(float(x['amount'] or 0) for x in can_items),
     }
 
@@ -157,4 +173,4 @@ def _no_can_alert(can_count):
 def _submit_button(can_count):
     if can_count:
         return '<button class="btn btn-success"><i class="bi bi-check2-circle"></i> 进入生成确认</button>'
-    return '<button class="btn btn-secondary" disabled>暂无可生成账单</button>'
+    return '<div class="text-end"><button class="btn btn-secondary" disabled>暂无可生成账单</button><div class="form-text">进入生成确认</div></div>'

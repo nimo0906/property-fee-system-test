@@ -6,6 +6,7 @@ from server.db import get_db, h, m, n, qs
 from server.base import BaseHandler
 from server.pagination import pagination_state, query_items, render_pagination
 from server.ui_components import render_form
+import urllib.parse
 
 
 class OwnerMixin(BaseHandler):
@@ -19,6 +20,10 @@ class OwnerMixin(BaseHandler):
         total_rows = db.execute("SELECT COUNT(*) FROM (" + o_sql + ")", o_vals).fetchone()[0]
         pg, per_page, total_pages = pagination_state(q, total_rows)
         owners=db.execute(o_sql + " LIMIT ? OFFSET ?", o_vals + [per_page, (pg - 1) * per_page]).fetchall()
+        linked_rooms = db.execute("SELECT COUNT(DISTINCT owner_id) FROM rooms WHERE owner_id IS NOT NULL").fetchone()[0] or 0
+        room_count = db.execute("SELECT COUNT(*) FROM rooms WHERE owner_id IS NOT NULL").fetchone()[0] or 0
+        empty_owners = max(0, total_rows - int(linked_rooms or 0))
+        current_page_count = len(owners)
         rh=''
         for o in owners:
             r_sql="SELECT * FROM rooms WHERE owner_id=? ORDER BY building,unit,room_number"
@@ -40,6 +45,11 @@ class OwnerMixin(BaseHandler):
         db.close()
         tpl=self._load_template('owners.html')
         tpl=tpl.replace('{KEYWORD}',h(kw))
+        tpl=tpl.replace('{TOTAL_OWNERS}',str(total_rows))
+        tpl=tpl.replace('{LINKED_OWNERS}',str(linked_rooms))
+        tpl=tpl.replace('{ROOM_COUNT}',str(room_count))
+        tpl=tpl.replace('{EMPTY_OWNERS}',str(empty_owners))
+        tpl=tpl.replace('{PAGE_COUNT}',str(current_page_count))
         tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="8" class="text-center text-muted py-4">暂无业主，请先 <a href=\"/owners/create\">添加业主</a></td></tr>')
         page_links = render_pagination(
             '/owners',

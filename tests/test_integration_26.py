@@ -431,7 +431,6 @@ class TestIntegration26(IntegrationTestBase):
         self.assertIn('历史已收', html)
         self.assertIn('当前欠费', html)
         self.assertIn('/bills/receipt_by_ids', html)
-        self.assertIn('继续收下一个', html)
 
         status, paid_page = http_get(f'/bills/{bid}/pay', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)

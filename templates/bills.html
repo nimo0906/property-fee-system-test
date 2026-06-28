@@ -1,3 +1,7 @@
+<div class="page-intro">
+  <div><h2 class="mb-1">账单管理</h2></div>
+  <div class="export-actions"><a class="btn btn-outline-secondary btn-sm" href="/bills/review?period_start={PERIOD_START}&period_end={PERIOD_END}"><i class="bi bi-clipboard-check"></i> 核对工作台</a></div>
+</div>
 <div class="filter-bar ledger-toolbar">
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-3">
 <form class="row g-2 align-items-end flex-grow-1" method=GET>
@@ -27,7 +31,9 @@
 <span class="ledger-title"><i class="bi bi-receipt"></i> 账单明细</span>
 <small class="text-muted">共 {TOTAL_ROWS} 条，第 {PAGE} / {TOTAL_PAGES} 页；按租户和房间折叠展示</small>
 </div>
-<div class="ledger-scope-area"><div class="ledger-scope-heading">收费公司分区</div><div class="ledger-scope-tabs" data-testid="bill-scope-summary" aria-label="账单收费公司切换">{BILL_SCOPE_SUMMARY}</div></div>
+<div class="ledger-scope-area ledger-scope-area-compact">
+<div class="ledger-scope-tabs" data-testid="bill-scope-summary" aria-label="账单收费公司切换"><span class="visually-hidden">收费公司分区</span>{BILL_SCOPE_SUMMARY}</div>
+</div>
 </div>
 <div class="table-responsive"><table class="table table-hover align-middle">
 <thead><tr><th style="width:34px"><input type=checkbox id=selAll></th><th>编号</th><th>收费公司</th><th>房间</th><th>类型</th><th>账期</th><th class="text-end">金额</th><th class="text-end">已缴</th><th class="text-end">欠费</th><th>状态</th><th style="width:130px">操作</th></tr></thead>
@@ -52,7 +58,49 @@ function toggleBillRoom(roomGroup){
     var icon = document.getElementById('icon_' + roomGroup);
     rows.forEach(function(r){ r.style.display = r.style.display === 'none' ? '' : 'none'; });
     if(icon){ icon.className = icon.className === 'bi bi-chevron-right' ? 'bi bi-chevron-down' : 'bi bi-chevron-right'; }
+    saveBillOpenState();
 }
+function billStateKey(){
+    return 'pm:bills:open:' + location.pathname + location.search.replace(/[?&]_r=[^&]*/g, '').replace(/^&/, '?');
+}
+function openBillOwnerGroup(ownerGroup){
+    document.querySelectorAll('.room-detail-' + ownerGroup).forEach(function(r){ r.style.display = ''; });
+    var icon = document.getElementById('icon_' + ownerGroup);
+    if(icon){ icon.className = 'bi bi-chevron-down'; }
+}
+function openBillRoomGroup(roomGroup){
+    openBillOwnerGroup(roomGroup.split('r')[0]);
+    document.querySelectorAll('.bill-detail-' + roomGroup).forEach(function(r){ r.style.display = ''; });
+    var icon = document.getElementById('icon_' + roomGroup);
+    if(icon){ icon.className = 'bi bi-chevron-down'; }
+}
+function saveBillOpenState(){
+    var openGroups = [];
+    document.querySelectorAll('.bill-room-row').forEach(function(row){
+        var ownerCls = Array.from(row.classList).find(function(c){ return c.indexOf('room-detail-') === 0; });
+        var onclickText = row.getAttribute('onclick') || '';
+        var match = onclickText.match(/toggleBillRoom\('([^']+)'\)/);
+        if(match && row.style.display !== 'none'){
+            var roomGroup = match[1];
+            var billRow = document.querySelector('.bill-detail-' + roomGroup);
+            openGroups.push(billRow && billRow.style.display !== 'none' ? roomGroup : ownerCls.replace('room-detail-', ''));
+        }
+    });
+    sessionStorage.setItem(billStateKey(), JSON.stringify(Array.from(new Set(openGroups))));
+}
+function restoreBillOpenState(){
+    try{
+        JSON.parse(sessionStorage.getItem(billStateKey()) || '[]').forEach(function(group){
+            if(group.indexOf('r') > -1){ openBillRoomGroup(group); }
+            else { openBillOwnerGroup(group); }
+        });
+    }catch(e){}
+}
+function rememberBillsBeforeLeave(){ saveBillOpenState(); }
+document.addEventListener('DOMContentLoaded', restoreBillOpenState);
+document.addEventListener('click', function(e){
+    if(e.target.closest('.bill-row-action')){ rememberBillsBeforeLeave(); }
+}, true);
 document.getElementById('selAll')?.addEventListener('change', function(){
     document.querySelectorAll('.bill-chk,.owner-group-chk,.room-group-chk').forEach(function(c){ c.checked = this.checked; }, this);
 });

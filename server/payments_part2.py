@@ -104,6 +104,8 @@ class PaymentMixinPart2(BaseHandler):
                         ctx['partial_due'] = due_label
         db.close()
         tc=float(total_amount or 0)
+        page_total = len(rows)
+        method_label = {'cash': '现金', 'transfer': '转账', 'wechat': '微信', 'alipay': '支付宝'}.get(pm, '全部方式')
         groups = []
         by_room = {}
         for r in rows:
@@ -149,6 +151,9 @@ class PaymentMixinPart2(BaseHandler):
         tpl=tpl.replace('{SW}',' selected' if pm=='wechat' else '').replace('{SA}',' selected' if pm=='alipay' else '')
         tpl=tpl.replace('<th>经手人</th>', '<th>经手人</th><th>收据号</th>')
         tpl=tpl.replace('{ROWS}',rh or '<tr><td colspan="10" class="text-center text-muted py-4">暂无缴费记录</td></tr>')
+        tpl=tpl.replace('{PAGE_TOTAL}', str(page_total))
+        tpl=tpl.replace('{GROUP_TOTAL}', str(len(groups)))
+        tpl=tpl.replace('{METHOD_LABEL}', h(method_label))
         page_links = render_pagination(
             '/payments',
             query_items(q, ['period_start', 'period_end', 'keyword', 'method', 'operator']),

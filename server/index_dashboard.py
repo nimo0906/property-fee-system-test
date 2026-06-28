@@ -130,7 +130,7 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
     )
     html = f"""
         <section class="workbench-command-shell dashboard-focus-shell">
-            <div class="workbench-command-hero">
+            <div class="workbench-command-hero workbench-command-hero-compact">
                 <button class="workbench-menu-chip d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileNav" aria-label="打开菜单"><i class="bi bi-list"></i> 菜单</button>
                 <div class="workbench-title-block">
                     <div class="focus-kicker">PROPERTY FINANCE</div>
@@ -148,7 +148,7 @@ def render_index_dashboard(handler, *, role, can_finance_write, can_customer_wri
                         </div>
                         <div class="period-pill">{p}</div>
                     </div>
-                    <nav class="workbench-view-tabs" data-testid="workbench-view-tabs" aria-label="收费工作台视图">
+                    <nav class="workbench-view-tabs stable-home-tabs" data-testid="workbench-view-tabs" aria-label="收费工作台视图">
                         <a class="active" href="#today-focus"><i class="bi bi-lightning-charge"></i> 今日</a>
                         <a href="#month-summary"><i class="bi bi-calendar3"></i> 本月</a>
                         <a href="/bills?building=B%E5%BA%A7&period_start={month_start}&period_end={month_end}"><i class="bi bi-building"></i> B座</a>

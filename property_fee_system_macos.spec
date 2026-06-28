@@ -16,8 +16,6 @@ a = Analysis(
         ('requirements.txt', '.'),
         ('使用说明.md', '.'),
         ('用户快速开始.md', '.'),
-        ('新手交付说明.md', '.'),
-        ('交付验收清单.md', '.'),
         ('update_manifest.json', '.'),
     ],
     hiddenimports=collect_submodules('openpyxl') + collect_submodules('xlrd'),

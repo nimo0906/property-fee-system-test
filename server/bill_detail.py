@@ -10,6 +10,7 @@ from server.bill_single_print import BillSinglePrintMixin
 from server.data_health import cleanup_invalid_payments
 from server.money import money_float
 from server.ui_components import render_kv_table, render_table
+import urllib.parse
 
 
 def _bill_target_label(row):
@@ -95,7 +96,8 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         <div class="card-body p-0">{adj_table}</div></div>'''
         sn={'paid':'status-paid','unpaid':'status-unpaid','overdue':'status-overdue','partial':'status-partial'}
         ln={'paid':'已缴','unpaid':'未缴','overdue':'逾期','partial':'部分缴'}
-        pay_btn = f'<a href="/bills/{bid}/pay" class="btn btn-primary mt-3"><i class="bi bi-credit-card"></i> 缴费</a>' if b['status'] != 'paid' else ''
+        back_q = urllib.parse.urlencode({'back': back_url})
+        pay_btn = f'<a href="/bills/{bid}/pay?{back_q}" class="btn btn-primary mt-3"><i class="bi bi-credit-card"></i> 缴费</a>' if b['status'] != 'paid' else ''
         progress_pct = round(b['paid']/b['amount']*100,1) if b['amount']>0 else 0
         rem_class = 'text-danger' if rem>0 else 'text-success'
         bill_info_table = render_kv_table([
@@ -125,7 +127,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         {adj_section}</div></div>
         <div class="card mt-3"><div class="card-header">费用明细核对</div>
         <div class="card-body">{formula_table}</div></div>
-        <a href='/bills/{bid}/edit' class='btn btn-outline-warning mt-3'><i class='bi bi-pencil'></i> 修改金额</a>
+        <a href='/bills/{bid}/edit?{back_q}' class='btn btn-outline-warning mt-3'><i class='bi bi-pencil'></i> 修改金额</a>
 	        <a href="/bills/{bid}/print" class="btn btn-outline-secondary mt-3" target="_blank"><i class="bi bi-printer"></i> 打印</a>
         <a class="btn btn-outline-secondary mt-3 bill-detail-back" href="{h(back_url)}" data-back-url="{h(back_url)}"><i class="bi bi-arrow-left"></i> 返回账单管理</a>''','bills'))
 
@@ -146,7 +148,10 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         self._audit('bill_delete', 'bill', bid, old, None, '删除未缴账单')
         self._redirect(back_url, '已删除')
 
-    def _bill_edit(self, bid):
+    def _bill_edit(self, bid, q=None):
+        back_url = qs(q or {}, 'back', '/bills')
+        if not back_url.startswith('/bills'):
+            back_url = '/bills'
         db=get_db()
         cleanup_invalid_payments(db)
         b=db.execute('''SELECT b.*,r.building,r.unit,r.room_number,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,
@@ -167,6 +172,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         <div class="col-md-7"><div class="card"><div class="card-header">修正账单</div>
         <div class="card-body">
         <form method=POST action="/bills/{bid}/edit" class="row g-3">
+        <input type="hidden" name="back" value="{h(back_url)}">
         <div class="col-md-6"><label>新金额 (元) <span class="text-danger">*</span></label>
         <div class="input-group"><span class="input-group-text">¥</span>
         <input name="new_amount" type="number" class="form-control form-control-lg" value="{m(b["amount"])}" step="0.1" min="0.1" required></div>
@@ -177,13 +183,14 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         <div class="col-md-6"><label>审批人</label><input name="approved_by" class="form-control" value="管理员" placeholder="经办人/审批人"></div>
         <div class="col-12"><hr>
         <button class="btn btn-primary"><i class="bi bi-check-lg"></i> 确认修改</button>
-        <a href="/bills" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回账单管理</a></div></form></div></div></div></div>''','bills'))
+        <a href="{h(back_url)}" class="btn btn-outline-secondary"><i class="bi bi-arrow-left"></i> 返回账单管理</a></div></form></div></div></div></div>''','bills'))
 
     def _bill_edit_post(self, bid, d):
         db=get_db()
         cleanup_invalid_payments(db)
         new_amt=money_float(qs(d,'new_amount',0))
-        if new_amt<=0:db.close();return self._redirect(f'/bills/{bid}/edit?flash=金额必须大于0')
+        back_url = self._safe_bills_back_url(d)
+        if new_amt<=0:db.close();return self._redirect(f'/bills/{bid}/edit?back={urllib.parse.quote(back_url)}&flash=金额必须大于0')
         reason=qs(d,'notes','')
         due_date=qs(d,'due_date','')
         approved=qs(d,'approved_by','管理员')
@@ -208,4 +215,4 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         self._audit('bill_amount_update', 'bill', bid, {'amount': old_amt, 'due_date': old['due_date'] if 'due_date' in old.keys() else ''}, {'amount': new_amt, 'due_date': due_date, 'approved_by': approved}, reason)
         diff=new_amt-old_amt
         action='减免' if diff<0 else '调增'
-        self._redirect(f'/bills/{bid}?flash=金额已{action}：¥{m(old_amt)} -> ¥{m(new_amt)}（{h(reason)}）')
+        self._redirect(f'/bills/{bid}?back={urllib.parse.quote(back_url)}&flash=金额已{action}：¥{m(old_amt)} -> ¥{m(new_amt)}（{h(reason)}）')

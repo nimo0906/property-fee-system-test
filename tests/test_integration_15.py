@@ -165,7 +165,7 @@ class TestIntegration15(IntegrationTestBase):
             '/billing': '物业收费', '/commercial_billing': '商业收费', '/bills': '账单管理', '/payments': '缴费记录',
             '/invoices': '发票管理',
             '/reminders': '催缴管理', '/closing': '期末结账',
-            '/backups': '数据备份', '/import': '数据导入', '/reports': '对账报表',
+            '/backups': '备份记录', '/import': '数据导入', '/reports': '对账报表',
             '/users': '操作员管理', '/late_fee_config': '滞纳金设置',
             '/elevator_tiers': '电梯费阶梯设置', '/bills/generate': '生成账单',
         }

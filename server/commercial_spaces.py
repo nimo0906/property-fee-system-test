@@ -66,8 +66,30 @@ class CommercialSpaceMixin(BaseHandler):
             empty_text='暂无空间档案',
         )
         self._html(self._page('空间合同档案', f'''
-        <div class="alert alert-info">空间档案作为行政档案/合同备查使用，不局限于商场；日常收费仍以房间管理和收费入口为准。</div>
-        <div class="card"><div class="card-header d-flex justify-content-between"><span><i class="bi bi-shop"></i> 空间/铺位档案</span><a class="btn btn-primary btn-sm" href="/commercial_spaces/create">新增空间档案</a></div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">空间/铺位档案</h2>
+          </div>
+          <div class="export-actions">
+            <a class="btn btn-primary btn-sm" href="/commercial_spaces/create"><i class="bi bi-plus-lg"></i> 新增空间档案</a>
+          </div>
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">空间总数</div><strong>{total_rows}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">本页记录</div><strong>{len(rows)}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">启用状态</div><strong>{sum(1 for r in rows if r['status']=='active')}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">当前页码</div><strong>{pg}/{total_pages}</strong></div></div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><span><i class="bi bi-funnel"></i> 空间筛选</span></div>
+          <div class="card-body">
+            <form method="GET" class="row g-2 align-items-end">
+              <div class="col-lg-9 col-md-8"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="铺位号 / 店铺 / 商户 / 业态"></div>
+              <div class="col-lg-3 col-md-4 d-grid gap-2"><button class="btn btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a class="btn btn-outline-secondary" href="/commercial_spaces"><i class="bi bi-x-circle"></i></a></div>
+            </form>
+          </div>
+        </div>
+        <div class="card"><div class="card-header d-flex justify-content-between"><span><i class="bi bi-shop"></i> 空间/铺位档案</span></div>
         {table_html}</div>
         {render_pagination('/commercial_spaces', query_items(q, ['keyword']), pg, total_pages, per_page, total_rows, '商铺档案分页')}
         ''', 'merchant_contracts'))

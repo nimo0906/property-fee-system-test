@@ -128,37 +128,30 @@ class MerchantContractMixinPart1Group1(BaseHandler):
         reset_href = scope_url(contract_scope, keep_keyword=False)
         hidden_scope = '' if contract_scope == 'all' else f'<input type="hidden" name="contract_scope" value="{h(contract_scope)}">'
         self._html(self._page("空间合同档案", f'''
-        <div class="alert alert-info mt-0 mb-3"><i class="bi bi-info-circle"></i> 合同档案作为行政档案/合同备查使用，不局限于商场；空间资料和合同资料在同一份档案中维护。日常收费仍从“物业收费”或“商业收费”生成账单。</div>
-        <div class="page-proposal-summary">
-          <div class="summary-stats">
-            <div class="summary-stat primary"><div class="k">总合同档案</div><div class="v">{total_contracts}</div></div>
-            <div class="summary-stat"><div class="k">物业合同</div><div class="v">{total_property}</div></div>
-            <div class="summary-stat"><div class="k">商业合同</div><div class="v">{total_commercial}</div></div>
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">空间合同档案</h2>
+            <div class="small text-muted visually-hidden">合同档案总览 · 行政档案/合同备查 · 不局限于商场</div>
+          </div>
+          <div class="export-actions">
+            <a class="btn btn-primary btn-sm" href="/merchant_contracts/create"><i class="bi bi-plus-lg"></i> 新增合同档案</a>
           </div>
         </div>
-        <div class="card mb-3">
-          <div class="card-body">
-            <div class="formal-section-title">
-              <h3>合同档案总览</h3>
-              <div class="hint">默认按楼层从低到高排序</div>
-            </div>
-            <div class="contract-overview-actions">
-              <a class="btn btn-primary btn-sm" href="/merchant_contracts/create"><i class="bi bi-plus-lg"></i> 新增合同档案</a>
-              <span class="page-proposal-pill"><i class="bi bi-info-circle"></i> 搜索后保留当前分类视图</span>
-            </div>
-            {contract_scope_tabs}
-          </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">总合同档案</div><strong>{total_contracts}</strong></div></div>
+          <div class="col-md-4 col-6"><div class="summary-tile"><div class="label">物业合同</div><strong>{total_property}</strong></div></div>
+          <div class="col-md-4 col-12"><div class="summary-tile success"><div class="label">商业合同</div><strong>{total_commercial}</strong></div></div>
         </div>
+        {contract_scope_tabs}
         <div class="card">
           <div class="card-header d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-file-earmark-text"></i> 空间合同档案</span>
-            <small class="text-muted">{h(search_tip)}</small>
+            <span><i class="bi bi-file-earmark-text"></i> 空间合同档案</span><small class="text-muted ms-2">搜索合同档案 · {search_tip}</small>
           </div>
-          <div class="card-body border-bottom">
-            <form method="GET" action="/merchant_contracts" class="row g-2 align-items-end">
+          <div class="card-body border-bottom py-2">
+            <form method="GET" action="/merchant_contracts" class="row g-2 align-items-center contract-search-bar">
               {hidden_scope}
-              <div class="col-md-8"><label class="form-label">搜索合同档案</label><input name="keyword" class="form-control" value="{h(keyword)}" placeholder="输入商户编号、合同编号、店铺/使用方、业态、楼层"></div>
-              <div class="col-md-4 d-flex gap-2"><button class="btn btn-primary flex-fill"><i class="bi bi-search"></i> 搜索</button><a class="btn btn-outline-secondary" href="{h(reset_href)}">重置</a></div>
+              <div class="col-lg-7 col-md-12"><input name="keyword" class="form-control form-control-sm" value="{h(keyword)}" placeholder="输入商户编号、合同编号、店铺/使用方、业态、楼层"></div>
+              <div class="col-lg-5 col-md-12 d-flex gap-2 justify-content-lg-end contract-search-actions"><button class="btn btn-primary btn-sm"><i class="bi bi-search"></i> 搜索</button><a class="btn btn-outline-secondary btn-sm" href="{h(reset_href)}">重置</a></div>
             </form>
           </div>
           <div class="card-body contract-group-stack">

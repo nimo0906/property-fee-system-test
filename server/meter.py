@@ -122,16 +122,24 @@ class MeterMixin(BaseHandler):
                 sql += """ AND (r.building LIKE ? OR r.unit LIKE ? OR r.room_number LIKE ? OR r.tenant_name LIKE ?
                            OR o.name LIKE ? OR s.space_no LIKE ? OR s.shop_name LIKE ? OR s.merchant_name LIKE ? OR f.name LIKE ?)"""
                 vals.extend([like] * 9)
-            total_rows = db.execute("SELECT COUNT(*) FROM (" + sql + ")", vals).fetchone()[0]
+            base_sql = sql
+            base_vals = list(vals)
+            total_rows = db.execute("SELECT COUNT(*) FROM (" + base_sql + ")", base_vals).fetchone()[0]
             pg, per_page, total_pages = pagination_state(q, total_rows)
             sql += " ORDER BY m.reading_date DESC,m.id DESC"
             rows = db.execute(sql + " LIMIT ? OFFSET ?", vals + [per_page, (pg - 1) * per_page]).fetchall()
             fts = db.execute("SELECT id,name FROM fee_types WHERE calc_method='meter' AND is_active=1 ORDER BY sort_order,name").fetchall()
+            summary = {
+                "all": total_rows,
+                "draft": db.execute("SELECT COUNT(*) FROM (" + base_sql + " AND m.status='draft')", base_vals).fetchone()[0] if total_rows else 0,
+                "confirmed": db.execute("SELECT COUNT(*) FROM (" + base_sql + " AND m.status='confirmed')", base_vals).fetchone()[0] if total_rows else 0,
+                "meter": len(fts),
+            }
             db.close()
             body = ""
             for r in rows:
                 if r["commercial_space_id"]:
-                    target = f"商业空间-{h(r['space_no'] or '')} ({h(r['shop_name'] or r['merchant_name'] or '')})"
+                    target = f"商场-{h(r['space_no'] or '')} ({h(r['shop_name'] or r['merchant_name'] or '')})"
                 else:
                     target = f"{h(r['building'] or '')}-{h(r['unit'] or '')}-{h(r['room_number'] or '')} ({h(r['tenant_name'] or r['owner_name'] or '')})"
                 badge = '<span class="badge bg-success">已确认</span>' if r["status"] == "confirmed" else '<span class="badge bg-warning text-dark">草稿</span>'
@@ -142,6 +150,15 @@ class MeterMixin(BaseHandler):
                 <td class="text-end"><strong>{m(r['consumption'])}</strong></td><td>{badge}</td><td>{h(r['reading_date'] or '')}</td><td>{confirm}{delete}</td></tr>"""
             ft_opts = '<option value="">全部费用类型</option>' + ''.join(f'<option value="{f["id"]}"{" selected" if fee_id == str(f["id"]) else ""}>{h(f["name"])}</option>' for f in fts)
             tpl = self._load_template("meter_list.html")
+            summary_html = ''.join(
+                [
+                    f'<div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">记录总数</div><strong>{summary["all"]}</strong></div></div>',
+                    f'<div class="col-md-3 col-6"><div class="summary-tile"><div class="label">草稿</div><strong>{summary["draft"]}</strong></div></div>',
+                    f'<div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">已确认</div><strong>{summary["confirmed"]}</strong></div></div>',
+                    f'<div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">费用类型</div><strong>{summary["meter"]}</strong></div></div>',
+                ]
+            )
+            tpl = tpl.replace("{SUMMARY}", summary_html)
             tpl = tpl.replace("{PERIOD}", period_to_date(period) if period else "").replace("{KEYWORD}", h(keyword))
             tpl = tpl.replace("{DRAFT_SEL}", " selected" if status == "draft" else "").replace("{CONFIRMED_SEL}", " selected" if status == "confirmed" else "")
             tpl = tpl.replace("{BUILDING_OPTIONS}", '<option value="">全部对象</option>').replace("{UNIT_OPTIONS}", '<option value="">全部区域</option>')

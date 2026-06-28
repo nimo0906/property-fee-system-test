@@ -104,9 +104,9 @@ class MeterLedgerMixin(BaseHandler):
             <td class="text-muted small">{h(fee['unit'] or '')} · {h(fee['notes'] or '')}</td></tr>'''
         db.close()
         self._html(self._page('统一抄表台账', f'''
-<div class="alert alert-info">房间管理和合同档案都可在同一商户下一次录入水、电；同一对象同一账期重复保存会覆盖草稿/原记录。确认后自动同步对应未缴账单，已缴账单不变。</div>
+<div class="alert alert-info py-2">房间管理和合同档案都可在同一商户下一次录入水、电；同一对象同一账期重复保存会覆盖草稿/原记录，确认后同步对应未缴账单。</div>
 <form method="POST" action="/meter_readings/ledger/save" class="card"><div class="card-body">
-<div class="row g-3 mb-3"><div class="col-md-5"><label>抄表对象</label><input type="search" id="ledgerTargetSearch" class="form-control form-control-sm mb-2" placeholder="搜索铺位号/房号/店名/商户..." oninput="window.filterSearchableSelect&&window.filterSearchableSelect('ledgerTarget','ledgerTargetSearch')"><select name="target" id="ledgerTarget" class="form-select searchable-select" data-search-input="ledgerTargetSearch" onchange="location.href='/meter_readings/ledger?period='+document.getElementById('ledgerPeriod').value+'&target='+this.value">{opts}</select><small class="text-muted">数量多时可先输入关键字快速定位。</small></div>
+<div class="row g-3 mb-3"><div class="col-md-5"><label>抄表对象</label><input type="search" id="ledgerTargetSearch" class="form-control form-control-sm mb-2" placeholder="搜索铺位号/房号/店名/商户..." oninput="window.filterSearchableSelect&&window.filterSearchableSelect('ledgerTarget','ledgerTargetSearch')"><select name="target" id="ledgerTarget" class="form-select searchable-select" data-search-input="ledgerTargetSearch" onchange="location.href='/meter_readings/ledger?period='+document.getElementById('ledgerPeriod').value+'&target='+this.value">{opts}</select></div>
 <div class="col-md-3"><label>账期</label><input id="ledgerPeriod" type="date" name="period" class="form-control" value="{period_to_date(period)}"></div>
 <div class="col-md-2"><label>抄表日期</label><input type="date" name="reading_date" class="form-control" value="{date.today().isoformat()}"></div>
 <div class="col-md-2"><label>状态</label><select name="status" class="form-select"><option value="draft">草稿</option><option value="confirmed">已确认</option></select></div></div>

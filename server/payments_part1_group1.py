@@ -154,7 +154,10 @@ class PaymentMixinPart1Group1(BaseHandler):
             msg = f'为{rooms_str}共生成{total_g}笔账单'
         self._redirect(target, msg)
 
-    def _bill_pay(self, bid):
+    def _bill_pay(self, bid, q=None):
+        back_url = qs(q or {}, 'back', '/bills')
+        if not back_url.startswith('/bills'):
+            back_url = '/bills'
         db=get_db()
         cleanup_invalid_payments(db)
         b=db.execute('''SELECT b.*,r.building,r.unit,r.room_number,s.space_no,s.shop_name space_shop,s.merchant_name space_merchant,f.name ft,
@@ -172,7 +175,7 @@ class PaymentMixinPart1Group1(BaseHandler):
 <div class="col-md-4"><div class="finance-summary"><div class="text-muted small">当前欠费</div><strong class="money money-paid">¥0.00</strong></div></div></div>
 <div class="export-actions mt-3"><form method="POST" action="/bills/receipt_by_ids" target="_blank" class="d-inline">
 <input type="hidden" name="bill_ids" value="{bid}"><button class="btn btn-outline-secondary">打印收据</button></form>
-<a href="/bills/{bid}" class="btn btn-primary">返回账单详情</a><a href="/bills" class="btn btn-outline-secondary">返回账单管理</a></div>
+<a href="/bills/{bid}?back={urllib.parse.quote(back_url)}" class="btn btn-primary">返回账单详情</a><a href="{h(back_url)}" class="btn btn-outline-secondary">返回账单管理</a></div>
 </div></div>''','bills'))
         self._html(self._page('缴费',f'''
 <div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">账单信息</div>
@@ -185,6 +188,7 @@ class PaymentMixinPart1Group1(BaseHandler):
 {"<small>还需: ¥"+m(rem)+"</small>" if b["paid"]>0 else ""}</p></div></div></div>
 <div class="col-md-7"><div class="card"><div class="card-header">录入缴费</div>
 <div class="card-body"><form method=POST action="/bills/{bid}/pay" class="row g-3">
+<input type="hidden" name="back" value="{h(back_url)}">
 <div class="col-md-6"><label>缴费金额 *</label><div class="input-group"><span class="input-group-text">¥</span>
 <input name="amount_paid" type="number" class="form-control form-control-lg" value="{m(rem)}" step="0.1" required></div></div>
 <div class="col-md-6"><label>支付方式</label><select name="payment_method" class="form-select form-control-lg">
@@ -192,22 +196,25 @@ class PaymentMixinPart1Group1(BaseHandler):
 <div class="col-md-6"><label>收费员</label><input name="operator" class="form-control" value="{h(current_operator)}"></div>
 <div class="col-md-6"><label>备注</label><input name="notes" class="form-control"></div>
 <div class="col-12"><hr><button class="btn btn-success btn-lg"><i class="bi bi-credit-card"></i> 确认缴费</button>
-<a href="/bills/{bid}" class="btn btn-outline-secondary">取消</a></div></form></div></div></div></div>''','bills'))
+<a href="{h(back_url)}" class="btn btn-outline-secondary">取消</a></div></form></div></div></div></div>''','bills'))
 
     def _bill_pay_post(self, bid, d):
         db=get_db()
         cleanup_invalid_payments(db)
         amt=money_float(qs(d,'amount_paid',0))
-        if amt<=0:db.close();return self._redirect(f'/bills/{bid}/pay?flash=金额必须大于0')
+        back_url = qs(d or {}, 'back', '/bills')
+        if not back_url.startswith('/bills'):
+            back_url = '/bills'
+        if amt<=0:db.close();return self._redirect(f'/bills/{bid}/pay?back={urllib.parse.quote(back_url)}&flash=金额必须大于0')
         bill=db.execute("SELECT amount,billing_period,COALESCE((SELECT SUM(amount_paid) FROM payments WHERE bill_id=bills.id),0) paid FROM bills WHERE id=?",(bid,)).fetchone()
         if not bill:db.close();return self._error(404)
         if is_period_closed(bill['billing_period']):
-            db.close();return self._redirect(f'/bills/{bid}?flash={bill["billing_period"]}已结账，无法收费')
+            db.close();return self._redirect(f'/bills/{bid}?back={urllib.parse.quote(back_url)}&flash={bill["billing_period"]}已结账，无法收费')
         rem=money_float(bill['amount'])-money_float(bill['paid'])
         if rem <= 0:
-            db.close();return self._redirect(f'/bills/{bid}?flash=账单已结清，不能重复收费')
+            db.close();return self._redirect(f'/bills/{bid}?back={urllib.parse.quote(back_url)}&flash=账单已结清，不能重复收费')
         if amt > rem:
-            db.close();return self._redirect(f'/bills/{bid}/pay?flash=缴费金额不能超过待缴金额¥{m(rem)}')
+            db.close();return self._redirect(f'/bills/{bid}/pay?back={urllib.parse.quote(back_url)}&flash=缴费金额不能超过待缴金额¥{m(rem)}')
         create_db_backup('auto_before_payment')
         receipt_no = f"RC{datetime.now().strftime('%Y%m%d%H%M%S')}{bid}"
         db.close()
@@ -220,7 +227,7 @@ class PaymentMixinPart1Group1(BaseHandler):
                 'receipt_number': receipt_no,
             }, Actor(username=qs(d,'operator') or _current_operator_name(self), role='operator'))
         except ServiceError as exc:
-            return self._redirect(f'/bills/{bid}/pay?flash={urllib.parse.quote(str(exc))}')
+            return self._redirect(f'/bills/{bid}/pay?back={urllib.parse.quote(back_url)}&flash={urllib.parse.quote(str(exc))}')
         self._audit('payment_create', 'bill', bid, {'remaining': rem}, {'amount_paid': amt, 'receipt_number': receipt_no}, qs(d,'notes'))
         after_due = max(0, rem - amt)
         result_title = '收款成功'
@@ -232,5 +239,5 @@ class PaymentMixinPart1Group1(BaseHandler):
 <div class="col-md-3"><div class="finance-summary"><div class="text-muted small">收据号</div><strong>{h(receipt_no)}</strong></div></div></div>
 <div class="export-actions"><form method="POST" action="/bills/receipt_by_ids" target="_blank" class="d-inline">
 <input type="hidden" name="bill_ids" value="{bid}"><button class="btn btn-outline-secondary">打印收据</button></form>
-<a class="btn btn-primary" href="/bills/{bid}">返回账单</a><a class="btn btn-outline-primary" href="/bills?status=unpaid">继续收下一个</a><a class="btn btn-outline-secondary" href="/payments">查看缴费记录</a></div>
+<a class="btn btn-primary" href="/bills/{bid}?back={urllib.parse.quote(back_url)}">返回账单</a><a class="btn btn-outline-primary" href="{h(back_url)}">返回账单管理</a><a class="btn btn-outline-secondary" href="/payments">查看缴费记录</a></div>
 ''','bills'))

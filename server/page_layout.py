@@ -67,6 +67,7 @@ def render_page(handler, title, content, active='', top_actions=''):
             ('rooms', '/rooms', 'bi-door-open', '房间管理'),
             ('fee_types', '/fee_types', 'bi-tags', '收费项目'),
             ('meter', '/meter_readings', 'bi-clipboard-data', '抄表管理'),
+            ('backups', '/backups', 'bi-cloud-check', '备份记录'),
             ('batch_ops', '/batch_ops', 'bi-pencil-square', '批量更新'),
             ('auto_billing', '/auto_billing', 'bi-calendar-check', '自动出账'),
             ('shared_expenses', '/shared_expenses', 'bi-diagram-3', '公摊分摊'),
@@ -81,7 +82,6 @@ def render_page(handler, title, content, active='', top_actions=''):
         ]),
         ('系统维护', [
             ('audit_logs', '/audit_logs', 'bi-journal-check', '操作日志'),
-            ('backups', '/backups', 'bi-cloud', '数据备份'),
         ]),
     ]
     if role == "readonly":
@@ -106,6 +106,7 @@ def render_page(handler, title, content, active='', top_actions=''):
         nav_groups[-1][1].append(("users", "/users", "bi-people-fill", "操作员管理"))
         allowed.add('users')
     if cur_user and cur_user["role"] == "admin":
+        allowed.add('backups')
         allowed.add('system_health')
         allowed.add('system_update')
         allowed.add('trial_data_reset')
@@ -139,7 +140,7 @@ def render_page(handler, title, content, active='', top_actions=''):
              'auto_billing': 'bi-calendar-check',
              'shared_expenses': 'bi-diagram-3',
              'bills': 'bi-receipt', 'payments': 'bi-credit-card', 'closing': 'bi-lock',
-             'backups': 'bi-cloud', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
+             'backups': 'bi-cloud-check', 'import': 'bi-upload', 'reports': 'bi-graph-up', 'system_health': 'bi-shield-check',
              'system_update': 'bi-arrow-repeat', 'trial_data_reset': 'bi-trash3',
              'collections': 'bi-telephone-outbound', 'alert_center': 'bi-exclamation-triangle', 'audit_logs': 'bi-journal-check',
              'delivery_center': 'bi-clipboard-check'}

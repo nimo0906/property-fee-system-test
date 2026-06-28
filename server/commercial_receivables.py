@@ -186,24 +186,54 @@ class CommercialReceivableMixin(BaseHandler):
         checked_total = sum(float(x['amount'] or 0) for x in items if x['status'] == '可生成' and x.get('default_checked'))
         unchecked_count = sum(1 for x in items if x['status'] == '可生成' and not x.get('default_checked'))
         zero_count = sum(1 for x in items if x['status'] == '可生成' and float(x['amount'] or 0) <= 0)
+        total_amount = sum(float(x['amount'] or 0) for x in items if x['status'] == '可生成')
+        contract_total = len({x['contract_id'] for x in items})
         rows = ''.join(_row(x) for x in items) or '<tr><td colspan="9" class="text-center text-muted py-4">暂无商业合同应收提醒</td></tr>'
-        self._html(self._page('商业合同应收', f'''<div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2"><div class="alert alert-info mb-0 flex-fill">商业合同应收：只显示当前日期以后、合同未到期的下一期待确认账单。</div><a class="btn btn-outline-secondary" href="/auto_billing"><i class="bi bi-arrow-left"></i> 返回</a></div>
-        <form method="GET" class="row g-2 mb-3"><div class="col-auto"><label>当前日期</label><input name="today" type="date" class="form-control" value="{h(today)}"></div>
-        <div class="col-auto"><label>提前天数</label><input name="advance_days" type="number" class="form-control" value="{adv}"></div>
-        <div class="col-auto"><label>状态</label><select name="status" class="form-select"><option value="all">全部</option><option value="can_generate" {'selected' if st=='can_generate' else ''}>可生成</option><option value="existing" {'selected' if st=='existing' else ''}>已存在</option></select></div>
-        <div class="col-auto"><label>关键字</label><input name="keyword" class="form-control" value="{h(kw)}"></div><div class="col-auto align-self-end"><button class="btn btn-primary">刷新</button></div></form>
-        <form method="POST" action="/commercial_receivables/confirm"><input type="hidden" name="today" value="{h(today)}"><input type="hidden" name="advance_days" value="{adv}"><input type="hidden" name="confirm" value="1">
-        <div class="alert alert-warning py-2"><strong>金额确认：</strong>请逐项核对金额、服务期和应收日期；保存后按修改后的内容写入账单。</div>
-        <div class="row text-center g-2 mb-2">
-        <div class="col-md-3"><div class="border rounded p-2"><div class="text-muted small">可生成项目</div><strong>{can_generate_count}</strong></div></div>
-        <div class="col-md-3"><div class="border rounded p-2"><div class="text-muted small">默认勾选</div><strong>{checked_count}</strong></div></div>
-        <div class="col-md-3"><div class="border rounded p-2"><div class="text-muted small">未自动勾选</div><strong>{unchecked_count}</strong></div></div>
-        <div class="col-md-3"><div class="border rounded p-2"><div class="text-muted small">已存在/异常</div><strong>{existing_count + zero_count}</strong></div></div>
+        self._html(self._page('商业合同应收', f'''
+        <div class="page-intro">
+          <div>
+            <h2 class="mb-1">商业合同应收</h2>
+          </div>
+          <div class="export-actions">
+            <a class="btn btn-outline-secondary btn-sm" href="/auto_billing"><i class="bi bi-arrow-left"></i> 返回自动出账</a>
+          </div>
         </div>
-        <div class="alert alert-light border py-2"><strong>生成前核对：</strong>一次性、临时类、金额为 0 或需人工确认的项目不会默认勾选；生成前请按实际发生勾选，避免自动多收或漏收。</div>
-        <div class="alert alert-secondary py-2"><strong>本页已勾选：</strong><span id="selectedReceivableCount">{checked_count}</span> 项，合计 <span class="money" id="selectedReceivableTotal">¥{m(checked_total)}</span>。一次性/临时类默认不勾选，可按实际发生手动选择。</div>
-        <div class="table-responsive"><table class="table table-hover align-middle small"><thead><tr><th>选择</th><th>合同</th><th>商户</th><th>对象</th><th>费用</th><th>服务期</th><th>应收日</th><th class="text-end">应收金额</th><th>状态</th></tr></thead><tbody>{rows}</tbody></table></div>
-        <button class="btn btn-primary">确认生成选中账单</button></form>
+        <div class="row g-2 mb-3">
+          <div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">可生成项目</div><strong>{can_generate_count}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">默认勾选</div><strong>{checked_count}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">未自动勾选</div><strong>{unchecked_count}</strong></div></div>
+          <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">应收合计</div><strong class="money">¥{m(total_amount)}</strong></div></div>
+        </div>
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-funnel"></i> 应收筛选</span>
+            <small class="text-muted">当前合同 {contract_total} 份 · 已存在/异常 {existing_count + zero_count} 项</small>
+          </div>
+          <div class="card-body">
+            <form method="GET" class="row g-2 align-items-end">
+              <div class="col-lg-3 col-md-4"><label class="form-label small text-muted mb-1">当前日期</label><input name="today" type="date" class="form-control form-control-sm" value="{h(today)}"></div>
+              <div class="col-lg-2 col-md-4"><label class="form-label small text-muted mb-1">提前天数</label><input name="advance_days" type="number" class="form-control form-control-sm" value="{adv}"></div>
+              <div class="col-lg-2 col-md-4"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm"><option value="all">全部</option><option value="can_generate" {'selected' if st=='can_generate' else ''}>可生成</option><option value="existing" {'selected' if st=='existing' else ''}>已存在</option></select></div>
+              <div class="col-lg-4 col-md-8"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" placeholder="合同号 / 商户 / 对象" value="{h(kw)}"></div>
+              <div class="col-lg-1 col-md-4 d-grid gap-2"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i></button></div>
+            </form>
+          </div>
+        </div>
+        <form method="POST" action="/commercial_receivables/confirm">
+        <input type="hidden" name="today" value="{h(today)}"><input type="hidden" name="advance_days" value="{adv}"><input type="hidden" name="confirm" value="1">
+        <div class="card mb-3">
+          <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-table"></i> 应收明细 · 生成前核对</span>
+            <small class="text-muted">请逐项核对金额、服务期和应收日期</small>
+          </div>
+          <div class="card-body">
+            <div class="alert alert-warning py-2 mb-3"><strong>金额确认：</strong>一次性、临时类、金额为 0 或需人工确认的项目不会默认勾选；请按实际发生选择。</div>
+            <div class="alert alert-secondary py-2"><strong>本页已勾选：</strong><span id="selectedReceivableCount">{checked_count}</span> 项，合计 <span class="money" id="selectedReceivableTotal">¥{m(checked_total)}</span>。</div>
+            <div class="table-responsive"><table class="table table-hover align-middle small"><thead><tr><th>选择</th><th>合同</th><th>商户</th><th>对象</th><th>费用</th><th>服务期</th><th>应收日</th><th class="text-end">应收金额</th><th>状态</th></tr></thead><tbody>{rows}</tbody></table></div>
+            <div class="d-flex justify-content-end mt-3"><button class="btn btn-primary">确认生成选中账单</button></div>
+          </div>
+        </div>
+        </form>
         <script>
         function updateReceivableSummary(){{
             var total=0,count=0;

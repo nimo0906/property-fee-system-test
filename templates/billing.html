@@ -1,14 +1,29 @@
-<div class="alert alert-info d-flex align-items-center gap-2"><i class="bi bi-info-circle"></i><div>选择房间自动计算，金额可编辑。日期区间内按月数累计，提交前请核对右侧收银明细。{MODE_NOTE}</div></div>
+<div class="page-intro billing-page-intro">
+<div>
+<h2 class="mb-1">{PAGE_TITLE}</h2>
+</div>
+<div class="export-actions">
+<a href="{OTHER_MODE_HREF}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-repeat"></i> 切到{OTHER_MODE_LABEL}</a>
+<a href="/bills" class="btn btn-primary btn-sm"><i class="bi bi-receipt"></i> 账单管理</a>
+</div>
+</div>
+<div class="visually-hidden">{MODE_NOTE}</div>
+<div class="billing-mode-strip mb-3">
+<a class="billing-mode-chip {PROPERTY_ACTIVE}" href="/billing"><span>物业收费</span><strong>物业池</strong><em>{PROPERTY_POOL_COUNT} 个房间</em></a>
+<a class="billing-mode-chip {COMMERCIAL_ACTIVE}" href="/commercial_billing"><span>商业收费</span><strong>商场合同池</strong><em>{COMMERCIAL_POOL_COUNT} 份合同</em></a>
+<div class="billing-mode-chip stat"><span>收费项目</span><strong>{FEE_COUNT}</strong><em>已启用</em></div>
+<div class="billing-mode-chip stat"><span>合同档案</span><strong>{CONTRACT_COUNT}</strong><em>可联动</em></div>
+<div class="billing-mode-chip stat"><span>租户分组</span><strong>{TENANT_GROUP_COUNT}</strong><em>同租户房间</em></div>
+</div>
 <script>window.ELEVATOR_TIERS={ELEVATOR_DATA};window.OWNER_ROOMS={OWNER_DATA};window.BILLING_MODE="{BILLING_MODE}";window.METER_READINGS={METER_DATA};window.METER_DETAILS={METER_DETAIL_DATA};</script>
 <form method=POST action="/billing/calc" id="billingForm">
 <div class="row g-4 cashier-layout">
 <div class="col-lg-4">
-<div class="card h-100 cashier-panel cashier-object-card"><div class="card-header"><i class="bi bi-door-open"></i> 选择收费对象</div>
+<div class="card h-100 cashier-panel cashier-object-card"><div class="card-header"><i class="bi bi-door-open"></i> 选择收费对象 <span class="small text-muted ms-2">{MODE_LABEL}</span></div>
 <div class="card-body">
 <div class="mb-3"><label class="form-label">房间</label>
 <input type="text" class="form-control form-control-sm mb-2" id="roomSearch" placeholder="输入楼栋/房号/业主搜索..." oninput="filterRooms()">
 <select class="form-select searchable-select" id="billingRoom" name="room_id" size="8" data-search-input="roomSearch" onchange="calcFees();showOwnerRooms();document.getElementById('roomSearch').value=this.options[this.selectedIndex].text">{OPTS}</select>
-<small class="text-muted">支持楼栋、房号和业主名检索。{MODE_NOTE}</small>
 </div>
 <script>
 window.filterRooms=function(){ window.filterSearchableSelect && window.filterSearchableSelect('billingRoom','roomSearch'); };
@@ -31,9 +46,7 @@ window.filterRooms=function(){ window.filterSearchableSelect && window.filterSea
 <input type="number" name="proration_factor" id="prorationFactor" class="form-control" step="0.0001" min="0" placeholder="自动计算" oninput="calcFees()">
 <button class="btn btn-outline-secondary" type="button" onclick="var f=document.getElementById('prorationFactor'); if(f){f.value=''; calcFees();}">恢复自动</button>
 </div>
-<small class="text-muted d-block">例如系统算出 1 个月，也可临时改为 1.5；留空则按起始日整月自动折算。</small>
 </div>
-<small class="text-muted d-block">起始日和截止日均计入服务期。</small>
 </div>
 <div id="ownerRoomsSection" class="mb-3" style="display:none">
 <hr><div class="tenant-room-tools">

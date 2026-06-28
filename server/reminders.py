@@ -13,12 +13,13 @@ class ReminderMixin(BaseHandler):
 
     def _reminders(self, q):
         """催缴管理：默认全部账期；按紧急度、房间、租户等筛选。"""
-        update_overdue_bills()
         db = get_db()
         raw_period = qs(q, 'period', '').strip()
         p = date_to_period(raw_period) if raw_period else ''
         period_start = qs(q, 'period_start', '').strip()
         period_end = qs(q, 'period_end', '').strip()
+        if not raw_period and not period_start and not period_end:
+            update_overdue_bills()
         if p and not period_start and not period_end:
             period_start = period_to_date(p)
             try:
@@ -32,6 +33,18 @@ class ReminderMixin(BaseHandler):
         kw = qs(q, 'keyword').strip()
         fee_id = qs(q, 'fee_type_id').strip()
         today = date.today()
+        range_anchor = None
+        if p:
+            try:
+                range_anchor = datetime.strptime(period_to_date(p), '%Y-%m-%d').date()
+            except Exception:
+                range_anchor = None
+        elif period_start:
+            try:
+                range_anchor = datetime.strptime(period_start, '%Y-%m-%d').date()
+            except Exception:
+                range_anchor = None
+        status_today = range_anchor or today
         sql = '''SELECT o.id oid,o.name oname,o.phone ophone,r.id rid,r.building,r.unit,r.room_number,
             r.area,r.category,r.tenant_name,r.shop_name,b.customer_name_snapshot,b.id bid,b.fee_type_id,b.amount,b.billing_period,b.due_date,b.status,b.bill_number,
             b.source,b.service_start,b.service_end,
@@ -78,8 +91,8 @@ class ReminderMixin(BaseHandler):
                 except Exception:
                     pass
             advance = r['reminder_advance_days'] or 30
-            is_overdue = due and due < today and r['status'] in ('unpaid', 'overdue')
-            is_approaching = due and due >= today and due <= today + timedelta(days=advance) and r['status'] in ('unpaid', 'partial')
+            is_overdue = due and due < status_today and r['status'] in ('unpaid', 'overdue')
+            is_approaching = due and due >= status_today and due <= status_today + timedelta(days=advance) and r['status'] in ('unpaid', 'partial')
             if is_overdue:
                 overdue_list.append(r)
             elif is_approaching:
@@ -172,6 +185,20 @@ class ReminderMixin(BaseHandler):
         if kw: print_params.append('keyword=' + h(kw))
         print_query = ('?' + '&'.join(print_params)) if print_params else ''
         self._html(self._page('催缴管理', f'''
+    <div class="page-intro">
+      <div>
+        <h2 class="mb-1">催缴管理</h2>
+      </div>
+      <div class="export-actions">
+        <a href="/bills" class="btn btn-outline-secondary btn-sm"><i class="bi bi-receipt"></i> 账单管理</a>
+      </div>
+    </div>
+    <div class="row g-2 mb-3">
+      <div class="col-md-3 col-6"><div class="summary-tile danger"><div class="label">逾期</div><strong>{len(overdue_list)}</strong></div></div>
+      <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">即将到期</div><strong>{len(approaching_list)}</strong></div></div>
+      <div class="col-md-3 col-6"><div class="summary-tile"><div class="label">欠费</div><strong class="money money-due">¥{m(total_amt)}</strong></div></div>
+      <div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">滞纳金</div><strong class="money">¥{m(total_late)}</strong></div></div>
+    </div>
     <div class="alert alert-warning"><i class="bi bi-bell"></i> 默认显示全部日期范围的催缴对象；手动选择起始和截止日期后，仅显示该自然日期范围内的账单。</div>
     <div class="d-flex flex-wrap justify-content-between mb-3 gap-2">
     <form class="row g-2" method=GET>
@@ -203,9 +230,10 @@ class ReminderMixin(BaseHandler):
     {render_pagination('/reminders', query_items(q, ['period_start', 'period_end', 'building', 'unit', 'fee_type_id', 'status', 'keyword']), pg, total_pages, per_page, owner_total_rows, '催缴分页')}''', 'reminders'))
 
     def _reminder_print(self, q):
-        update_overdue_bills()
         raw_period=qs(q,'period','').strip();p=date_to_period(raw_period or get_period())
         period_start=qs(q,'period_start','').strip();period_end=qs(q,'period_end','').strip()
+        if not raw_period and not period_start and not period_end:
+            update_overdue_bills()
         if raw_period and not period_start and not period_end:
             period_start=period_to_date(p)
             try:

@@ -21,9 +21,9 @@ class AuthMixinPart1(BaseHandler):
         admin_id = self._default_admin_user_id()
         if not admin_id:
             return ""
-        return f"""<div class="alert alert-warning border-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div><strong><i class="bi bi-shield-exclamation"></i> 检测到默认管理员密码仍在使用</strong>
-            <div class="small mt-1">本地版不需要注册互联网账号；该提示不会影响继续使用，但正式收费前建议先修改 admin 密码，并按岗位创建财务账号、客服业务编辑账号。</div></div>
+        return f"""<div class="alert alert-warning border-warning alert-warning-compact d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="alert-warning-text"><strong><i class="bi bi-shield-exclamation"></i> 检测到默认管理员密码仍在使用</strong>
+            <div class="small mt-1">本地版不需要注册互联网账号；建议先改 admin 密码，再按岗位建账号。</div></div>
             <a href="/users/{admin_id}/edit" class="btn btn-sm btn-warning"><i class="bi bi-key"></i> 修改默认密码</a>
         </div>"""
 
@@ -160,6 +160,18 @@ class AuthMixinPart1(BaseHandler):
         rows = db.execute("SELECT * FROM users ORDER BY id").fetchall()
         db.close()
         role_names = {"admin":"管理员","system_admin":"系统管理员","manager":"业务管理员","finance":"财务","cashier":"收费员","frontdesk":"客服业务编辑","executive":"管理层只读","operator":"旧版财务收费","readonly":"旧版只读"}
+        role_order = [
+            ("admin", "超级管理员"),
+            ("system_admin", "系统管理员"),
+            ("manager", "业务管理员"),
+            ("finance", "财务"),
+            ("cashier", "收费员"),
+            ("frontdesk", "客服业务编辑"),
+            ("executive", "管理层只读"),
+            ("operator", "旧版财务收费"),
+            ("readonly", "旧版只读"),
+        ]
+        role_counts = {key: sum(1 for r in rows if r["role"] == key) for key, _ in role_order}
         rh = ""
         for r in rows:
             rl = role_names.get(r["role"], r["role"])
@@ -183,22 +195,28 @@ class AuthMixinPart1(BaseHandler):
             empty_text='暂无操作员',
             col_count=7,
         )
-        guide = '''<div class="alert alert-info border-info role-guide-grid">
-            <h6 class="mb-2"><i class="bi bi-person-gear"></i> 首次账号设置建议</h6>
-            <div class="mt-2 d-flex gap-2 flex-wrap">
-                <span class="badge bg-danger">超级管理员：admin 保留；系统管理员负责系统维护、更新、备份恢复、账号与全部业务权限</span>
-                <span class="badge bg-primary">业务管理员：客户负责人，账号管理与业务审批</span>
-                <span class="badge bg-info">财务：资料维护、合同、出账、收费、发票、对账、结账</span>
-                <span class="badge bg-secondary">客服业务编辑：业主、房间、合同、抄表、导入和催缴；不做收款结账</span>
-                <span class="badge bg-dark">管理层只读：查看驾驶舱、报表和风险预警</span>
-            </div>
-        </div>'''
-        self._html(self._page("操作员管理",
-            '<div class="operator-console">' + self._default_password_warning_html() + guide +
-            '<div class="d-flex justify-content-between mb-3"><p class="text-muted small mb-0">管理系统操作员账号，<strong>admin</strong>为超级管理员不可删除。</p>'
-            '<a href="/users/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加操作员</a></div>'
-            '<div class="alert alert-light border small mb-3"><i class="bi bi-info-circle"></i> 登录页提交的申请账号会显示为“待审核/停用”，管理员编辑账号、勾选“启用”后才能登录。</div>' +
-            users_table + '</div>', "users"))
+        role_strip = ''.join(
+            '<div class="maintenance-role-pill{}"><span>{}</span><strong>{}</strong></div>'.format(
+                ' danger' if key == 'admin' else ' muted' if count == 0 else '',
+                h(label),
+                count,
+            )
+            for key, label in role_order
+            for count in [role_counts[key]]
+        )
+        guide = f'''<div class="card mb-3 maintenance-console-card role-guide-grid"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>首次账号设置建议</strong></div><div class="card-body"><div class="maintenance-role-strip">{role_strip}</div><div class="maintenance-maintenance-links mt-3"><a href="/users?role=finance">财务：资料维护</a><a href="/users?role=frontdesk">客服业务编辑：业主、房间、合同、抄表、导入和催缴</a></div><div class="small text-muted mt-2">超级管理员：admin 保留</div></div></div>'''
+        body = (
+            '<div class="operator-console">'
+            '<div class="page-intro"><div><h2 class="mb-1">操作员管理</h2></div><div class="export-actions"><a href="/users/create" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加操作员</a></div></div>'
+            f'<div class="row g-2 mb-3"><div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">账号总数</div><strong>{len(rows)}</strong></div></div><div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">启用账号</div><strong>{sum(1 for r in rows if r["is_active"])}</strong></div></div><div class="col-md-3 col-6"><div class="summary-tile"><div class="label">管理员</div><strong>{sum(1 for r in rows if r["role"] == "admin")}</strong></div></div><div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">停用账号</div><strong>{sum(1 for r in rows if not r["is_active"])}</strong></div></div></div>'
+            + self._default_password_warning_html()
+            + guide
+            + '<div class="card maintenance-console-card"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><strong>操作员档案</strong></div><div class="card-body p-0">'
+            + users_table
+            + '</div></div>'
+            '</div>'
+        )
+        self._html(self._page("操作员管理", body, "users"))
 
     def _user_form(self, uid):
         """添加/编辑操作员表单"""

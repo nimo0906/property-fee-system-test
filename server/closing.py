@@ -78,8 +78,9 @@ class ClosingMixin(BaseHandler):
             responsive=False,
             empty_text='暂无结账记录',
         )
-        html = '''<div class="alert alert-info"><i class="bi bi-info-circle"></i> 期末结账用于锁定某一日期范围，防止已缴账单被误改、误删或重复生成；它不会删除账单、不会自动收款、不会自动开发票。</div>'''
-        html += '''<div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">结账操作</div><div class="card-body"><form method=POST action="/closing/close" class="row g-3"><div class="col-12"><label>起始日期</label><input type="date" name="period_start" class="form-control" required></div><div class="col-12"><label>截止日期</label><input type="date" name="period_end" class="form-control" required></div><div class="col-12"><label>备注</label><input name="notes" class="form-control"></div><div class="col-12"><hr><button class="btn btn-outline-primary" name="preview" value="1"><i class="bi bi-search"></i> 提前预览</button> <button class="btn btn-primary" onclick="return confirm('确认结账?')"><i class="bi bi-lock"></i> 执行结账</button></div></form></div></div><p class="text-muted small mt-2">结账后：<br>- 已缴账单不可修改<br>- 不可生成新账单<br>- 反结账后可恢复</p></div>'''
+        html = '''<div class="page-intro"><div><h2 class="mb-1">期末结账</h2></div><div class="export-actions"><a class="btn btn-outline-secondary btn-sm" href="/reports"><i class="bi bi-bar-chart"></i> 对账报表</a></div></div>'''
+        html += '''<div class="row g-2 mb-3"><div class="col-md-4 col-6"><div class="summary-tile primary"><div class="label">结账记录</div><strong>''' + str(len(records)) + '''</strong></div></div><div class="col-md-4 col-6"><div class="summary-tile"><div class="label">已结账</div><strong>''' + str(sum(1 for r in records if r['status'] == 'closed')) + '''</strong></div></div><div class="col-md-4 col-6"><div class="summary-tile warning"><div class="label">已反结账</div><strong>''' + str(sum(1 for r in records if r['status'] != 'closed')) + '''</strong></div></div></div>'''
+        html += '''<div class="row g-4"><div class="col-md-5"><div class="card"><div class="card-header">结账操作</div><div class="card-body"><form method=POST action="/closing/close" class="row g-3"><div class="col-12"><label>起始日期</label><input type="date" name="period_start" class="form-control" required></div><div class="col-12"><label>截止日期</label><input type="date" name="period_end" class="form-control" required></div><div class="col-12"><label>备注</label><input name="notes" class="form-control"></div><div class="col-12"><hr><button class="btn btn-outline-primary" name="preview" value="1"><i class="bi bi-search"></i> 提前预览</button> <button class="btn btn-primary" onclick="return confirm('确认结账?')"><i class="bi bi-lock"></i> 执行结账</button></div></form></div></div></div>'''
         html += '''<div class="col-md-7"><div class="card"><div class="card-header">结账记录</div><div class="card-body p-0">''' + records_table + '''</div></div></div></div>'''
         self._html(self._page('期末结账', html, 'closing'))
 
@@ -180,7 +181,7 @@ class ClosingMixin(BaseHandler):
             <a class="btn btn-outline-secondary" href="/closing">返回修改</a></div>'''
         title = '结账前预览' if preview else '结账前检查'
         self._html(self._page(title, f'''
-        <div class="alert alert-warning"><strong>{title}</strong>：结账对象是日期范围 <code>{h(period_label or period)}</code> 下方明细里的账单。确认后只会锁定该日期范围，防止误改、误删和重复生成；不会删除账单、不会自动收款、不会自动开发票。</div>
+        <div class="alert alert-warning py-2 mb-3"><strong>{title}</strong>：只锁定 <code>{h(period_label or period)}</code> 范围，不会删除账单、不会自动收款或开票。</div>
         <div class="row text-center g-2 mb-3">
             <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">账单总数</div><strong>{stats.get('total_count') or 0}</strong></div></div>
             <div class="col-md-3"><div class="border rounded p-3"><div class="text-muted small">已缴账单</div><strong>{stats.get('paid_count') or 0}</strong></div></div>
@@ -236,7 +237,7 @@ class ClosingMixin(BaseHandler):
         <div class="alert alert-danger"><strong>反结账确认</strong>：请确认要重新打开日期范围 <code>{h(label or period)}</code>。</div>
         <div class="card"><div class="card-header">原结账信息</div><div class="card-body">{record_table}</div></div>
         <div class="card"><div class="card-header">当前账单摘要</div><div class="card-body">{stats_table}</div></div>
-        <div class="alert alert-warning"><strong>风险提示</strong>：反结账后该日期范围将重新允许生成账单、收费、修改、删除和批量操作，请确认这是有意操作。</div>
+        <div class="alert alert-warning py-2"><strong>风险提示</strong>：反结账后该日期范围将重新允许业务操作。</div>
         <form method=POST action="/closing/reopen" onsubmit="return confirm('确认反结账？该日期范围将重新开放修改。')">
             <input type=hidden name="period" value="{h(period)}"><input type=hidden name="confirm" value="1">
             <button class="btn btn-danger">确认反结账</button>

@@ -116,7 +116,7 @@ class TestIntegration28(IntegrationTestBase):
     def test_reports_page(self):
         _, body = http_get('/reports?period=2026-06', self.cookie, TEST_PORT)
         self.assertIn('对账报表', body)
-        self.assertIn('应收总额', body)
+        self.assertIn('应收合计', body)
 
 
     def test_reports_show_waiver_detail_for_adjusted_bills(self):

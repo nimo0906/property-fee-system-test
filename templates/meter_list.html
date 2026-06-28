@@ -1,12 +1,37 @@
-<div class="d-flex flex-wrap justify-content-between mb-3 gap-2"><form class="row g-2" method=GET>
-<div class="col-auto"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()" placeholder="全部账期"><small class="text-muted">默认全部</small></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{BUILDING_OPTIONS}</select></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">单元/区域</label><select name="unit" class="form-select form-select-sm" onchange="this.form.submit()">{UNIT_OPTIONS}</select></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">费用类型</label><select name="fee_type_id" class="form-select form-select-sm" onchange="this.form.submit()">{FEE_OPTIONS}</select></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部状态</option><option value="draft"{DRAFT_SEL}>草稿</option><option value="confirmed"{CONFIRMED_SEL}>已确认</option></select></div>
-<div class="col-auto"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" value="{KEYWORD}" placeholder="房号/租户/项目"></div>
-<div class="col-auto align-self-end"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/meter_readings" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
-<div class="d-flex gap-2 align-self-end"><a href="/meter_readings/ledger" class="btn btn-primary btn-sm"><i class="bi bi-table"></i> 统一抄表台账</a><a href="/meter_readings/create" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg"></i> 单项录入</a></div></div>
-<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>房间</th><th>类型</th><th>账期</th><th class="text-end">上次</th><th class="text-end">本次</th><th class="text-end">用量</th><th>状态</th><th>日期</th><th style="width:100px">操作</th></tr></thead>
-<tbody>{ROWS}</tbody></table></div>
+<div class="meter-page-shell">
+<div class="page-intro">
+<div>
+<h2 class="mb-1">抄表记录</h2>
+</div>
+<div class="export-actions">
+<a href="/meter_readings/ledger" class="btn btn-primary btn-sm"><i class="bi bi-table"></i> 统一抄表台账</a>
+<a href="/meter_readings/create" class="btn btn-outline-primary btn-sm"><i class="bi bi-plus-lg"></i> 单项录入</a>
+</div>
+</div>
+<div class="row g-2 mb-3">{SUMMARY}</div>
+<div class="card mb-3">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+    <span><i class="bi bi-funnel"></i> 抄表筛选</span>
+  </div>
+  <div class="card-body py-2">
+    <form class="meter-search-inline" method=GET>
+      <div class="meter-search-field meter-search-period"><label class="form-label small text-muted mb-1">账期</label><input type="date" name="period" class="form-control form-control-sm" value="{PERIOD}" onchange="this.form.submit()" placeholder="全部账期"></div>
+      <div class="meter-search-field meter-search-building"><label class="form-label small text-muted mb-1">楼栋</label><select name="building" class="form-select form-select-sm" onchange="this.form.submit()">{BUILDING_OPTIONS}</select></div>
+      <div class="meter-search-field meter-search-unit"><label class="form-label small text-muted mb-1">单元/区域</label><select name="unit" class="form-select form-select-sm" onchange="this.form.submit()">{UNIT_OPTIONS}</select></div>
+      <div class="meter-search-field meter-search-fee"><label class="form-label small text-muted mb-1">费用类型</label><select name="fee_type_id" class="form-select form-select-sm" onchange="this.form.submit()">{FEE_OPTIONS}</select></div>
+      <div class="meter-search-field meter-search-status"><label class="form-label small text-muted mb-1">状态</label><select name="status" class="form-select form-select-sm" onchange="this.form.submit()"><option value="">全部状态</option><option value="draft"{DRAFT_SEL}>草稿</option><option value="confirmed"{CONFIRMED_SEL}>已确认</option></select></div>
+      <div class="meter-search-field meter-search-keyword"><label class="form-label small text-muted mb-1">关键字</label><input name="keyword" class="form-control form-control-sm" value="{KEYWORD}" placeholder="房号/租户/项目"></div>
+      <div class="meter-search-actions"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button> <a href="/meter_readings" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div>
+    </form>
+  </div>
+</div>
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-clipboard-data"></i> 抄表台账</span>
+    <small class="text-muted">草稿 / 已确认统一查看</small>
+  </div>
+  <div class="table-responsive"><table class="table table-hover align-middle"><thead><tr><th>对象</th><th>类型</th><th>账期</th><th class="text-end">上次</th><th class="text-end">本次</th><th class="text-end">用量</th><th>状态</th><th>日期</th><th style="width:100px">操作</th></tr></thead>
+  <tbody>{ROWS}</tbody></table></div>
+</div>
 {PAGE_LINKS}
+</div>

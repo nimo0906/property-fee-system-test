@@ -84,6 +84,7 @@ class InvoiceMixinPart1(BaseHandler):
         elif p:
             total_sql, total_vals = append_period_filter(total_sql, total_vals, p, 'b.billing_period')
         total=db.execute(total_sql,total_vals).fetchone()[0]
+        issued_cnt = len(rows)
         avail_sql='''SELECT b.id,b.bill_number,b.amount,b.billing_period,b.customer_name_snapshot,
                 r.building,r.unit,r.room_number,r.tenant_name,r.shop_name,o.name oname
             FROM bills b JOIN rooms r ON b.room_id=r.id LEFT JOIN owners o ON b.owner_id=o.id
@@ -152,23 +153,37 @@ class InvoiceMixinPart1(BaseHandler):
             submit_text='<i class="bi bi-receipt"></i> 开具发票',
         )
         # Available bills for invoice
+        summary_html = ''.join([
+            f'<div class="col-md-3 col-6"><div class="summary-tile primary"><div class="label">筛选范围已开票金额</div><strong class="money">¥{m(total)}</strong></div></div>',
+            f'<div class="col-md-3 col-6"><div class="summary-tile"><div class="label">已开票笔数</div><strong>{issued_cnt}</strong></div></div>',
+            f'<div class="col-md-3 col-6"><div class="summary-tile success"><div class="label">待开票账单</div><strong>{len(avail)}</strong></div></div>',
+            f'<div class="col-md-3 col-6"><div class="summary-tile warning"><div class="label">筛选区间</div><strong>{h(period_label)}</strong></div></div>',
+        ])
         self._html(self._page("发票管理", f'''
     <div class="invoice-dashboard">
-    <section class="invoice-section" data-invoice-section="filters">
-    <div class="invoice-section-title"><i class="bi bi-funnel"></i> 筛选发票</div>
-    <div class="row g-2 align-items-end">
+    <div class="page-intro">
+    <div>
+    <h2 class="mb-1">发票管理</h2>
+    </div>
+    <div class="export-actions">
+    <a class="btn btn-outline-secondary btn-sm" href="/invoice_requests"><i class="bi bi-file-earmark-text"></i> 电子票据请求</a>
+    </div>
+    </div>
+    <div class="row g-2 mb-3">{summary_html}</div>
+    <div class="card mb-3" data-invoice-section="filters">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-funnel"></i> 筛选发票</span>
+    </div>
+    <div class="card-body">
     <form class="row g-2 align-items-end" method=GET>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{h(period_start)}" onchange="this.form.submit()"></div>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{h(period_end)}" onchange="this.form.submit()"></div>
-    <div class="col-auto"><label class="form-label small text-muted mb-1">发票列表筛选</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="发票号/抬头/税号/房号"></div>
-    <div class="col-auto"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button><a href="/invoices" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle"></i></a></div></form>
-    <div class="col-auto ms-auto"><div class="summary-tile py-2 px-3"><div class="label">筛选范围已开票金额</div><strong class="money">¥{m(total)}</strong></div></div>
-    </div></section>
+    <div class="col-lg-3 col-md-4"><label class="form-label small text-muted mb-1">起始日期</label><input type="date" name="period_start" class="form-control form-control-sm" value="{h(period_start)}" onchange="this.form.submit()"></div>
+    <div class="col-lg-3 col-md-4"><label class="form-label small text-muted mb-1">截止日期</label><input type="date" name="period_end" class="form-control form-control-sm" value="{h(period_end)}" onchange="this.form.submit()"></div>
+    <div class="col-lg-4 col-md-8"><label class="form-label small text-muted mb-1">发票列表筛选</label><input name="keyword" class="form-control form-control-sm" value="{h(kw)}" placeholder="发票号/抬头/税号/房号"></div>
+    <div class="col-lg-2 col-md-12 d-grid"><button class="btn btn-sm btn-outline-primary"><i class="bi bi-search"></i> 筛选</button></div></form>
+    </div></div>
     <div class="row g-4">
-    <div class="col-md-8"><section class="invoice-section" data-invoice-section="issued"><div class="invoice-section-title"><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({period_label})</small></div>
-    {invoice_table}</section></div>
-    <div class="col-md-4"><section class="invoice-section" data-invoice-section="available"><div class="invoice-section-title"><i class="bi bi-receipt"></i> 待开票账单</div>
-    <div class="card-body">{invoice_form}</div></section></div></div></div>''', "invoices"))
+    <div class="col-lg-8"><div class="card" data-invoice-section="issued"><div class="card-header d-flex justify-content-between align-items-center"><span><i class="bi bi-receipt-cutoff"></i> 已开发票列表 <small class="text-muted">({h(period_label)})</small></span></div>{invoice_table}</div></div>
+    <div class="col-lg-4"><div class="card" data-invoice-section="available"><div class="card-header"><i class="bi bi-receipt"></i> 待开票账单</div><div class="card-body">{invoice_form}</div></div></div></div></div>''', "invoices"))
 
     def _invoice_redirect(self, flash, period='', period_start='', period_end=''):
         params = {}
