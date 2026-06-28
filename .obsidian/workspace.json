@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Windows打包操作步骤.md",
+                "file": "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Windows打包操作步骤"
+              "title": "Clip YouTube Transcript"
             }
           }
         ]
@@ -204,7 +204,7 @@
             }
           }
         ],
-        "currentTab": 7
+        "currentTab": 6
       }
     ],
     "direction": "horizontal",
@@ -229,6 +229,12 @@
   },
   "active": "f0788ab97f72f82c",
   "lastOpenFiles": [
+    "docs/desktop-release-checklist.md",
+    "2026-06-28.md",
+    "未命名 1.canvas",
+    "docs/前后端分工规范.md",
+    "docs/codex交接-1-CSS合并.md",
+    "Windows打包操作步骤.md",
     "release/windows-source/物业管理收费系统-windows-source-20260628-190928.zip",
     "release/物业管理收费系统-macOS-20260628-190850.zip",
     "build/property_fee_system_macos/BUNDLE-00.toc",
@@ -241,7 +247,6 @@
     "dist/物业管理收费系统.app/Contents/Resources/update_manifest.json",
     "dist/物业管理收费系统.app/Contents/Resources/templates/rooms.html",
     "dist/物业管理收费系统.app/Contents/Resources/templates/payments.html",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/owners.html",
     "dist/物业管理收费系统.app/Contents/Resources/static/desktop-app-icon.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-logo.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-emblem.png",
@@ -253,10 +258,7 @@
     "docs/release-update-policy.md",
     "2026-06-27.md",
     "未命名.canvas",
-    "docs/前后端分工规范.md",
-    "docs/codex交接-1-CSS合并.md",
     "docs/codex交接-2-表格表单收敛.md",
-    "docs/desktop-release-checklist.md",
     "docs/local-security-boundary.md",
     "docs/release-final-summary-v2.0.md",
     "docs/release-freeze-v2.0.2.md",
@@ -270,8 +272,6 @@
     "copilot/copilot-custom-prompts/Remove URLs.md",
     "copilot/copilot-custom-prompts/Generate glossary.md",
     "copilot/copilot-custom-prompts/Generate table of contents.md",
-    "copilot/copilot-custom-prompts/Make longer.md",
-    "copilot/copilot-custom-prompts/Make shorter.md",
     "static/brand-logo.png",
     "static/desktop-app-icon.png",
     "static/brand-emblem.png"
