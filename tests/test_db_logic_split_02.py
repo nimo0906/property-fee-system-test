@@ -64,6 +64,43 @@ class TestDBLogic02(DBLogicTestBase):
         self.assertEqual(due.isoformat(), '2026-06-26')
 
 
+    def test_auto_billing_keeps_current_period_after_service_start(self):
+        from server.auto_billing import next_service_period
+        start, end, due = next_service_period('2026-06-27', '2027-06-26', 'quarterly', '2026-06-29')
+        self.assertEqual(start.isoformat(), '2026-06-27')
+        self.assertEqual(end.isoformat(), '2026-09-26')
+        self.assertEqual(due.isoformat(), '2026-06-26')
+
+
+    def test_auto_billing_advances_after_current_period_ends(self):
+        from server.auto_billing import next_service_period
+        start, end, due = next_service_period('2026-06-27', '2027-06-26', 'quarterly', '2026-09-27')
+        self.assertEqual(start.isoformat(), '2026-09-27')
+        self.assertEqual(end.isoformat(), '2026-12-26')
+        self.assertEqual(due.isoformat(), '2026-09-26')
+
+
+    def test_auto_billing_preview_includes_active_unbilled_period_with_no_advance_days(self):
+        from server.auto_billing import build_auto_billing_preview
+        owner_id = self.db.execute("INSERT INTO owners(name) VALUES('当前期补账业主')").lastrowid
+        room_id = self.db.execute(
+            "INSERT INTO rooms(building,unit,room_number,floor,category,area,owner_id,tenant_name,contract_start,contract_end,payment_cycle) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            ('AUTOACTIVE', 'B座', '2705', 27, '居民', 100, owner_id, '当前期补账租户', '2026-06-27', '2027-06-26', 'quarterly')
+        ).lastrowid
+        fee_id = self.db.execute("SELECT id FROM fee_types WHERE name='物业费(居民)'").fetchone()['id']
+        self.db.commit()
+
+        items = build_auto_billing_preview(
+            self.db, today='2026-06-29', advance_days=0, fee_ids=[fee_id]
+        )
+        item = next(x for x in items if x['room_id'] == room_id and x['fee_type_id'] == fee_id)
+
+        self.assertEqual(item['service_start'], '2026-06-27')
+        self.assertEqual(item['service_end'], '2026-09-26')
+        self.assertEqual(item['due_date'], '2026-06-26')
+        self.assertTrue(item['can_generate'])
+
+
     def test_auto_billing_preview_can_override_room_cycle_for_this_run(self):
         from server.auto_billing import build_auto_billing_preview
         owner_id = self.db.execute("INSERT INTO owners(name) VALUES('自定义账期业主')").lastrowid
@@ -247,5 +284,3 @@ class TestDBLogic02(DBLogicTestBase):
 
         self.assertEqual({x['room_name'] for x in b_items}, {'AUTOSCOPE-B座-B201'})
         self.assertEqual({x['room_name'] for x in mall_items}, {'AUTOSCOPE-商场-M301'})
-
-

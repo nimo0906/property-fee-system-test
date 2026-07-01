@@ -6,7 +6,7 @@ class FeeMixinPart2(BaseHandler):
         db=get_db()
         return_group = qs(d, 'return_group')
         sort_order = _to_int(qs(d, 'sort_order'), 0)
-        if sort_order == 0 and return_group in ('property', 'commercial', 'other'):
+        if return_group in ('property', 'commercial', 'other'):
             sort_order = {'property': 29, 'commercial': 39, 'other': 59}[return_group]
         cur = db.execute("INSERT INTO fee_types(name,calc_method,unit_price,unit,billing_cycle,sort_order,is_active,notes,reminder_advance_days) VALUES(?,?,?,?,?,?,?,?,?)",
                          (qs(d,'name'),qs(d,'calc_method'),_to_float(qs(d,'unit_price'), 0),qs(d,'unit'),qs(d,'billing_cycle','monthly'),

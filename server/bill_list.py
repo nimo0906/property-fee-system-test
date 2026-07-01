@@ -328,9 +328,10 @@ class BillListMixin(BaseHandler):
                     rh+=f'<td><span class="badge status-info">{og["scope"]}</span></td>'
                     rh+=f'<td>{h(_bill_room_label(b))}</td>'
                     rh+=f'<td><span class="badge status-info">{h(b["ft"])}</span></td>'
-                    period_text = h(b["billing_period"])
-                    if b['source'] == 'auto_contract' and b['service_start'] and b['service_end']:
-                        period_text += f'<br><small class="text-muted">自动出账服务期 {h(b["service_start"])} 至 {h(b["service_end"])}</small>'
+                    if b['service_start'] and b['service_end']:
+                        period_text = f'{h(b["service_start"])} 至 {h(b["service_end"])}'
+                    else:
+                        period_text = h(b["billing_period"])
                     rh+=f'<td>{period_text}</td>'
                     rh+=f'<td class="text-end"><span class="money">¥{m(b["amount"])}</span></td><td class="text-end"><span class="money money-paid">¥{m(b["paid"])}</span></td>'
                     rh+=f'<td class="text-end">{rem_html}</td>'

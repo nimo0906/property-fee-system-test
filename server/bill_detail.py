@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Bill detail, edit, print, delete."""
 
-from server.db import get_db, update_overdue_bills, is_period_closed, h, m, qs, customer_name
+from server.db import get_db, update_overdue_bills, is_period_closed, h, m, price, qs, customer_name
 from server.base import BaseHandler
 from server.backups import create_db_backup
 from server.bill_batch_edit import BillBatchEditMixin
@@ -45,7 +45,7 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
         if b['calc_method'] == 'area':
             rate = b['unit_price']
             area_val = float((b['space_area'] if b['commercial_space_id'] else b['area']) or 0)
-            formula_text = f'面积 {area_val:.2f}m2 * 单价 {rate:.2f} = ¥{m(b["amount"])}'
+            formula_text = f'面积 {area_val:.2f}m2 * 单价 {price(rate)} = ¥{m(b["amount"])}'
         elif b['calc_method'] == 'floor':
             area_val = float(b['area'] or 0)
             floor_val = int(b['floor'] or 1)
@@ -63,11 +63,11 @@ class BillDetailMixin(BillBatchEditMixin, BillSinglePrintMixin, BaseHandler):
                 mr = db2.execute("SELECT consumption FROM meter_readings WHERE room_id=? AND fee_type_id=? AND period=? AND status='confirmed' LIMIT 1", (b['room_id'], b['fee_type_id'], period_compact)).fetchone()
             db2.close()
             cons = mr[0] if mr else 0
-            formula_text = f'用量 {cons} * 单价 {b["unit_price"]:.2f} = ¥{m(b["amount"])}'
+            formula_text = f'用量 {cons} * 单价 {price(b["unit_price"])} = ¥{m(b["amount"])}'
         elif b['calc_method'] == 'fixed':
-            formula_text = f'固定金额 ¥{m(b["unit_price"])}'
+            formula_text = f'固定金额 ¥{price(b["unit_price"])}'
         elif b['calc_method'] == 'household':
-            formula_text = f'按户分摊 ¥{m(b["unit_price"])}'
+            formula_text = f'按户分摊 ¥{price(b["unit_price"])}'
         pays=db.execute("SELECT * FROM payments WHERE bill_id=? ORDER BY payment_date",(bid,)).fetchall()
         adjs=db.execute("SELECT * FROM bill_adjustments WHERE bill_id=? ORDER BY created_at DESC",(bid,)).fetchall()
         db.close()

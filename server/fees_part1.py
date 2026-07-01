@@ -9,32 +9,33 @@ class FeeMixinPart1(BaseHandler):
             'property': {
                 'title': '物业公司', 'icon': 'bi-building-check',
                 'desc': '物业基础收费项目：物业费、电梯费、二次供水、公摊和生活垃圾费。',
-                'names': ['物业费(居民)', '物业费(商户)', '电梯费', '二次供水运行费', '公摊能耗费', '生活垃圾费'],
+                'names': FEE_ADMIN_GROUP_NAMES['property'],
             },
             'commercial': {
                 'title': '商业公司', 'icon': 'bi-shop',
                 'desc': '商业经营相关收费项目：电费、装修、泄水、空调能源等。',
-                'names': ['电费(商业)', '装修管理费', '装修押金', '泄水费', '空调能源费', '空调费(商业)'],
+                'names': FEE_ADMIN_GROUP_NAMES['commercial'],
             },
             'other': {
                 'title': '其他', 'icon': 'bi-three-dots',
                 'desc': '水费档位、停车费、临时收费和其他专项费用。',
-                'names': ['垃圾清运费', '水费(非居民)', '水费(特行)', '停车费', '临时收费'],
+                'names': FEE_ADMIN_GROUP_NAMES['other'],
             },
         }
         db = get_db()
         all_rows = db.execute("SELECT * FROM fee_types WHERE is_active=1 ORDER BY sort_order").fetchall()
         period = get_period()
         calc_n = {'area':'按面积×单价','meter':'按用量×单价','floor':'电梯阶梯','fixed':'固定金额','household':'按户分摊'}
+        def group_display_rows(group_key):
+            return fee_admin_display_rows(all_rows, group_key)
+
         summary_map = {
             'property': {'value': 0, 'label': '物业公司'},
             'commercial': {'value': 0, 'label': '商业公司'},
             'other': {'value': 0, 'label': '其他'},
         }
-        for row in all_rows:
-            for key in summary_map:
-                if fee_in_scope(row, key):
-                    summary_map[key]['value'] += 1
+        for key in summary_map:
+            summary_map[key]['value'] = len(group_display_rows(key))
         summary_html = ''.join(
             '<div class="col-md-4 col-6"><div class="summary-tile ' + ('primary' if key == selected_group else '') + '"><div class="label">' + item['label'] + '</div><strong>' + str(item['value']) + '</strong></div></div>'
             for key, item in summary_map.items()
@@ -59,28 +60,19 @@ class FeeMixinPart1(BaseHandler):
             html += '<a href="/fee_types/' + str(r['id']) + '/edit" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>'
             html += '<form method=POST action="/fee_types/' + str(r['id']) + '/delete" style=display:inline onsubmit="return confirm(\'确定删除？\')"><input type="hidden" name="return_group" value="' + h(selected_group) + '"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></div>'
             html += '<hr><div class="row text-center"><div class="col-4 border-end"><small class="text-muted d-block">计算方式</small><span class="badge status-info">' + calc_n.get(r['calc_method'], r['calc_method']) + '</span></div>'
-            html += '<div class="col-4 border-end"><small class="text-muted d-block">单价</small><strong class="fee-price">¥' + m(r['unit_price']) + '</strong></div>'
+            html += '<div class="col-4 border-end"><small class="text-muted d-block">单价</small><strong class="fee-price">¥' + price(r['unit_price']) + '</strong></div>'
             html += '<div class="col-4"><small class="text-muted d-block">适用</small>' + cat_hint + '</div></div>'
             html += '<hr class="my-2"><div class="row text-center small"><div class="col-4"><span class="text-muted">本月</span><br><strong>' + str(bc) + '笔</strong></div><div class="col-4"><span class="text-muted">应收</span><br><strong class="money">¥' + m(bt) + '</strong></div><div class="col-4"><span class="text-muted">涉及</span><br><strong>' + str(rc) + '户</strong></div></div>'
             html += notes_html + '</div></div></div>'
             return html
 
-        rows_by_name = {r['name']: r for r in all_rows}
-
         def _belongs_to_fee_group(row, group_key, defs):
             del defs
-            return fee_in_scope(row, group_key)
+            return fee_admin_group(row) == group_key
 
         if selected_group in group_defs:
             gd = group_defs[selected_group]
-            ordered = []
-            for name in gd['names']:
-                if name in rows_by_name and rows_by_name[name] not in ordered:
-                    ordered.append(rows_by_name[name])
-            selected_names = set(gd['names'])
-            for r in all_rows:
-                if _belongs_to_fee_group(r, selected_group, group_defs) and r not in ordered:
-                    ordered.append(r)
+            ordered = group_display_rows(selected_group)
             rh = ''.join(card_for(r) for r in ordered)
             header = '<div class="page-intro"><div><h2 class="mb-1"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</h2></div><div class="export-actions"><a href="/fee_types" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> 返回总览</a><a href="/fee_types/create?group=' + h(selected_group) + '" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> 添加</a></div></div>'
             content = header + '<div class="row">' + (rh or '<div class="col-12 text-center text-muted py-5">该分组暂无收费项目</div>') + '</div>'
@@ -94,7 +86,7 @@ class FeeMixinPart1(BaseHandler):
 
         group_cards = ''
         for key, gd in group_defs.items():
-            present = [r for r in all_rows if _belongs_to_fee_group(r, key, group_defs)]
+            present = group_display_rows(key)
             names_preview = '、'.join([h(r['name']) for r in present[:6]]) or '暂无项目'
             active = ' primary' if selected_group == key else ''
             group_cards += '<div class="col-md-4"><a href="/fee_types?group=' + key + '" class="text-decoration-none text-reset"><div class="summary-tile ' + active + ' h-100"><div class="label"><i class="bi ' + gd['icon'] + '"></i> ' + gd['title'] + '</div><strong>' + str(len(present)) + ' 项</strong><div class="text-muted small mt-2">' + gd['desc'] + '</div><div class="small text-muted mt-2">' + names_preview + '</div></div></a></div>'

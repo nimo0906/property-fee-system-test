@@ -60,7 +60,8 @@ class TestIntegration08(IntegrationTestBase):
         self.assertIn('清除批次筛选', bills_page)
         self.assertIn('自动详情租户', bills_page)
         self.assertIn('AUTODETAIL-B座-2603', bills_page)
-        self.assertIn('自动出账服务期 2026-06-27 至 2026-09-26', bills_page)
+        self.assertIn('2026-06-27 至 2026-09-26', bills_page)
+        self.assertNotIn('自动出账服务期 2026-06-27 至 2026-09-26', bills_page)
 
 
     def test_reminders_filters_by_natural_date_range(self):
@@ -247,5 +248,4 @@ class TestIntegration08(IntegrationTestBase):
         db.close()
         self.assertEqual(run['status'], 'blocked')
         self.assertEqual(run['rollback_count'], 0)
-
 

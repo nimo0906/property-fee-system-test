@@ -1,9 +1,11 @@
 @echo off
-chcp 65001 >nul
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo Building Windows desktop package...
+echo Building Windows desktop executable...
+
+echo Please use PACK_WINDOWS_RELEASE.bat for the customer-ready zip.
+echo.
 
 where py >nul 2>nul
 if %errorlevel%==0 (
@@ -36,6 +38,5 @@ if errorlevel 1 (
 
 echo.
 echo Build completed: dist\PropertyFeeSystem\PropertyFeeSystem.exe
-echo Included user docs: 用户快速开始.md, Windows客户试用说明.md, 交付验收清单.md, 使用说明.md
-echo For a customer-ready zip, run package_windows_release.bat after this build succeeds.
+echo For a customer-ready zip, run PACK_WINDOWS_RELEASE.bat.
 if not defined CI pause

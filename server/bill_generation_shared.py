@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """Bill generation — grouped by fee type category."""
 
-from server.db import get_db, get_period, is_period_closed, h, m, qs, date_to_period, period_to_date, add_months
+from server.db import get_db, get_period, is_period_closed, h, m, price, qs, date_to_period, period_to_date, add_months
 from server.base import BaseHandler
 from server.billing_engine import calculate_bill_amount, fee_applies_to_category, fee_applies_to_room
 from server.backups import create_db_backup

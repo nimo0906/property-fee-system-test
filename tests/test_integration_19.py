@@ -6,6 +6,34 @@ from tests.integration_base import *
 
 
 class TestIntegration19(IntegrationTestBase):
+    def test_payments_group_summary_row_matches_table_headers(self):
+        import re
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '缴费对齐业主', '13900002219')
+        room_id = create_room(db, building='PAYALIGN', unit='商场', room_number='5F-18A', owner_id=owner_id)
+        bill_id = create_bill(db, room_id=room_id, fee_type_id=1, period='2035-07~2035-09', amount=15680, status='paid', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2035-07-01', service_end='2035-09-30' WHERE id=?", (bill_id,))
+        create_payment(db, bill_id=bill_id, amount=15680, method='wechat', operator='对齐员')
+        db.commit()
+        db.close()
+
+        status, body = http_get('/payments?keyword=PAYALIGN', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        row = re.search(r'<tr class="table-light payment-group"[^>]*>.*?</tr>', body, re.S).group(0)
+        cells = re.findall(r'<td(?:\s[^>]*)?>(.*?)</td>', row, re.S)
+        self.assertEqual(len(cells), 10)
+        self.assertIn('最近', cells[1])
+        self.assertIn('汇总', cells[2])
+        self.assertIn('PAYALIGN-商场-5F-18A', cells[3])
+        self.assertIn('缴费对齐业主', cells[3])
+        self.assertIn('1笔', cells[4])
+        self.assertIn('2035-07-01 至 2035-09-30', cells[5])
+        self.assertIn('+¥15680.0', cells[6])
+        self.assertIn('wechat', cells[7])
+        self.assertIn('对齐员', cells[8])
+
+
     def test_payments_page_shows_service_dates_and_room_payment_context(self):
         from server.db import get_db
         db = get_db()
@@ -27,6 +55,26 @@ class TestIntegration19(IntegrationTestBase):
         self.assertIn('欠费 ¥200.0', body)
         self.assertIn('已缴至：2034-09-30', body)
         self.assertIn('下期待缴：2034-10-01 至 2034-10-31', body)
+
+
+    def test_payments_next_due_starts_after_paid_through_when_periods_overlap(self):
+        from server.db import get_db
+        db = get_db()
+        owner_id = create_owner(db, '待缴重叠业主', '13900002221')
+        room_id = create_room(db, building='PAYOVERLAP', unit='商场', room_number='5F-18A', owner_id=owner_id)
+        paid_bill = create_bill(db, room_id=room_id, fee_type_id=1, period='2035-06~2035-09', amount=900, status='paid', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2035-06-25', service_end='2035-09-17' WHERE id=?", (paid_bill,))
+        create_payment(db, bill_id=paid_bill, amount=900, method='cash', operator='重叠员')
+        unpaid_bill = create_bill(db, room_id=room_id, fee_type_id=1, period='2035-07~2035-09', amount=100, status='unpaid', owner_id=owner_id)
+        db.execute("UPDATE bills SET service_start='2035-07-01', service_end='2035-09-30' WHERE id=?", (unpaid_bill,))
+        db.commit()
+        db.close()
+
+        status, body = http_get('/payments?keyword=PAYOVERLAP', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('已缴至：2035-09-17', body)
+        self.assertIn('下期待缴：2035-09-18 至 2035-09-30', body)
+        self.assertNotIn('下期待缴：2035-07-01 至 2035-09-30', body)
 
 
     def test_payments_page_has_print_receipt_and_export_actions(self):

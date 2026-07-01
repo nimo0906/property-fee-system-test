@@ -30,7 +30,7 @@
       "loadUserSettings": true,
       "enableChrome": false,
       "enableBangBash": false,
-      "enableOpus1M": false,
+      "enableOpus1M": true,
       "enableSonnet1M": false,
       "customModels": "",
       "lastModel": "haiku",

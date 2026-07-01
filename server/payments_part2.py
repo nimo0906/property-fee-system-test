@@ -11,6 +11,22 @@ def _payment_period_text(row):
     return row['billing_period'] or '-'
 
 
+def _next_due_label_after_paid_through(start, end, period, paid_through):
+    if not start or not end or not paid_through:
+        return f"{start} 至 {end}" if start and end else (period or '-')
+    try:
+        due_start = datetime.strptime(start, '%Y-%m-%d').date()
+        due_end = datetime.strptime(end, '%Y-%m-%d').date()
+        paid_end = datetime.strptime(paid_through, '%Y-%m-%d').date()
+    except Exception:
+        return f"{start} 至 {end}" if start and end else (period or '-')
+    if due_end <= paid_end:
+        return ''
+    if due_start <= paid_end:
+        due_start = paid_end + timedelta(days=1)
+    return f"{due_start.isoformat()} 至 {due_end.isoformat()}"
+
+
 class PaymentMixinPart2(BaseHandler):
     def _payments(self, q):
         raw_period = qs(q, 'period', '').strip()
@@ -75,7 +91,9 @@ class PaymentMixinPart2(BaseHandler):
                 if paid > 0 and end and end > ctx['paid_through']:
                     ctx['paid_through'] = end
                 if paid < amt:
-                    due_label = f"{start} 至 {end}" if start and end else (bill['billing_period'] or '-')
+                    due_label = _next_due_label_after_paid_through(start, end, bill['billing_period'] or '-', ctx['paid_through'])
+                    if not due_label:
+                        continue
                     if paid <= 0 and not ctx['next_due']:
                         ctx['next_due'] = due_label
                     elif paid > 0 and not ctx.get('partial_due'):
@@ -97,7 +115,9 @@ class PaymentMixinPart2(BaseHandler):
                 if paid > 0 and end and end > ctx['paid_through']:
                     ctx['paid_through'] = end
                 if paid < amt:
-                    due_label = f"{start} 至 {end}" if start and end else (bill['billing_period'] or '-')
+                    due_label = _next_due_label_after_paid_through(start, end, bill['billing_period'] or '-', ctx['paid_through'])
+                    if not due_label:
+                        continue
                     if paid <= 0 and not ctx['next_due']:
                         ctx['next_due'] = due_label
                     elif paid > 0 and not ctx.get('partial_due'):
@@ -123,6 +143,9 @@ class PaymentMixinPart2(BaseHandler):
             periods = sorted({_payment_period_text(x) for x in g['rows'] if x['billing_period']})
             period_text = periods[0] if len(periods) == 1 else (periods[0] + ' ~ ' + periods[-1] if periods else '-')
             methods = '、'.join(sorted({x['payment_method'] for x in g['rows'] if x['payment_method']})) or '-'
+            operators = '、'.join(sorted({x['operator'] for x in g['rows'] if x['operator']})) or '-'
+            receipt_numbers = sorted({x['receipt_number'] for x in g['rows'] if x['receipt_number']})
+            receipt_text = receipt_numbers[0] if len(receipt_numbers) == 1 else (f'{len(receipt_numbers)}张' if receipt_numbers else '-')
             ctx = bill_context.get((g['group_kind'], g['group_id']), {'paid_through': '', 'next_due': '', 'partial_due': '', 'paid_total': 0.0, 'due_total': 0.0})
             ctx_bits = [f"历史缴费/欠费：已收 ¥{m(ctx.get('paid_total', 0))}，欠费 ¥{m(ctx.get('due_total', 0))}"]
             if ctx.get('paid_through'): ctx_bits.append(f"已缴至：{ctx['paid_through']}")
@@ -132,11 +155,13 @@ class PaymentMixinPart2(BaseHandler):
             room_line = f"<br><small class='text-muted'>{h(ctx_text)}</small>" if ctx_text else ''
             rh_parts.append(f'''<tr class="table-light payment-group" style="cursor:pointer" onclick="togglePaymentGroup('{safe_id}')">
 <td><input type="checkbox" class="payment-group-chk" data-payment-group="{safe_id}" onclick="event.stopPropagation();togglePaymentSelection('{safe_id}',this.checked)"></td>
-<td><i class="bi bi-chevron-right" id="pay_icon_{safe_id}"></i> <strong>{h(g['room'])}</strong><br><small class="text-muted">{h(g['owner'])}</small>{room_line}</td>
+<td><small class="text-muted">最近：{h(latest or '-')}</small></td>
 <td><span class="badge status-neutral">汇总</span></td>
-<td>{h(period_text)}</td><td><span class="badge status-neutral">{len(g['rows'])}笔</span></td>
+<td><i class="bi bi-chevron-right" id="pay_icon_{safe_id}"></i> <strong>{h(g['room'])}</strong><br><small class="text-muted">{h(g['owner'])}</small>{room_line}</td>
+<td><span class="badge status-neutral">{len(g['rows'])}笔</span></td>
+<td>{h(period_text)}</td>
 <td class="text-end"><strong class="money money-paid">+¥{m(g['total'])}</strong></td>
-<td>{h(methods)}</td><td colspan="2"><small class="text-muted">最近：{h(latest or '-')}</small></td></tr>''')
+<td>{h(methods)}</td><td>{h(operators)}</td><td><small>{h(receipt_text)}</small></td></tr>''')
             for r in g['rows']:
                 rh_parts.append(f'''<tr class="payment-detail-{safe_id}" style="display:none"><td><input form="paymentActionForm" type="checkbox" name="payment_ids" data-payment-group="{safe_id}" value="{r['id']}"></td><td><small>{h(r["payment_date"]or"-")}</small></td>
 <td><small>{h(r["bill_number"]or"-")}</small></td>

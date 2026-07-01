@@ -30,7 +30,7 @@ class BillGenerationMixinPart1Group1(BaseHandler):
                 <input type="checkbox" name="fee_type_ids" value="{f["id"]}" class="form-check-input" id="ft{f["id"]}"
                     {"checked" if f["calc_method"] != "meter" else ""}>
                 <label class="form-check-label" for="ft{f["id"]}"><strong>{h(f["name"])}</strong><br>
-                <small class="text-muted">{cm_labels.get(f["calc_method"], f["calc_method"])} {m(f["unit_price"])}{h(f["unit"] or "")}</small></label></div></div>'''
+                <small class="text-muted">{cm_labels.get(f["calc_method"], f["calc_method"])} {price(f["unit_price"])}{h(f["unit"] or "")}</small></label></div></div>'''
                 for f in gfts
             )
             group_html += f'''<div class="card mb-3"><div class="card-header py-2">{gname}</div>

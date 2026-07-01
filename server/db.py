@@ -5,7 +5,7 @@
 import sqlite3, json
 from datetime import datetime, date, timedelta
 import os
-from server.money import money_display, money_float, number_display
+from server.money import money_display, money_float, number_display, unit_price_display
 
 BASE = os.environ.get('PM_RESOURCE_DIR') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.environ.get('PM_DB_PATH') or os.path.join(BASE, 'property.db')
@@ -254,6 +254,10 @@ def m(v):
 
 def n(v, digits=2):
     return number_display(v, digits)
+
+
+def price(v):
+    return unit_price_display(v)
 
 
 def _row_get(row, key):

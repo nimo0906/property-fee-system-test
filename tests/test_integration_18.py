@@ -98,6 +98,121 @@ console.log(context.factorLabel(context.prorateFactor()));
         )
         self.assertEqual(result.stdout.strip(), '3个月')
 
+    def test_billing_frontend_clears_extra_room_rows_when_switching_to_single_room(self):
+        import subprocess
+        script = r'''
+const fs = require("fs");
+const vm = require("vm");
+const js = fs.readFileSync("static/billing.js", "utf8");
+
+function Node(tag){
+  this.tagName = tag;
+  this.children = [];
+  this.parent = null;
+  this.style = {};
+  this.dataset = {};
+  this.id = "";
+  this.className = "";
+  this.value = "";
+  this.checked = false;
+  this.name = "";
+  this.textContent = "";
+}
+Node.prototype.appendChild = function(child){ child.parent = this; this.children.push(child); return child; };
+Node.prototype.insertBefore = function(child, ref){
+  child.parent = this;
+  const idx = this.children.indexOf(ref);
+  if(idx < 0) this.children.push(child); else this.children.splice(idx, 0, child);
+  return child;
+};
+Node.prototype.remove = function(){
+  if(this.parent){
+    const idx = this.parent.children.indexOf(this);
+    if(idx >= 0) this.parent.children.splice(idx, 1);
+  }
+};
+Node.prototype._walk = function(cb){
+  this.children.slice().forEach(function(c){ cb(c); c._walk(cb); });
+};
+Node.prototype._matches = function(sel){
+  if(sel === this.tagName) return true;
+  if(sel === ".fee-row") return this.className.indexOf("fee-row") >= 0;
+  if(sel === ".er-header,.er-row") return this.className.indexOf("er-header") >= 0 || this.className.indexOf("er-row") >= 0;
+  if(sel === ".er-subtotal") return this.className.indexOf("er-subtotal") >= 0;
+  if(sel === ".fee-check") return this.className.indexOf("fee-check") >= 0;
+  if(sel === "[name=extra_room_ids]:checked") return this.name === "extra_room_ids" && this.checked;
+  return false;
+};
+Node.prototype.querySelectorAll = function(sel){
+  const out = [];
+  this._walk(function(n){ if(n._matches(sel)) out.push(n); });
+  return out;
+};
+Node.prototype.querySelector = function(sel){ return this.querySelectorAll(sel)[0] || null; };
+Object.defineProperty(Node.prototype, "innerHTML", {
+  set: function(html){
+    this._innerHTML = html;
+    if(html.indexOf("extra_room_ids") >= 0){
+      const c = new Node("input"); c.name = "extra_room_ids"; c.checked = true; this.appendChild(c);
+    }
+  },
+  get: function(){ return this._innerHTML || ""; }
+});
+
+const root = new Node("body");
+const tbody = new Node("tbody"); root.appendChild(tbody);
+const total = new Node("span"); total.id = "totalAmt"; root.appendChild(total);
+const room = new Node("select"); room.id = "billingRoom"; room.selectedIndex = 0; root.appendChild(room);
+room.options = [
+  { value: "1", dataset: { tenantKey: "tenant:many", cat: "商户", water: "非居民", area: "10", floor: "1" } },
+  { value: "3", dataset: { tenantKey: "", cat: "商户", water: "非居民", area: "10", floor: "1" } }
+];
+Object.defineProperty(room, "value", { get: function(){ return this.options[this.selectedIndex].value; } });
+const feeRow = new Node("tr"); feeRow.className = "fee-row"; feeRow.dataset = { ft: "99", method: "fixed", price: "100", name: "测试固定费", cycle: "monthly" };
+const feeCheck = new Node("input"); feeCheck.className = "fee-check"; feeCheck.checked = true; feeRow.appendChild(feeCheck); tbody.appendChild(feeRow);
+const staleExtra = new Node("input"); staleExtra.name = "extra_room_ids"; staleExtra.value = "2"; staleExtra.checked = true; root.appendChild(staleExtra);
+
+const elements = { billingRoom: room, totalAmt: total };
+const context = {
+  window: {},
+  addEventListener: function() {},
+  document: {
+    getElementById: function(id) { return elements[id] || null; },
+    querySelectorAll: function(sel) { return root.querySelectorAll(sel); },
+    querySelector: function(sel) { return root.querySelector(sel); },
+    createElement: function(tag){ return new Node(tag); },
+    addEventListener: function() {}
+  }
+};
+context.window = context;
+context.OWNER_ROOMS = {
+  "tenant:many": [
+    { id: 1, name: "当前房", cat: "商户", area: 10, floor: 1 },
+    { id: 2, name: "额外房", cat: "商户", area: 10, floor: 1 }
+  ]
+};
+context.ELEVATOR_TIERS = [];
+context.METER_READINGS = {};
+context.METER_DETAILS = {};
+vm.createContext(context);
+vm.runInContext(js, context);
+
+context.calcFees();
+const afterMany = tbody.querySelectorAll(".er-header,.er-row").length;
+room.selectedIndex = 1;
+context.calcFees();
+const afterSingle = tbody.querySelectorAll(".er-header,.er-row").length;
+console.log(afterMany + "," + afterSingle);
+'''
+        result = subprocess.run(
+            ['node', '-e', script],
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout.strip(), '2,0')
+
 
     def test_bills_start_month_filter_includes_multi_month_billing_period(self):
         from server.db import get_db
@@ -153,6 +268,19 @@ console.log(context.factorLabel(context.prorateFactor()));
         self.assertIn('同租户其他房间', commercial_body)
         self.assertIn('商业收费项目', commercial_body)
         self.assertNotIn('商场商业收费已迁移', commercial_body)
+
+
+    def test_commercial_billing_fee_count_matches_commercial_fee_standard_group(self):
+        import re
+        status, fee_group = http_get('/fee_types?group=commercial', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        commercial_fee_count = fee_group.count('class="card fee-card h-100"')
+
+        status, billing_page = http_get('/commercial_billing', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        stat = re.search(r'<div class="billing-mode-chip stat"><span>收费项目</span><strong>(\d+)</strong><em>已启用</em></div>', billing_page)
+        self.assertIsNotNone(stat)
+        self.assertEqual(int(stat.group(1)), commercial_fee_count)
 
 
     def test_billing_extra_rooms_are_grouped_by_tenant_not_owner(self):

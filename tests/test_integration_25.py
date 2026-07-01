@@ -67,6 +67,27 @@ class TestIntegration25(IntegrationTestBase):
         self.assertIn('room-detail-o1 bill-room-row', html)
 
 
+    def test_bill_list_period_column_shows_exact_service_dates(self):
+        import re
+        import server.db as db_module
+        db = db_module.get_db()
+        owner_id = create_owner(db, '账期日期显示业主', '13900008800')
+        room_id = create_room(db, building='LISTDATE', unit='B座', room_number='1325', category='商户', area=75.98, owner_id=owner_id)
+        fee_id = db.execute("SELECT id FROM fee_types WHERE name='物业费(商户)'").fetchone()['id']
+        db.execute("""INSERT INTO bills(room_id,owner_id,fee_type_id,billing_period,amount,due_date,status,bill_number,service_start,service_end,source)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+            (room_id, owner_id, fee_id, '2038-06~2038-09', 1643.7, '2038-09-17', 'unpaid', 'LIST-DATE-001', '2038-06-25', '2038-09-17', 'manual')
+        )
+        db.commit(); db.close()
+
+        status, html = http_get('/bills?period=2038-06&building=LISTDATE', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        self.assertIn('LIST-DATE-001', html)
+        bill_row = re.search(r'<tr class="bill-detail-[^"]+"[^>]*>.*?LIST-DATE-001.*?</tr>', html, re.S).group(0)
+        self.assertIn('2038-06-25 至 2038-09-17', bill_row)
+        self.assertNotIn('2038-06~2038-09', bill_row)
+
+
     def test_bill_list_groups_by_tenant_name_before_owner_name(self):
         import server.db as db_module
         db = db_module.get_db()
@@ -185,6 +206,24 @@ class TestIntegration25(IntegrationTestBase):
         self.assertIn('物业费(商户)', print_html)
         self.assertEqual(print_html.count('陕西金莎国际物业管理有限公司'), 1)
         self.assertNotIn('<div class="page-break"', print_html)
+
+
+    def test_direct_get_print_and_receipt_urls_do_not_show_404(self):
+        status, body, loc = http_get_with_location('/bills/receipt_by_ids', self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/bills', loc)
+        self.assertIn('请勾选要生成收据的账单', urllib.parse.unquote(loc))
+
+        status, body, loc = http_get_with_location('/bills/print_selected', self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/bills', loc)
+        self.assertIn('请勾选要打印的账单', urllib.parse.unquote(loc))
+
+
+    def test_receipt_print_css_keeps_header_text_visible_and_total_row_unshaded(self):
+        from server.print_helper import PRINT_CSS
+        self.assertIn('body.receipt-print .receipt-new-detail th { background: #d9edf7; color: #000;', PRINT_CSS)
+        self.assertIn('body.receipt-print .receipt-new-detail .total-row td { background: #fff;', PRINT_CSS)
 
 
 

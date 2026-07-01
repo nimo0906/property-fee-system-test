@@ -87,6 +87,8 @@ def handle_get(handler):
     q = urllib.parse.parse_qs(urllib.parse.urlparse(handler.path).query)
     if _is_disabled_module_path(p):
         return handler._error(404)
+    if p == '/health':
+        return handler._json({'ok': True, 'service': 'property-fee-system'})
     if p.startswith('/api/v1/'):
         return handler._api_get(p)
     if p.startswith('/owner-portal/') or p == '/owner-portal':
@@ -183,6 +185,8 @@ def handle_get(handler):
     elif (m := re.match(r'^/bills/(\d+)/pay$', p)): return handler._bill_pay(int(m.group(1)), q)
     elif (m := re.match(r'^/bills/(\d+)/edit$', p)): return handler._bill_edit(int(m.group(1)), q)
     elif p == '/bills/print_batch': return handler._bill_print_batch(q)
+    elif p == '/bills/print_selected': return handler._print_selected(q)
+    elif p == '/bills/receipt_by_ids': return handler._receipt_by_ids(q)
     elif p == '/bills/receipt': return handler._bill_receipt(q)
     elif p == '/bills/receipt_setup': return handler._receipt_setup(q)
     elif p == '/bills/export_receipt': return handler._export_receipt(q)

@@ -4,7 +4,7 @@
 
 from server.base import BaseHandler
 from server.backups import create_db_backup
-from server.db import get_db, h, m, qs
+from server.db import get_db, h, m, price, qs
 
 
 class BatchOpsMixin(BaseHandler):
@@ -17,7 +17,7 @@ class BatchOpsMixin(BaseHandler):
         db.close()
         bld_opts = '<option value="">全部楼栋</option>' + ''.join(f'<option value="{h(r["building"])}">{h(r["building"])}</option>' for r in blds)
         cat_opts = '<option value="">全部类别</option>' + ''.join(f'<option value="{h(r["category"])}">{h(r["category"])}</option>' for r in cats)
-        ft_opts = ''.join(f'<option value="{f["id"]}">{h(f["name"])} 当前¥{m(f["unit_price"])}</option>' for f in fts)
+        ft_opts = ''.join(f'<option value="{f["id"]}">{h(f["name"])} 当前¥{price(f["unit_price"])}</option>' for f in fts)
         self._html(self._page('批量更新', f'''
         <div class="page-intro">
           <div>
@@ -64,7 +64,7 @@ class BatchOpsMixin(BaseHandler):
         sql += ' ORDER BY building,unit,room_number'
         db = get_db(); rows = db.execute(sql, vals).fetchall()
         if qs(d, 'mode') == 'preview':
-            db.close(); return self._render_batch_preview('/batch_ops/room_rate', {'building':building,'category':category,'custom_rate':rate,'reason':reason}, rows, '房间物业费单价', lambda r: f'{h(r["building"])}-{h(r["room_number"])} {h(r["category"])}：¥{m(r["custom_rate"])} → ¥{m(rate)}')
+            db.close(); return self._render_batch_preview('/batch_ops/room_rate', {'building':building,'category':category,'custom_rate':rate,'reason':reason}, rows, '房间物业费单价', lambda r: f'{h(r["building"])}-{h(r["room_number"])} {h(r["category"])}：¥{price(r["custom_rate"])} → ¥{price(rate)}')
         backup = create_db_backup('auto_before_batch_adjustment')
         old = [dict(r) for r in rows]
         db.execute('UPDATE rooms SET custom_rate=?' + ((' WHERE ' + ' AND '.join(cond)) if cond else ''), [rate] + vals)
@@ -74,18 +74,18 @@ class BatchOpsMixin(BaseHandler):
 
     def _batch_fee_rate(self, d):
         fid = int(qs(d, 'fee_type_id', '0') or 0)
-        price = float(qs(d, 'unit_price', '0') or 0)
+        new_price = float(qs(d, 'unit_price', '0') or 0)
         reason = qs(d, 'reason')
         db = get_db(); ft = db.execute('SELECT * FROM fee_types WHERE id=?', (fid,)).fetchone()
         if not ft:
             db.close(); return self._redirect('/batch_ops?flash=收费项目不存在')
         if qs(d, 'mode') == 'preview':
-            db.close(); return self._render_batch_preview('/batch_ops/fee_rate', {'fee_type_id':fid,'unit_price':price,'reason':reason}, [ft], '收费项目单价', lambda r: f'{h(r["name"])}：¥{m(r["unit_price"])} → ¥{m(price)}')
+            db.close(); return self._render_batch_preview('/batch_ops/fee_rate', {'fee_type_id':fid,'unit_price':new_price,'reason':reason}, [ft], '收费项目单价', lambda r: f'{h(r["name"])}：¥{price(r["unit_price"])} → ¥{price(new_price)}')
         backup = create_db_backup('auto_before_batch_adjustment')
         old = dict(ft)
-        db.execute('UPDATE fee_types SET unit_price=? WHERE id=?', (price, fid))
+        db.execute('UPDATE fee_types SET unit_price=? WHERE id=?', (new_price, fid))
         db.commit(); db.close()
-        self._audit('batch_fee_rate_update', 'fee_type', fid, old, {'unit_price': price, 'backup': backup}, reason)
+        self._audit('batch_fee_rate_update', 'fee_type', fid, old, {'unit_price': new_price, 'backup': backup}, reason)
         self._redirect('/batch_ops?flash=收费项目单价已更新，自动备份: ' + backup)
 
     def _render_batch_preview(self, action, hidden_values, rows, title, render_line):

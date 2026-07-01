@@ -321,6 +321,69 @@ class TestIntegration28(IntegrationTestBase):
         _, body = http_get('/fee_types?group=commercial', self.cookie, TEST_PORT)
         self.assertIn('测试商业收费项', body)
 
+    def test_fee_type_create_respects_selected_company_group_even_for_decoration_fees(self):
+        cases = [
+            ('property', '物业装修押金归属测试', '/fee_types?group=property'),
+            ('commercial', '商业装修押金归属测试', '/fee_types?group=commercial'),
+            ('other', '其他装修押金归属测试', '/fee_types?group=other'),
+        ]
+        for group, unique_note, expected_path in cases:
+            with self.subTest(group=group):
+                status, body, loc = http_post('/fee_types/create', {
+                    'name': '装修押金',
+                    'calc_method': 'fixed',
+                    'unit_price': '2000',
+                    'unit': '元',
+                    'billing_cycle': 'once',
+                    'sort_order': '16',
+                    'is_active': 'on',
+                    'notes': unique_note,
+                    'reminder_advance_days': '7',
+                    'return_group': group,
+                }, self.cookie, TEST_PORT)
+                self.assertEqual(status, 302)
+                self.assertIn(expected_path, loc)
+
+                status, selected_page = http_get(expected_path, self.cookie, TEST_PORT)
+                self.assertEqual(status, 200)
+                self.assertIn(unique_note, selected_page)
+
+    def test_fee_type_page_preserves_unit_price_precision(self):
+        import server.db as db_module
+        db = db_module.get_db()
+        db.execute("UPDATE fee_types SET unit_price=20.11, is_active=1 WHERE name='水费(特行)'")
+        db.commit()
+        db.close()
+
+        status, body = http_get('/fee_types?group=property', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        water_card = body.split('<h5>水费(特行)</h5>', 1)[1].split('</div></div></div>', 1)[0]
+        self.assertIn('¥20.11', water_card)
+        self.assertNotIn('class="fee-price">¥20.1</strong>', water_card)
+
+    def test_property_billing_shows_property_group_decoration_deposit_fee(self):
+        status, body, loc = http_post('/fee_types/create', {
+            'name': '装修押金',
+            'calc_method': 'fixed',
+            'unit_price': '2000',
+            'unit': '元',
+            'billing_cycle': 'once',
+            'sort_order': '16',
+            'is_active': 'on',
+            'notes': '物业收费入口装修押金测试',
+            'reminder_advance_days': '7',
+            'return_group': 'property',
+        }, self.cookie, TEST_PORT)
+        self.assertEqual(status, 302)
+        self.assertIn('/fee_types?group=property', loc)
+
+        status, body = http_get('/billing', self.cookie, TEST_PORT)
+
+        self.assertEqual(status, 200)
+        self.assertIn('物业收费入口装修押金测试', body)
+        self.assertIn('data-name="装修押金"', body)
+
     def test_fee_type_edit_page_preserves_saved_select_values(self):
         import server.db as db_module
         db = db_module.get_db()

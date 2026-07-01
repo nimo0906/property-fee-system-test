@@ -1,0 +1,21 @@
+PropertyFeeSystem Windows packaging guide
+
+1. Extract this source package to an English path, for example C:\PropertyFeeSystemSource.
+2. Double click PACK_WINDOWS_RELEASE.bat.
+3. Wait until it prints SUCCESS.
+4. Send this file to the customer:
+   release\windows\PropertyFeeSystem-windows-server.zip
+5. If packaging fails, send windows_packaging.log back.
+
+Customer use:
+- Normal single-computer mode: open PropertyFeeSystem\PropertyFeeSystem.exe.
+- Shared office server mode: run start_windows_server.bat, then other computers open http://SERVER_IP:5001.
+- Background server mode: right-click install_windows_background_task.bat and choose Run as administrator.
+- Check server status: run status_windows_background_task.bat.
+- Stop background server: right-click uninstall_windows_background_task.bat and choose Run as administrator.
+
+Data folders:
+- Normal mode: %APPDATA%\PropertyFeeSystemData
+- Server mode: D:\PropertyFeeSystemData
+
+Do not send the source package to the customer. Send only release\windows\PropertyFeeSystem-windows-server.zip after PACK_WINDOWS_RELEASE.bat succeeds.

@@ -10,6 +10,8 @@ from pathlib import Path
 import threading
 import webbrowser
 
+from desktop_service_guard import find_existing_service, is_service_healthy, write_service_state
+WINDOW_GEOMETRY = "620x460"
 
 from desktop_runtime import (
     APP_DIR_NAME, APP_TITLE, build_window_model, choose_desktop_port, find_free_port,
@@ -54,11 +56,18 @@ def run_gui():
     from tkinter import messagebox
 
     data_dir, db_path, backup_dir = prepare_runtime()
+    existing = find_existing_service(data_dir)
+    if existing:
+        webbrowser.open(existing["url"])
+        messagebox.showinfo(APP_TITLE, "系统已在运行，已为您重新打开当前页面。")
+        return
+
     server = None
     thread = None
     port = choose_desktop_port()
     server = create_server(port)
     url = f"http://127.0.0.1:{port}"
+    write_service_state(data_dir, port, url)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -66,15 +75,17 @@ def run_gui():
 
     root = tk.Tk()
     root.title(APP_TITLE)
-    root.geometry("560x340")
-    root.resizable(False, False)
+    root.geometry(WINDOW_GEOMETRY)
+    root.minsize(620, 440)
+    root.resizable(True, True)
 
     status = tk.StringVar(value=f"系统已启动: {url}")
-    tk.Label(root, text=APP_TITLE, font=("Microsoft YaHei", 18, "bold")).pack(pady=(20, 6))
+    tk.Label(root, text=APP_TITLE, font=("Microsoft YaHei", 18, "bold")).pack(pady=(16, 5))
+    tk.Label(root, text="系统运行中，请不要关闭此窗口", font=("Microsoft YaHei", 11, "bold"), fg="#b45309").pack(pady=3)
     tk.Label(root, textvariable=status, font=("Microsoft YaHei", 10)).pack(pady=3)
     tk.Label(root, text=model["service_status"], font=("Microsoft YaHei", 10), fg="#1f6b4a").pack(pady=3)
-    tk.Label(root, text=model["hint"], wraplength=500, justify="center", fg="#555").pack(pady=3)
-    tk.Label(root, text=f"数据目录: {data_dir}", wraplength=520, justify="left").pack(pady=3)
+    tk.Label(root, text=model["hint"], wraplength=560, justify="center", fg="#555").pack(pady=3)
+    tk.Label(root, text=f"数据目录: {data_dir}", wraplength=580, justify="left").pack(pady=3)
     tk.Label(root, text=f"数据库: {db_path.name}    备份: {backup_dir.name}", fg="#555").pack(pady=3)
 
     def show_diagnostics():
@@ -88,7 +99,7 @@ def run_gui():
             log_path.write_text("No startup error has been recorded.\n", encoding="utf-8")
         open_file(log_path)
 
-    def restart_service():
+    def restart_service(open_after_restart=False):
         nonlocal server, thread, port, url, model
         try:
             if server:
@@ -97,24 +108,43 @@ def run_gui():
             port = choose_desktop_port()
             server = create_server(port)
             url = f"http://127.0.0.1:{port}"
+            write_service_state(data_dir, port, url)
             thread = threading.Thread(target=server.serve_forever, daemon=True)
             thread.start()
             model = build_window_model(url, data_dir, db_path, backup_dir)
             status.set(f"系统已重新启动: {url}")
+            if open_after_restart:
+                webbrowser.open(url)
         except Exception as exc:
             log_path = write_startup_error(exc, data_dir)
             status.set(f"服务重启失败，错误日志: {log_path}")
 
+    def reopen_system():
+        if is_service_healthy(url):
+            status.set(f"系统运行正常: {url}")
+            webbrowser.open(url)
+        else:
+            status.set("本地服务未连接，正在尝试恢复...")
+            restart_service(open_after_restart=True)
+
+    def monitor_service():
+        if not is_service_healthy(url):
+            status.set("检测到本地服务中断，正在尝试自动恢复...")
+            restart_service()
+        root.after(8000, monitor_service)
+
     buttons = tk.Frame(root)
-    buttons.pack(pady=14)
-    tk.Button(buttons, text="打开系统", width=14, command=lambda: webbrowser.open(url)).grid(row=0, column=0, padx=6, pady=4)
-    tk.Button(buttons, text="重新启动服务", width=14, command=restart_service).grid(row=0, column=1, padx=6, pady=4)
+    buttons.pack(pady=10)
+    tk.Button(buttons, text="重新打开系统", width=14, command=reopen_system).grid(row=0, column=0, padx=6, pady=4)
+    tk.Button(buttons, text="重新启动服务", width=14, command=lambda: restart_service(True)).grid(row=0, column=1, padx=6, pady=4)
     tk.Button(buttons, text="打开数据目录", width=14, command=lambda: open_folder(data_dir)).grid(row=1, column=0, padx=6, pady=4)
     tk.Button(buttons, text="查看诊断信息", width=14, command=show_diagnostics).grid(row=1, column=1, padx=6, pady=4)
     tk.Button(buttons, text="打开错误日志", width=14, command=open_startup_log).grid(row=2, column=0, padx=6, pady=4)
     tk.Button(buttons, text="检查更新", width=14, command=lambda: webbrowser.open(url + "/system_update")).grid(row=2, column=1, padx=6, pady=4)
 
     def close_app():
+        if not messagebox.askokcancel(APP_TITLE, "关闭此窗口会退出物业收费系统，浏览器页面也将无法继续使用。确认退出吗？"):
+            return
         try:
             server.shutdown()
             server.server_close()
@@ -125,6 +155,7 @@ def run_gui():
     tk.Button(root, text="退出", width=12, command=close_app).pack(pady=(2, 8))
     root.protocol("WM_DELETE_WINDOW", close_app)
     webbrowser.open(url)
+    root.after(8000, monitor_service)
     root.mainloop()
 
 

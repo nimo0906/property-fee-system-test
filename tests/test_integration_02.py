@@ -194,6 +194,29 @@ class TestIntegration02(IntegrationTestBase):
         self.assertNotIn('电梯费', body)
 
 
+    def test_fee_type_overview_counts_match_group_detail_pages(self):
+        import re
+
+        def detail_count(group):
+            status, detail = http_get(f'/fee_types?group={group}', self.cookie, TEST_PORT)
+            self.assertEqual(status, 200)
+            return detail.count('class="card fee-card h-100"')
+
+        expected = {
+            'commercial': ('商业公司', detail_count('commercial')),
+            'other': ('其他', detail_count('other')),
+        }
+        status, overview = http_get('/fee_types', self.cookie, TEST_PORT)
+        self.assertEqual(status, 200)
+        for label, count in expected.values():
+            summary = re.search(rf'<div class="label">{label}</div><strong>(\d+)</strong>', overview)
+            self.assertIsNotNone(summary)
+            self.assertEqual(int(summary.group(1)), count)
+            card = re.search(rf'<div class="label"><i class="bi [^"]+"></i> {label}</div><strong>(\d+) 项</strong>', overview)
+            self.assertIsNotNone(card)
+            self.assertEqual(int(card.group(1)), count)
+
+
     def test_room_form_explains_unit_category_and_business_type(self):
         status, body = http_get('/rooms/create', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
@@ -228,5 +251,3 @@ class TestIntegration02(IntegrationTestBase):
         status, body = http_get('/rooms?keyword=%E9%A4%90%E9%A5%AE', self.cookie, TEST_PORT)
         self.assertEqual(status, 200)
         self.assertIn('Y101', body)
-
-

@@ -15,24 +15,17 @@ from server.auto_billing_page import render_auto_billing_page
 from server.auto_billing_adjustments import (
     adjustments_from_form, confirm_edit_row, safe_amount, safe_due_date,
 )
+from server.auto_billing_periods import (
+    CYCLE_MONTHS, as_date as _as_date, cycle_months as _months,
+    next_bill_preview_period as _next_bill_preview_period, next_service_period,
+)
 from server.auto_billing_scope import room_in_auto_scope
 from server.billing_engine import calculate_bill_amount, fee_applies_to_room
 from server.data_health import cleanup_invalid_payments
-from server.db import add_months, get_db, h, m, qs
+from server.db import get_db, h, m, qs
 
 
-CYCLE_MONTHS = {'monthly': 1, 'quarterly': 3, 'semiannual': 6, 'yearly': 12}
 EXCLUDED_AUTO_FEE_NAMES = {'装修管理费', '装修押金', '临时收费', '合同租金', '合同物业费', '合同押金'}
-
-
-def _as_date(value):
-    if isinstance(value, date):
-        return value
-    return datetime.strptime(str(value), '%Y-%m-%d').date()
-
-
-def _months(cycle):
-    return CYCLE_MONTHS.get(str(cycle or '').strip(), 1)
 
 
 def _effective_cycle(room, period_cycle=None):
@@ -40,27 +33,6 @@ def _effective_cycle(room, period_cycle=None):
     if override in CYCLE_MONTHS:
         return override
     return room['payment_cycle'] or 'monthly'
-
-
-def _billing_period(start, end):
-    first = f'{start.year}-{start.month:02d}'
-    last = f'{end.year}-{end.month:02d}'
-    return first if first == last else f'{first}~{last}'
-
-
-def next_service_period(contract_start, contract_end, cycle, today=None):
-    """Return the next complete contract period whose start is not before today."""
-    start = _as_date(contract_start)
-    end = _as_date(contract_end)
-    cursor = start
-    current = _as_date(today or date.today())
-    service_end = add_months(cursor, _months(cycle)) - timedelta(days=1)
-    while cursor + timedelta(days=1) < current:
-        cursor = add_months(cursor, _months(cycle))
-        service_end = add_months(cursor, _months(cycle)) - timedelta(days=1)
-    if service_end > end:
-        return None
-    return cursor, service_end, cursor - timedelta(days=1)
 
 
 def _default_fee_ids(db):
@@ -112,31 +84,20 @@ def build_auto_billing_preview(db, today=None, advance_days=30, fee_ids=None, pe
         try:
             schedule_cycle = room['payment_cycle'] or 'monthly'
             cycle = _effective_cycle(room, period_cycle)
-            service = next_service_period(
-                room['contract_start'], room['contract_end'], schedule_cycle, current
-            )
+            months = _months(cycle)
+            next_service_period(room['contract_start'], room['contract_end'], schedule_cycle, current)
         except ValueError:
             continue
-        if not service or service[0] > cutoff:
-            continue
-        service_start, _schedule_end, due_date = service
-        months = _months(cycle)
-        service_end = add_months(service_start, months) - timedelta(days=1)
-        if service_end > _as_date(room['contract_end']):
-            continue
-        period = _billing_period(service_start, service_end)
         for fee in fees:
             if not fee_applies_to_room(fee['name'] or '', room):
                 continue
+            service = _next_bill_preview_period(db, room, fee, current, cutoff, schedule_cycle, cycle)
+            if not service:
+                continue
+            service_start, service_end, due_date, period, exists = service
             calc = calculate_bill_amount(db, room, fee, period, months)
             if calc['amount'] <= 0:
                 continue
-            exists = db.execute(
-                """SELECT id FROM bills WHERE room_id=? AND fee_type_id=?
-                AND ((service_start=? AND service_end=?)
-                  OR ((service_start IS NULL OR service_start='') AND billing_period=?))""",
-                (room['id'], fee['id'], service_start.isoformat(), service_end.isoformat(), period)
-            ).fetchone()
             items.append({
                 'item_key': f"{room['id']}:{fee['id']}:{service_start.isoformat()}:{service_end.isoformat()}",
                 'room_id': room['id'], 'fee_type_id': fee['id'],

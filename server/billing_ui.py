@@ -8,6 +8,7 @@ from datetime import date
 import json
 
 from server.billing_rules import fee_in_scope
+from server.fees_shared import fee_admin_display_rows
 
 
 def _tenant_group_key(room):
@@ -235,7 +236,7 @@ class BillingUiMixin(BaseHandler):
         mode_other_href = '/commercial_billing' if mode == 'property' else '/billing'
         room_pool_label = 'B座' if mode == 'property' else '商场'
         contract_count = len(contracts)
-        fee_count = len(fts)
+        fee_count = len(fee_admin_display_rows(all_fts, mode))
         tenant_group_count = len(tenant_rooms)
         mode_active_property = 'active' if mode == 'property' else ''
         mode_active_commercial = 'active' if mode == 'commercial' else ''

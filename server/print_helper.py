@@ -51,8 +51,8 @@ body.receipt-print .total-row { background: #fff; }
 body.receipt-print .signature { margin-top: 16pt; font-size: 10.5pt; }
 body.receipt-print .signature td { border-top: 1.2pt solid #000; padding-top: 14pt; }
 body.receipt-print .footer { color: #000; font-size: 8pt; margin-top: 8pt; }
-body.receipt-print .receipt-new-detail th { background: #0878b9; color: #fff; border-color: #000; }
-body.receipt-print .receipt-new-detail .total-row td { background: #d9d9d9; }
+body.receipt-print .receipt-new-detail th { background: #d9edf7; color: #000; border-color: #000; }
+body.receipt-print .receipt-new-detail .total-row td { background: #fff; }
 body.receipt-print .receipt-head, body.receipt-print .receipt-foot { width: 100%; }
 body.receipt-print .receipt-head td, body.receipt-print .receipt-foot td { width: 33.33%; }
 @media print {

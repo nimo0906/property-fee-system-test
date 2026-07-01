@@ -32,6 +32,10 @@ def fee_in_scope(fee, scope):
     sort_order = fee_sort_order(fee)
     if name in CONTRACT_ARCHIVE_FEE_NAMES:
         return False
+    if sort_order == 29:
+        return scope == 'property'
+    if sort_order >= 50:
+        return scope == 'other'
     if scope == 'property':
         return (
             name in PROPERTY_FEE_NAMES

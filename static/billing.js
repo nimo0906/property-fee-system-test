@@ -81,13 +81,13 @@ window.updateMonthDisplay = function(){
 
 window.showOwnerRooms = function(){
     var s = document.getElementById("billingRoom"), sec = document.getElementById("ownerRoomsSection"), lst = document.getElementById("ownerRoomList");
-    if(!s || !s.value || !sec || !lst){ if(sec) sec.style.display = "none"; return; }
+    if(!s || !s.value || !sec || !lst){ if(sec) sec.style.display = "none"; if(lst) lst.innerHTML = ""; return; }
     var tenantKey = s.options[s.selectedIndex].dataset.tenantKey;
-    if(!tenantKey){ sec.style.display = "none"; return; }
+    if(!tenantKey){ sec.style.display = "none"; lst.innerHTML = ""; return; }
     var rm = (window.OWNER_ROOMS || {})[tenantKey];
-    if(!rm || rm.length <= 1){ sec.style.display = "none"; return; }
+    if(!rm || rm.length <= 1){ sec.style.display = "none"; lst.innerHTML = ""; return; }
     var cur = parseInt(s.value), ot = rm.filter(function(r){ return r.id !== cur; });
-    if(ot.length === 0){ sec.style.display = "none"; return; }
+    if(ot.length === 0){ sec.style.display = "none"; lst.innerHTML = ""; return; }
     sec.style.display = "block"; lst.innerHTML = "";
     ot.forEach(function(r){
         var d = document.createElement("div"); d.className = "form-check form-check-inline";
@@ -191,12 +191,19 @@ window.calcFees = function(){
     });
     // Extra rooms
     var tenantKey = o ? o.dataset.tenantKey : null, extraTotal = 0;
-    if(tenantKey){
-        var allRm = (window.OWNER_ROOMS || {})[tenantKey] || [], tbody = document.querySelector("tbody");
+    var tbody = document.querySelector("tbody");
+    var allRm = tenantKey ? ((window.OWNER_ROOMS || {})[tenantKey] || []) : [];
+    var currentRoomId = parseInt(sel.value);
+    var validExtraIds = allRm.filter(function(r){ return r.id !== currentRoomId; }).map(function(r){ return parseInt(r.id); });
+    if(tbody){
+        var oldSub = tbody.querySelector(".er-subtotal"); if(oldSub) oldSub.remove();
+    }
+    if(tenantKey && validExtraIds.length > 0){
         if(tbody){
-            var oldSub = tbody.querySelector(".er-subtotal"); if(oldSub) oldSub.remove();
             document.querySelectorAll("[name=extra_room_ids]:checked").forEach(function(cb){
-                var rd = allRm.find(function(r){ return r.id === parseInt(cb.value); }); if(!rd) return;
+                var cbId = parseInt(cb.value);
+                if(validExtraIds.indexOf(cbId) === -1) return;
+                var rd = allRm.find(function(r){ return r.id === cbId; }); if(!rd) return;
                 var ea = parseFloat(rd.area) || 0, ef = parseInt(rd.floor) || 1, rr = parseFloat(rd.rate) || 0, rmMonths = factor;
                 var hdrId = "er_hdr_" + rd.id;
                 var hdr = document.getElementById(hdrId);
@@ -235,7 +242,7 @@ window.calcFees = function(){
     }
     // Clean up removed extra rooms
     var checkedIds = [];
-    document.querySelectorAll("[name=extra_room_ids]:checked").forEach(function(cb){ checkedIds.push(parseInt(cb.value)); });
+    document.querySelectorAll("[name=extra_room_ids]:checked").forEach(function(cb){ var cbId = parseInt(cb.value); if(validExtraIds.indexOf(cbId) !== -1) checkedIds.push(cbId); });
     document.querySelectorAll(".er-header,.er-row").forEach(function(el){
         if(el.id && el.id.indexOf("er_hdr_") === 0){
             var rid = parseInt(el.id.replace("er_hdr_", ""));
