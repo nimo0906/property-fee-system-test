@@ -4,17 +4,24 @@
     "type": "split",
     "children": [
       {
-        "id": "e6daa701657c38af",
+        "id": "07cb226f09b157d2",
         "type": "tabs",
         "children": [
           {
-            "id": "f0788ab97f72f82c",
+            "id": "3d94711bf71d0a89",
             "type": "leaf",
             "state": {
-              "type": "graph",
-              "state": {},
-              "icon": "lucide-git-fork",
-              "title": "关系图谱"
+              "type": "canvas",
+              "state": {
+                "file": "未命名.canvas",
+                "viewState": {
+                  "x": 0,
+                  "y": 0,
+                  "zoom": 0
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "未命名"
             }
           }
         ]
@@ -30,19 +37,6 @@
         "id": "09f4a2650a08fbd5",
         "type": "tabs",
         "children": [
-          {
-            "id": "7118a407bcdf932b",
-            "type": "leaf",
-            "state": {
-              "type": "file-explorer",
-              "state": {
-                "sortOrder": "alphabetical",
-                "autoReveal": false
-              },
-              "icon": "lucide-folder-closed",
-              "title": "文件列表"
-            }
-          },
           {
             "id": "685d83ae0c5f547b",
             "type": "leaf",
@@ -69,8 +63,22 @@
               "icon": "lucide-bookmark",
               "title": "书签"
             }
+          },
+          {
+            "id": "af2f6873fec10734",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false
+              },
+              "icon": "lucide-folder-closed",
+              "title": "文件列表"
+            }
           }
-        ]
+        ],
+        "currentTab": 2
       }
     ],
     "direction": "horizontal",
@@ -223,27 +231,41 @@
       "smart-connections:Smart Connections: Open random connection": false
     }
   },
-  "active": "a16a2e966d5fc417",
+  "active": "af2f6873fec10734",
   "lastOpenFiles": [
+    "未命名.canvas",
+    "Windows用户发送文案.md",
+    "未命名.md",
+    "Windows客户试用说明.md",
+    "Windows服务器无黑框运行说明.md",
+    "Windows打包操作步骤.md",
+    "未命名 3.base",
+    "用户快速开始.md",
+    "未命名 3.canvas",
+    "未命名 2.base",
+    "未命名 2.canvas",
+    "未命名 1",
+    "未命名",
+    "未命名 1.canvas",
+    "未命名 1.base",
+    "未命名.base",
+    "数据备份说明.md",
+    "使用说明.md",
+    "明天Windows打包从这里开始.md",
+    "2026-06-27.md",
+    "2026-06-28.md",
+    "2026-07-01.md",
+    "AI视频学习.md",
     "copilot/copilot-custom-prompts/Clip YouTube Transcript.md",
     "docs/desktop-release-checklist.md",
-    "2026-06-28.md",
-    "未命名 1.canvas",
     "docs/前后端分工规范.md",
     "docs/codex交接-1-CSS合并.md",
-    "Windows打包操作步骤.md",
     "release/windows-source/物业管理收费系统-windows-source-20260628-190928.zip",
     "release/物业管理收费系统-macOS-20260628-190850.zip",
     "build/property_fee_system_macos/BUNDLE-00.toc",
     "dist/物业管理收费系统.app/Contents/_CodeSignature/CodeResources",
-    "dist/物业管理收费系统.app/Contents/_CodeSignature",
-    "dist/物业管理收费系统.app/Contents/Frameworks/Python3.framework/Versions/3.9/_CodeSignature/CodeResources",
-    "dist/物业管理收费系统.app/Contents/Frameworks/Python3.framework/Versions/3.9/_CodeSignature",
     "dist/物业管理收费系统.app/Contents/Resources/用户快速开始.md",
     "dist/物业管理收费系统.app/Contents/Resources/使用说明.md",
-    "dist/物业管理收费系统.app/Contents/Resources/update_manifest.json",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/rooms.html",
-    "dist/物业管理收费系统.app/Contents/Resources/templates/payments.html",
     "dist/物业管理收费系统.app/Contents/Resources/static/desktop-app-icon.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-logo.png",
     "dist/物业管理收费系统.app/Contents/Resources/static/brand-emblem.png",
@@ -253,21 +275,9 @@
     "dist/物业管理收费系统/_internal/static/brand-logo.png",
     "dist/物业管理收费系统/_internal/static/brand-emblem.png",
     "docs/release-update-policy.md",
-    "2026-06-27.md",
-    "未命名.canvas",
     "docs/codex交接-2-表格表单收敛.md",
     "docs/local-security-boundary.md",
     "docs/release-final-summary-v2.0.md",
-    "docs/release-freeze-v2.0.2.md",
-    "docs/release-freeze-v2.0.3.md",
-    "docs/release-freeze-v2.0.4.md",
-    "docs/reusable-development-lessons.md",
-    "copilot/copilot-custom-prompts/Clip Web Page.md",
-    "copilot/copilot-custom-prompts/Rewrite as tweet thread.md",
-    "copilot/copilot-custom-prompts/Rewrite as tweet.md",
-    "copilot/copilot-custom-prompts/Remove URLs.md",
-    "copilot/copilot-custom-prompts/Generate glossary.md",
-    "copilot/copilot-custom-prompts/Generate table of contents.md",
     "static/brand-logo.png",
     "static/desktop-app-icon.png",
     "static/brand-emblem.png"
