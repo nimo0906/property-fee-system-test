@@ -11,17 +11,13 @@
             "id": "3d94711bf71d0a89",
             "type": "leaf",
             "state": {
-              "type": "canvas",
+              "type": "bases",
               "state": {
-                "file": "未命名.canvas",
-                "viewState": {
-                  "x": 0,
-                  "y": 0,
-                  "zoom": 0
-                }
+                "file": "未命名 1.base",
+                "viewName": "表格"
               },
-              "icon": "lucide-layout-dashboard",
-              "title": "未命名"
+              "icon": "lucide-table",
+              "title": "未命名 1"
             }
           }
         ]
@@ -71,7 +67,7 @@
               "type": "file-explorer",
               "state": {
                 "sortOrder": "alphabetical",
-                "autoReveal": false
+                "autoReveal": true
               },
               "icon": "lucide-folder-closed",
               "title": "文件列表"
@@ -212,7 +208,8 @@
       }
     ],
     "direction": "horizontal",
-    "width": 814.5
+    "width": 814.5,
+    "collapsed": true
   },
   "left-ribbon": {
     "hiddenItems": {
@@ -231,23 +228,28 @@
       "smart-connections:Smart Connections: Open random connection": false
     }
   },
-  "active": "af2f6873fec10734",
+  "active": "3d94711bf71d0a89",
   "lastOpenFiles": [
+    "未命名 1.canvas",
+    "未命名 1.base",
+    "未命名 2.base",
+    "未命名 3.base",
+    "未命名 2.canvas",
+    "未命名 4.canvas",
+    "未命名 5.canvas",
+    "未命名 6.canvas",
+    "未命名 7.canvas",
+    "未命名 8.canvas",
+    "未命名 3.canvas",
     "未命名.canvas",
     "Windows用户发送文案.md",
     "未命名.md",
     "Windows客户试用说明.md",
     "Windows服务器无黑框运行说明.md",
     "Windows打包操作步骤.md",
-    "未命名 3.base",
     "用户快速开始.md",
-    "未命名 3.canvas",
-    "未命名 2.base",
-    "未命名 2.canvas",
     "未命名 1",
     "未命名",
-    "未命名 1.canvas",
-    "未命名 1.base",
     "未命名.base",
     "数据备份说明.md",
     "使用说明.md",
